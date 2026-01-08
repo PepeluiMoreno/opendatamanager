@@ -1,0 +1,44 @@
+# alembic.ini
+[alembic]
+script_location = %(here)s/alembic
+prepend_sys_path = .
+version_table_schema = opendata
+file_template = %%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s
+timezone = UTC
+output_encoding = utf-8
+path_separator = os
+sqlalchemy.url = postgresql+psycopg2://postgres.bweahiechdmldipycpkn:lBfcNZrm6eD7jfz6@aws-1-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require
+
+[loggers]
+keys = root,sqlalchemy,alembic
+
+[handlers]
+keys = console
+
+[formatters]
+keys = generic
+
+[logger_root]
+level = WARNING
+handlers = console
+qualname =
+
+[logger_sqlalchemy]
+level = WARNING
+handlers =
+qualname = sqlalchemy.engine
+
+[logger_alembic]
+level = INFO
+handlers =
+qualname = alembic
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(levelname)-5.5s [%(name)s] %(message)s
+datefmt = %H:%M:%S
