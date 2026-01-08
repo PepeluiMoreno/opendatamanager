@@ -7,3 +7,5 @@ pandas>=2.1,<3.0
 beautifulsoup4>=4.12,<5.0
 playwright>=1.42,<2.0
 pydantic>=2.6,<3.0
+requests>=2.31,<3.0
+strawberry-graphql>=1.20,<2.0
