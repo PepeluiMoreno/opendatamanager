@@ -1,28 +1,83 @@
 # OpenDataManager
 
-Backend metadata-driven para gestión de fuentes de datos OpenData.
+Backend metadata-driven para gestión de recursos de datos OpenData con ETL automatizado y sistema de suscripciones.
 
 ## 🎯 Objetivos
 
-1. **Registrar fuentes de datos** de portales oficiales mediante metadatos en BD
-2. **Generar API GraphQL** automática desde esas fuentes
+1. **Gestionar recursos de datos** de portales oficiales mediante metadatos en BD
+2. **Generar API GraphQL** automática para administración del sistema
 3. **Refrescar core.models** de aplicaciones suscritas automáticamente
+4. **Orquestar ETL completo**: Extract (fetchers) → Stage (filesystem) → Load (core schema) → Notify (webhooks)
 
 ## 🏗️ Arquitectura
 
-### Componentes principales
-
-- **FetcherType**: Tipos de fetchers disponibles (REST, SOAP, CSV, etc.) con su `class_path`
-- **Source**: Fuentes de datos configuradas con parámetros
-- **SourceParam**: Parámetros key-value para cada Source
-- **Application**: Aplicaciones suscritas que reciben actualizaciones automáticas
-- **API GraphQL**: Interfaz para gestionar y consultar todo el sistema
-- **FetcherManager**: Orquestador que ejecuta fetchers y actualiza datos
-
-### Pipeline de ejecución
+### Arquitectura de Tres Capas
 
 ```
-Source → FetcherFactory → BaseFetcher → fetch() → parse() → normalize() → upsert()
+┌─────────────────────────────────────────────────────────────┐
+│                     Frontend (Vue 3)                        │
+│                   GraphQL API Client                        │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────────┐
+│              Backend (FastAPI + Strawberry)                 │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  opendata schema (metadata)                          │  │
+│  │  - Resource, ResourceParam                           │  │
+│  │  - FetcherType, TypeFetcherParams                    │  │
+│  │  - Application, ResourceSubscription                 │  │
+│  │  - ResourceExecution, ApplicationNotification        │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+┌────────────────────▼────────────────────────────────────────┐
+│                   Storage Layer                             │
+│  ┌─────────────────┐  ┌──────────────────────────────────┐ │
+│  │ Staging (files) │  │  core schema (processed data)    │ │
+│  │ - JSONL format  │  │  - Normalized tables             │ │
+│  │ - Temporal      │  │  - Ready for consumption         │ │
+│  └─────────────────┘  └──────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Componentes principales
+
+**Metadata Layer (opendata schema)**:
+- **FetcherType**: Tipos de fetchers disponibles (REST, SOAP, CSV, etc.) con su `class_path`
+- **TypeFetcherParams**: Definición de parámetros requeridos/opcionales para cada FetcherType
+- **Resource**: Recursos de datos configurados con parámetros
+- **ResourceParam**: Parámetros key-value para cada Resource
+- **ResourceExecution**: Tracking de cada ejecución de fetch (audit trail)
+- **ResourceSubscription**: Relación M:N entre Resources y Applications
+- **Application**: Aplicaciones suscritas que reciben actualizaciones automáticas
+- **ApplicationNotification**: Log de notificaciones enviadas
+
+**Processing Layer**:
+- **API GraphQL**: Interfaz para gestionar y consultar todo el sistema
+- **FetcherManager**: Orquestador que ejecuta fetchers
+- **DataLoader**: Carga datos desde staging → core schema
+- **ApplicationNotifier**: Notifica aplicaciones suscritas vía webhooks y genera modelos
+
+**Storage Layer**:
+- **Staging**: Filesystem temporal para raw data (JSONL)
+- **Core Schema**: PostgreSQL schema con datos procesados y normalizados
+
+### Pipeline de ejecución completo
+
+```
+1. EXTRACT
+   Resource → FetcherFactory → BaseFetcher → fetch() → parse()
+   ↓
+2. STAGE
+   Write to /data/staging/{resource_id}/{execution_id}.jsonl
+   ↓
+3. LOAD
+   DataLoader reads JSONL → normalize() → upsert to core.{table}
+   ↓
+4. NOTIFY
+   ApplicationNotifier:
+   - Generate/update SQLAlchemy models for subscribed apps
+   - Send HMAC-signed webhooks to notify data updates
 ```
 
 ## 🚀 Instalación
@@ -77,17 +132,23 @@ python scripts\refresh_app_models.py
 
 ## 📝 Ejemplos GraphQL
 
-### Listar fuentes activas
+### Listar recursos activos
 
 ```graphql
 query {
-  sources(activeOnly: true) {
+  resources(activeOnly: true) {
     id
     name
-    project
+    publisher
+    targetTable
     fetcherType {
       code
       classPath
+      paramsDef {
+        paramName
+        required
+        dataType
+      }
     }
     params {
       key
@@ -97,32 +158,52 @@ query {
 }
 ```
 
-### Crear nueva fuente
+### Crear nuevo recurso
 
 ```graphql
 mutation {
-  createSource(input: {
+  createResource(input: {
     name: "INE Población"
-    project: "demografia"
+    publisher: "INE"
+    targetTable: "poblacion"
     fetcherTypeId: "<uuid-del-rest-fetcher>"
     params: [
       {key: "url", value: "https://api.ine.es/poblacion"}
+      {key: "auth_token", value: "your-token-here"}
     ]
     active: true
   }) {
     id
     name
+    targetTable
   }
 }
 ```
 
-### Ejecutar fuente
+### Ejecutar recurso
 
 ```graphql
 mutation {
-  executeSource(id: "<source-uuid>") {
+  executeResource(id: "<resource-uuid>") {
     success
     message
+    executionId
+  }
+}
+```
+
+### Consultar ejecuciones de un recurso
+
+```graphql
+query {
+  resourceExecutions(resourceId: "<resource-uuid>") {
+    id
+    status
+    totalRecords
+    recordsLoaded
+    startedAt
+    completedAt
+    stagingPath
   }
 }
 ```
