@@ -29,12 +29,18 @@ env/
 .venv
 
 # IDEs
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
+*.sw?
 *~
 .DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
 # Environment variables
 .env
@@ -64,12 +70,15 @@ htmlcov/
 # Node.js / Frontend
 node_modules/
 dist/
+dist-ssr/
+*.local
 .cache/
 .parcel-cache/
 .next/
 out/
 .nuxt/
 .vuepress/dist
+lerna-debug.log*
 
 # Build artifacts
 *.whl
