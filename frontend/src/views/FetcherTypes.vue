@@ -71,7 +71,7 @@
               <router-link
                 v-for="source in getSourcesByType(selectedType.id)"
                 :key="source.id"
-                :to="`/sources/${source.id}/test`"
+                :to="`/resources/${source.id}/test`"
                 class="block p-3 bg-gray-700 rounded hover:bg-gray-600 transition-colors"
               >
                 <div class="font-medium">{{ source.name }}</div>
@@ -198,7 +198,7 @@
 import { ref, onMounted } from 'vue'
 import {
   fetchFetcherTypes,
-  fetchSources,
+  fetchResources,
   createFetcherType,
   updateFetcherType,
   deleteFetcherType
@@ -228,12 +228,12 @@ async function loadData() {
   try {
     loading.value = true
     error.value = null
-    const [typesData, sourcesData] = await Promise.all([
+    const [typesData, resourcesData] = await Promise.all([
       fetchFetcherTypes(),
-      fetchSources(false)
+      fetchResources(false)
     ])
     fetcherTypes.value = typesData.fetcherTypes
-    sources.value = sourcesData.sources
+    sources.value = resourcesData.resources
   } catch (e) {
     error.value = 'Failed to load data: ' + e.message
   } finally {

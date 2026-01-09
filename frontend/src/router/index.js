@@ -3,6 +3,7 @@ import Dashboard from '../views/Dashboard.vue'
 import Sources from '../views/Sources.vue'
 import SourceTest from '../views/SourceTest.vue'
 import Applications from '../views/Applications.vue'
+import FetcherTypes from '../views/FetcherTypes.vue'
 
 const routes = [
   {
@@ -11,13 +12,13 @@ const routes = [
     component: Dashboard,
   },
   {
-    path: '/sources',
-    name: 'Sources',
+    path: '/resources',
+    name: 'Resources',
     component: Sources,
   },
   {
-    path: '/sources/:id/test',
-    name: 'SourceTest',
+    path: '/resources/:id/test',
+    name: 'ResourceTest',
     component: SourceTest,
   },
   {

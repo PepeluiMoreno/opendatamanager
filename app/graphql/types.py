@@ -3,6 +3,7 @@ Tipos GraphQL para la API.
 """
 import strawberry
 from typing import Optional, List
+from datetime import datetime
 
 
 @strawberry.type
@@ -67,10 +68,10 @@ class CreateResourceInput:
     """Input para crear un nuevo Resource"""
     name: str
     publisher: str
-    target_table: str
     fetcher_type_id: str
     params: List[ResourceParamInput]
     active: bool = True
+    target_table: Optional[str] = None
 
 
 @strawberry.input
@@ -118,3 +119,59 @@ class FieldMetadataType:
     label: Optional[str] = None
     help_text: Optional[str] = None
     placeholder: Optional[str] = None
+
+
+@strawberry.type
+class ResourceExecutionType:
+    """Audit trail de ejecuciones de Resources"""
+    id: str
+    resource_id: str
+    started_at: datetime
+    completed_at: Optional[datetime] = None
+    status: str
+    total_records: Optional[int] = None
+    records_loaded: Optional[int] = None
+    staging_path: Optional[str] = None
+    error_message: Optional[str] = None
+
+
+@strawberry.type
+class ArtifactType:
+    """Versioned package de datos extraídos"""
+    id: str
+    resource_id: str
+    execution_id: Optional[str] = None
+    version: str
+    major_version: int
+    minor_version: int
+    patch_version: int
+    schema_json: strawberry.scalars.JSON
+    data_path: str
+    record_count: Optional[int] = None
+    checksum: Optional[str] = None
+    created_at: datetime
+    download_urls: strawberry.scalars.JSON
+
+
+@strawberry.type
+class ArtifactSubscriptionType:
+    """Suscripción pasiva de Application a Resource"""
+    id: str
+    application_id: str
+    resource_id: str
+    pinned_version: Optional[str] = None
+    auto_upgrade: str
+    current_version: Optional[str] = None
+    notified_at: Optional[datetime] = None
+
+
+@strawberry.type
+class ApplicationNotificationType:
+    """Log de webhooks enviados"""
+    id: str
+    application_id: str
+    artifact_id: Optional[str] = None
+    sent_at: datetime
+    status_code: Optional[int] = None
+    response_body: Optional[str] = None
+    error_message: Optional[str] = None

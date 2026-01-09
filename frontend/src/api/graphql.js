@@ -16,9 +16,9 @@ function handleGraphQLError(error) {
 
 // Queries
 export const QUERIES = {
-  GET_SOURCES: `
-    query GetSources($activeOnly: Boolean) {
-      sources(activeOnly: $activeOnly) {
+  GET_RESOURCES: `
+    query GetResources($activeOnly: Boolean) {
+      resources(activeOnly: $activeOnly) {
         id
         name
         publisher
@@ -39,9 +39,9 @@ export const QUERIES = {
     }
   `,
 
-  GET_SOURCE: `
-    query GetSource($id: String!) {
-      source(id: $id) {
+  GET_RESOURCE: `
+    query GetResource($id: String!) {
+      resource(id: $id) {
         id
         name
         publisher
@@ -62,9 +62,9 @@ export const QUERIES = {
     }
   `,
 
-  PREVIEW_SOURCE_DATA: `
-    query PreviewSourceData($id: String!, $limit: Int = 10) {
-      previewSourceData(id: $id, limit: $limit)
+  PREVIEW_RESOURCE_DATA: `
+    query PreviewResourceData($id: String!, $limit: Int = 10) {
+      previewResourceData(id: $id, limit: $limit)
     }
   `,
 
@@ -104,13 +104,45 @@ export const QUERIES = {
       }
     }
   `,
+
+  GET_ARTIFACTS: `
+    query GetArtifacts($resourceId: String) {
+      artifacts(resourceId: $resourceId) {
+        id
+        resourceId
+        version
+        majorVersion
+        minorVersion
+        patchVersion
+        schemaJson
+        recordCount
+        createdAt
+        downloadUrls
+      }
+    }
+  `,
+
+  GET_RESOURCE_EXECUTIONS: `
+    query GetResourceExecutions($resourceId: String) {
+      resourceExecutions(resourceId: $resourceId) {
+        id
+        resourceId
+        startedAt
+        completedAt
+        status
+        totalRecords
+        recordsLoaded
+        errorMessage
+      }
+    }
+  `,
 }
 
 // Mutations
 export const MUTATIONS = {
-  CREATE_SOURCE: `
-    mutation CreateSource($input: CreateSourceInput!) {
-      createSource(input: $input) {
+  CREATE_RESOURCE: `
+    mutation CreateResource($input: CreateResourceInput!) {
+      createResource(input: $input) {
         id
         name
         publisher
@@ -119,9 +151,9 @@ export const MUTATIONS = {
     }
   `,
 
-  UPDATE_SOURCE: `
-    mutation UpdateSource($id: String!, $input: UpdateSourceInput!) {
-      updateSource(id: $id, input: $input) {
+  UPDATE_RESOURCE: `
+    mutation UpdateResource($id: String!, $input: UpdateResourceInput!) {
+      updateResource(id: $id, input: $input) {
         id
         name
         publisher
@@ -130,25 +162,25 @@ export const MUTATIONS = {
     }
   `,
 
-  DELETE_SOURCE: `
-    mutation DeleteSource($id: String!) {
-      deleteSource(id: $id)
+  DELETE_RESOURCE: `
+    mutation DeleteResource($id: String!) {
+      deleteResource(id: $id)
     }
   `,
 
-  EXECUTE_SOURCE: `
-    mutation ExecuteSource($id: String!) {
-      executeSource(id: $id) {
+  EXECUTE_RESOURCE: `
+    mutation ExecuteResource($id: String!) {
+      executeResource(id: $id) {
         success
         message
-        sourceId
+        resourceId
       }
     }
   `,
 
-  EXECUTE_ALL_SOURCES: `
-    mutation ExecuteAllSources {
-      executeAllSources {
+  EXECUTE_ALL_RESOURCES: `
+    mutation ExecuteAllResources {
+      executeAllResources {
         success
         message
       }
@@ -209,17 +241,17 @@ export const MUTATIONS = {
 }
 
 // Helper functions with error handling
-export async function fetchSources(activeOnly = false) {
+export async function fetchResources(activeOnly = false) {
   try {
-    return await client.request(QUERIES.GET_SOURCES, { activeOnly })
+    return await client.request(QUERIES.GET_RESOURCES, { activeOnly })
   } catch (error) {
     handleGraphQLError(error)
   }
 }
 
-export async function fetchSource(id) {
+export async function fetchResource(id) {
   try {
-    return await client.request(QUERIES.GET_SOURCE, { id })
+    return await client.request(QUERIES.GET_RESOURCE, { id })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -249,41 +281,41 @@ export async function fetchFieldMetadata(tableName) {
   }
 }
 
-export async function createSource(input) {
+export async function createResource(input) {
   try {
-    return await client.request(MUTATIONS.CREATE_SOURCE, { input })
+    return await client.request(MUTATIONS.CREATE_RESOURCE, { input })
   } catch (error) {
     handleGraphQLError(error)
   }
 }
 
-export async function updateSource(id, input) {
+export async function updateResource(id, input) {
   try {
-    return await client.request(MUTATIONS.UPDATE_SOURCE, { id, input })
+    return await client.request(MUTATIONS.UPDATE_RESOURCE, { id, input })
   } catch (error) {
     handleGraphQLError(error)
   }
 }
 
-export async function deleteSource(id) {
+export async function deleteResource(id) {
   try {
-    return await client.request(MUTATIONS.DELETE_SOURCE, { id })
+    return await client.request(MUTATIONS.DELETE_RESOURCE, { id })
   } catch (error) {
     handleGraphQLError(error)
   }
 }
 
-export async function executeSource(id) {
+export async function executeResource(id) {
   try {
-    return await client.request(MUTATIONS.EXECUTE_SOURCE, { id })
+    return await client.request(MUTATIONS.EXECUTE_RESOURCE, { id })
   } catch (error) {
     handleGraphQLError(error)
   }
 }
 
-export async function executeAllSources() {
+export async function executeAllResources() {
   try {
-    return await client.request(MUTATIONS.EXECUTE_ALL_SOURCES)
+    return await client.request(MUTATIONS.EXECUTE_ALL_RESOURCES)
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -337,9 +369,25 @@ export async function deleteFetcherType(id) {
   }
 }
 
-export async function previewSourceData(id, limit = 10) {
+export async function previewResourceData(id, limit = 10) {
   try {
-    return await client.request(QUERIES.PREVIEW_SOURCE_DATA, { id, limit })
+    return await client.request(QUERIES.PREVIEW_RESOURCE_DATA, { id, limit })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchArtifacts(resourceId = null) {
+  try {
+    return await client.request(QUERIES.GET_ARTIFACTS, { resourceId })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchResourceExecutions(resourceId = null) {
+  try {
+    return await client.request(QUERIES.GET_RESOURCE_EXECUTIONS, { resourceId })
   } catch (error) {
     handleGraphQLError(error)
   }

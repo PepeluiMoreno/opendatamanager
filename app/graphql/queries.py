@@ -5,14 +5,21 @@ import strawberry
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import FetcherType, Resource, TypeFetcherParams, ResourceParam, Application, FieldMetadata
+from app.models import (
+    FetcherType, Resource, TypeFetcherParams, ResourceParam, Application, FieldMetadata,
+    ResourceExecution, Artifact, ArtifactSubscription, ApplicationNotification
+)
 from app.graphql.types import (
     FetcherTypeType,
     ResourceType,
     TypeFetcherParamType,
     ResourceParamType,
     ApplicationType,
-    FieldMetadataType
+    FieldMetadataType,
+    ResourceExecutionType,
+    ArtifactType,
+    ArtifactSubscriptionType,
+    ApplicationNotificationType
 )
 
 
@@ -79,6 +86,71 @@ def map_field_metadata(fm: FieldMetadata) -> FieldMetadataType:
         label=fm.label,
         help_text=fm.help_text,
         placeholder=fm.placeholder
+    )
+
+
+def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
+    """Convierte modelo ResourceExecution a tipo GraphQL"""
+    return ResourceExecutionType(
+        id=str(re.id),
+        resource_id=str(re.resource_id),
+        started_at=re.started_at,
+        completed_at=re.completed_at,
+        status=re.status,
+        total_records=re.total_records,
+        records_loaded=re.records_loaded,
+        staging_path=re.staging_path,
+        error_message=re.error_message
+    )
+
+
+def map_artifact(art: Artifact) -> ArtifactType:
+    """Convierte modelo Artifact a tipo GraphQL"""
+    return ArtifactType(
+        id=str(art.id),
+        resource_id=str(art.resource_id),
+        execution_id=str(art.execution_id) if art.execution_id else None,
+        version=art.version_string,
+        major_version=art.major_version,
+        minor_version=art.minor_version,
+        patch_version=art.patch_version,
+        schema_json=art.schema_json,
+        data_path=art.data_path,
+        record_count=art.record_count,
+        checksum=art.checksum,
+        created_at=art.created_at,
+        download_urls={
+            "data": f"/api/artifacts/{art.id}/data.jsonl",
+            "schema": f"/api/artifacts/{art.id}/schema.json",
+            "models": f"/api/artifacts/{art.id}/models.py",
+            "metadata": f"/api/artifacts/{art.id}/metadata.json"
+        }
+    )
+
+
+def map_artifact_subscription(sub: ArtifactSubscription) -> ArtifactSubscriptionType:
+    """Convierte modelo ArtifactSubscription a tipo GraphQL"""
+    return ArtifactSubscriptionType(
+        id=str(sub.id),
+        application_id=str(sub.application_id),
+        resource_id=str(sub.resource_id),
+        pinned_version=sub.pinned_version,
+        auto_upgrade=sub.auto_upgrade,
+        current_version=sub.current_version,
+        notified_at=sub.notified_at
+    )
+
+
+def map_application_notification(notif: ApplicationNotification) -> ApplicationNotificationType:
+    """Convierte modelo ApplicationNotification a tipo GraphQL"""
+    return ApplicationNotificationType(
+        id=str(notif.id),
+        application_id=str(notif.application_id),
+        artifact_id=str(notif.artifact_id) if notif.artifact_id else None,
+        sent_at=notif.sent_at,
+        status_code=notif.status_code,
+        response_body=notif.response_body,
+        error_message=notif.error_message
     )
 
 
@@ -182,5 +254,105 @@ class Query:
             if isinstance(data, list):
                 return data[:limit]
             return data
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource_executions(self, resource_id: Optional[str] = None) -> List[ResourceExecutionType]:
+        """Lista ejecuciones de Resources, opcionalmente filtrado por resource_id"""
+        db = get_db()
+        try:
+            query = db.query(ResourceExecution)
+            if resource_id:
+                query = query.filter(ResourceExecution.resource_id == resource_id)
+            executions = query.order_by(ResourceExecution.started_at.desc()).all()
+            return [map_resource_execution(re) for re in executions]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource_execution(self, id: str) -> Optional[ResourceExecutionType]:
+        """Obtiene una ejecución específica por ID"""
+        db = get_db()
+        try:
+            execution = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+            return map_resource_execution(execution) if execution else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifacts(self, resource_id: Optional[str] = None) -> List[ArtifactType]:
+        """Lista artifacts, opcionalmente filtrado por resource_id"""
+        db = get_db()
+        try:
+            query = db.query(Artifact)
+            if resource_id:
+                query = query.filter(Artifact.resource_id == resource_id)
+            artifacts = query.order_by(
+                Artifact.major_version.desc(),
+                Artifact.minor_version.desc(),
+                Artifact.patch_version.desc()
+            ).all()
+            return [map_artifact(art) for art in artifacts]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifact(self, id: str) -> Optional[ArtifactType]:
+        """Obtiene un artifact específico por ID"""
+        db = get_db()
+        try:
+            artifact = db.query(Artifact).filter(Artifact.id == id).first()
+            return map_artifact(artifact) if artifact else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifact_by_version(self, resource_id: str, version: str) -> Optional[ArtifactType]:
+        """Obtiene un artifact por resource_id y version (ej: '1.2.3')"""
+        db = get_db()
+        try:
+            parts = version.split('.')
+            if len(parts) != 3:
+                return None
+            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+
+            artifact = db.query(Artifact).filter(
+                Artifact.resource_id == resource_id,
+                Artifact.major_version == major,
+                Artifact.minor_version == minor,
+                Artifact.patch_version == patch
+            ).first()
+            return map_artifact(artifact) if artifact else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifact_subscriptions(self, application_id: Optional[str] = None, resource_id: Optional[str] = None) -> List[ArtifactSubscriptionType]:
+        """Lista suscripciones, filtrado por application_id o resource_id"""
+        db = get_db()
+        try:
+            query = db.query(ArtifactSubscription)
+            if application_id:
+                query = query.filter(ArtifactSubscription.application_id == application_id)
+            if resource_id:
+                query = query.filter(ArtifactSubscription.resource_id == resource_id)
+            subscriptions = query.all()
+            return [map_artifact_subscription(sub) for sub in subscriptions]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def application_notifications(self, application_id: Optional[str] = None, artifact_id: Optional[str] = None) -> List[ApplicationNotificationType]:
+        """Lista notificaciones enviadas, filtrado por application_id o artifact_id"""
+        db = get_db()
+        try:
+            query = db.query(ApplicationNotification)
+            if application_id:
+                query = query.filter(ApplicationNotification.application_id == application_id)
+            if artifact_id:
+                query = query.filter(ApplicationNotification.artifact_id == artifact_id)
+            notifications = query.order_by(ApplicationNotification.sent_at.desc()).all()
+            return [map_application_notification(notif) for notif in notifications]
         finally:
             db.close()

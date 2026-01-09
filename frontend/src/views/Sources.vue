@@ -1,9 +1,9 @@
 <template>
   <div class="p-8">
     <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold">Sources</h1>
+      <h1 class="text-3xl font-bold">Resources</h1>
       <button @click="showCreateModal = true" class="btn btn-primary">
-        + Create Source
+        + Create Resource
       </button>
     </div>
 
@@ -21,7 +21,6 @@
           <tr class="border-b border-gray-700">
             <th class="text-left py-3 px-4">Name</th>
             <th class="text-left py-3 px-4">Publisher</th>
-            <th class="text-left py-3 px-4">Target Table</th>
             <th class="text-left py-3 px-4">Type</th>
             <th class="text-left py-3 px-4">Status</th>
             <th class="text-right py-3 px-4">Actions</th>
@@ -35,11 +34,6 @@
           >
             <td class="py-3 px-4 font-medium">{{ source.name }}</td>
             <td class="py-3 px-4 text-gray-400">{{ source.publisher }}</td>
-            <td class="py-3 px-4">
-              <code class="text-xs bg-gray-700 px-2 py-1 rounded text-purple-400">
-                {{ source.targetTable }}
-              </code>
-            </td>
             <td class="py-3 px-4">
               <code class="text-xs bg-gray-900 px-2 py-1 rounded text-blue-400">
                 {{ source.fetcherType.code }}
@@ -55,6 +49,12 @@
             </td>
             <td class="py-3 px-4">
               <div class="flex justify-end gap-2">
+                <router-link
+                  :to="`/resources/${source.id}/test`"
+                  class="btn btn-primary text-sm py-1 px-3"
+                >
+                  Test
+                </router-link>
                 <button
                   @click="showPreviewData(source)"
                   class="btn btn-success text-sm py-1 px-3"
@@ -80,7 +80,7 @@
       </table>
 
       <div v-if="sources.length === 0" class="text-gray-400 text-center py-8">
-        No sources configured yet. Click "Create Source" to add one.
+        No resources configured yet. Click "Create Resource" to add one.
       </div>
     </div>
 
@@ -92,7 +92,7 @@
     >
       <div class="bg-gray-800 rounded-lg p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
         <h2 class="text-xl font-bold mb-4">
-          {{ showCreateModal ? 'Create Source' : 'Edit Source' }}
+          {{ showCreateModal ? 'Create Resource' : 'Edit Resource' }}
         </h2>
 
         <form @submit.prevent="submitForm" class="space-y-3 text-sm">
@@ -122,19 +122,6 @@
                 :placeholder="getPlaceholder('publisher')"
               />
             </div>
-          </div>
-
-          <div>
-            <Tooltip :text="getTooltip('target_table')">
-              <label class="block text-xs font-medium mb-1">Target Table</label>
-            </Tooltip>
-            <input
-              v-model="form.targetTable"
-              type="text"
-              required
-              class="input w-full text-sm"
-              :placeholder="getPlaceholder('target_table')"
-            />
           </div>
 
           <div>
@@ -249,7 +236,7 @@
       <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
         <h2 class="text-2xl font-bold mb-4">Confirm Delete</h2>
         <p class="mb-6">
-          Are you sure you want to delete source "{{ sourceToDelete?.name }}"?
+          Are you sure you want to delete resource "{{ sourceToDelete?.name }}"?
         </p>
         <div class="flex justify-end space-x-2">
           <button @click="showDeleteModal = false" class="btn btn-secondary">
@@ -307,13 +294,13 @@
 import { ref, onMounted } from 'vue'
 import Tooltip from '../components/Tooltip.vue'
 import {
-  fetchSources,
+  fetchResources,
   fetchFetcherTypes,
   fetchFieldMetadata,
-  createSource,
-  updateSource,
-  deleteSource,
-  previewSourceData,
+  createResource,
+  updateResource,
+  deleteResource,
+  previewResourceData,
 } from '../api/graphql'
 
 const sources = ref([])
@@ -336,7 +323,6 @@ const previewError = ref(null)
 const form = ref({
   name: '',
   publisher: '',
-  targetTable: '',
   fetcherTypeId: '',
   params: [],
   active: true,
@@ -346,18 +332,18 @@ async function loadData() {
   try {
     loading.value = true
     error.value = null
-    const [sourcesData, typesData, sourceMetadata, paramMetadata] = await Promise.all([
-      fetchSources(false),
+    const [resourcesData, typesData, resourceMetadata, paramMetadata] = await Promise.all([
+      fetchResources(false),
       fetchFetcherTypes(),
-      fetchFieldMetadata('source'),
-      fetchFieldMetadata('source_param'),
+      fetchFieldMetadata('resource'),
+      fetchFieldMetadata('resource_param'),
     ])
-    sources.value = sourcesData.sources
+    sources.value = resourcesData.resources
     fetcherTypes.value = typesData.fetcherTypes
 
     // Organize metadata by field_name for easy lookup
     const metaMap = {}
-    sourceMetadata.fieldMetadata.forEach(m => {
+    resourceMetadata.fieldMetadata.forEach(m => {
       metaMap[m.fieldName] = m
     })
     paramMetadata.fieldMetadata.forEach(m => {
@@ -398,7 +384,6 @@ function editSource(source) {
   form.value = {
     name: source.name,
     publisher: source.publisher,
-    targetTable: source.targetTable,
     fetcherTypeId: source.fetcherType.id,
     params: source.params.map(p => ({ key: p.key, value: p.value })),
     active: source.active,
@@ -414,8 +399,8 @@ async function showPreviewData(source) {
   loadingPreview.value = true
 
   try {
-    const result = await previewSourceData(source.id, 10)
-    previewData.value = result.previewSourceData
+    const result = await previewResourceData(source.id, 10)
+    previewData.value = result.previewResourceData
   } catch (e) {
     previewError.value = 'Failed to load preview data: ' + e.message
   } finally {
@@ -430,12 +415,12 @@ function confirmDelete(source) {
 
 async function handleDelete() {
   try {
-    await deleteSource(sourceToDelete.value.id)
+    await deleteResource(sourceToDelete.value.id)
     showDeleteModal.value = false
     sourceToDelete.value = null
     await loadData()
   } catch (e) {
-    error.value = 'Failed to delete source: ' + e.message
+    error.value = 'Failed to delete resource: ' + e.message
   }
 }
 
@@ -445,22 +430,21 @@ async function submitForm() {
     const input = {
       name: form.value.name,
       publisher: form.value.publisher,
-      targetTable: form.value.targetTable,
       fetcherTypeId: form.value.fetcherTypeId,
       params: form.value.params.filter(p => p.key && p.value),
       active: form.value.active,
     }
 
     if (showCreateModal.value) {
-      await createSource(input)
+      await createResource(input)
     } else {
-      await updateSource(editingSource.value.id, input)
+      await updateResource(editingSource.value.id, input)
     }
 
     closeModals()
     await loadData()
   } catch (e) {
-    error.value = 'Failed to save source: ' + e.message
+    error.value = 'Failed to save resource: ' + e.message
   }
 }
 
@@ -471,7 +455,6 @@ function closeModals() {
   form.value = {
     name: '',
     publisher: '',
-    targetTable: '',
     fetcherTypeId: '',
     params: [],
     active: true,
