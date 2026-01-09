@@ -14,6 +14,18 @@ class WebServiceType(Enum):
         "description": "API RESTful con soporte para JSON/XML"
     }
 
+    HTML_FORM = {
+        "code": "HTML Form",
+        "class_path": "app.fetchers.html.HtmlFetcher",
+        "description": "Formularios HTML simples con método GET/POST"
+    }
+
+    HTML_PAGINATED = {
+        "code": "HTML Paginated",
+        "class_path": "app.fetchers.paginated_html.PaginatedHtmlFetcher",
+        "description": "Buscadores HTML con paginación automática y selectores configurables"
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # SOAP = {
     #     "code": "SOAP",

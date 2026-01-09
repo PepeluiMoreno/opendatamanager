@@ -16,12 +16,12 @@
       </router-link>
 
       <router-link
-        to="/sources"
+        to="/resources"
         class="nav-item"
-        :class="{ 'active': $route.path.startsWith('/sources') }"
+        :class="{ 'active': $route.path.startsWith('/resources') }"
       >
         <span class="text-lg mr-3">🔌</span>
-        Sources
+        Resources
       </router-link>
 
       <router-link

@@ -5,7 +5,7 @@
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <div class="card">
-        <div class="text-gray-400 text-sm mb-2">Active Sources</div>
+        <div class="text-gray-400 text-sm mb-2">Active Resources</div>
         <div class="text-4xl font-bold text-blue-400">{{ stats.activeSources }}</div>
       </div>
 
@@ -29,7 +29,7 @@
           :disabled="loading"
           class="btn btn-primary"
         >
-          {{ loading ? 'Executing...' : 'Execute All Sources' }}
+          {{ loading ? 'Executing...' : 'Execute All Resources' }}
         </button>
         <button
           @click="loadStats"
@@ -42,7 +42,7 @@
 
     <!-- Recent Activity -->
     <div class="card">
-      <h2 class="text-xl font-bold mb-4">Recent Sources</h2>
+      <h2 class="text-xl font-bold mb-4">Recent Resources</h2>
       <div v-if="recentSources.length > 0" class="space-y-3">
         <div
           v-for="source in recentSources"
@@ -61,7 +61,7 @@
               {{ source.active ? 'Active' : 'Inactive' }}
             </span>
             <router-link
-              :to="`/sources/${source.id}/test`"
+              :to="`/resources/${source.id}/test`"
               class="btn btn-secondary text-sm py-1 px-3"
             >
               Test
@@ -70,7 +70,7 @@
         </div>
       </div>
       <div v-else class="text-gray-400 text-center py-8">
-        No sources configured yet
+        No resources configured yet
       </div>
     </div>
 
@@ -88,7 +88,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { fetchSources, fetchFetcherTypes, fetchApplications, executeAllSources } from '../api/graphql'
+import { fetchResources, fetchFetcherTypes, fetchApplications, executeAllResources } from '../api/graphql'
 
 const stats = ref({
   activeSources: 0,
@@ -104,17 +104,17 @@ const successMessage = ref(null)
 async function loadStats() {
   try {
     error.value = null
-    const [sourcesData, fetcherTypesData, appsData] = await Promise.all([
-      fetchSources(false),
+    const [resourcesData, fetcherTypesData, appsData] = await Promise.all([
+      fetchResources(false),
       fetchFetcherTypes(),
       fetchApplications(),
     ])
 
-    stats.value.activeSources = sourcesData.sources?.filter(s => s.active).length || 0
+    stats.value.activeSources = resourcesData.resources?.filter(s => s.active).length || 0
     stats.value.fetcherTypes = fetcherTypesData.fetcherTypes?.length || 0
     stats.value.applications = appsData.applications?.filter(a => a.active).length || 0
 
-    recentSources.value = sourcesData.sources?.slice(0, 5) || []
+    recentSources.value = resourcesData.resources?.slice(0, 5) || []
   } catch (e) {
     // Only show error if it's not just empty data
     console.error('Dashboard error:', e)
@@ -128,15 +128,15 @@ async function executeAll() {
     error.value = null
     successMessage.value = null
 
-    const result = await executeAllSources()
+    const result = await executeAllResources()
 
-    if (result.executeAllSources.success) {
-      successMessage.value = result.executeAllSources.message
+    if (result.executeAllResources.success) {
+      successMessage.value = result.executeAllResources.message
     } else {
-      error.value = result.executeAllSources.message
+      error.value = result.executeAllResources.message
     }
   } catch (e) {
-    error.value = 'Failed to execute sources: ' + e.message
+    error.value = 'Failed to execute resources: ' + e.message
   } finally {
     loading.value = false
   }

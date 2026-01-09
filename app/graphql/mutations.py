@@ -42,8 +42,8 @@ class Mutation:
             if not fetcher_type:
                 raise ValueError(f"FetcherType con id '{input.fetcher_type_id}' no existe")
 
-            # Crear Source
-            source = Source(
+            # Crear Resource
+            resource = Resource(
                 id=uuid4(),
                 name=input.name,
                 publisher=input.publisher,
@@ -51,12 +51,12 @@ class Mutation:
                 fetcher_type_id=input.fetcher_type_id,
                 active=input.active
             )
-            db.add(source)
+            db.add(resource)
             db.flush()  # Para obtener el ID
 
             # Crear parámetros
             for param_input in input.params:
-                param = SourceParam(
+                param = ResourceParam(
                     id=uuid4(),
                     resource_id=resource.id,
                     key=param_input.key,
@@ -65,8 +65,8 @@ class Mutation:
                 db.add(param)
 
             db.commit()
-            db.refresh(source)
-            return map_resource(source)
+            db.refresh(resource)
+            return map_resource(resource)
         except Exception as e:
             db.rollback()
             raise e
@@ -78,8 +78,8 @@ class Mutation:
         """Actualiza una fuente de datos existente"""
         db = get_db()
         try:
-            source = db.query(Source).filter(Source.id == id).first()
-            if not source:
+            resource = db.query(Resource).filter(Resource.id == id).first()
+            if not resource:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
 
             # Actualizar campos
@@ -97,11 +97,11 @@ class Mutation:
             # Actualizar parámetros si se proporcionan
             if input.params is not None:
                 # Eliminar parámetros existentes
-                db.query(SourceParam).filter(SourceParam.source_id == resource.id).delete()
+                db.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).delete()
 
                 # Crear nuevos parámetros
                 for param_input in input.params:
-                    param = SourceParam(
+                    param = ResourceParam(
                         id=uuid4(),
                         resource_id=resource.id,
                         key=param_input.key,
@@ -110,8 +110,8 @@ class Mutation:
                     db.add(param)
 
             db.commit()
-            db.refresh(source)
-            return map_resource(source)
+            db.refresh(resource)
+            return map_resource(resource)
         except Exception as e:
             db.rollback()
             raise e
@@ -123,11 +123,11 @@ class Mutation:
         """Elimina una fuente de datos"""
         db = get_db()
         try:
-            source = db.query(Source).filter(Source.id == id).first()
-            if not source:
+            resource = db.query(Resource).filter(Resource.id == id).first()
+            if not resource:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
 
-            db.delete(source)
+            db.delete(resource)
             db.commit()
             return True
         except Exception as e:
@@ -138,11 +138,11 @@ class Mutation:
 
     @strawberry.mutation
     def execute_resource(self, id: str) -> ExecutionResult:
-        """Ejecuta un Source para actualizar sus datos"""
+        """Ejecuta un Resource para actualizar sus datos"""
         db = get_db()
         try:
-            source = db.query(Source).filter(Source.id == id).first()
-            if not source:
+            resource = db.query(Resource).filter(Resource.id == id).first()
+            if not resource:
                 return ExecutionResult(
                     success=False,
                     message=f"Resource con id '{id}' no encontrado"
@@ -153,7 +153,7 @@ class Mutation:
 
             return ExecutionResult(
                 success=True,
-                message=f"Source '{resource.name}' ejecutado correctamente",
+                message=f"Resource '{resource.name}' ejecutado correctamente",
                 resource_id=str(resource.id)
             )
         except Exception as e:
@@ -253,12 +253,12 @@ class Mutation:
             if not fetcher_type:
                 raise ValueError(f"FetcherType con id '{id}' no encontrado")
 
-            # Verificar que no haya sources usando este fetcher_type
-            sources_count = db.query(Source).filter(Source.fetcher_type_id == id).count()
-            if sources_count > 0:
+            # Verificar que no haya resources usando este fetcher_type
+            resources_count = db.query(Resource).filter(Resource.fetcher_type_id == id).count()
+            if resources_count > 0:
                 raise ValueError(
-                    f"No se puede eliminar el FetcherType porque {sources_count} "
-                    f"source(s) lo están usando"
+                    f"No se puede eliminar el FetcherType porque {resources_count} "
+                    f"resource(s) lo están usando"
                 )
 
             db.delete(fetcher_type)

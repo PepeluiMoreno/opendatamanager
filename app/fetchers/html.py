@@ -10,6 +10,10 @@ from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 class HtmlFetcher(BaseFetcher):
     """Fetcher para endpoints que devuelven HTML"""
 
+    def __init__(self, params):
+        super().__init__(params)
+        self._request_metadata = {}  # Store request metadata
+
     def fetch(self) -> RawData:
         """Realiza el request HTTP y retorna el HTML crudo"""
         url = self.params.get("url")
@@ -36,6 +40,21 @@ class HtmlFetcher(BaseFetcher):
         # Agregar User-Agent por defecto para evitar bloqueos
         if "User-Agent" not in headers:
             headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+        # Build the complete URL for metadata
+        if method == "GET" and query_params:
+            from urllib.parse import urlencode
+            full_url = f"{url}?{urlencode(query_params)}"
+        else:
+            full_url = url
+
+        # Store request metadata
+        self._request_metadata = {
+            "url": full_url,
+            "method": method,
+            "query_params": query_params,
+            "headers": {k: v for k, v in headers.items() if k != "User-Agent"}  # Exclude default UA
+        }
 
         # Hacer el request
         if method == "GET":
@@ -115,64 +134,4 @@ class HtmlFetcher(BaseFetcher):
         }
 
 
-class RerFetcher(HtmlFetcher):
-    """
-    Fetcher específico para RER (Registro de Entidades Religiosas).
-    Hereda de HtmlFetcher y sobrescribe normalize() para extraer
-    específicamente entidades religiosas.
-    """
 
-    def normalize(self, parsed: ParsedData) -> DomainData:
-        """
-        Normaliza los datos específicos de RER.
-        Extrae las entidades religiosas de las tablas HTML.
-        """
-        soup = parsed.get("soup")
-        if not soup:
-            return {"entities": [], "error": "No se pudo parsear el HTML"}
-
-        entities = []
-
-        # Buscar la tabla de resultados (ajustar selector según la estructura real)
-        # Esto es un ejemplo - necesitarías inspeccionar el HTML real de RER
-        result_tables = soup.find_all('table', class_=['result', 'tabla-resultados'])
-
-        if not result_tables and parsed.get("tables"):
-            # Si no encontramos tabla específica, usar la primera tabla disponible
-            result_tables = [soup.find('table')]
-
-        for table in result_tables:
-            if not table:
-                continue
-
-            rows = table.find_all('tr')
-            headers = []
-
-            # Extraer headers
-            header_row = rows[0] if rows else None
-            if header_row:
-                headers = [th.get_text(strip=True) for th in header_row.find_all(['th', 'td'])]
-
-            # Extraer datos
-            for row in rows[1:]:  # Skip header row
-                cols = row.find_all('td')
-                if not cols:
-                    continue
-
-                entity = {}
-                for i, col in enumerate(cols):
-                    header = headers[i] if i < len(headers) else f"column_{i}"
-                    entity[header] = col.get_text(strip=True)
-
-                if entity:  # Solo agregar si tiene datos
-                    entities.append(entity)
-
-        return {
-            "source": "RER - Ministerio de Justicia",
-            "entity_count": len(entities),
-            "entities": entities,
-            "search_params": {
-                k: v for k, v in self.params.items()
-                if k not in {"url", "method", "timeout", "headers"}
-            }
-        }

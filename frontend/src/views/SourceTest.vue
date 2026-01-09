@@ -1,13 +1,13 @@
 <template>
   <div class="p-8">
     <div class="mb-8">
-      <router-link to="/sources" class="text-blue-400 hover:text-blue-300">
-        ← Back to Sources
+      <router-link to="/resources" class="text-blue-400 hover:text-blue-300">
+        ← Back to Resources
       </router-link>
     </div>
 
     <div v-if="loading" class="text-gray-400 text-center py-8">
-      Loading source details...
+      Loading resource details...
     </div>
 
     <div v-else-if="error" class="p-4 bg-red-900 border border-red-700 rounded text-red-200">
@@ -15,15 +15,15 @@
     </div>
 
     <div v-else>
-      <!-- Source Info -->
+      <!-- Resource Info -->
       <div class="card mb-6">
         <div class="flex items-start justify-between mb-4">
           <div>
             <h1 class="text-3xl font-bold">{{ source.name }}</h1>
             <p class="text-gray-400 text-sm mt-1">{{ source.id }}</p>
           </div>
-          <router-link :to="`/sources`" class="btn btn-secondary text-sm">
-            Edit Source
+          <router-link :to="`/resources`" class="btn btn-secondary text-sm">
+            Edit Resource
           </router-link>
         </div>
 
@@ -80,8 +80,8 @@
       <div class="card mb-6">
         <h2 class="text-xl font-bold mb-4">Live Testing</h2>
         <p class="text-gray-400 text-sm mb-4">
-          Execute this source to fetch data from the configured endpoint.
-          This will run the full pipeline: fetch → parse → normalize → upsert.
+          Execute this resource to fetch data from the configured endpoint.
+          This will run the full pipeline: EXTRACT → STAGE → ARTIFACT → LOAD → NOTIFY.
         </p>
         <div class="flex space-x-3">
           <button
@@ -89,7 +89,7 @@
             :disabled="executing"
             class="btn btn-primary"
           >
-            {{ executing ? '⟳ Executing...' : '▶ Execute Source Now' }}
+            {{ executing ? '⟳ Executing...' : '▶ Execute Resource Now' }}
           </button>
           <button
             v-if="executionResult"
@@ -119,6 +119,76 @@
           title="Execution Result"
           max-height="max-h-[500px]"
         />
+      </div>
+
+      <!-- Artifacts Section -->
+      <div class="card mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">Artifacts & Versions</h2>
+          <button @click="loadArtifacts" class="text-sm text-blue-400 hover:text-blue-300">
+            🔄 Refresh
+          </button>
+        </div>
+
+        <div v-if="loadingArtifacts" class="text-gray-400 text-center py-8">
+          Loading artifacts...
+        </div>
+
+        <div v-else-if="artifacts.length === 0" class="text-gray-400 text-center py-8">
+          No artifacts yet. Execute this resource to generate the first artifact.
+        </div>
+
+        <div v-else class="space-y-3">
+          <div
+            v-for="artifact in artifacts"
+            :key="artifact.id"
+            class="p-4 bg-gray-700 rounded hover:bg-gray-650 transition-colors"
+          >
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl font-bold text-blue-400">v{{ artifact.version }}</span>
+                  <span class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">
+                    {{ artifact.recordCount }} records
+                  </span>
+                  <span class="text-xs text-gray-400">
+                    {{ new Date(artifact.createdAt).toLocaleString() }}
+                  </span>
+                </div>
+                <div class="mt-2 flex gap-2">
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.data)"
+                    target="_blank"
+                    class="text-xs bg-blue-900 hover:bg-blue-800 text-blue-200 px-3 py-1 rounded"
+                  >
+                    📄 data.jsonl
+                  </a>
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.schema)"
+                    target="_blank"
+                    class="text-xs bg-green-900 hover:bg-green-800 text-green-200 px-3 py-1 rounded"
+                  >
+                    📋 schema.json
+                  </a>
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.models)"
+                    target="_blank"
+                    class="text-xs bg-purple-900 hover:bg-purple-800 text-purple-200 px-3 py-1 rounded"
+                  >
+                    🐍 models.py
+                  </a>
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.metadata)"
+                    target="_blank"
+                    class="text-xs bg-yellow-900 hover:bg-yellow-800 text-yellow-200 px-3 py-1 rounded"
+                  >
+                    ℹ️ metadata.json
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Execution History -->
@@ -193,7 +263,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchSource, executeSource } from '../api/graphql'
+import { fetchResource, executeResource, fetchArtifacts } from '../api/graphql'
 import ExecutionStatus from '../components/ExecutionStatus.vue'
 import JsonViewer from '../components/JsonViewer.vue'
 
@@ -209,6 +279,8 @@ const lastExecutionTime = ref(null)
 const lastExecutionSuccess = ref(null)
 const lastExecutionMessage = ref(null)
 const lastExecutionDetails = ref(null)
+const artifacts = ref([])
+const loadingArtifacts = ref(false)
 
 const executionStatus = computed(() => {
   if (executing.value) return 'loading'
@@ -233,10 +305,10 @@ async function loadSource() {
   try {
     loading.value = true
     error.value = null
-    const data = await fetchSource(route.params.id)
-    source.value = data.source
+    const data = await fetchResource(route.params.id)
+    source.value = data.resource
   } catch (e) {
-    error.value = 'Failed to load source: ' + e.message
+    error.value = 'Failed to load resource: ' + e.message
   } finally {
     loading.value = false
   }
@@ -248,28 +320,33 @@ async function executeTest() {
     error.value = null
     lastExecutionTime.value = new Date().toLocaleString()
 
-    const result = await executeSource(route.params.id)
-    executionResult.value = result.executeSource
+    const result = await executeResource(route.params.id)
+    executionResult.value = result.executeResource
 
-    lastExecutionSuccess.value = result.executeSource.success
-    lastExecutionMessage.value = result.executeSource.message
-    lastExecutionDetails.value = result.executeSource.sourceId
-      ? `Source ID: ${result.executeSource.sourceId}`
+    lastExecutionSuccess.value = result.executeResource.success
+    lastExecutionMessage.value = result.executeResource.message
+    lastExecutionDetails.value = result.executeResource.resourceId
+      ? `Resource ID: ${result.executeResource.resourceId}`
       : null
 
     // Add to history
     executionHistory.value.unshift({
-      ...result.executeSource,
+      ...result.executeResource,
       timestamp: lastExecutionTime.value,
-      data: result.executeSource
+      data: result.executeResource
     })
 
     // Keep only last 20 executions
     if (executionHistory.value.length > 20) {
       executionHistory.value = executionHistory.value.slice(0, 20)
     }
+
+    // Reload artifacts after successful execution
+    if (result.executeResource.success) {
+      await loadArtifacts()
+    }
   } catch (e) {
-    error.value = 'Failed to execute source: ' + e.message
+    error.value = 'Failed to execute resource: ' + e.message
     lastExecutionSuccess.value = false
     lastExecutionMessage.value = e.message
     lastExecutionDetails.value = e.stack || null
@@ -293,7 +370,28 @@ function viewHistoryItem(item) {
   selectedHistoryItem.value = item
 }
 
-onMounted(() => {
-  loadSource()
+async function loadArtifacts() {
+  try {
+    loadingArtifacts.value = true
+    const data = await fetchArtifacts(route.params.id)
+    artifacts.value = data.artifacts || []
+  } catch (e) {
+    console.error('Failed to load artifacts:', e)
+  } finally {
+    loadingArtifacts.value = false
+  }
+}
+
+function getBackendUrl(path) {
+  // Convert relative API paths to absolute URLs pointing to backend
+  if (path && path.startsWith('/api/')) {
+    return `http://localhost:8040${path}`
+  }
+  return path
+}
+
+onMounted(async () => {
+  await loadSource()
+  await loadArtifacts()
 })
 </script>
