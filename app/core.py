@@ -5,6 +5,7 @@ Upsert genérico para cualquier tabla del esquema opendata
 """
 from typing import Any, List
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 def upsert(session: Session, target_model: str, data: Any, mode: str = "replace") -> None:
     """
@@ -16,10 +17,10 @@ def upsert(session: Session, target_model: str, data: Any, mode: str = "replace"
     items = data if isinstance(data, list) else [data]
 
     if mode == "replace":
-        session.execute(f"DELETE FROM opendata.{table}")
+        session.execute(text(f"DELETE FROM opendata.{table}"))
     for item in items:
         cols = ", ".join(item.keys())
-        vals = ", ".join([f"%({k})s" for k in item.keys()])
+        vals = ", ".join([f":{k}" for k in item.keys()])  # Changed from %(k)s to :k for SQLAlchemy 2.0
         sql = f"INSERT INTO opendata.{table} ({cols}) VALUES ({vals})"
-        session.execute(sql, item)
+        session.execute(text(sql), item)
     session.commit()
