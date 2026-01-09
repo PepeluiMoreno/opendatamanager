@@ -1,0 +1,73 @@
+{
+  "type": "object",
+  "properties": {
+    "source_type": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "raw_html_length": {
+      "type": "integer"
+    },
+    "tables_count": {
+      "type": "integer"
+    },
+    "forms_count": {
+      "type": "integer"
+    },
+    "parsed_data": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "html": {
+          "type": "string"
+        },
+        "soup": {
+          "type": "string"
+        },
+        "forms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string"
+              },
+              "inputs": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "parsed_data",
+    "tables_count",
+    "raw_html_length",
+    "title",
+    "forms_count",
+    "source_type"
+  ]
+}
