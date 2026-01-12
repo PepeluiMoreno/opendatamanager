@@ -1,4 +1,4 @@
-"""rename_fetcher_type_table_to_fetcher
+"""rename_fetcher_table_to_fetcher
 
 Revision ID: ac57bef5fc6b
 Revises: a2755baacd0b
@@ -20,11 +20,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Rename table fetcher_type to fetcher
-    op.rename_table('fetcher_type', 'fetcher', schema='opendata')
+    # Rename table fetcher to fetcher
+    op.rename_table('fetcher', 'fetcher', schema='opendata')
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # Rename table fetcher back to fetcher_type
-    op.rename_table('fetcher', 'fetcher_type', schema='opendata')
+    # Rename table fetcher back to fetcher
+    op.rename_table('fetcher', 'fetcher', schema='opendata')

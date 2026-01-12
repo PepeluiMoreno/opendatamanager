@@ -16,7 +16,7 @@ class FetcherFactory:
         Crea un fetcher a partir de un Resource.
 
         Args:
-            resource: Instancia de Resource con fetcher_type y params cargados
+            resource: Instancia de Resource con fetcher y params cargados
 
         Returns:
             Instancia de BaseFetcher lista para ejecutar
@@ -24,13 +24,13 @@ class FetcherFactory:
         if not resource.active:
             raise ValueError(f"Resource '{resource.name}' está desactivado")
 
-        if not resource.fetcher_type:
-            raise ValueError(f"Resource '{resource.name}' no tiene fetcher_type asignado")
+        if not resource.fetcher:
+            raise ValueError(f"Resource '{resource.name}' no tiene fetcher asignado")
 
         # Obtener class_path dinámicamente desde BD
-        class_path = resource.fetcher_type.class_path
+        class_path = resource.fetcher.class_path
         if not class_path:
-            raise ValueError(f"FetcherType '{resource.fetcher_type.code}' no tiene class_path definido")
+            raise ValueError(f"FetcherType '{resource.fetcher.code}' no tiene class_path definido")
 
         # Convertir ResourceParam a diccionario
         params_dict = FetcherFactory._build_params_dict(resource.params)

@@ -18,7 +18,8 @@ class FetcherManager:
     @staticmethod
     def _make_serializable(obj):
         """Convert non-serializable objects to JSON-serializable format"""
-        from bs4 import BeautifulSoup, NavigableString, Tag
+        from bs4 import BeautifulSoup, Tag
+        from bs4.element import NavigableString
 
         if isinstance(obj, dict):
             return {k: FetcherManager._make_serializable(v) for k, v in obj.items()}
@@ -171,3 +172,47 @@ class FetcherManager:
                 continue
 
         print("Ejecucion completada")
+
+    @staticmethod
+    def fetch_only(session: Session, resource_id: str, limit: int = 10) -> list:
+        """
+        Extract data only (no staging, no artifact, no load)
+        
+        Args:
+            session: Sesión SQLAlchemy activa
+            resource_id: UUID del Resource a ejecutar
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of extracted data records
+        """
+        # Load resource
+        resource = session.query(Resource).filter(Resource.id == resource_id).first()
+
+        if not resource:
+            raise ValueError(f"Resource con id '{resource_id}' no encontrado")
+
+        if not resource.active:
+            print(f"Resource '{resource.name}' está desactivado, omitiendo...")
+            return []
+
+        print(f"Extracting data from: {resource.name} (limit: {limit})")
+
+        # Extract data only
+        fetcher = FetcherFactory.create_from_resource(resource)
+        data = fetcher.execute()
+
+        # Normalize data to list format
+        if isinstance(data, dict):
+            data_list = [data]
+        elif isinstance(data, list):
+            data_list = data
+        else:
+            raise ValueError(f"Unexpected data type from fetcher: {type(data)}")
+
+        # Make serializable and apply limit
+        serializable_data = [FetcherManager._make_serializable(item) for item in data_list]
+        limited_data = serializable_data[:limit]
+        
+        print(f"  Extracted {len(limited_data)} records (limited from {len(data_list)})")
+        return limited_data

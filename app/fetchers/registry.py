@@ -3,6 +3,7 @@ Registro centralizado de tipos de fetchers disponibles.
 Esto hace transparente el class_path para el usuario final.
 """
 from typing import Dict, List
+from app.fetchers.types import FetcherKind
 
 
 class FetcherRegistry:
@@ -36,6 +37,12 @@ class FetcherRegistry:
         """Obtiene el class_path para un código de fetcher"""
         fetcher = cls._FETCHERS.get(code)
         if not fetcher:
+            # Fallback: try known FetcherKind enum values (legacy codes)
+            ws = FetcherKind.get_by_code(code)
+            if ws:
+                # register dynamically so subsequent lookups are fast
+                cls.register_fetcher(ws["code"], ws["class_path"], ws.get("description", ""))
+                return ws["class_path"]
             raise ValueError(f"Fetcher type '{code}' not found in registry")
         return fetcher["class_path"]
 
@@ -44,6 +51,9 @@ class FetcherRegistry:
         """Obtiene la descripción para un código de fetcher"""
         fetcher = cls._FETCHERS.get(code)
         if not fetcher:
+            ws = FetcherKind.get_by_code(code)
+            if ws:
+                return ws.get("description", "")
             return ""
         return fetcher.get("description", "")
 
@@ -52,6 +62,9 @@ class FetcherRegistry:
         """Obtiene el nombre amigable para un código de fetcher"""
         fetcher = cls._FETCHERS.get(code)
         if not fetcher:
+            ws = FetcherKind.get_by_code(code)
+            if ws:
+                return ws.get("code", code)
             return code
         return fetcher.get("name", code)
 

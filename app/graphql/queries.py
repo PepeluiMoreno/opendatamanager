@@ -6,11 +6,12 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
-    FetcherType, Resource, TypeFetcherParams, ResourceParam, Application, FieldMetadata,
+    FetcherType as FetcherModel, Resource, TypeFetcherParams, ResourceParam, Application, FieldMetadata,
     ResourceExecution, Artifact, ArtifactSubscription, ApplicationNotification
 )
 from app.graphql.types import (
-    FetcherTypeType,
+    Fetcher,
+    FetcherType,
     ResourceType,
     TypeFetcherParamType,
     ResourceParamType,
@@ -28,18 +29,18 @@ def get_db():
     db = SessionLocal()
     try:
         return db
-    finally:
+    finally:    
         pass
 
 
-def map_fetcher_type(ft: FetcherType) -> FetcherTypeType:
-    """Convierte modelo FetcherType a tipo GraphQL"""
-    return FetcherTypeType(
-        id=str(ft.id),
-        code=ft.code,
-        class_path=ft.class_path,
-        description=ft.description,
-        params_def=ft.params_def
+def map_type_fetcher_param(p: TypeFetcherParams) -> TypeFetcherParamType:
+    """Convierte modelo TypeFetcherParams a tipo GraphQL"""
+    return TypeFetcherParamType(
+        id=str(p.id),
+        param_name=p.param_name,
+        required=p.required,
+        data_type=p.data_type,
+        default_value=getattr(p, 'default_value', None)
     )
 
 
@@ -52,6 +53,42 @@ def map_resource_param(param: ResourceParam) -> ResourceParamType:
     )
 
 
+def map_fetcher_type(ft: FetcherModel) -> FetcherType:
+    """Convierte modelo FetcherType a tipo GraphQL (FetcherType)"""
+    if ft is None:
+        return None
+    return FetcherType(
+        id=str(ft.id),
+        code=ft.code,
+        class_path=ft.class_path,
+        description=ft.description,
+        params_def=[map_type_fetcher_param(p) for p in (ft.params_def or [])],
+        name=getattr(ft, 'code', None),
+        resources=[map_resource(r) for r in (ft.resources or [])]
+    )
+
+
+def map_fetcher(ft: FetcherModel) -> Optional[Fetcher]:
+    """Convierte modelo FetcherType a tipo GraphQL (Fetcher).
+
+    To avoid deep recursion between fetcher <-> resource, this mapping
+    populates `params_def` but leaves `resources` as None. The `resources`
+    field can be resolved separately if needed.
+    """
+    if ft is None:
+        return None
+
+    return Fetcher(
+        id=str(ft.id),
+        code=ft.code,
+        name=ft.code,
+        class_path=ft.class_path,
+        description=ft.description,
+        params_def=[map_type_fetcher_param(p) for p in (ft.params_def or [])],
+        resources=None,
+    )
+
+
 def map_resource(resource: Resource) -> ResourceType:
     """Convierte modelo Resource a tipo GraphQL"""
     return ResourceType(
@@ -60,8 +97,8 @@ def map_resource(resource: Resource) -> ResourceType:
         publisher=resource.publisher,
         target_table=resource.target_table,
         active=resource.active,
-        fetcher_type=map_fetcher_type(resource.fetcher_type),
-        params=[map_resource_param(p) for p in resource.params]
+        fetcher=map_fetcher(resource.fetcher) if getattr(resource, 'fetcher', None) else None,
+        params=[map_resource_param(p) for p in (resource.params or [])]
     )
 
 
@@ -157,21 +194,299 @@ def map_application_notification(notif: ApplicationNotification) -> ApplicationN
 @strawberry.type
 class Query:
     @strawberry.field
-    def fetcher_types(self) -> List[FetcherTypeType]:
+    def fetchers(self) -> List[Fetcher]:
         """Lista todos los tipos de fetchers disponibles"""
         db = get_db()
         try:
-            fetcher_types = db.query(FetcherType).all()
+            fetchers = db.query(FetcherModel).all()
+            return [map_fetcher(ft) for ft in fetchers]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def fetcher(self, id: str) -> Optional[Fetcher]:
+        """Obtiene un Fetcher por ID"""
+        db = get_db()
+        try:
+            ft = db.query(FetcherModel).filter(FetcherModel.id == id).first()
+            return map_fetcher(ft) if ft else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resources(self, active_only: bool = False) -> List[ResourceType]:
+        """Lista todas las fuentes de datos"""
+        db = get_db()
+        try:
+            query = db.query(Resource)
+            if active_only:
+                query = query.filter(Resource.active == True)
+            resources = query.all()
+            return [map_resource(r) for r in resources]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource(self, id: str) -> Optional[ResourceType]:
+        """Obtiene un Resource por ID"""
+        db = get_db()
+        try:
+            resource = db.query(Resource).filter(Resource.id == id).first()
+            return map_resource(resource) if resource else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resources_by_project(self, project: str) -> List[ResourceType]:
+        """Lista recursos por proyecto"""
+        db = get_db()
+        try:
+            resources = db.query(Resource).filter(Resource.project == project).all()
+            return [map_resource(r) for r in resources]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def applications(self) -> List[ApplicationType]:
+        """Lista todas las aplicaciones suscritas"""
+        db = get_db()
+        try:
+            apps = db.query(Application).all()
+            return [map_application(app) for app in apps]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def application(self, id: str) -> Optional[ApplicationType]:
+        """Obtiene una Application por ID"""
+        db = get_db()
+        try:
+            app = db.query(Application).filter(Application.id == id).first()
+            return map_application(app) if app else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def field_metadata(self, table_name: str) -> List[FieldMetadataType]:
+        """Obtiene metadata de campos para una tabla"""
+        db = get_db()
+        try:
+            metadata = db.query(FieldMetadata).filter(
+                FieldMetadata.table_name == table_name
+            ).all()
+            return [map_field_metadata(fm) for fm in metadata]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def preview_resource_data(self, id: str, limit: int = 10) -> strawberry.scalars.JSON:
+        """Obtiene una vista previa de los datos de un Resource sin guardarlos"""
+        from app.manager.fetcher_manager import FetcherManager
+        db = get_db()
+        try:
+            # Extraer datos solo para preview
+            data = FetcherManager.fetch_only(db, id, limit)
+            return data
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource_executions(self, resource_id: Optional[str] = None) -> List[ResourceExecutionType]:
+        """Lista ejecuciones de Resources, opcionalmente filtrado por resource_id"""
+        db = get_db()
+        try:
+            query = db.query(ResourceExecution)
+            if resource_id:
+                query = query.filter(ResourceExecution.resource_id == resource_id)
+            executions = query.order_by(ResourceExecution.started_at.desc()).all()
+            return [map_resource_execution(re) for re in executions]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource_execution(self, id: str) -> Optional[ResourceExecutionType]:
+        """Obtiene una ejecución específica por ID"""
+        db = get_db()
+        try:
+            execution = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+            return map_resource_execution(execution) if execution else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifacts(self, resource_id: Optional[str] = None) -> List[ArtifactType]:
+        """Lista artifacts, opcionalmente filtrado por resource_id"""
+        db = get_db()
+        try:
+            query = db.query(Artifact)
+            if resource_id:
+                query = query.filter(Artifact.resource_id == resource_id)
+            artifacts = query.order_by(
+                Artifact.major_version.desc(),
+                Artifact.minor_version.desc(),
+                Artifact.patch_version.desc()
+            ).all()
+            return [map_artifact(art) for art in artifacts]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifact(self, id: str) -> Optional[ArtifactType]:
+        """Obtiene un artifact específico por ID"""
+        db = get_db()
+        try:
+            artifact = db.query(Artifact).filter(Artifact.id == id).first()
+            return map_artifact(artifact) if artifact else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifact_by_version(self, resource_id: str, version: str) -> Optional[ArtifactType]:
+        """Obtiene un artifact por resource_id y version (ej: '1.2.3')"""
+        db = get_db()
+        try:
+            parts = version.split('.')
+            if len(parts) != 3:
+                return None
+            major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+
+            artifact = db.query(Artifact).filter(
+                Artifact.resource_id == resource_id,
+                Artifact.major_version == major,
+                Artifact.minor_version == minor,
+                Artifact.patch_version == patch
+            ).first()
+            return map_artifact(artifact) if artifact else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def artifact_subscriptions(self, application_id: Optional[str] = None, resource_id: Optional[str] = None) -> List[ArtifactSubscriptionType]:
+        """Lista suscripciones, filtrado por application_id o resource_id"""
+        db = get_db()
+        try:
+            query = db.query(ArtifactSubscription)
+            if application_id:
+                query = query.filter(ArtifactSubscription.application_id == application_id)
+            if resource_id:
+                query = query.filter(ArtifactSubscription.resource_id == resource_id)
+            subscriptions = query.all()
+            return [map_artifact_subscription(sub) for sub in subscriptions]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def application_notifications(self, application_id: Optional[str] = None, artifact_id: Optional[str] = None) -> List[ApplicationNotificationType]:
+        """Lista notificaciones enviadas, filtrado por application_id o artifact_id"""
+        db = get_db()
+        try:
+            query = db.query(ApplicationNotification)
+            if application_id:
+                query = query.filter(ApplicationNotification.application_id == application_id)
+            if artifact_id:
+                query = query.filter(ApplicationNotification.artifact_id == artifact_id)
+            notifications = query.order_by(ApplicationNotification.sent_at.desc()).all()
+            return [map_application_notification(notif) for notif in notifications]
+        finally:
+            db.close()
+
+
+
+def map_field_metadata(fm: FieldMetadata) -> FieldMetadataType:
+    """Convierte modelo FieldMetadata a tipo GraphQL"""
+    return FieldMetadataType(
+        id=str(fm.id),
+        table_name=fm.table_name,
+        field_name=fm.field_name,
+        label=fm.label,
+        help_text=fm.help_text,
+        placeholder=fm.placeholder
+    )
+
+
+def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
+    """Convierte modelo ResourceExecution a tipo GraphQL"""
+    return ResourceExecutionType(
+        id=str(re.id),
+        resource_id=str(re.resource_id),
+        started_at=re.started_at,
+        completed_at=re.completed_at,
+        status=re.status,
+        total_records=re.total_records,
+        records_loaded=re.records_loaded,
+        staging_path=re.staging_path,
+        error_message=re.error_message
+    )
+
+
+def map_artifact(art: Artifact) -> ArtifactType:
+    """Convierte modelo Artifact a tipo GraphQL"""
+    return ArtifactType(
+        id=str(art.id),
+        resource_id=str(art.resource_id),
+        execution_id=str(art.execution_id) if art.execution_id else None,
+        version=art.version_string,
+        major_version=art.major_version,
+        minor_version=art.minor_version,
+        patch_version=art.patch_version,
+        schema_json=art.schema_json,
+        data_path=art.data_path,
+        record_count=art.record_count,
+        checksum=art.checksum,
+        created_at=art.created_at,
+        download_urls={
+            "data": f"/api/artifacts/{art.id}/data.jsonl",
+            "schema": f"/api/artifacts/{art.id}/schema.json",
+            "models": f"/api/artifacts/{art.id}/models.py",
+            "metadata": f"/api/artifacts/{art.id}/metadata.json"
+        }
+    )
+
+
+def map_artifact_subscription(sub: ArtifactSubscription) -> ArtifactSubscriptionType:
+    """Convierte modelo ArtifactSubscription a tipo GraphQL"""
+    return ArtifactSubscriptionType(
+        id=str(sub.id),
+        application_id=str(sub.application_id),
+        resource_id=str(sub.resource_id),
+        pinned_version=sub.pinned_version,
+        auto_upgrade=sub.auto_upgrade,
+        current_version=sub.current_version,
+        notified_at=sub.notified_at
+    )
+
+
+def map_application_notification(notif: ApplicationNotification) -> ApplicationNotificationType:
+    """Convierte modelo ApplicationNotification a tipo GraphQL"""
+    return ApplicationNotificationType(
+        id=str(notif.id),
+        application_id=str(notif.application_id),
+        artifact_id=str(notif.artifact_id) if notif.artifact_id else None,
+        sent_at=notif.sent_at,
+        status_code=notif.status_code,
+        response_body=notif.response_body,
+        error_message=notif.error_message
+    )
+
+
+@strawberry.type
+class Query:
+    @strawberry.field
+    def fetcher_types(self) -> List[FetcherType]:
+        """Lista todos los tipos de fetchers disponibles"""
+        db = get_db()
+        try:
+            fetcher_types = db.query(FetcherModel).all()
             return [map_fetcher_type(ft) for ft in fetcher_types]
         finally:
             db.close()
 
     @strawberry.field
-    def fetcher_type(self, id: str) -> Optional[FetcherTypeType]:
+    def fetcher_type(self, id: str) -> Optional[FetcherType]:
         """Obtiene un FetcherType por ID"""
         db = get_db()
         try:
-            ft = db.query(FetcherType).filter(FetcherType.id == id).first()
+            ft = db.query(FetcherModel).filter(FetcherModel.id == id).first()
             return map_fetcher_type(ft) if ft else None
         finally:
             db.close()
@@ -247,12 +562,8 @@ class Query:
         from app.manager.fetcher_manager import FetcherManager
         db = get_db()
         try:
-            # Ejecutar el fetcher
-            data = FetcherManager.run(db, id)
-
-            # Limitar los datos de muestra
-            if isinstance(data, list):
-                return data[:limit]
+            # Extraer datos solo para preview
+            data = FetcherManager.fetch_only(db, id, limit)
             return data
         finally:
             db.close()

@@ -25,6 +25,15 @@
       </router-link>
 
       <router-link
+        to="/fetchers"
+        class="nav-item"
+        :class="{ 'active': $route.path.startsWith('/fetchers') }"
+      >
+        <span class="text-lg mr-3">🔧</span>
+        Fetchers
+      </router-link>
+
+      <router-link
         to="/applications"
         class="nav-item"
         :class="{ 'active': $route.path === '/applications' }"

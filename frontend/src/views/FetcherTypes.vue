@@ -1,7 +1,7 @@
 <template>
   <div class="p-8">
     <div class="flex items-center justify-between mb-8">
-      <h1 class="text-3xl font-bold">Tipos de Servicio Web</h1>
+      <h1 class="text-3xl font-bold">Fetchers</h1>
       <div class="flex space-x-3">
         <button @click="showCreateModal" class="btn btn-primary">
           + Nuevo Tipo de Servicio
@@ -22,7 +22,7 @@
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <FetcherTypeCard
-        v-for="type in fetcherTypes"
+        v-for="type in fetchers"
         :key="type.id"
         :fetcher-type="type"
         :sources-count="getSourcesCount(type.id)"
@@ -30,7 +30,7 @@
       />
     </div>
 
-    <div v-if="!loading && fetcherTypes.length === 0" class="text-gray-400 text-center py-8">
+    <div v-if="!loading && fetchers.length === 0" class="text-gray-400 text-center py-8">
       No hay tipos de servicio configurados todavía
     </div>
 
@@ -197,7 +197,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import {
-  fetchFetcherTypes,
+  fetchfetchers,
   fetchResources,
   createFetcherType,
   updateFetcherType,
@@ -205,7 +205,7 @@ import {
 } from '../api/graphql'
 import FetcherTypeCard from '../components/FetcherTypeCard.vue'
 
-const fetcherTypes = ref([])
+const fetchers = ref([])
 const sources = ref([])
 const loading = ref(true)
 const error = ref(null)
@@ -229,10 +229,10 @@ async function loadData() {
     loading.value = true
     error.value = null
     const [typesData, resourcesData] = await Promise.all([
-      fetchFetcherTypes(),
+      fetchfetchers(),
       fetchResources(false)
     ])
-    fetcherTypes.value = typesData.fetcherTypes
+    fetchers.value = typesData.fetchers
     sources.value = resourcesData.resources
   } catch (e) {
     error.value = 'Failed to load data: ' + e.message
@@ -242,11 +242,11 @@ async function loadData() {
 }
 
 function getSourcesCount(typeId) {
-  return sources.value.filter(s => s.fetcherType.id === typeId).length
+  return sources.value.filter(s => s.fetcher.id === typeId).length
 }
 
 function getSourcesByType(typeId) {
-  return sources.value.filter(s => s.fetcherType.id === typeId)
+  return sources.value.filter(s => s.fetcher.id === typeId)
 }
 
 function showTypeDetails(type) {

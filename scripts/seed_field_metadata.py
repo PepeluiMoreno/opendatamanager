@@ -25,7 +25,7 @@ FIELD_METADATA = [
     },
     {
         "table_name": "resource",
-        "field_name": "fetcher_type_id",
+        "field_name": "fetcher_id",
         "label": "Tipo de Servicio Web",
         "help_text": "Tipo de servicio web que se usará para obtener los datos (API REST, SOAP, archivos, etc.)",
         "placeholder": None

@@ -5,8 +5,8 @@ Estos son los únicos tipos válidos en el sistema.
 from enum import Enum
 
 
-class WebServiceType(Enum):
-    """Tipos de servicios web soportados"""
+class FetcherKind(Enum):
+    """Tipos de fetchers soportados (valores de conveniencia)."""
 
     API_REST = {
         "code": "API REST",

@@ -12,7 +12,7 @@
       <div>
         <span class="text-gray-400 text-sm font-medium">Name:</span>
         <code class="block mt-1 text-xs bg-gray-900 p-3 rounded text-green-400 break-all font-mono">
-          {{ Fetcher. }}
+          {{ Fetcher.name || Fetcher.code || Fetcher.id }}
         </code>
       </div>
 
