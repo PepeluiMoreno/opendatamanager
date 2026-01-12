@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "properties": {
+    "COD": {
+      "type": "string"
+    },
+    "Nombre": {
+      "type": "string"
+    },
+    "FK_Unidad": {
+      "type": "integer"
+    },
+    "FK_Escala": {
+      "type": "integer"
+    },
+    "Data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Fecha": {
+            "type": "integer"
+          },
+          "FK_TipoDato": {
+            "type": "integer"
+          },
+          "FK_Periodo": {
+            "type": "integer"
+          },
+          "Anyo": {
+            "type": "integer"
+          },
+          "Valor": {
+            "type": "number"
+          },
+          "Secreto": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
+  "required": [
+    "FK_Unidad",
+    "Nombre",
+    "COD",
+    "FK_Escala",
+    "Data"
+  ]
+}

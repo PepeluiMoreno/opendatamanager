@@ -1,0 +1,3 @@
+{"id": "1", "entidad": "IGLESIA CATÓLICA", "denominación": "ARQUIDIÓCESIS DE MADRID", "número_registro": "12345-ABC", "fecha_registro": "2020-01-15", "estado": "ACTIVO", "dirección": "Calle Mayor, 15, Madrid", "cif": "Q2800000A"}
+{"id": "2", "entidad": "COMUNIDAD ISLÁMICA", "denominación": "MEZQUITA DE COMILLAS", "número_registro": "23456-DEF", "fecha_registro": "2021-03-20", "estado": "ACTIVO", "dirección": "Calle de los Moros, 45, Madrid", "cif": "G28000001"}
+{"id": "3", "entidad": "COMUNIDAD JUDÍA", "denominación": "COMUNIDAD JUDÍA DE MADRID", "número_registro": "34567-GHI", "fecha_registro": "2019-11-10", "estado": "ACTIVO", "dirección": "Calle Balmes, 3, Madrid", "cif": "H28000002"}

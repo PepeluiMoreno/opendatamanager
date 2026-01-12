@@ -1,0 +1,132 @@
+{
+  "type": "object",
+  "properties": {
+    "content": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "mrr": {
+            "type": "boolean"
+          },
+          "numeroConvocatoria": {
+            "type": "string"
+          },
+          "descripcion": {
+            "type": "string"
+          },
+          "descripcionLeng": {
+            "type": "string"
+          },
+          "fechaRecepcion": {
+            "type": "string"
+          },
+          "nivel1": {
+            "type": "string"
+          },
+          "nivel2": {
+            "type": "string"
+          },
+          "nivel3": {
+            "type": "string"
+          },
+          "codigoInvente": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "pageable": {
+      "type": "object",
+      "properties": {
+        "sort": {
+          "type": "object",
+          "properties": {
+            "sorted": {
+              "type": "boolean"
+            },
+            "unsorted": {
+              "type": "boolean"
+            },
+            "empty": {
+              "type": "boolean"
+            }
+          }
+        },
+        "pageNumber": {
+          "type": "integer"
+        },
+        "pageSize": {
+          "type": "integer"
+        },
+        "offset": {
+          "type": "integer"
+        },
+        "unpaged": {
+          "type": "boolean"
+        },
+        "paged": {
+          "type": "boolean"
+        }
+      }
+    },
+    "last": {
+      "type": "boolean"
+    },
+    "totalElements": {
+      "type": "integer"
+    },
+    "totalPages": {
+      "type": "integer"
+    },
+    "first": {
+      "type": "boolean"
+    },
+    "sort": {
+      "type": "object",
+      "properties": {
+        "sorted": {
+          "type": "boolean"
+        },
+        "unsorted": {
+          "type": "boolean"
+        },
+        "empty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "numberOfElements": {
+      "type": "integer"
+    },
+    "size": {
+      "type": "integer"
+    },
+    "number": {
+      "type": "integer"
+    },
+    "empty": {
+      "type": "boolean"
+    },
+    "advertencia": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "advertencia",
+    "totalElements",
+    "empty",
+    "content",
+    "size",
+    "number",
+    "numberOfElements",
+    "pageable",
+    "sort",
+    "totalPages",
+    "first",
+    "last"
+  ]
+}
