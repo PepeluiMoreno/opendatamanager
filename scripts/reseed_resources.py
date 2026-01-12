@@ -12,7 +12,7 @@ SAMPLE_RESOURCES = [
         "name": "RER - Entidades Religiosas Católicas Madrid",
         "publisher": "Ministerio de Justicia",
         "target_table": "rer_entities",
-        "fetcher_type_code": "HTML Forms",
+        "fetcher_code": "HTML Forms",
         "active": True,
         "params": [
             {"key": "url", "value": "http://maper.mjusticia.gob.es/Maper/RER.action"},
@@ -27,7 +27,7 @@ SAMPLE_RESOURCES = [
         "name": "RER - Entidades Evangélicas",
         "publisher": "Ministerio de Justicia",
         "target_table": "rer_entities",
-        "fetcher_type_code": "HTML Forms",
+        "fetcher_code": "HTML Forms",
         "active": True,
         "params": [
             {"key": "url", "value": "http://maper.mjusticia.gob.es/Maper/RER.action"},
@@ -41,7 +41,7 @@ SAMPLE_RESOURCES = [
         "name": "API REST Ejemplo - JSONPlaceholder",
         "publisher": "JSONPlaceholder",
         "target_table": "demo_posts",
-        "fetcher_type_code": "API REST",
+        "fetcher_code": "API REST",
         "active": True,
         "params": [
             {"key": "url", "value": "https://jsonplaceholder.typicode.com/posts"},
@@ -65,12 +65,12 @@ def reseed_resources():
 
         # Crear nuevos resources
         for resource_data in SAMPLE_RESOURCES:
-            fetcher_type = db.query(FetcherType).filter(
-                FetcherType.code == resource_data["fetcher_type_code"]
+            fetcher = db.query(FetcherType).filter(
+                FetcherType.code == resource_data["fetcher_code"]
             ).first()
 
-            if not fetcher_type:
-                print(f"[WARN] No se encontró FetcherType '{resource_data["fetcher_type_code"]}'")
+            if not fetcher:
+                print(f"[WARN] No se encontró FetcherType '{resource_data["fetcher_code"]}'")
                 continue
 
             resource = Resource(
@@ -78,7 +78,7 @@ def reseed_resources():
                 name=resource_data["name"],
                 publisher=resource_data["publisher"],
                 target_table=resource_data["target_table"],
-                fetcher_type_id=fetcher_type.id,
+                fetcher_id=fetcher.id,
                 active=resource_data["active"]
             )
             db.add(resource)
@@ -93,7 +93,7 @@ def reseed_resources():
                 )
                 db.add(param)
 
-            print(f"[+] Creado Resource '{resource_data["name"]}' (tipo: {fetcher_type.code})")
+            print(f"[+] Creado Resource '{resource_data["name"]}' (tipo: {fetcher.code})")
 
         db.commit()
         print("

@@ -11,7 +11,7 @@
 
       <div class="card">
         <div class="text-gray-400 text-sm mb-2">Fetcher Types</div>
-        <div class="text-4xl font-bold text-green-400">{{ stats.fetcherTypes }}</div>
+        <div class="text-4xl font-bold text-green-400">{{ stats.fetchers }}</div>
       </div>
 
       <div class="card">
@@ -51,7 +51,7 @@
         >
           <div>
             <div class="font-medium">{{ source.name }}</div>
-            <div class="text-sm text-gray-400">{{ source.publisher }} - {{ source.fetcherType.code }}</div>
+            <div class="text-sm text-gray-400">{{ source.publisher }} - {{ source.fetcher.code }}</div>
           </div>
           <div class="flex items-center space-x-2">
             <span
@@ -88,11 +88,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { fetchResources, fetchFetcherTypes, fetchApplications, executeAllResources } from '../api/graphql'
+import { fetchResources, fetchfetchers, fetchApplications, executeAllResources } from '../api/graphql'
 
 const stats = ref({
   activeSources: 0,
-  fetcherTypes: 0,
+  fetchers: 0,
   applications: 0,
 })
 
@@ -104,14 +104,14 @@ const successMessage = ref(null)
 async function loadStats() {
   try {
     error.value = null
-    const [resourcesData, fetcherTypesData, appsData] = await Promise.all([
+    const [resourcesData, fetchersData, appsData] = await Promise.all([
       fetchResources(false),
-      fetchFetcherTypes(),
+      fetchfetchers(),
       fetchApplications(),
     ])
 
     stats.value.activeSources = resourcesData.resources?.filter(s => s.active).length || 0
-    stats.value.fetcherTypes = fetcherTypesData.fetcherTypes?.length || 0
+    stats.value.fetchers = fetchersData.fetchers?.length || 0
     stats.value.applications = appsData.applications?.filter(a => a.active).length || 0
 
     recentSources.value = resourcesData.resources?.slice(0, 5) || []

@@ -7,22 +7,13 @@ from datetime import datetime
 
 
 @strawberry.type
-class FetcherTypeType:
-    """Tipo de fetcher disponible (REST, SOAP, CSV, etc.)"""
-    id: str
-    code: str
-    class_path: str
-    description: Optional[str] = None
-    params_def: Optional[strawberry.scalars.JSON] = None
-
-
-@strawberry.type
 class TypeFetcherParamType:
     """Parámetro requerido por un tipo de fetcher"""
     id: str
     param_name: str
     required: bool
     data_type: str
+    default_value: Optional[strawberry.scalars.JSON] = None
 
 
 @strawberry.type
@@ -31,29 +22,6 @@ class ResourceParamType:
     id: str
     key: str
     value: str
-
-
-@strawberry.type
-class ResourceType:
-    """Fuente de datos configurada"""
-    id: str
-    name: str
-    publisher: str
-    target_table: str
-    active: bool
-    fetcher_type: FetcherTypeType
-    params: List[ResourceParamType]
-
-
-@strawberry.type
-class ApplicationType:
-    """Aplicación suscrita al sistema"""
-    id: str
-    name: str
-    description: Optional[str] = None
-    models_path: str
-    subscribed_projects: List[str]
-    active: bool
 
 
 @strawberry.input
@@ -68,7 +36,7 @@ class CreateResourceInput:
     """Input para crear un nuevo Resource"""
     name: str
     publisher: str
-    fetcher_type_id: str
+    fetcher_id: str
     params: List[ResourceParamInput]
     active: bool = True
     target_table: Optional[str] = None
@@ -80,7 +48,7 @@ class UpdateResourceInput:
     name: Optional[str] = None
     publisher: Optional[str] = None
     target_table: Optional[str] = None
-    fetcher_type_id: Optional[str] = None
+    fetcher_id: Optional[str] = None
     params: Optional[List[ResourceParamInput]] = None
     active: Optional[bool] = None
 
@@ -99,6 +67,17 @@ class UpdateFetcherTypeInput:
     code: Optional[str] = None
     class_path: Optional[str] = None
     description: Optional[str] = None
+
+
+@strawberry.type
+class ApplicationType:
+    """Aplicación suscrita al sistema"""
+    id: str
+    name: str
+    description: Optional[str] = None
+    models_path: str
+    subscribed_projects: List[str]
+    active: bool
 
 
 @strawberry.type
@@ -175,3 +154,41 @@ class ApplicationNotificationType:
     status_code: Optional[int] = None
     response_body: Optional[str] = None
     error_message: Optional[str] = None
+
+
+@strawberry.type
+class ResourceType:
+    """Fuente de datos configurada"""
+    id: str
+    name: str
+    publisher: str
+    target_table: str
+    active: bool
+    fetcher: "Fetcher"
+    params: List[ResourceParamType]
+
+
+@strawberry.type
+class Fetcher:
+    """Compatibilidad: Fetcher (sin sufijo 'Type')"""
+    id: str
+    code: str
+    name: str
+    class_path: Optional[str] = None
+    description: Optional[str] = None
+    params_def: Optional[List[TypeFetcherParamType]] = None
+    resources: Optional[List[ResourceType]] = None
+
+
+@strawberry.type
+class FetcherType:
+    """Tipo de fetcher disponible (REST, SOAP, CSV, etc.)"""
+    id: str
+    code: str
+    class_path: Optional[str] = None
+    description: Optional[str] = None
+    params_def: Optional[List[TypeFetcherParamType]] = None
+    # Backwards-compatible friendly name and list of resources using this type
+    name: Optional[str] = None
+    resources: Optional[List[ResourceType]] = None
+

@@ -45,7 +45,7 @@ python scripts/setup_paginated_fetcher.py
 
 O manualmente:
 ```sql
-INSERT INTO opendata.fetcher_type (id, code, class_path, description)
+INSERT INTO opendata.fetcher (id, code, class_path, description)
 VALUES (
   gen_random_uuid(),
   'HTML_PAGINATED',

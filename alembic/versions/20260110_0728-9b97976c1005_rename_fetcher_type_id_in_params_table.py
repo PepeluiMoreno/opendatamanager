@@ -1,4 +1,4 @@
-"""rename_fetcher_type_id_in_params_table
+"""rename_fetcher_id_in_params_table
 
 Revision ID: 9b97976c1005
 Revises: fe129e483278
@@ -20,15 +20,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Rename column fetcher_type_id to fetcher_id in type_fetcher_params table
-    op.alter_column('type_fetcher_params', 'fetcher_type_id',
+    # Rename column fetcher_id to fetcher_id in type_fetcher_params table
+    op.alter_column('type_fetcher_params', 'fetcher_id',
                     new_column_name='fetcher_id',
                     schema='opendata')
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # Rename column fetcher_id back to fetcher_type_id in type_fetcher_params table
+    # Rename column fetcher_id back to fetcher_id in type_fetcher_params table
     op.alter_column('type_fetcher_params', 'fetcher_id',
-                    new_column_name='fetcher_type_id',
+                    new_column_name='fetcher_id',
                     schema='opendata')

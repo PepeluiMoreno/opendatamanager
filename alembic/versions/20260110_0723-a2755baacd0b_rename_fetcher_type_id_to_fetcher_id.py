@@ -1,4 +1,4 @@
-"""rename_fetcher_type_id_to_fetcher_id
+"""rename_fetcher_id_to_fetcher_id
 
 Revision ID: a2755baacd0b
 Revises: 09d82c6d1816
@@ -20,15 +20,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # Rename column fetcher_type_id to fetcher_id in resource table
-    op.alter_column('resource', 'fetcher_type_id',
+    # Rename column fetcher_id to fetcher_id in resource table
+    op.alter_column('resource', 'fetcher_id',
                     new_column_name='fetcher_id',
                     schema='opendata')
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    # Rename column fetcher_id back to fetcher_type_id in resource table
+    # Rename column fetcher_id back to fetcher_id in resource table
     op.alter_column('resource', 'fetcher_id',
-                    new_column_name='fetcher_type_id',
+                    new_column_name='fetcher_id',
                     schema='opendata')

@@ -24,8 +24,9 @@ export const QUERIES = {
         publisher
         targetTable
         active
-        fetcherType {
+        fetcher {
           id
+          name
           code
           classPath
           description
@@ -47,8 +48,9 @@ export const QUERIES = {
         publisher
         targetTable
         active
-        fetcherType {
+        fetcher {
           id
+          name
           code
           classPath
           description
@@ -68,8 +70,8 @@ export const QUERIES = {
     }
   `,
 
-  GET_FETCHER_TYPES: `
-    query GetFetcherTypes {
+  GET_fetcherS: `
+    query Getfetchers {
       fetcherTypes {
         id
         code
@@ -133,6 +135,30 @@ export const QUERIES = {
         totalRecords
         recordsLoaded
         errorMessage
+      }
+    }
+  `,
+  GET_FETCHERS: `
+    query GetFetchers {
+      fetcherTypes {
+        id
+        name
+        code
+        classPath
+        description
+        paramsDef {
+          id
+          paramName
+          dataType
+          required
+          defaultValue
+        }
+        resources {
+          id
+          name
+          publisher
+          active
+        }
       }
     }
   `,
@@ -211,7 +237,7 @@ export const MUTATIONS = {
     }
   `,
 
-  CREATE_FETCHER_TYPE: `
+  CREATE_fetcher: `
     mutation CreateFetcherType($input: CreateFetcherTypeInput!) {
       createFetcherType(input: $input) {
         id
@@ -222,7 +248,7 @@ export const MUTATIONS = {
     }
   `,
 
-  UPDATE_FETCHER_TYPE: `
+  UPDATE_fetcher: `
     mutation UpdateFetcherType($id: String!, $input: UpdateFetcherTypeInput!) {
       updateFetcherType(id: $id, input: $input) {
         id
@@ -233,9 +259,34 @@ export const MUTATIONS = {
     }
   `,
 
-  DELETE_FETCHER_TYPE: `
+  DELETE_fetcher: `
     mutation DeleteFetcherType($id: String!) {
       deleteFetcherType(id: $id)
+    }
+  `,
+  CREATE_FETCHER: `
+    mutation CreateFetcher($input: CreateFetcherInput!) {
+      createFetcher(input: $input) {
+        id
+        name
+        description
+      }
+    }
+  `,
+
+  UPDATE_FETCHER: `
+    mutation UpdateFetcher($id: String!, $input: UpdateFetcherInput!) {
+      updateFetcher(id: $id, input: $input) {
+        id
+        name
+        description
+      }
+    }
+  `,
+
+  DELETE_FETCHER: `
+    mutation DeleteFetcher($id: String!) {
+      deleteFetcher(id: $id)
     }
   `,
 }
@@ -257,9 +308,41 @@ export async function fetchResource(id) {
   }
 }
 
-export async function fetchFetcherTypes() {
+export async function fetchfetchers() {
   try {
-    return await client.request(QUERIES.GET_FETCHER_TYPES)
+    return await client.request(QUERIES.GET_fetcherS)
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchFetchers() {
+  try {
+    return await client.request(QUERIES.GET_FETCHERS)
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function createFetcher(input) {
+  try {
+    return await client.request(MUTATIONS.CREATE_FETCHER, { input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function updateFetcher(id, input) {
+  try {
+    return await client.request(MUTATIONS.UPDATE_FETCHER, { id, input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function deleteFetcher(id) {
+  try {
+    return await client.request(MUTATIONS.DELETE_FETCHER, { id })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -347,7 +430,7 @@ export async function deleteApplication(id) {
 
 export async function createFetcherType(input) {
   try {
-    return await client.request(MUTATIONS.CREATE_FETCHER_TYPE, { input })
+    return await client.request(MUTATIONS.CREATE_fetcher, { input })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -355,7 +438,7 @@ export async function createFetcherType(input) {
 
 export async function updateFetcherType(id, input) {
   try {
-    return await client.request(MUTATIONS.UPDATE_FETCHER_TYPE, { id, input })
+    return await client.request(MUTATIONS.UPDATE_fetcher, { id, input })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -363,7 +446,7 @@ export async function updateFetcherType(id, input) {
 
 export async function deleteFetcherType(id) {
   try {
-    return await client.request(MUTATIONS.DELETE_FETCHER_TYPE, { id })
+    return await client.request(MUTATIONS.DELETE_fetcher, { id })
   } catch (error) {
     handleGraphQLError(error)
   }

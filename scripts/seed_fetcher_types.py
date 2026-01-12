@@ -1,13 +1,14 @@
 """
 Script para poblar los tipos de fetcher en la base de datos.
-Ejecutar con: python -m scripts.seed_fetcher_types
+Ejecutar con: python -m scripts.seed_fetchers
 """
 from uuid import uuid4
 from app.database import SessionLocal
 from app.models import FetcherType
+from app.fetchers.registry import FetcherRegistry
 
 
-FETCHER_TYPES = [
+fetcherS = [
     {
         "code": "API REST",
         "class_path": "app.fetchers.rest.RestFetcher",
@@ -37,11 +38,11 @@ FETCHER_TYPES = [
 ]
 
 
-def seed_fetcher_types():
-    """Puebla la tabla fetcher_type con los tipos básicos"""
+def seed_fetchers():
+    """Puebla la tabla fetcher con los tipos básicos"""
     db = SessionLocal()
     try:
-        for type_data in FETCHER_TYPES:
+        for type_data in fetcherS:
             # Verificar si ya existe
             existing = db.query(FetcherType).filter(
                 FetcherType.code == type_data["code"]
@@ -49,19 +50,26 @@ def seed_fetcher_types():
 
             if existing:
                 print(f"[OK] FetcherType '{type_data['code']}' ya existe (ID: {existing.id})")
-                # Actualizar class_path y description por si cambiaron
-                existing.class_path = type_data["class_path"]
+                # Registrar class_path y actualizar descripción por si cambiaron
+                try:
+                    FetcherRegistry.register_fetcher(existing.code, type_data["class_path"], type_data["description"])
+                except Exception:
+                    pass
                 existing.description = type_data["description"]
             else:
-                # Crear nuevo
-                fetcher_type = FetcherType(
+                # Crear nuevo (no almacenamos class_path en BD)
+                fetcher = FetcherType(
                     id=uuid4(),
                     code=type_data["code"],
-                    class_path=type_data["class_path"],
                     description=type_data["description"]
                 )
-                db.add(fetcher_type)
-                print(f"[+] Creado FetcherType '{type_data['code']}' (ID: {fetcher_type.id})")
+                db.add(fetcher)
+                db.flush()
+                try:
+                    FetcherRegistry.register_fetcher(type_data["code"], type_data["class_path"], type_data["description"])
+                except Exception:
+                    pass
+                print(f"[+] Creado FetcherType '{type_data['code']}' (ID: {fetcher.id})")
 
         db.commit()
         print("\n[OK] Fetcher types poblados correctamente")
@@ -75,4 +83,4 @@ def seed_fetcher_types():
 
 
 if __name__ == "__main__":
-    seed_fetcher_types()
+    seed_fetchers()

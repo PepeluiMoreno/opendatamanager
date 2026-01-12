@@ -6,16 +6,17 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import Resource, ResourceParam, FetcherType
+from app.fetchers.registry import FetcherRegistry
 from app.graphql.types import (
     ResourceType,
-    FetcherTypeType,
+    Fetcher,
     CreateResourceInput,
     UpdateResourceInput,
     CreateFetcherTypeInput,
     UpdateFetcherTypeInput,
     ExecutionResult
 )
-from app.graphql.queries import map_resource, map_fetcher_type
+from app.graphql.queries import map_resource, map_fetcher
 from app.manager.fetcher_manager import FetcherManager
 
 
@@ -35,12 +36,12 @@ class Mutation:
         """Crea una nueva fuente de datos"""
         db = get_db()
         try:
-            # Verificar que el fetcher_type existe
-            fetcher_type = db.query(FetcherType).filter(
-                FetcherType.id == input.fetcher_type_id
+            # Verificar que el fetcher existe
+            fetcher = db.query(FetcherType).filter(
+                FetcherType.id == input.fetcher_id
             ).first()
-            if not fetcher_type:
-                raise ValueError(f"FetcherType con id '{input.fetcher_type_id}' no existe")
+            if not fetcher:
+                raise ValueError(f"FetcherType con id '{input.fetcher_id}' no existe")
 
             # Crear Resource
             resource = Resource(
@@ -48,7 +49,7 @@ class Mutation:
                 name=input.name,
                 publisher=input.publisher,
                 target_table=input.target_table,
-                fetcher_type_id=input.fetcher_type_id,
+                fetcher_id=input.fetcher_id,
                 active=input.active
             )
             db.add(resource)
@@ -89,8 +90,8 @@ class Mutation:
                 resource.publisher = input.publisher
             if input.target_table is not None:
                 resource.target_table = input.target_table
-            if input.fetcher_type_id is not None:
-                resource.fetcher_type_id = input.fetcher_type_id
+            if input.fetcher_id is not None:
+                resource.fetcher_id = input.fetcher_id
             if input.active is not None:
                 resource.active = input.active
 
@@ -184,7 +185,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def create_fetcher_type(self, input: CreateFetcherTypeInput) -> FetcherTypeType:
+    def create_fetcher(self, input: CreateFetcherTypeInput) -> Fetcher:
         """Crea un nuevo tipo de fetcher"""
         db = get_db()
         try:
@@ -193,16 +194,22 @@ class Mutation:
             if existing:
                 raise ValueError(f"FetcherType con código '{input.code}' ya existe")
 
-            fetcher_type = FetcherType(
+            fetcher = FetcherType(
                 id=uuid4(),
                 code=input.code,
-                class_path=input.class_path,
                 description=input.description
             )
-            db.add(fetcher_type)
+            db.add(fetcher)
             db.commit()
-            db.refresh(fetcher_type)
-            return map_fetcher_type(fetcher_type)
+            db.refresh(fetcher)
+            # Register class_path in runtime registry if provided
+            if getattr(input, "class_path", None):
+                try:
+                    FetcherRegistry.register_fetcher(input.code, input.class_path, input.description or input.code)
+                except Exception:
+                    # don't fail DB creation if registry registration isn't possible
+                    pass
+            return map_fetcher(fetcher)
         except Exception as e:
             db.rollback()
             raise e
@@ -210,12 +217,12 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def update_fetcher_type(self, id: str, input: UpdateFetcherTypeInput) -> FetcherTypeType:
+    def update_fetcher(self, id: str, input: UpdateFetcherTypeInput) -> Fetcher:
         """Actualiza un tipo de fetcher existente"""
         db = get_db()
         try:
-            fetcher_type = db.query(FetcherType).filter(FetcherType.id == id).first()
-            if not fetcher_type:
+            fetcher = db.query(FetcherType).filter(FetcherType.id == id).first()
+            if not fetcher:
                 raise ValueError(f"FetcherType con id '{id}' no encontrado")
 
             # Actualizar campos
@@ -227,17 +234,23 @@ class Mutation:
                 ).first()
                 if existing:
                     raise ValueError(f"FetcherType con código '{input.code}' ya existe")
-                fetcher_type.code = input.code
+                fetcher.code = input.code
 
             if input.class_path is not None:
-                fetcher_type.class_path = input.class_path
+                # class_path is not stored in DB (dropped by migration).
+                # If provided, register it in the runtime registry so
+                # other parts of the app can resolve it by `code`.
+                try:
+                    FetcherRegistry.register_fetcher(fetcher.code, input.class_path, input.description or fetcher.code)
+                except Exception:
+                    pass
 
             if input.description is not None:
-                fetcher_type.description = input.description
+                fetcher.description = input.description
 
             db.commit()
-            db.refresh(fetcher_type)
-            return map_fetcher_type(fetcher_type)
+            db.refresh(fetcher)
+            return map_fetcher(fetcher)
         except Exception as e:
             db.rollback()
             raise e
@@ -245,23 +258,23 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def delete_fetcher_type(self, id: str) -> bool:
+    def delete_fetcher(self, id: str) -> bool:
         """Elimina un tipo de fetcher"""
         db = get_db()
         try:
-            fetcher_type = db.query(FetcherType).filter(FetcherType.id == id).first()
-            if not fetcher_type:
+            fetcher = db.query(FetcherType).filter(FetcherType.id == id).first()
+            if not fetcher:
                 raise ValueError(f"FetcherType con id '{id}' no encontrado")
 
-            # Verificar que no haya resources usando este fetcher_type
-            resources_count = db.query(Resource).filter(Resource.fetcher_type_id == id).count()
+            # Verificar que no haya resources usando este fetcher
+            resources_count = db.query(Resource).filter(Resource.fetcher_id == id).count()
             if resources_count > 0:
                 raise ValueError(
                     f"No se puede eliminar el FetcherType porque {resources_count} "
                     f"resource(s) lo están usando"
                 )
 
-            db.delete(fetcher_type)
+            db.delete(fetcher)
             db.commit()
             return True
         except Exception as e:

@@ -232,7 +232,7 @@ class SOAPFetcher(BaseFetcher):
 2. Registrar en BD:
 
 ```sql
-INSERT INTO opendata.fetcher_type (id, code, class_path, description)
+INSERT INTO opendata.fetcher (id, code, class_path, description)
 VALUES (
   gen_random_uuid(),
   'soap',

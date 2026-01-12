@@ -35,7 +35,7 @@
           <div>
             <span class="text-gray-400 block mb-1">Type:</span>
             <code class="bg-gray-900 px-2 py-1 rounded text-blue-400 text-xs">
-              {{ source.fetcherType.code }}
+              {{ source.fetcher.code }}
             </code>
           </div>
           <div>
@@ -57,7 +57,7 @@
         <div class="mt-4">
           <span class="text-gray-400 text-sm block mb-1">Class Path:</span>
           <code class="block bg-gray-900 p-2 rounded text-green-400 text-xs">
-            {{ source.fetcherType.classPath }}
+            {{ source.fetcher.classPath }}
           </code>
         </div>
 

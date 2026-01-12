@@ -1,6 +1,6 @@
 """
 Script para limpiar tipos de fetcher obsoletos.
-Ejecutar con: python -m scripts.cleanup_old_fetcher_types
+Ejecutar con: python -m scripts.cleanup_old_fetchers
 """
 from app.database import SessionLocal
 from app.models import FetcherType
@@ -8,17 +8,17 @@ from app.models import FetcherType
 # Tipos obsoletos a eliminar
 OBSOLETE_CODES = ["REST", "RER", "HTML Scraper"]
 
-def cleanup_old_fetcher_types():
+def cleanup_old_fetchers():
     """Elimina fetcher types obsoletos que ya no se usan"""
     db = SessionLocal()
     try:
         for code in OBSOLETE_CODES:
-            fetcher_type = db.query(FetcherType).filter(
+            fetcher = db.query(FetcherType).filter(
                 FetcherType.code == code
             ).first()
 
-            if fetcher_type:
-                db.delete(fetcher_type)
+            if fetcher:
+                db.delete(fetcher)
                 print(f"[-] Eliminado FetcherType obsoleto: '{code}'")
             else:
                 print(f"[OK] FetcherType '{code}' ya no existe")
@@ -35,4 +35,4 @@ def cleanup_old_fetcher_types():
 
 
 if __name__ == "__main__":
-    cleanup_old_fetcher_types()
+    cleanup_old_fetchers()

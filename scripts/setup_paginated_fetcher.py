@@ -16,7 +16,7 @@ def setup_paginated_html_fetcher():
     
     try:
         # 1. Crear el FetcherType para HTML Paginated
-        fetcher_type = FetcherType(
+        fetcher = FetcherType(
             id=uuid4(),
             code="HTML_PAGINATED",
             class_path="app.fetchers.paginated_html.PaginatedHtmlFetcher",
@@ -25,7 +25,7 @@ def setup_paginated_html_fetcher():
 Soporta múltiples mecanismos de paginación (links, forms), extracción mediante selectores CSS, y configuración completa de headers y delays. Ideal para portales gubernamentales con resultados paginados."""
         )
         
-        session.add(fetcher_type)
+        session.add(fetcher)
         session.flush()  # Para obtener el ID
         
         # 2. Definir los parámetros obligatorios y opcionales
@@ -73,7 +73,7 @@ Soporta múltiples mecanismos de paginación (links, forms), extracción mediant
         for param_name, required, data_type, description in parameters:
             param = TypeFetcherParams(
                 id=uuid4(),
-                fetcher_type_id=fetcher_type.id,
+                fetcher_id=fetcher.id,
                 param_name=param_name,
                 required=required,
                 data_type=data_type
@@ -82,7 +82,7 @@ Soporta múltiples mecanismos de paginación (links, forms), extracción mediant
         
         session.commit()
         
-        print(f"✅ FetcherType HTML_PAGINATED registrado con ID: {fetcher_type.id}")
+        print(f"✅ FetcherType HTML_PAGINATED registrado con ID: {fetcher.id}")
         print(f"✅ {len(parameters)} parámetros configurados")
         
         # 4. Mostrar ejemplo de configuración para el caso RER
@@ -117,7 +117,7 @@ Soporta múltiples mecanismos de paginación (links, forms), extracción mediant
         print(json.dumps(example_config, indent=2, ensure_ascii=False))
         
         print("\n🎯 Para usar este fetcher:")
-        print("1. Crea un nuevo Resource con fetcher_type_id = HTML_PAGINATED")
+        print("1. Crea un nuevo Resource con fetcher_id = HTML_PAGINATED")
         print("2. Configura los parámetros según el ejemplo anterior")
         print("3. Ajusta los selectores CSS según el HTML real del sitio")
         print("4. El sistema manejará automáticamente la paginación completa")

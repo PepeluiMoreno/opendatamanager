@@ -4,18 +4,32 @@ from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, DateT
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.fetchers.registry import FetcherRegistry
 
 class FetcherType(Base):
-    __tablename__ = "fetcher_type"
+    __tablename__ = "fetcher"
     __table_args__ = {"schema": "opendata"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    code = Column(String(50), unique=True, nullable=False)
-    class_path = Column(String(255), nullable=False)
+    # DB migrations renamed this column to 'name' — keep attribute `code`
+    # mapped to DB column 'name' for backward compatibility in code.
+    code = Column('name', String(50), unique=True, nullable=False)
+
+    # `class_path` was removed from the DB (see alembic migration
+    # that dropped the column). We expose it as a computed property
+    # using the in-memory FetcherRegistry so code that expects
+    # `fetcher.class_path` continues to work without querying a
+    # non-existent column.
+    @property
+    def class_path(self) -> str:
+        try:
+            return FetcherRegistry.get_class_path(self.code)
+        except Exception:
+            return None
     description = Column(Text)
 
-    params_def = relationship("TypeFetcherParams", back_populates="fetcher_type")
-    resources = relationship("Resource", back_populates="fetcher_type")
+    params_def = relationship("TypeFetcherParams", back_populates="fetcher")
+    resources = relationship("Resource", back_populates="fetcher")
 
 
 class TypeFetcherParams(Base):
@@ -23,12 +37,12 @@ class TypeFetcherParams(Base):
     __table_args__ = {"schema": "opendata"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    fetcher_type_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher_type.id"))
+    fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id"))
     param_name = Column(String(100), nullable=False)
     required = Column(Boolean, default=True)
     data_type = Column(String(20), default="string")
 
-    fetcher_type = relationship("FetcherType", back_populates="params_def")
+    fetcher = relationship("FetcherType", back_populates="params_def")
 
 
 class Resource(Base):
@@ -40,14 +54,14 @@ class Resource(Base):
     description = Column(Text)
     publisher = Column(String(50), nullable=False)
     target_table = Column(String(100), nullable=False)
-    fetcher_type_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher_type.id"))
+    fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id"))
     active = Column(Boolean, default=True)
 
     # New fields for artifact system
     enable_load = Column(Boolean, default=False)
     load_mode = Column(String(20), default="replace")
 
-    fetcher_type = relationship("FetcherType", back_populates="resources")
+    fetcher = relationship("FetcherType", back_populates="resources")
     params = relationship("ResourceParam", back_populates="resource", cascade="all, delete-orphan")
     executions = relationship("ResourceExecution", back_populates="resource")
     artifacts = relationship("Artifact", back_populates="resource")

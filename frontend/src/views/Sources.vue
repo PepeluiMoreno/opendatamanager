@@ -36,7 +36,7 @@
             <td class="py-3 px-4 text-gray-400">{{ source.publisher }}</td>
             <td class="py-3 px-4">
               <code class="text-xs bg-gray-900 px-2 py-1 rounded text-blue-400">
-                {{ source.fetcherType.code }}
+                {{ source.fetcher.code }}
               </code>
             </td>
             <td class="py-3 px-4">
@@ -125,13 +125,13 @@
           </div>
 
           <div>
-            <Tooltip :text="getTooltip('fetcher_type_id')">
+            <Tooltip :text="getTooltip('fetcher_id')">
               <label class="block text-xs font-medium mb-1">Fetcher Type</label>
             </Tooltip>
             <select v-model="form.fetcherTypeId" required class="input w-full text-sm">
               <option value="">Select a type...</option>
               <option
-                v-for="type in fetcherTypes"
+                v-for="type in fetchers"
                 :key="type.id"
                 :value="type.id"
               >
@@ -295,7 +295,7 @@ import { ref, onMounted } from 'vue'
 import Tooltip from '../components/Tooltip.vue'
 import {
   fetchResources,
-  fetchFetcherTypes,
+  fetchfetchers,
   fetchFieldMetadata,
   createResource,
   updateResource,
@@ -304,7 +304,7 @@ import {
 } from '../api/graphql'
 
 const sources = ref([])
-const fetcherTypes = ref([])
+const fetchers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
 const loading = ref(true)
 const error = ref(null)
@@ -334,12 +334,12 @@ async function loadData() {
     error.value = null
     const [resourcesData, typesData, resourceMetadata, paramMetadata] = await Promise.all([
       fetchResources(false),
-      fetchFetcherTypes(),
+      fetchfetchers(),
       fetchFieldMetadata('resource'),
       fetchFieldMetadata('resource_param'),
     ])
     sources.value = resourcesData.resources
-    fetcherTypes.value = typesData.fetcherTypes
+    fetchers.value = typesData.fetchers
 
     // Organize metadata by field_name for easy lookup
     const metaMap = {}

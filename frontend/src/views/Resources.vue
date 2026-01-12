@@ -125,7 +125,7 @@
           </div>
 
           <div>
-            <Tooltip :text="getTooltip('fetcher_type_id')">
+            <Tooltip :text="getTooltip('fetcher_id')">
               <label class="block text-xs font-medium mb-1">Select Fetcher</label>
             </Tooltip>
             <select v-model="form.fetcherId" required class="input w-full text-sm">
