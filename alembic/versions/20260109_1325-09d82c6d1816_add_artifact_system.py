@@ -1,4 +1,4 @@
-"""add_artifact_system
+"""add_dataset_system
 
 Revision ID: 09d82c6d1816
 Revises: ef2383fe082a
@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Add artifact system tables and fields."""
+    """Add dataset system tables and fields."""
 
     # ResourceExecution - audit trail
     op.create_table(
@@ -40,7 +40,7 @@ def upgrade() -> None:
 
     # Artifact - versioned packages
     op.create_table(
-        'artifact',
+        'dataset',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('resource_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('execution_id', postgresql.UUID(as_uuid=True), nullable=True),
@@ -60,7 +60,7 @@ def upgrade() -> None:
 
     # ArtifactSubscription - passive subscriptions
     op.create_table(
-        'artifact_subscription',
+        'dataset_subscription',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('application_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('resource_id', postgresql.UUID(as_uuid=True), nullable=False),
@@ -79,13 +79,13 @@ def upgrade() -> None:
         'application_notification',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('application_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('artifact_id', postgresql.UUID(as_uuid=True), nullable=True),
+        sa.Column('dataset_id', postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column('sent_at', sa.DateTime(), nullable=True),
         sa.Column('status_code', sa.Integer(), nullable=True),
         sa.Column('response_body', sa.Text(), nullable=True),
         sa.Column('error_message', sa.Text(), nullable=True),
         sa.ForeignKeyConstraint(['application_id'], ['opendata.application.id'], ),
-        sa.ForeignKeyConstraint(['artifact_id'], ['opendata.artifact.id'], ),
+        sa.ForeignKeyConstraint(['dataset_id'], ['opendata.dataset.id'], ),
         sa.PrimaryKeyConstraint('id'),
         schema='opendata'
     )
@@ -100,7 +100,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove artifact system tables and fields."""
+    """Remove dataset system tables and fields."""
 
     # Drop new fields from Resource
     op.drop_column('resource', 'load_mode', schema='opendata')
@@ -112,6 +112,6 @@ def downgrade() -> None:
 
     # Drop tables (in reverse order due to foreign keys)
     op.drop_table('application_notification', schema='opendata')
-    op.drop_table('artifact_subscription', schema='opendata')
-    op.drop_table('artifact', schema='opendata')
+    op.drop_table('dataset_subscription', schema='opendata')
+    op.drop_table('dataset', schema='opendata')
     op.drop_table('resource_execution', schema='opendata')

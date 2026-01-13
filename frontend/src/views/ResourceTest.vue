@@ -121,64 +121,64 @@
         />
       </div>
 
-      <!-- Artifacts Section -->
+      <!-- Datasets Section -->
       <div class="card mb-6">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-xl font-bold">Artifacts & Versions</h2>
-          <button @click="loadArtifacts" class="text-sm text-blue-400 hover:text-blue-300">
+          <h2 class="text-xl font-bold">Datasets & Versions</h2>
+          <button @click="loadDatasets" class="text-sm text-blue-400 hover:text-blue-300">
             🔄 Refresh
           </button>
         </div>
 
-        <div v-if="loadingArtifacts" class="text-gray-400 text-center py-8">
-          Loading artifacts...
+        <div v-if="loadingDatasets" class="text-gray-400 text-center py-8">
+          Loading datasets...
         </div>
 
-        <div v-else-if="artifacts.length === 0" class="text-gray-400 text-center py-8">
-          No artifacts yet. Execute this resource to generate the first artifact.
+        <div v-else-if="datasets.length === 0" class="text-gray-400 text-center py-8">
+          No datasets yet. Execute this resource to generate the first dataset.
         </div>
 
         <div v-else class="space-y-3">
           <div
-            v-for="artifact in artifacts"
-            :key="artifact.id"
+            v-for="dataset in datasets"
+            :key="dataset.id"
             class="p-4 bg-gray-700 rounded hover:bg-gray-650 transition-colors"
           >
             <div class="flex items-start justify-between">
               <div class="flex-1">
                 <div class="flex items-center space-x-3">
-                  <span class="text-2xl font-bold text-blue-400">v{{ artifact.version }}</span>
+                  <span class="text-2xl font-bold text-blue-400">v{{ dataset.version }}</span>
                   <span class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">
-                    {{ artifact.recordCount }} records
+                    {{ dataset.recordCount }} records
                   </span>
                   <span class="text-xs text-gray-400">
-                    {{ new Date(artifact.createdAt).toLocaleString() }}
+                    {{ new Date(dataset.createdAt).toLocaleString() }}
                   </span>
                 </div>
                 <div class="mt-2 flex gap-2">
                   <a
-                    :href="getBackendUrl(artifact.downloadUrls.data)"
+                    :href="getBackendUrl(dataset.downloadUrls.data)"
                     target="_blank"
                     class="text-xs bg-blue-900 hover:bg-blue-800 text-blue-200 px-3 py-1 rounded"
                   >
                     📄 data.jsonl
                   </a>
                   <a
-                    :href="getBackendUrl(artifact.downloadUrls.schema)"
+                    :href="getBackendUrl(dataset.downloadUrls.schema)"
                     target="_blank"
                     class="text-xs bg-green-900 hover:bg-green-800 text-green-200 px-3 py-1 rounded"
                   >
                     📋 schema.json
                   </a>
                   <a
-                    :href="getBackendUrl(artifact.downloadUrls.models)"
+                    :href="getBackendUrl(dataset.downloadUrls.models)"
                     target="_blank"
                     class="text-xs bg-purple-900 hover:bg-purple-800 text-purple-200 px-3 py-1 rounded"
                   >
                     🐍 models.py
                   </a>
                   <a
-                    :href="getBackendUrl(artifact.downloadUrls.metadata)"
+                    :href="getBackendUrl(dataset.downloadUrls.metadata)"
                     target="_blank"
                     class="text-xs bg-yellow-900 hover:bg-yellow-800 text-yellow-200 px-3 py-1 rounded"
                   >
@@ -263,7 +263,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchResource, executeResource, fetchArtifacts } from '../api/graphql'
+import { fetchResource, executeResource, fetchDatasets } from '../api/graphql'
 import ExecutionStatus from '../components/ExecutionStatus.vue'
 import JsonViewer from '../components/JsonViewer.vue'
 
@@ -279,8 +279,8 @@ const lastExecutionTime = ref(null)
 const lastExecutionSuccess = ref(null)
 const lastExecutionMessage = ref(null)
 const lastExecutionDetails = ref(null)
-const artifacts = ref([])
-const loadingArtifacts = ref(false)
+const datasets = ref([])
+const loadingDatasets = ref(false)
 
 const executionStatus = computed(() => {
   if (executing.value) return 'loading'
@@ -341,9 +341,9 @@ async function executeTest() {
       executionHistory.value = executionHistory.value.slice(0, 20)
     }
 
-    // Reload artifacts after successful execution
+    // Reload datasets after successful execution
     if (result.executeResource.success) {
-      await loadArtifacts()
+      await loadDatasets()
     }
   } catch (e) {
     error.value = 'Failed to execute resource: ' + e.message
@@ -370,15 +370,15 @@ function viewHistoryItem(item) {
   selectedHistoryItem.value = item
 }
 
-async function loadArtifacts() {
+async function loadDatasets() {
   try {
-    loadingArtifacts.value = true
-    const data = await fetchArtifacts(route.params.id)
-    artifacts.value = data.artifacts || []
+    loadingDatasets.value = true
+    const data = await fetchDatasets(route.params.id)
+    datasets.value = data.datasets || []
   } catch (e) {
-    console.error('Failed to load artifacts:', e)
+    console.error('Failed to load datasets:', e)
   } finally {
-    loadingArtifacts.value = false
+    loadingDatasets.value = false
   }
 }
 
@@ -392,6 +392,6 @@ function getBackendUrl(path) {
 
 onMounted(async () => {
   await loadSource()
-  await loadArtifacts()
+  await loadDatasets()
 })
 </script>

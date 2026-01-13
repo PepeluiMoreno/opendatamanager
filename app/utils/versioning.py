@@ -1,13 +1,13 @@
 """
-Versioning utilities for artifacts.
+Versioning utilities for datasets.
 Implements semantic versioning based on schema changes.
 """
 from typing import Dict, Tuple, Optional
-from app.models import Artifact
+from app.models import Dataset
 
 
 def compute_next_version(
-    latest_artifact: Optional[Artifact],
+    latest_dataset: Optional[Dataset],
     new_schema: Dict
 ) -> Tuple[int, int, int]:
     """
@@ -19,30 +19,30 @@ def compute_next_version(
     - PATCH: No schema changes (only data updated)
 
     Args:
-        latest_artifact: Previous artifact (None if first version)
+        latest_dataset: Previous dataset (None if first version)
         new_schema: New schema to compare
 
     Returns:
         Tuple of (major, minor, patch) version numbers
     """
-    if not latest_artifact:
+    if not latest_dataset:
         return (1, 0, 0)
 
-    old_schema = latest_artifact.schema_json
+    old_schema = latest_dataset.schema_json
     diff = compute_schema_diff(old_schema, new_schema)
 
     if diff["breaking_changes"]:
         # Field removed or type changed → MAJOR
-        return (latest_artifact.major_version + 1, 0, 0)
+        return (latest_dataset.major_version + 1, 0, 0)
     elif diff["added_fields"]:
         # Field added → MINOR
-        return (latest_artifact.major_version, latest_artifact.minor_version + 1, 0)
+        return (latest_dataset.major_version, latest_dataset.minor_version + 1, 0)
     else:
         # Only data changed → PATCH
         return (
-            latest_artifact.major_version,
-            latest_artifact.minor_version,
-            latest_artifact.patch_version + 1
+            latest_dataset.major_version,
+            latest_dataset.minor_version,
+            latest_dataset.patch_version + 1
         )
 
 

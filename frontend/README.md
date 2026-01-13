@@ -1,6 +1,6 @@
 # OpenDataManager Frontend
 
-Vue 3 + Vite + Tailwind CSS frontend for managing OpenData sources.
+Vue 3 + Vite + Tailwind CSS frontend for managing OpenData  resources.
 
 ## Setup
 
@@ -24,9 +24,9 @@ npm run build
 ## Features
 
 - **Dashboard**: Overview of system stats and quick actions
-- **Sources**: Full CRUD management of data sources with dynamic forms
-- **Source Test**: Live execution and testing of sources with JSON result viewer
-- **Fetcher Types**: View available fetcher implementations
+- **Resources**: Full CRUD management of data resources with dynamic forms
+- **Source Test**: Live execution and testing of resources with JSON result viewer
+- **Fetcher**: View available fetcher implementations
 - **Applications**: Manage subscribed applications and their project subscriptions
 
 ## Tech Stack
@@ -50,9 +50,9 @@ frontend/
 │   │   └── Sidebar.vue          # Navigation sidebar
 │   ├── views/
 │   │   ├── Dashboard.vue        # Main dashboard
-│   │   ├── Sources.vue          # Sources management
+│   │   ├──  Resources.vue          #  Resources management
 │   │   ├── SourceTest.vue       # Test source execution
-│   │   ├── FetcherTypes.vue     # View fetcher types
+│   │   ├── Fetchers.vue     # View fetcher types
 │   │   └── Applications.vue     # Applications management
 │   ├── router/
 │   │   └── index.js             # Vue Router config

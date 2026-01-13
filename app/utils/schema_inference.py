@@ -1,5 +1,5 @@
 """
-Schema inference utilities for artifact generation.
+Schema inference utilities for dataset generation.
 Infers JSON Schema from data samples.
 """
 from typing import List, Dict, Any

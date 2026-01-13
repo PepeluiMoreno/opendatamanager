@@ -6,7 +6,7 @@ como el caso de las Entidades Religiosas del Ministerio de Justicia.
 """
 
 from sqlalchemy.orm import SessionLocal
-from app.models import FetcherType, TypeFetcherParams
+from app.models import Fetcher, FetcherParams
 from uuid import uuid4
 import json
 
@@ -15,8 +15,8 @@ def setup_paginated_html_fetcher():
     session = SessionLocal()
     
     try:
-        # 1. Crear el FetcherType para HTML Paginated
-        fetcher = FetcherType(
+        # 1. Crear el Fetcher para HTML Paginated
+        fetcher = Fetcher(
             id=uuid4(),
             code="HTML_PAGINATED",
             class_path="app.fetchers.paginated_html.PaginatedHtmlFetcher",
@@ -71,7 +71,7 @@ Soporta múltiples mecanismos de paginación (links, forms), extracción mediant
         
         # 3. Insertar parámetros
         for param_name, required, data_type, description in parameters:
-            param = TypeFetcherParams(
+            param = FetcherParams(
                 id=uuid4(),
                 fetcher_id=fetcher.id,
                 param_name=param_name,
@@ -82,7 +82,7 @@ Soporta múltiples mecanismos de paginación (links, forms), extracción mediant
         
         session.commit()
         
-        print(f"✅ FetcherType HTML_PAGINATED registrado con ID: {fetcher.id}")
+        print(f"✅ Fetcher HTML_PAGINATED registrado con ID: {fetcher.id}")
         print(f"✅ {len(parameters)} parámetros configurados")
         
         # 4. Mostrar ejemplo de configuración para el caso RER

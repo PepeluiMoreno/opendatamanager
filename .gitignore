@@ -80,7 +80,7 @@ out/
 .vuepress/dist
 lerna-debug.log*
 
-# Build artifacts
+# Build datasets
 *.whl
 *.tar.gz
 

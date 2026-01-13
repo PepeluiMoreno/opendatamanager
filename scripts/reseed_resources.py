@@ -4,7 +4,7 @@ Ejecutar con: python -m scripts.reseed_resources
 """
 from uuid import uuid4
 from app.database import SessionLocal
-from app.models import FetcherType, Resource, ResourceParam
+from app.models import Fetcher, Resource, ResourceParam
 
 
 SAMPLE_RESOURCES = [
@@ -65,12 +65,12 @@ def reseed_resources():
 
         # Crear nuevos resources
         for resource_data in SAMPLE_RESOURCES:
-            fetcher = db.query(FetcherType).filter(
-                FetcherType.code == resource_data["fetcher_code"]
+            fetcher = db.query(Fetcher).filter(
+                Fetcher.code == resource_data["fetcher_code"]
             ).first()
 
             if not fetcher:
-                print(f"[WARN] No se encontró FetcherType '{resource_data["fetcher_code"]}'")
+                print(f"[WARN] No se encontró Fetcher '{resource_data["fetcher_code"]}'")
                 continue
 
             resource = Resource(

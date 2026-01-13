@@ -8,28 +8,28 @@ import requests
 from typing import List, Dict
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.models import Artifact, ArtifactSubscription, Application, ApplicationNotification
+from app.models import Dataset, DatasetSubscription, Application, ApplicationNotification
 from app.utils.versioning import compute_schema_diff
 
 
 class NotificationService:
     """Service for sending webhook notifications to applications"""
 
-    def notify_subscribers(self, session: Session, artifact: Artifact):
+    def notify_subscribers(self, session: Session, dataset: Dataset):
         """
         Send notifications to all subscribed applications.
 
         Args:
             session: SQLAlchemy session
-            artifact: Newly created Artifact
+            dataset: Newly created Dataset
         """
-        print(f"  [5/5] NOTIFY - Sending notifications for artifact {artifact.version_string}...")
+        print(f"  [5/5] NOTIFY - Sending notifications for dataset {dataset.version_string}...")
 
         # Get matching subscriptions for this resource
         subscriptions = (
-            session.query(ArtifactSubscription)
+            session.query(DatasetSubscription)
             .join(Application)
-            .filter(ArtifactSubscription.resource_id == artifact.resource_id)
+            .filter(DatasetSubscription.resource_id == dataset.resource_id)
             .filter(Application.active == True)
             .all()
         )
@@ -46,7 +46,7 @@ class NotificationService:
                 continue
 
             # Build payload
-            payload = self._build_payload(session, artifact, subscription)
+            payload = self._build_payload(session, dataset, subscription)
 
             # Sign with HMAC
             signature = self._compute_hmac(payload, app.webhook_secret or "")
@@ -66,7 +66,7 @@ class NotificationService:
                 # Log notification
                 notification = ApplicationNotification(
                     application_id=app.id,
-                    artifact_id=artifact.id,
+                    dataset_id=dataset.id,
                     sent_at=datetime.utcnow(),
                     status_code=response.status_code,
                     response_body=response.text[:1000]
@@ -79,7 +79,7 @@ class NotificationService:
                 # Log error
                 notification = ApplicationNotification(
                     application_id=app.id,
-                    artifact_id=artifact.id,
+                    dataset_id=dataset.id,
                     sent_at=datetime.utcnow(),
                     error_message=str(e)
                 )
@@ -92,51 +92,51 @@ class NotificationService:
     def _build_payload(
         self,
         session: Session,
-        artifact: Artifact,
-        subscription: ArtifactSubscription
+        dataset: Dataset,
+        subscription: DatasetSubscription
     ) -> Dict:
         """Build notification payload"""
-        resource = artifact.resource
+        resource = dataset.resource
 
         # Compute schema diff if there's a previous version
         schema_diff = {}
         if subscription.current_version:
-            # Find previous artifact
+            # Find previous dataset
             prev_parts = subscription.current_version.split('.')
             if len(prev_parts) == 3:
-                prev_artifact = (
-                    session.query(Artifact)
-                    .filter(Artifact.resource_id == resource.id)
-                    .filter(Artifact.major_version == int(prev_parts[0]))
-                    .filter(Artifact.minor_version == int(prev_parts[1]))
-                    .filter(Artifact.patch_version == int(prev_parts[2]))
+                prev_dataset = (
+                    session.query(Dataset)
+                    .filter(Dataset.resource_id == resource.id)
+                    .filter(Dataset.major_version == int(prev_parts[0]))
+                    .filter(Dataset.minor_version == int(prev_parts[1]))
+                    .filter(Dataset.patch_version == int(prev_parts[2]))
                     .first()
                 )
-                if prev_artifact:
+                if prev_dataset:
                     schema_diff = compute_schema_diff(
-                        prev_artifact.schema_json,
-                        artifact.schema_json
+                        prev_dataset.schema_json,
+                        dataset.schema_json
                     )
 
         return {
-            "event": "artifact.published",
-            "artifact": {
-                "id": str(artifact.id),
+            "event": "dataset.published",
+            "dataset": {
+                "id": str(dataset.id),
                 "resource_id": str(resource.id),
                 "resource_name": resource.name,
                 "publisher": resource.publisher,
-                "version": artifact.version_string,
+                "version": dataset.version_string,
                 "version_type": self._version_type(schema_diff),
-                "created_at": artifact.created_at.isoformat(),
-                "record_count": artifact.record_count,
-                "checksum": artifact.checksum
+                "created_at": dataset.created_at.isoformat(),
+                "record_count": dataset.record_count,
+                "checksum": dataset.checksum
             },
             "schema_diff": schema_diff,
             "download_urls": {
-                "data": f"/api/artifacts/{artifact.id}/data.jsonl",
-                "schema": f"/api/artifacts/{artifact.id}/schema.json",
-                "models": f"/api/artifacts/{artifact.id}/models.py",
-                "metadata": f"/api/artifacts/{artifact.id}/metadata.json"
+                "data": f"/api/datasets/{dataset.id}/data.jsonl",
+                "schema": f"/api/datasets/{dataset.id}/schema.json",
+                "models": f"/api/datasets/{dataset.id}/models.py",
+                "metadata": f"/api/datasets/{dataset.id}/metadata.json"
             }
         }
 

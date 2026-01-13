@@ -1,5 +1,5 @@
 """
-Test GraphQL queries para artifacts.
+Test GraphQL queries para datasets.
 Prueba las nuevas queries agregadas al schema.
 """
 import requests
@@ -19,14 +19,14 @@ def test_query(query, variables=None):
 
 
 def main():
-    print("Testing GraphQL Artifact Queries")
+    print("Testing GraphQL Dataset Queries")
     print("=" * 50)
 
-    # Test 1: List all artifacts
-    print("\n1. Listing all artifacts:")
+    # Test 1: List all datasets
+    print("\n1. Listing all datasets:")
     query1 = """
     query {
-      artifacts {
+      datasets {
         id
         version
         resourceId
@@ -40,18 +40,18 @@ def main():
     if "errors" in result1:
         print(f"  ERROR: {result1['errors']}")
     else:
-        artifacts = result1.get("data", {}).get("artifacts", [])
-        print(f"  Found {len(artifacts)} artifacts")
-        for art in artifacts[:3]:  # Show first 3
+        datasets = result1.get("data", {}).get("datasets", [])
+        print(f"  Found {len(datasets)} datasets")
+        for art in datasets[:3]:  # Show first 3
             print(f"    - {art['version']} ({art['recordCount']} records)")
 
-    # Test 2: Get specific artifact
-    if artifacts:
-        artifact_id = artifacts[0]["id"]
-        print(f"\n2. Getting artifact {artifact_id}:")
+    # Test 2: Get specific dataset
+    if datasets:
+        dataset_id = datasets[0]["id"]
+        print(f"\n2. Getting dataset {dataset_id}:")
         query2 = """
-        query GetArtifact($id: String!) {
-          artifact(id: $id) {
+        query GetDataset($id: String!) {
+          dataset(id: $id) {
             id
             version
             majorVersion
@@ -63,16 +63,16 @@ def main():
           }
         }
         """
-        result2 = test_query(query2, {"id": artifact_id})
+        result2 = test_query(query2, {"id": dataset_id})
         if "errors" in result2:
             print(f"  ERROR: {result2['errors']}")
         else:
-            artifact = result2.get("data", {}).get("artifact")
-            if artifact:
-                print(f"  Version: {artifact['version']}")
-                print(f"  Checksum: {artifact['checksum'][:16]}...")
+            dataset = result2.get("data", {}).get("dataset")
+            if dataset:
+                print(f"  Version: {dataset['version']}")
+                print(f"  Checksum: {dataset['checksum'][:16]}...")
                 print(f"  Download URLs:")
-                for key, url in artifact['downloadUrls'].items():
+                for key, url in dataset['downloadUrls'].items():
                     print(f"    - {key}: {url}")
 
     # Test 3: List resource executions
@@ -99,11 +99,11 @@ def main():
         for exe in executions[:3]:
             print(f"    - {exe['status']}: {exe['totalRecords']} records")
 
-    # Test 4: List artifact subscriptions
-    print("\n4. Listing artifact subscriptions:")
+    # Test 4: List dataset subscriptions
+    print("\n4. Listing dataset subscriptions:")
     query4 = """
     query {
-      artifactSubscriptions {
+      datasetSubscriptions {
         id
         applicationId
         resourceId
@@ -117,7 +117,7 @@ def main():
     if "errors" in result4:
         print(f"  ERROR: {result4['errors']}")
     else:
-        subs = result4.get("data", {}).get("artifactSubscriptions", [])
+        subs = result4.get("data", {}).get("datasetSubscriptions", [])
         print(f"  Found {len(subs)} subscriptions")
         for sub in subs:
             print(f"    - App {sub['applicationId'][:8]}... pinned to {sub.get('pinnedVersion', 'none')}")
