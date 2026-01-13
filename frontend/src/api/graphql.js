@@ -70,17 +70,6 @@ export const QUERIES = {
     }
   `,
 
-  GET_fetcherS: `
-    query Getfetchers {
-      fetcherTypes {
-        id
-        code
-        classPath
-        description
-      }
-    }
-  `,
-
   GET_APPLICATIONS: `
     query GetApplications {
       applications {
@@ -140,7 +129,7 @@ export const QUERIES = {
   `,
   GET_FETCHERS: `
     query GetFetchers {
-      fetcherTypes {
+      fetchers {
         id
         name
         code
@@ -152,6 +141,7 @@ export const QUERIES = {
           dataType
           required
           defaultValue
+          enumValues
         }
         resources {
           id
@@ -237,37 +227,11 @@ export const MUTATIONS = {
     }
   `,
 
-  CREATE_fetcher: `
-    mutation CreateFetcherType($input: CreateFetcherTypeInput!) {
-      createFetcherType(input: $input) {
-        id
-        code
-        classPath
-        description
-      }
-    }
-  `,
-
-  UPDATE_fetcher: `
-    mutation UpdateFetcherType($id: String!, $input: UpdateFetcherTypeInput!) {
-      updateFetcherType(id: $id, input: $input) {
-        id
-        code
-        classPath
-        description
-      }
-    }
-  `,
-
-  DELETE_fetcher: `
-    mutation DeleteFetcherType($id: String!) {
-      deleteFetcherType(id: $id)
-    }
-  `,
   CREATE_FETCHER: `
     mutation CreateFetcher($input: CreateFetcherInput!) {
       createFetcher(input: $input) {
         id
+        code
         name
         description
       }
@@ -278,6 +242,7 @@ export const MUTATIONS = {
     mutation UpdateFetcher($id: String!, $input: UpdateFetcherInput!) {
       updateFetcher(id: $id, input: $input) {
         id
+        code
         name
         description
       }
@@ -287,6 +252,38 @@ export const MUTATIONS = {
   DELETE_FETCHER: `
     mutation DeleteFetcher($id: String!) {
       deleteFetcher(id: $id)
+    }
+  `,
+
+  CREATE_TYPE_FETCHER_PARAM: `
+    mutation CreateTypeFetcherParam($input: CreateTypeFetcherParamInput!) {
+      createTypeFetcherParam(input: $input) {
+        id
+        paramName
+        dataType
+        required
+        defaultValue
+        enumValues
+      }
+    }
+  `,
+
+  UPDATE_TYPE_FETCHER_PARAM: `
+    mutation UpdateTypeFetcherParam($id: String!, $input: UpdateTypeFetcherParamInput!) {
+      updateTypeFetcherParam(id: $id, input: $input) {
+        id
+        paramName
+        dataType
+        required
+        defaultValue
+        enumValues
+      }
+    }
+  `,
+
+  DELETE_TYPE_FETCHER_PARAM: `
+    mutation DeleteTypeFetcherParam($id: String!) {
+      deleteTypeFetcherParam(id: $id)
     }
   `,
 }
@@ -303,14 +300,6 @@ export async function fetchResources(activeOnly = false) {
 export async function fetchResource(id) {
   try {
     return await client.request(QUERIES.GET_RESOURCE, { id })
-  } catch (error) {
-    handleGraphQLError(error)
-  }
-}
-
-export async function fetchfetchers() {
-  try {
-    return await client.request(QUERIES.GET_fetcherS)
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -343,6 +332,30 @@ export async function updateFetcher(id, input) {
 export async function deleteFetcher(id) {
   try {
     return await client.request(MUTATIONS.DELETE_FETCHER, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function createTypeFetcherParam(input) {
+  try {
+    return await client.request(MUTATIONS.CREATE_TYPE_FETCHER_PARAM, { input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function updateTypeFetcherParam(id, input) {
+  try {
+    return await client.request(MUTATIONS.UPDATE_TYPE_FETCHER_PARAM, { id, input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function deleteTypeFetcherParam(id) {
+  try {
+    return await client.request(MUTATIONS.DELETE_TYPE_FETCHER_PARAM, { id })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -428,29 +441,6 @@ export async function deleteApplication(id) {
   }
 }
 
-export async function createFetcherType(input) {
-  try {
-    return await client.request(MUTATIONS.CREATE_fetcher, { input })
-  } catch (error) {
-    handleGraphQLError(error)
-  }
-}
-
-export async function updateFetcherType(id, input) {
-  try {
-    return await client.request(MUTATIONS.UPDATE_fetcher, { id, input })
-  } catch (error) {
-    handleGraphQLError(error)
-  }
-}
-
-export async function deleteFetcherType(id) {
-  try {
-    return await client.request(MUTATIONS.DELETE_fetcher, { id })
-  } catch (error) {
-    handleGraphQLError(error)
-  }
-}
 
 export async function previewResourceData(id, limit = 10) {
   try {

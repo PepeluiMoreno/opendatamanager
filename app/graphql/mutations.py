@@ -5,18 +5,20 @@ import strawberry
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, FetcherType
-from app.fetchers.registry import FetcherRegistry
+from app.models import Resource, ResourceParam, FetcherType, TypeFetcherParams
 from app.graphql.types import (
     ResourceType,
     Fetcher,
+    TypeFetcherParamType,
     CreateResourceInput,
     UpdateResourceInput,
-    CreateFetcherTypeInput,
-    UpdateFetcherTypeInput,
+    CreateFetcherInput,
+    UpdateFetcherInput,
+    CreateTypeFetcherParamInput,
+    UpdateTypeFetcherParamInput,
     ExecutionResult
 )
-from app.graphql.queries import map_resource, map_fetcher
+from app.graphql.queries import map_resource, map_fetcher, map_type_fetcher_param
 from app.manager.fetcher_manager import FetcherManager
 
 
@@ -185,30 +187,24 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def create_fetcher(self, input: CreateFetcherTypeInput) -> Fetcher:
+    def create_fetcher(self, input: CreateFetcherInput) -> Fetcher:
         """Crea un nuevo tipo de fetcher"""
         db = get_db()
         try:
             # Verificar que el código no exista
-            existing = db.query(FetcherType).filter(FetcherType.code == input.code).first()
+            existing = db.query(FetcherType).filter(FetcherType.code == input.name).first()
             if existing:
-                raise ValueError(f"FetcherType con código '{input.code}' ya existe")
+                raise ValueError(f"Fetcher con nombre '{input.name}' ya existe")
 
             fetcher = FetcherType(
                 id=uuid4(),
-                code=input.code,
+                code=input.name,
+                class_path=input.class_path,
                 description=input.description
             )
             db.add(fetcher)
             db.commit()
             db.refresh(fetcher)
-            # Register class_path in runtime registry if provided
-            if getattr(input, "class_path", None):
-                try:
-                    FetcherRegistry.register_fetcher(input.code, input.class_path, input.description or input.code)
-                except Exception:
-                    # don't fail DB creation if registry registration isn't possible
-                    pass
             return map_fetcher(fetcher)
         except Exception as e:
             db.rollback()
@@ -217,7 +213,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def update_fetcher(self, id: str, input: UpdateFetcherTypeInput) -> Fetcher:
+    def update_fetcher(self, id: str, input: UpdateFetcherInput) -> Fetcher:
         """Actualiza un tipo de fetcher existente"""
         db = get_db()
         try:
@@ -226,24 +222,18 @@ class Mutation:
                 raise ValueError(f"FetcherType con id '{id}' no encontrado")
 
             # Actualizar campos
-            if input.code is not None:
-                # Verificar que el nuevo código no exista
+            if input.name is not None:
+                # Verificar que el nuevo nombre no exista
                 existing = db.query(FetcherType).filter(
-                    FetcherType.code == input.code,
+                    FetcherType.code == input.name,
                     FetcherType.id != id
                 ).first()
                 if existing:
-                    raise ValueError(f"FetcherType con código '{input.code}' ya existe")
-                fetcher.code = input.code
+                    raise ValueError(f"Fetcher con nombre '{input.name}' ya existe")
+                fetcher.code = input.name
 
             if input.class_path is not None:
-                # class_path is not stored in DB (dropped by migration).
-                # If provided, register it in the runtime registry so
-                # other parts of the app can resolve it by `code`.
-                try:
-                    FetcherRegistry.register_fetcher(fetcher.code, input.class_path, input.description or fetcher.code)
-                except Exception:
-                    pass
+                fetcher.class_path = input.class_path
 
             if input.description is not None:
                 fetcher.description = input.description
@@ -275,6 +265,82 @@ class Mutation:
                 )
 
             db.delete(fetcher)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def create_type_fetcher_param(self, input: CreateTypeFetcherParamInput) -> TypeFetcherParamType:
+        """Crea un parámetro para un fetcher"""
+        db = get_db()
+        try:
+            # Verificar que el fetcher existe
+            fetcher = db.query(FetcherType).filter(FetcherType.id == input.fetcher_id).first()
+            if not fetcher:
+                raise ValueError(f"Fetcher con id '{input.fetcher_id}' no encontrado")
+
+            param = TypeFetcherParams(
+                id=uuid4(),
+                fetcher_id=input.fetcher_id,
+                param_name=input.param_name,
+                required=input.required,
+                data_type=input.data_type,
+                default_value=input.default_value,
+                enum_values=input.enum_values
+            )
+            db.add(param)
+            db.commit()
+            db.refresh(param)
+            return map_type_fetcher_param(param)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def update_type_fetcher_param(self, id: str, input: UpdateTypeFetcherParamInput) -> TypeFetcherParamType:
+        """Actualiza un parámetro de fetcher"""
+        db = get_db()
+        try:
+            param = db.query(TypeFetcherParams).filter(TypeFetcherParams.id == id).first()
+            if not param:
+                raise ValueError(f"TypeFetcherParam con id '{id}' no encontrado")
+
+            if input.param_name is not None:
+                param.param_name = input.param_name
+            if input.required is not None:
+                param.required = input.required
+            if input.data_type is not None:
+                param.data_type = input.data_type
+            if input.default_value is not None:
+                param.default_value = input.default_value
+            if input.enum_values is not None:
+                param.enum_values = input.enum_values
+
+            db.commit()
+            db.refresh(param)
+            return map_type_fetcher_param(param)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def delete_type_fetcher_param(self, id: str) -> bool:
+        """Elimina un parámetro de fetcher"""
+        db = get_db()
+        try:
+            param = db.query(TypeFetcherParams).filter(TypeFetcherParams.id == id).first()
+            if not param:
+                raise ValueError(f"TypeFetcherParam con id '{id}' no encontrado")
+
+            db.delete(param)
             db.commit()
             return True
         except Exception as e:

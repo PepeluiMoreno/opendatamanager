@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
-import Sources from '../views/Sources.vue'
-import SourceTest from '../views/SourceTest.vue'
+import Resources from '../views/Resources.vue'
+import ResourceTest from '../views/ResourceTest.vue'
 import Applications from '../views/Applications.vue'
 import fetchers from '../views/fetchers.vue'
 
@@ -14,7 +14,7 @@ const routes = [
   {
     path: '/resources',
     name: 'Resources',
-    component: Sources,
+    component: Resources,
   },
   {
     path: '/fetchers',
@@ -24,7 +24,7 @@ const routes = [
   {
     path: '/resources/:id/test',
     name: 'ResourceTest',
-    component: SourceTest,
+    component: ResourceTest,
   },
   {
     path: '/applications',

@@ -18,6 +18,17 @@ class BaseFetcher(ABC):
             params: Diccionario con los parámetros necesarios (ej: url, headers, etc.)
         """
         self.params = params
+        self.num_workers = int(params.get("num_workers", 1))
+
+    @property
+    def is_parallelizable(self) -> bool:
+        """
+        Indica si este fetcher puede ejecutarse con workers en paralelo.
+
+        Returns:
+            True si num_workers > 1, False en caso contrario
+        """
+        return self.num_workers > 1
 
     @abstractmethod
     def fetch(self) -> RawData:
