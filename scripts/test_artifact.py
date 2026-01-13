@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.database import SessionLocal
-from app.models import Resource, Artifact
+from app.models import Resource, Dataset
 from app.manager.fetcher_manager import FetcherManager
 
 def main():
@@ -26,24 +26,24 @@ def main():
 
         # Run the pipeline
         try:
-            artifact = FetcherManager.run(session, str(resource.id))
+            dataset = FetcherManager.run(session, str(resource.id))
 
-            if artifact:
+            if dataset:
                 print()
-                print("Artifact details:")
-                print(f"  - ID: {artifact.id}")
-                print(f"  - Version: {artifact.version_string}")
-                print(f"  - Record count: {artifact.record_count}")
-                print(f"  - Data path: {artifact.data_path}")
-                print(f"  - Checksum: {artifact.checksum}")
+                print("Dataset details:")
+                print(f"  - ID: {dataset.id}")
+                print(f"  - Version: {dataset.version_string}")
+                print(f"  - Record count: {dataset.record_count}")
+                print(f"  - Data path: {dataset.data_path}")
+                print(f"  - Checksum: {dataset.checksum}")
 
                 # Verify all files exist
-                artifact_dir = Path(artifact.data_path).parent
+                dataset_dir = Path(dataset.data_path).parent
                 files = {
-                    "data.jsonl": artifact_dir / "data.jsonl",
-                    "schema.json": artifact_dir / "schema.json",
-                    "models.py": artifact_dir / "models.py",
-                    "metadata.json": artifact_dir / "metadata.json"
+                    "data.jsonl": dataset_dir / "data.jsonl",
+                    "schema.json": dataset_dir / "schema.json",
+                    "models.py": dataset_dir / "models.py",
+                    "metadata.json": dataset_dir / "metadata.json"
                 }
 
                 print()

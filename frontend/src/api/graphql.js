@@ -97,8 +97,8 @@ export const QUERIES = {
   `,
 
   GET_ARTIFACTS: `
-    query GetArtifacts($resourceId: String) {
-      artifacts(resourceId: $resourceId) {
+    query GetDatasets($resourceId: String) {
+      datasets(resourceId: $resourceId) {
         id
         resourceId
         version
@@ -450,7 +450,7 @@ export async function previewResourceData(id, limit = 10) {
   }
 }
 
-export async function fetchArtifacts(resourceId = null) {
+export async function fetchDatasets(resourceId = null) {
   try {
     return await client.request(QUERIES.GET_ARTIFACTS, { resourceId })
   } catch (error) {

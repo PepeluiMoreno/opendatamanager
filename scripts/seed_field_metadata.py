@@ -20,7 +20,7 @@ FIELD_METADATA = [
         "table_name": "resource",
         "field_name": "project",
         "label": "Proyecto",
-        "help_text": "Proyecto o dominio al que pertenece este source. Usado para agrupar sources relacionados. Ejemplo: 'clientes', 'ventas', 'inventario'",
+        "help_text": "Proyecto o dominio al que pertenece este source. Usado para agrupar  resources relacionados. Ejemplo: 'clientes', 'ventas', 'inventario'",
         "placeholder": "e.g., clientes"
     },
     {
@@ -170,7 +170,7 @@ FIELD_METADATA = [
         "table_name": "application",
         "field_name": "subscribed_projects",
         "label": "Proyectos Suscritos",
-        "help_text": "Lista de proyectos a los que esta aplicación está suscrita. Recibirá modelos de sources que pertenezcan a estos proyectos",
+        "help_text": "Lista de proyectos a los que esta aplicación está suscrita. Recibirá modelos de  resources que pertenezcan a estos proyectos",
         "placeholder": '["clientes", "ventas"]'
     },
 ]

@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 @strawberry.type
-class TypeFetcherParamType:
+class FetcherParamType:
     """Parámetro requerido por un tipo de fetcher"""
     id: str
     param_name: str = strawberry.field(name="paramName")
@@ -101,6 +101,23 @@ class ApplicationType:
     subscribed_projects: List[str] = strawberry.field(name="subscribedProjects")
     active: bool
 
+@strawberry.input
+class CreateApplicationInput:
+    """Input para crear o actualizar una Application"""
+    name: str
+    description: Optional[str] = None
+    models_path: str = strawberry.field(name="modelsPath")
+    subscribed_projects: List[str] = strawberry.field(name="subscribedProjects")
+    active: bool = True
+
+@strawberry.input
+class UpdateApplicationInput:           
+    """Input para crear o actualizar una Application"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    models_path: Optional[str] = strawberry.field(default=None, name="modelsPath")
+    subscribed_projects: Optional[List[str]] = strawberry.field(default=None, name="subscribedProjects")
+    active: Optional[bool] = None
 
 @strawberry.type
 class ExecutionResult:
@@ -137,7 +154,7 @@ class ResourceExecutionType:
 
 
 @strawberry.type
-class ArtifactType:
+class DatasetType:
     """Versioned package de datos extraídos"""
     id: str
     resource_id: str = strawberry.field(name="resourceId")
@@ -155,7 +172,7 @@ class ArtifactType:
 
 
 @strawberry.type
-class ArtifactSubscriptionType:
+class DatasetSubscriptionType:
     """Suscripción pasiva de Application a Resource"""
     id: str
     application_id: str = strawberry.field(name="applicationId")
@@ -171,7 +188,7 @@ class ApplicationNotificationType:
     """Log de webhooks enviados"""
     id: str
     application_id: str = strawberry.field(name="applicationId")
-    artifact_id: Optional[str] = strawberry.field(default=None, name="artifactId")
+    dataset_id: Optional[str] = strawberry.field(default=None, name="datasetId")
     sent_at: datetime = strawberry.field(name="sentAt")
     status_code: Optional[int] = strawberry.field(default=None, name="statusCode")
     response_body: Optional[str] = strawberry.field(default=None, name="responseBody")
@@ -198,6 +215,6 @@ class Fetcher:
     name: str
     class_path: Optional[str] = strawberry.field(default=None, name="classPath")
     description: Optional[str] = None
-    params_def: Optional[List[TypeFetcherParamType]] = strawberry.field(default=None, name="paramsDef")
+    params_def: Optional[List[FetcherParamType]] = strawberry.field(default=None, name="paramsDef")
     resources: Optional[List[ResourceType]] = None
 

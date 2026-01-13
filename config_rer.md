@@ -37,7 +37,7 @@
 
 ## 🔧 PASOS PARA CONFIGURAR
 
-### Paso 1: Registrar FetcherType
+### Paso 1: Registrar Fetcher
 Ejecutar cuando tengas el entorno activo:
 ```bash
 python scripts/setup_paginated_fetcher.py
@@ -62,7 +62,7 @@ mutation {
     name: "Entidades Religiosas RER"
     publisher: "Ministerio Justicia"
     targetTable: "entidades_religiosas"
-    fetcherTypeId: "ID_DEL_FETCHER_PAGINATED"
+    FetcherId: "ID_DEL_FETCHER_PAGINATED"
     active: true
     params: [
       {key: "url", value: "https://maper.mjusticia.gob.es/Maper/buscarRER.action"},

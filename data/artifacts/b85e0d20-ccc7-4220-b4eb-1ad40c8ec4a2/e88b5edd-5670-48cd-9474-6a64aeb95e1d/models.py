@@ -1,7 +1,7 @@
 """
 Auto-generated models for: Registro de entidades religiosas católicas
 Generated: 2026-01-09T18:49:10.401399
-Version: Auto-generated from artifact
+Version: Auto-generated from dataset
 DO NOT EDIT MANUALLY - Download new version from OpenDataManager
 """
 from uuid import uuid4

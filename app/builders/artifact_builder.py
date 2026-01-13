@@ -1,5 +1,5 @@
 """
-Artifact Builder - Generates complete artifact packages.
+Dataset Builder - Generates complete dataset packages.
 Creates versioned packages with data, schema, models, and metadata.
 """
 import os
@@ -10,13 +10,13 @@ from uuid import uuid4
 from datetime import datetime
 from typing import List, Dict
 from sqlalchemy.orm import Session
-from app.models import Resource, ResourceExecution, Artifact
+from app.models import Resource, ResourceExecution, Dataset
 from app.utils.schema_inference import infer_schema
 from app.utils.versioning import compute_next_version
 
 
-class ArtifactBuilder:
-    """Builds complete artifact packages with versioning"""
+class DatasetBuilder:
+    """Builds complete dataset packages with versioning"""
 
     def build(
         self,
@@ -24,9 +24,9 @@ class ArtifactBuilder:
         resource: Resource,
         execution: ResourceExecution,
         data: List[Dict]
-    ) -> Artifact:
+    ) -> Dataset:
         """
-        Build complete artifact package.
+        Build complete dataset package.
 
         Creates a versioned package containing:
         - data.jsonl: The actual data
@@ -41,60 +41,60 @@ class ArtifactBuilder:
             data: List of data records
 
         Returns:
-            Artifact record
+            Dataset record
         """
         print(f"  [3/4] ARTIFACT - Generating package for {resource.name}...")
 
         # 1. Infer schema from data
         schema_json = infer_schema(data)
 
-        # 2. Get latest artifact for versioning
-        latest_artifact = (
-            session.query(Artifact)
-            .filter(Artifact.resource_id == resource.id)
+        # 2. Get latest dataset for versioning
+        latest_dataset = (
+            session.query(Dataset)
+            .filter(Dataset.resource_id == resource.id)
             .order_by(
-                Artifact.major_version.desc(),
-                Artifact.minor_version.desc(),
-                Artifact.patch_version.desc()
+                Dataset.major_version.desc(),
+                Dataset.minor_version.desc(),
+                Dataset.patch_version.desc()
             )
             .first()
         )
 
         # 3. Compute version
-        major, minor, patch = compute_next_version(latest_artifact, schema_json)
+        major, minor, patch = compute_next_version(latest_dataset, schema_json)
         version_str = f"{major}.{minor}.{patch}"
 
         print(f"    Version: {version_str}")
 
-        # 4. Create artifact directory
-        artifact_id = str(uuid4())
-        artifact_dir = f"data/artifacts/{resource.id}/{artifact_id}"
-        os.makedirs(artifact_dir, exist_ok=True)
+        # 4. Create dataset directory
+        dataset_id = str(uuid4())
+        dataset_dir = f"data/datasets/{resource.id}/{dataset_id}"
+        os.makedirs(dataset_dir, exist_ok=True)
 
-        # 5. Copy staged data to artifact
+        # 5. Copy staged data to dataset
         if os.path.exists(execution.staging_path):
-            shutil.copy(execution.staging_path, f"{artifact_dir}/data.jsonl")
+            shutil.copy(execution.staging_path, f"{dataset_dir}/data.jsonl")
         else:
             # If staging file doesn't exist, write data directly
-            with open(f"{artifact_dir}/data.jsonl", 'w', encoding='utf-8') as f:
+            with open(f"{dataset_dir}/data.jsonl", 'w', encoding='utf-8') as f:
                 for item in data:
                     f.write(json.dumps(item, ensure_ascii=False) + '\n')
 
         # 6. Write schema
-        with open(f"{artifact_dir}/schema.json", 'w', encoding='utf-8') as f:
+        with open(f"{dataset_dir}/schema.json", 'w', encoding='utf-8') as f:
             json.dump(schema_json, f, indent=2, ensure_ascii=False)
 
         # 7. Generate models
         models_code = self._generate_models(resource, schema_json)
-        with open(f"{artifact_dir}/models.py", 'w', encoding='utf-8') as f:
+        with open(f"{dataset_dir}/models.py", 'w', encoding='utf-8') as f:
             f.write(models_code)
 
         # 8. Compute checksum
-        checksum = self._compute_checksum(f"{artifact_dir}/data.jsonl")
+        checksum = self._compute_checksum(f"{dataset_dir}/data.jsonl")
 
         # 9. Write metadata
         metadata = {
-            "artifact_id": artifact_id,
+            "dataset_id": dataset_id,
             "resource_id": str(resource.id),
             "resource_name": resource.name,
             "execution_id": str(execution.id),
@@ -103,27 +103,27 @@ class ArtifactBuilder:
             "record_count": len(data),
             "checksum": checksum
         }
-        with open(f"{artifact_dir}/metadata.json", 'w', encoding='utf-8') as f:
+        with open(f"{dataset_dir}/metadata.json", 'w', encoding='utf-8') as f:
             json.dump(metadata, f, indent=2, ensure_ascii=False)
 
-        # 10. Create Artifact record
-        artifact = Artifact(
-            id=artifact_id,
+        # 10. Create Dataset record
+        dataset = Dataset(
+            id=dataset_id,
             resource_id=resource.id,
             execution_id=execution.id,
             major_version=major,
             minor_version=minor,
             patch_version=patch,
             schema_json=schema_json,
-            data_path=f"{artifact_dir}/data.jsonl",
+            data_path=f"{dataset_dir}/data.jsonl",
             record_count=len(data),
             checksum=checksum,
             created_at=datetime.utcnow()
         )
 
-        print(f"    Artifact generated: {artifact_dir}")
+        print(f"    Dataset generated: {dataset_dir}")
 
-        return artifact
+        return dataset
 
     def _compute_checksum(self, filepath: str) -> str:
         """Compute SHA256 checksum of file"""
@@ -150,7 +150,7 @@ class ArtifactBuilder:
         code = f'''"""
 Auto-generated models for: {resource.name}
 Generated: {datetime.utcnow().isoformat()}
-Version: Auto-generated from artifact
+Version: Auto-generated from dataset
 DO NOT EDIT MANUALLY - Download new version from OpenDataManager
 """
 from uuid import uuid4

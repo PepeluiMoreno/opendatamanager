@@ -59,7 +59,7 @@ params = {
 
 ## Implementación
 
-### 1. Actualizar TypeFetcherParams en base de datos
+### 1. Actualizar FetcherParams en base de datos
 
 Los parámetros de concurrencia ya se definen en `type_fetcher_params`:
 
@@ -359,7 +359,7 @@ params = {
 
 ## Próximos pasos
 
-1. ✅ Definir parámetros en TypeFetcherParams (ya está el modelo)
+1. ✅ Definir parámetros en FetcherParams (ya está el modelo)
 2. ⬜ Implementar AsyncFetcher base
 3. ⬜ Actualizar RestFetcher para heredar de AsyncFetcher
 4. ⬜ Implementar PaginatedRestFetcher

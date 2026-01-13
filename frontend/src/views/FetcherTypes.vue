@@ -25,7 +25,7 @@
         v-for="type in fetchers"
         :key="type.id"
         :fetcher-type="type"
-        :reresources-count="getSourcesCount(type.id)"
+        :reresources-count="get Re resourcesCount(type.id)"
         @select="showTypeDetails(type)"
       />
     </div>
@@ -66,10 +66,10 @@
           </div>
 
           <div>
-            <h3 class="font-bold mb-2">Sources using this type:</h3>
-            <div v-if="getSourcesByType(selectedType.id).length > 0" class="space-y-2">
+            <h3 class="font-bold mb-2"> Resources using this type:</h3>
+            <div v-if="get ResourcesByType(selectedType.id).length > 0" class="space-y-2">
               <router-link
-                v-for="resource in getSourcesByType(selectedType.id)"
+                v-for="resource in get ResourcesByType(selectedType.id)"
                 :key="resource.id"
                 :to="`/rereresources/${resource.id}/test`"
                 class="block p-3 bg-gray-700 rounded hover:bg-gray-600 transition-colors"
@@ -170,8 +170,8 @@
         <p class="text-gray-300 mb-4">
           Are you sure you want to delete the fetcher type <strong class="text-blue-400">{{ deleteConfirmation.code }}</strong>?
         </p>
-        <div v-if="getSourcesByType(deleteConfirmation.id).length > 0" class="p-3 bg-yellow-900 border border-yellow-700 rounded text-yellow-200 text-sm mb-4">
-          Warning: This fetcher type is being used by {{ getSourcesByType(deleteConfirmation.id).length }} resource(s).
+        <div v-if="get ResourcesByType(deleteConfirmation.id).length > 0" class="p-3 bg-yellow-900 border border-yellow-700 rounded text-yellow-200 text-sm mb-4">
+          Warning: This fetcher type is being used by {{ get ResourcesByType(deleteConfirmation.id).length }} resource(s).
           You cannot delete it until all reresources using it are removed or reassigned.
         </div>
         <div v-if="deleteError" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm mb-4">
@@ -183,7 +183,7 @@
           </button>
           <button
             @click="handleDelete"
-            :disabled="deleting || getSourcesByType(deleteConfirmation.id).length > 0"
+            :disabled="deleting || get ResourcesByType(deleteConfirmation.id).length > 0"
             class="btn bg-red-800 hover:bg-red-700 disabled:opacity-50"
           >
             {{ deleting ? 'Deleting...' : 'Delete' }}
@@ -241,11 +241,11 @@ async function loadData() {
   }
 }
 
-function getSourcesCount(typeId) {
+function get Re resourcesCount(typeId) {
   return reresources.value.filter(s => s.fetcher.id === typeId).length
 }
 
-function getSourcesByType(typeId) {
+function get ResourcesByType(typeId) {
   return reresources.value.filter(s => s.fetcher.id === typeId)
 }
 

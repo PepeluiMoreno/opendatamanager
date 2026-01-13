@@ -6,19 +6,19 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
-    FetcherType as FetcherModel, Resource, TypeFetcherParams, ResourceParam, Application, FieldMetadata,
-    ResourceExecution, Artifact, ArtifactSubscription, ApplicationNotification
+    Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
+    ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification
 )
 from app.graphql.types import (
     Fetcher,
     ResourceType,
-    TypeFetcherParamType,
+    FetcherParamType,
     ResourceParamType,
     ApplicationType,
     FieldMetadataType,
     ResourceExecutionType,
-    ArtifactType,
-    ArtifactSubscriptionType,
+    DatasetType,
+    DatasetSubscriptionType,
     ApplicationNotificationType
 )
 
@@ -32,9 +32,9 @@ def get_db():
         pass
 
 
-def map_type_fetcher_param(p: TypeFetcherParams) -> TypeFetcherParamType:
-    """Convierte modelo TypeFetcherParams a tipo GraphQL"""
-    return TypeFetcherParamType(
+def map_type_fetcher_param(p: FetcherParams) -> FetcherParamType:
+    """Convierte modelo FetcherParams a tipo GraphQL"""
+    return FetcherParamType(
         id=str(p.id),
         param_name=p.param_name,
         required=p.required,
@@ -53,8 +53,8 @@ def map_resource_param(param: ResourceParam) -> ResourceParamType:
     )
 
 
-def map_fetcher_type(ft: FetcherModel, include_resources: bool = False) -> Fetcher:
-    """Convierte modelo FetcherType a tipo GraphQL (FetcherType)"""
+def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> Fetcher:
+   
     if ft is None:
         return None
 
@@ -80,16 +80,11 @@ def map_fetcher_type(ft: FetcherModel, include_resources: bool = False) -> Fetch
         params_def=[map_type_fetcher_param(p) for p in (ft.params_def or [])],
         name=ft.code,  # Use code as name for display
         resources=resources if include_resources else None
-    )
+    ) 
 
 
-def map_fetcher(ft: FetcherModel) -> Optional[Fetcher]:
-    """Convierte modelo FetcherType a tipo GraphQL (Fetcher).
-
-    To avoid deep recursion between fetcher <-> resource, this mapping
-    populates `params_def` but leaves `resources` as None. The `resources`
-    field can be resolved separately if needed.
-    """
+""" def map_fetcher(ft: FetcherModel) -> Optional[Fetcher]:
+      
     if ft is None:
         return None
 
@@ -101,7 +96,7 @@ def map_fetcher(ft: FetcherModel) -> Optional[Fetcher]:
         description=ft.description,
         params_def=[map_type_fetcher_param(p) for p in (ft.params_def or [])],
         resources=None,
-    )
+    ) """
 
 
 def map_resource(resource: Resource) -> ResourceType:
@@ -156,9 +151,9 @@ def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
     )
 
 
-def map_artifact(art: Artifact) -> ArtifactType:
-    """Convierte modelo Artifact a tipo GraphQL"""
-    return ArtifactType(
+def map_dataset(art: Dataset) -> DatasetType:
+    """Convierte modelo Dataset a tipo GraphQL"""
+    return DatasetType(
         id=str(art.id),
         resource_id=str(art.resource_id),
         execution_id=str(art.execution_id) if art.execution_id else None,
@@ -172,17 +167,17 @@ def map_artifact(art: Artifact) -> ArtifactType:
         checksum=art.checksum,
         created_at=art.created_at,
         download_urls={
-            "data": f"/api/artifacts/{art.id}/data.jsonl",
-            "schema": f"/api/artifacts/{art.id}/schema.json",
-            "models": f"/api/artifacts/{art.id}/models.py",
-            "metadata": f"/api/artifacts/{art.id}/metadata.json"
+            "data": f"/api/datasets/{art.id}/data.jsonl",
+            "schema": f"/api/datasets/{art.id}/schema.json",
+            "models": f"/api/datasets/{art.id}/models.py",
+            "metadata": f"/api/datasets/{art.id}/metadata.json"
         }
     )
 
 
-def map_artifact_subscription(sub: ArtifactSubscription) -> ArtifactSubscriptionType:
-    """Convierte modelo ArtifactSubscription a tipo GraphQL"""
-    return ArtifactSubscriptionType(
+def map_dataset_subscription(sub: DatasetSubscription) -> DatasetSubscriptionType:
+    """Convierte modelo DatasetSubscription a tipo GraphQL"""
+    return DatasetSubscriptionType(
         id=str(sub.id),
         application_id=str(sub.application_id),
         resource_id=str(sub.resource_id),
@@ -198,7 +193,7 @@ def map_application_notification(notif: ApplicationNotification) -> ApplicationN
     return ApplicationNotificationType(
         id=str(notif.id),
         application_id=str(notif.application_id),
-        artifact_id=str(notif.artifact_id) if notif.artifact_id else None,
+        dataset_id=str(notif.dataset_id) if notif.dataset_id else None,
         sent_at=notif.sent_at,
         status_code=notif.status_code,
         response_body=notif.response_body,
@@ -216,7 +211,7 @@ class Query:
         db = get_db()
         try:
             fetchers = db.query(FetcherModel).all()
-            return [map_fetcher_type(ft, include_resources=True) for ft in fetchers]
+            return [map_fetcher(ft, include_resources=True) for ft in fetchers]
         finally:
             db.close()
 
@@ -226,7 +221,7 @@ class Query:
         db = get_db()
         try:
             ft = db.query(FetcherModel).filter(FetcherModel.id == id).first()
-            return map_fetcher_type(ft, include_resources=True) if ft else None
+            return map_fetcher(ft, include_resources=True) if ft else None
         finally:
             db.close()
 
@@ -331,35 +326,35 @@ class Query:
             db.close()
 
     @strawberry.field
-    def artifacts(self, resource_id: Optional[str] = None) -> List[ArtifactType]:
-        """Lista artifacts, opcionalmente filtrado por resource_id"""
+    def datasets(self, resource_id: Optional[str] = None) -> List[DatasetType]:
+        """Lista datasets, opcionalmente filtrado por resource_id"""
         db = get_db()
         try:
-            query = db.query(Artifact)
+            query = db.query(Dataset)
             if resource_id:
-                query = query.filter(Artifact.resource_id == resource_id)
-            artifacts = query.order_by(
-                Artifact.major_version.desc(),
-                Artifact.minor_version.desc(),
-                Artifact.patch_version.desc()
+                query = query.filter(Dataset.resource_id == resource_id)
+            datasets = query.order_by(
+                Dataset.major_version.desc(),
+                Dataset.minor_version.desc(),
+                Dataset.patch_version.desc()
             ).all()
-            return [map_artifact(art) for art in artifacts]
+            return [map_dataset(art) for art in datasets]
         finally:
             db.close()
 
     @strawberry.field
-    def artifact(self, id: str) -> Optional[ArtifactType]:
-        """Obtiene un artifact específico por ID"""
+    def dataset(self, id: str) -> Optional[DatasetType]:
+        """Obtiene un dataset específico por ID"""
         db = get_db()
         try:
-            artifact = db.query(Artifact).filter(Artifact.id == id).first()
-            return map_artifact(artifact) if artifact else None
+            dataset = db.query(Dataset).filter(Dataset.id == id).first()
+            return map_dataset(dataset) if dataset else None
         finally:
             db.close()
 
     @strawberry.field
-    def artifact_by_version(self, resource_id: str, version: str) -> Optional[ArtifactType]:
-        """Obtiene un artifact por resource_id y version (ej: '1.2.3')"""
+    def dataset_by_version(self, resource_id: str, version: str) -> Optional[DatasetType]:
+        """Obtiene un dataset por resource_id y version (ej: '1.2.3')"""
         db = get_db()
         try:
             parts = version.split('.')
@@ -367,41 +362,41 @@ class Query:
                 return None
             major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
 
-            artifact = db.query(Artifact).filter(
-                Artifact.resource_id == resource_id,
-                Artifact.major_version == major,
-                Artifact.minor_version == minor,
-                Artifact.patch_version == patch
+            dataset = db.query(Dataset).filter(
+                Dataset.resource_id == resource_id,
+                Dataset.major_version == major,
+                Dataset.minor_version == minor,
+                Dataset.patch_version == patch
             ).first()
-            return map_artifact(artifact) if artifact else None
+            return map_dataset(dataset) if dataset else None
         finally:
             db.close()
 
     @strawberry.field
-    def artifact_subscriptions(self, application_id: Optional[str] = None, resource_id: Optional[str] = None) -> List[ArtifactSubscriptionType]:
+    def dataset_subscriptions(self, application_id: Optional[str] = None, resource_id: Optional[str] = None) -> List[DatasetSubscriptionType]:
         """Lista suscripciones, filtrado por application_id o resource_id"""
         db = get_db()
         try:
-            query = db.query(ArtifactSubscription)
+            query = db.query(DatasetSubscription)
             if application_id:
-                query = query.filter(ArtifactSubscription.application_id == application_id)
+                query = query.filter(DatasetSubscription.application_id == application_id)
             if resource_id:
-                query = query.filter(ArtifactSubscription.resource_id == resource_id)
+                query = query.filter(DatasetSubscription.resource_id == resource_id)
             subscriptions = query.all()
-            return [map_artifact_subscription(sub) for sub in subscriptions]
+            return [map_dataset_subscription(sub) for sub in subscriptions]
         finally:
             db.close()
 
     @strawberry.field
-    def application_notifications(self, application_id: Optional[str] = None, artifact_id: Optional[str] = None) -> List[ApplicationNotificationType]:
-        """Lista notificaciones enviadas, filtrado por application_id o artifact_id"""
+    def application_notifications(self, application_id: Optional[str] = None, dataset_id: Optional[str] = None) -> List[ApplicationNotificationType]:
+        """Lista notificaciones enviadas, filtrado por application_id o dataset_id"""
         db = get_db()
         try:
             query = db.query(ApplicationNotification)
             if application_id:
                 query = query.filter(ApplicationNotification.application_id == application_id)
-            if artifact_id:
-                query = query.filter(ApplicationNotification.artifact_id == artifact_id)
+            if dataset_id:
+                query = query.filter(ApplicationNotification.dataset_id == dataset_id)
             notifications = query.order_by(ApplicationNotification.sent_at.desc()).all()
             return [map_application_notification(notif) for notif in notifications]
         finally:

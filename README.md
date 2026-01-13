@@ -24,7 +24,7 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  opendata schema (metadata)                          │  │
 │  │  - Resource, ResourceParam                           │  │
-│  │  - FetcherType, TypeFetcherParams                    │  │
+│  │  - Fetcher, FetcherParams                    │  │
 │  │  - Application, ResourceSubscription                 │  │
 │  │  - ResourceExecution, ApplicationNotification        │  │
 │  └──────────────────────────────────────────────────────┘  │
@@ -43,8 +43,8 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
 ### Componentes principales
 
 **Metadata Layer (opendata schema)**:
-- **FetcherType**: Tipos de fetchers disponibles (REST, SOAP, CSV, etc.) con su `class_path`
-- **TypeFetcherParams**: Definición de parámetros requeridos/opcionales para cada FetcherType
+- **Fetcher**: Tipos de fetchers disponibles (REST, SOAP, CSV, etc.) con su `class_path`
+- **FetcherParams**: Definición de parámetros requeridos/opcionales para cada Fetcher
 - **Resource**: Recursos de datos configurados con parámetros
 - **ResourceParam**: Parámetros key-value para cada Resource
 - **ResourceExecution**: Tracking de cada ejecución de fetch (audit trail)
@@ -123,7 +123,7 @@ Acceder a:
 ### Ejecutar fetchers manualmente
 
 ```powershell
-# Ejecutar todos los sources activos
+# Ejecutar todos los  resources activos
 python scripts\refresh_cores.py
 
 # Refrescar modelos de aplicaciones suscritas
@@ -141,7 +141,7 @@ query {
     name
     publisher
     targetTable
-    fetcherType {
+    Fetcher {
       code
       classPath
       paramsDef {
@@ -166,7 +166,7 @@ mutation {
     name: "INE Población"
     publisher: "INE"
     targetTable: "poblacion"
-    fetcherTypeId: "<uuid-del-rest-fetcher>"
+    FetcherId: "<uuid-del-rest-fetcher>"
     params: [
       {key: "url", value: "https://api.ine.es/poblacion"}
       {key: "auth_token", value: "your-token-here"}
@@ -266,7 +266,7 @@ opendatamanager/
 │   │   └── model_generator.py # Generador de modelos
 │   └── main.py               # Servidor FastAPI
 ├── scripts/
-│   ├── refresh_cores.py      # Ejecutar todos los sources
+│   ├── refresh_cores.py      # Ejecutar todos los  resources
 │   └── refresh_app_models.py # Refrescar apps suscritas
 ├── alembic/                  # Migraciones
 ├── requirements.txt

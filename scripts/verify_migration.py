@@ -1,5 +1,5 @@
 """
-Script to verify that the artifact system migration was successful.
+Script to verify that the dataset system migration was successful.
 """
 import sys
 from pathlib import Path
@@ -24,12 +24,12 @@ def verify_tables():
     # Check for expected new tables
     expected_tables = [
         'resource_execution',
-        'artifact',
-        'artifact_subscription',
+        'dataset',
+        'dataset_subscription',
         'application_notification'
     ]
 
-    print("\nChecking for new artifact system tables:")
+    print("\nChecking for new dataset system tables:")
     for table in expected_tables:
         if table in tables:
             print(f"  [OK] {table} - EXISTS")

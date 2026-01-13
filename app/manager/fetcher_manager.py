@@ -6,9 +6,9 @@ import json
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.models import Resource, ResourceExecution, Artifact
+from app.models import Resource, ResourceExecution, Dataset
 from app.fetchers.factory import FetcherFactory
-from app.builders.artifact_builder import ArtifactBuilder
+from app.builders.dataset_builder import DatasetBuilder
 from app.services.notification_service import NotificationService
 from app.core import upsert
 
@@ -38,7 +38,7 @@ class FetcherManager:
             return str(obj)
 
     @staticmethod
-    def run(session: Session, resource_id: str) -> Optional[Artifact]:
+    def run(session: Session, resource_id: str) -> Optional[Dataset]:
         """
         Ejecuta pipeline: EXTRACT → STAGE (→ DATASET - TODO)
 
@@ -102,16 +102,16 @@ class FetcherManager:
 
             # 3. ARTIFACT - Generate package
             # TODO: Re-implement as DATASET system (not ARTIFACT)
-            # For now, skip artifact/dataset creation to avoid DB errors
-            artifact = None
-            # artifact_builder = ArtifactBuilder()
-            # artifact = artifact_builder.build(
+            # For now, skip dataset/dataset creation to avoid DB errors
+            dataset = None
+            # dataset_builder = DatasetBuilder()
+            # dataset = dataset_builder.build(
             #     session=session,
             #     resource=resource,
             #     execution=execution,
             #     data=data_list
             # )
-            # session.add(artifact)
+            # session.add(dataset)
 
             # 4. LOAD (optional) - Upsert to core schema
             if resource.enable_load:
@@ -133,7 +133,7 @@ class FetcherManager:
             # 5. NOTIFY - Send webhooks
             # TODO: Re-enable when dataset system is implemented
             # notification_service = NotificationService()
-            # notification_service.notify_subscribers(session, artifact)
+            # notification_service.notify_subscribers(session, dataset)
 
             # Update execution
             execution.status = "completed"
@@ -151,7 +151,7 @@ class FetcherManager:
         finally:
             session.commit()
 
-        return artifact
+        return dataset
 
     @staticmethod
     def run_all(session: Session) -> None:
@@ -181,7 +181,7 @@ class FetcherManager:
     @staticmethod
     def fetch_only(session: Session, resource_id: str, limit: int = 10) -> list:
         """
-        Extract data only (no staging, no artifact, no load)
+        Extract data only (no staging, no dataset, no load)
         
         Args:
             session: Sesión SQLAlchemy activa

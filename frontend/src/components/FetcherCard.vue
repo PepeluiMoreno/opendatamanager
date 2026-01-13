@@ -23,10 +23,10 @@
         </p>
       </div>
 
-      <div v-if="sourcesCount !== undefined" class="pt-3 border-t border-gray-700">
+      <div v-if=" resourcesCount !== undefined" class="pt-3 border-t border-gray-700">
         <div class="flex items-center justify-between text-sm">
-          <span class="text-gray-400">Active Sources:</span>
-          <span class="font-bold text-blue-400">{{ sourcesCount }}</span>
+          <span class="text-gray-400">Active  Resources:</span>
+          <span class="font-bold text-blue-400">{{  resourcesCount }}</span>
         </div>
       </div>
     </div>
@@ -39,7 +39,7 @@ defineProps({
     type: Object,
     required: true
   },
-  sourcesCount: {
+   resourcesCount: {
     type: Number,
     default: undefined
   }

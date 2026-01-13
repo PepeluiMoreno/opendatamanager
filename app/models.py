@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
 
-class FetcherType(Base):
+class Fetcher(Base):
     __tablename__ = "fetcher"
     __table_args__ = {"schema": "opendata"}
 
@@ -16,11 +16,11 @@ class FetcherType(Base):
     class_path = Column(String(255), nullable=True)  # Python class path for dynamic import
     description = Column(Text)
 
-    params_def = relationship("TypeFetcherParams", back_populates="fetcher")
+    params_def = relationship("FetcherParams", back_populates="fetcher")
     resources = relationship("Resource", back_populates="fetcher")
 
 
-class TypeFetcherParams(Base):
+class FetcherParams(Base):
     __tablename__ = "type_fetcher_params"
     __table_args__ = {"schema": "opendata"}
 
@@ -30,9 +30,8 @@ class TypeFetcherParams(Base):
     required = Column(Boolean, default=True)
     data_type = Column(String(20), default="string")
     default_value = Column(JSONB, nullable=True)
-    enum_values = Column(JSONB, nullable=True)  # For enum type: list of allowed values
 
-    fetcher = relationship("FetcherType", back_populates="params_def")
+    fetcher = relationship("Fetcher", back_populates="params_def")
 
 
 class Resource(Base):
@@ -47,14 +46,14 @@ class Resource(Base):
     fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id"))
     active = Column(Boolean, default=True)
 
-    # New fields for artifact system
+    # New fields for dataset system
     enable_load = Column(Boolean, default=False)
     load_mode = Column(String(20), default="replace")
 
-    fetcher = relationship("FetcherType", back_populates="resources")
+    fetcher = relationship("Fetcher", back_populates="resources")
     params = relationship("ResourceParam", back_populates="resource", cascade="all, delete-orphan")
     executions = relationship("ResourceExecution", back_populates="resource")
-    artifacts = relationship("Artifact", back_populates="resource")
+    datasets = relationship("Dataset", back_populates="resource")
 
 
 class ResourceParam(Base):
@@ -84,12 +83,12 @@ class Application(Base):
     subscribed_projects = Column('subscribed_resources', JSONB, nullable=False, default=list)  # Lista de resources a los que está suscrita
     active = Column(Boolean, default=True)
 
-    # New fields for artifact system
+    # New fields for dataset system
     webhook_url = Column(String(500))
     webhook_secret = Column(String(100))
 
     # New relationships
-    subscriptions = relationship("ArtifactSubscription", back_populates="application")
+    subscriptions = relationship("DatasetSubscription", back_populates="application")
 
 
 class FieldMetadata(Base):
@@ -127,9 +126,9 @@ class ResourceExecution(Base):
     resource = relationship("Resource", back_populates="executions")
 
 
-class Artifact(Base):
+class Dataset(Base):
     """Versioned package de datos extraídos"""
-    __tablename__ = "artifact"
+    __tablename__ = "dataset"
     __table_args__ = {"schema": "opendata"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -148,7 +147,7 @@ class Artifact(Base):
     checksum = Column(String(64))
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    resource = relationship("Resource", back_populates="artifacts")
+    resource = relationship("Resource", back_populates="datasets")
     execution = relationship("ResourceExecution")
 
     @property
@@ -156,9 +155,9 @@ class Artifact(Base):
         return f"{self.major_version}.{self.minor_version}.{self.patch_version}"
 
 
-class ArtifactSubscription(Base):
+class DatasetSubscription(Base):
     """Suscripciones pasivas de Applications a Resources"""
-    __tablename__ = "artifact_subscription"
+    __tablename__ = "dataset_subscription"
     __table_args__ = {"schema": "opendata"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -184,7 +183,7 @@ class ApplicationNotification(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     application_id = Column(UUID(as_uuid=True), ForeignKey("opendata.application.id"), nullable=False)
-    artifact_id = Column(UUID(as_uuid=True), ForeignKey("opendata.artifact.id"))
+    dataset_id = Column(UUID(as_uuid=True), ForeignKey("opendata.dataset.id"))
 
     sent_at = Column(DateTime, default=datetime.utcnow)
     status_code = Column(Integer)
@@ -192,4 +191,4 @@ class ApplicationNotification(Base):
     error_message = Column(Text)
 
     application = relationship("Application")
-    artifact = relationship("Artifact")
+    dataset = relationship("Dataset")
