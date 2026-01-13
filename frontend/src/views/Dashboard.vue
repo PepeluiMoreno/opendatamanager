@@ -6,7 +6,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <div class="card">
         <div class="text-gray-400 text-sm mb-2">Active Resources</div>
-        <div class="text-4xl font-bold text-blue-400">{{ stats.activeSources }}</div>
+        <div class="text-4xl font-bold text-blue-400">{{ stats.activeResources }}</div>
       </div>
 
       <div class="card">
@@ -43,25 +43,25 @@
     <!-- Recent Activity -->
     <div class="card">
       <h2 class="text-xl font-bold mb-4">Recent Resources</h2>
-      <div v-if="recentSources.length > 0" class="space-y-3">
+      <div v-if="recentResources.length > 0" class="space-y-3">
         <div
-          v-for="source in recentSources"
-          :key="source.id"
+          v-for="resource in recentResources"
+          :key="resource.id"
           class="flex items-center justify-between p-4 bg-gray-700 rounded"
         >
           <div>
-            <div class="font-medium">{{ source.name }}</div>
-            <div class="text-sm text-gray-400">{{ source.publisher }} - {{ source.fetcher.code }}</div>
+            <div class="font-medium">{{ resource.name }}</div>
+            <div class="text-sm text-gray-400">{{ resource.publisher }} - {{ resource.fetcher.code }}</div>
           </div>
           <div class="flex items-center space-x-2">
             <span
-              :class="source.active ? 'text-green-400' : 'text-red-400'"
+              :class="resource.active ? 'text-green-400' : 'text-red-400'"
               class="text-sm"
             >
-              {{ source.active ? 'Active' : 'Inactive' }}
+              {{ resource.active ? 'Active' : 'Inactive' }}
             </span>
             <router-link
-              :to="`/resources/${source.id}/test`"
+              :to="`/resources/${resource.id}/test`"
               class="btn btn-secondary text-sm py-1 px-3"
             >
               Test
@@ -88,15 +88,15 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { fetchResources, fetchfetchers, fetchApplications, executeAllResources } from '../api/graphql'
+import { fetchResources, fetchFetchers, fetchApplications, executeAllResources } from '../api/graphql'
 
 const stats = ref({
-  activeSources: 0,
+  activeResources: 0,
   fetchers: 0,
   applications: 0,
 })
 
-const recentSources = ref([])
+const recentResources = ref([])
 const loading = ref(false)
 const error = ref(null)
 const successMessage = ref(null)
@@ -106,15 +106,15 @@ async function loadStats() {
     error.value = null
     const [resourcesData, fetchersData, appsData] = await Promise.all([
       fetchResources(false),
-      fetchfetchers(),
+      fetchFetchers(),
       fetchApplications(),
     ])
 
-    stats.value.activeSources = resourcesData.resources?.filter(s => s.active).length || 0
+    stats.value.activeResources = resourcesData.resources?.filter(r => r.active).length || 0
     stats.value.fetchers = fetchersData.fetchers?.length || 0
     stats.value.applications = appsData.applications?.filter(a => a.active).length || 0
 
-    recentSources.value = resourcesData.resources?.slice(0, 5) || []
+    recentResources.value = resourcesData.resources?.slice(0, 5) || []
   } catch (e) {
     // Only show error if it's not just empty data
     console.error('Dashboard error:', e)

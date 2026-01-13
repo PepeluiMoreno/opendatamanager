@@ -4,6 +4,7 @@ Manager para ejecutar fetchers y actualizar datos en BD.
 import os
 import json
 from datetime import datetime
+from typing import Optional
 from sqlalchemy.orm import Session
 from app.models import Resource, ResourceExecution, Artifact
 from app.fetchers.factory import FetcherFactory
@@ -37,16 +38,16 @@ class FetcherManager:
             return str(obj)
 
     @staticmethod
-    def run(session: Session, resource_id: str) -> Artifact:
+    def run(session: Session, resource_id: str) -> Optional[Artifact]:
         """
-        Ejecuta pipeline: EXTRACT → STAGE → ARTIFACT
+        Ejecuta pipeline: EXTRACT → STAGE (→ DATASET - TODO)
 
         Args:
             session: Sesión SQLAlchemy activa
             resource_id: UUID del Resource a ejecutar
 
         Returns:
-            Artifact record with versioned package
+            None (Dataset creation pending implementation)
         """
         # Load resource
         resource = session.query(Resource).filter(Resource.id == resource_id).first()
@@ -100,14 +101,17 @@ class FetcherManager:
             execution.total_records = len(data_list)
 
             # 3. ARTIFACT - Generate package
-            artifact_builder = ArtifactBuilder()
-            artifact = artifact_builder.build(
-                session=session,
-                resource=resource,
-                execution=execution,
-                data=data_list
-            )
-            session.add(artifact)
+            # TODO: Re-implement as DATASET system (not ARTIFACT)
+            # For now, skip artifact/dataset creation to avoid DB errors
+            artifact = None
+            # artifact_builder = ArtifactBuilder()
+            # artifact = artifact_builder.build(
+            #     session=session,
+            #     resource=resource,
+            #     execution=execution,
+            #     data=data_list
+            # )
+            # session.add(artifact)
 
             # 4. LOAD (optional) - Upsert to core schema
             if resource.enable_load:
@@ -127,14 +131,15 @@ class FetcherManager:
                     # Don't fail the whole pipeline if load fails
 
             # 5. NOTIFY - Send webhooks
-            notification_service = NotificationService()
-            notification_service.notify_subscribers(session, artifact)
+            # TODO: Re-enable when dataset system is implemented
+            # notification_service = NotificationService()
+            # notification_service.notify_subscribers(session, artifact)
 
             # Update execution
             execution.status = "completed"
             execution.completed_at = datetime.utcnow()
 
-            print(f"Resource '{resource.name}' completado - Artifact v{artifact.version_string}")
+            print(f"Resource '{resource.name}' completado - {len(data_list)} records")
 
         except Exception as e:
             execution.status = "failed"

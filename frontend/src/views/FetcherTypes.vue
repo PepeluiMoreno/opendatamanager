@@ -25,7 +25,7 @@
         v-for="type in fetchers"
         :key="type.id"
         :fetcher-type="type"
-        :sources-count="getSourcesCount(type.id)"
+        :reresources-count="getSourcesCount(type.id)"
         @select="showTypeDetails(type)"
       />
     </div>
@@ -69,17 +69,17 @@
             <h3 class="font-bold mb-2">Sources using this type:</h3>
             <div v-if="getSourcesByType(selectedType.id).length > 0" class="space-y-2">
               <router-link
-                v-for="source in getSourcesByType(selectedType.id)"
-                :key="source.id"
-                :to="`/resources/${source.id}/test`"
+                v-for="resource in getSourcesByType(selectedType.id)"
+                :key="resource.id"
+                :to="`/rereresources/${resource.id}/test`"
                 class="block p-3 bg-gray-700 rounded hover:bg-gray-600 transition-colors"
               >
-                <div class="font-medium">{{ source.name }}</div>
-                <div class="text-sm text-gray-400">{{ source.publisher }}</div>
+                <div class="font-medium">{{ resource.name }}</div>
+                <div class="text-sm text-gray-400">{{ resource.publisher }}</div>
               </router-link>
             </div>
             <div v-else class="text-gray-400 text-sm">
-              No sources using this type yet
+              No reresources using this type yet
             </div>
           </div>
         </div>
@@ -171,8 +171,8 @@
           Are you sure you want to delete the fetcher type <strong class="text-blue-400">{{ deleteConfirmation.code }}</strong>?
         </p>
         <div v-if="getSourcesByType(deleteConfirmation.id).length > 0" class="p-3 bg-yellow-900 border border-yellow-700 rounded text-yellow-200 text-sm mb-4">
-          Warning: This fetcher type is being used by {{ getSourcesByType(deleteConfirmation.id).length }} source(s).
-          You cannot delete it until all sources using it are removed or reassigned.
+          Warning: This fetcher type is being used by {{ getSourcesByType(deleteConfirmation.id).length }} resource(s).
+          You cannot delete it until all reresources using it are removed or reassigned.
         </div>
         <div v-if="deleteError" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm mb-4">
           {{ deleteError }}
@@ -198,7 +198,7 @@
 import { ref, onMounted } from 'vue'
 import {
   fetchfetchers,
-  fetchResources,
+  fetchRereresources,
   createFetcherType,
   updateFetcherType,
   deleteFetcherType
@@ -206,7 +206,7 @@ import {
 import FetcherTypeCard from '../components/FetcherTypeCard.vue'
 
 const fetchers = ref([])
-const sources = ref([])
+const reresources = ref([])
 const loading = ref(true)
 const error = ref(null)
 const selectedType = ref(null)
@@ -228,12 +228,12 @@ async function loadData() {
   try {
     loading.value = true
     error.value = null
-    const [typesData, resourcesData] = await Promise.all([
+    const [typesData, rereresourcesData] = await Promise.all([
       fetchfetchers(),
-      fetchResources(false)
+      fetchRereresources(false)
     ])
     fetchers.value = typesData.fetchers
-    sources.value = resourcesData.resources
+    reresources.value = rereresourcesData.rereresources
   } catch (e) {
     error.value = 'Failed to load data: ' + e.message
   } finally {
@@ -242,11 +242,11 @@ async function loadData() {
 }
 
 function getSourcesCount(typeId) {
-  return sources.value.filter(s => s.fetcher.id === typeId).length
+  return reresources.value.filter(s => s.fetcher.id === typeId).length
 }
 
 function getSourcesByType(typeId) {
-  return sources.value.filter(s => s.fetcher.id === typeId)
+  return reresources.value.filter(s => s.fetcher.id === typeId)
 }
 
 function showTypeDetails(type) {

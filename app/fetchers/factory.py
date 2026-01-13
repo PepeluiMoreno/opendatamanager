@@ -1,14 +1,20 @@
-import importlib
 from typing import Dict
 from app.models import Resource, ResourceParam
 from app.fetchers.base import BaseFetcher
+from app.fetchers.rest import RestFetcher
+from app.fetchers.html import HtmlFetcher
 
 
 class FetcherFactory:
     """
-    Factory 100% dinámico: lee FetcherType.class_path desde BD
-    y crea instancias sin hardcodeo de clases.
+    Factory simple: mapea nombre de Fetcher a clase Python
     """
+
+    # Mapping de nombre de fetcher a clase
+    FETCHER_CLASSES = {
+        "API REST": RestFetcher,
+        "HTML Forms": HtmlFetcher,
+    }
 
     @staticmethod
     def create_from_resource(resource: Resource) -> BaseFetcher:
@@ -27,16 +33,13 @@ class FetcherFactory:
         if not resource.fetcher:
             raise ValueError(f"Resource '{resource.name}' no tiene fetcher asignado")
 
-        # Obtener class_path dinámicamente desde BD
-        class_path = resource.fetcher.class_path
-        if not class_path:
-            raise ValueError(f"FetcherType '{resource.fetcher.code}' no tiene class_path definido")
+        # Obtener clase desde mapping
+        fetcher_class = FetcherFactory.FETCHER_CLASSES.get(resource.fetcher.code)
+        if not fetcher_class:
+            raise ValueError(f"Fetcher '{resource.fetcher.code}' no está registrado")
 
         # Convertir ResourceParam a diccionario
         params_dict = FetcherFactory._build_params_dict(resource.params)
-
-        # Importar clase dinámicamente
-        fetcher_class = FetcherFactory._import_class(class_path)
 
         # Instanciar y devolver
         return fetcher_class(params_dict)
@@ -45,17 +48,3 @@ class FetcherFactory:
     def _build_params_dict(params: list) -> Dict[str, str]:
         """Convierte lista de ResourceParam a diccionario"""
         return {param.key: param.value for param in params}
-
-    @staticmethod
-    def _import_class(class_path: str):
-        """
-        Importa dinámicamente una clase desde su path completo.
-        Ejemplo: 'app.fetchers.rest.RESTFetcher'
-        """
-        try:
-            module_path, class_name = class_path.rsplit(".", 1)
-            module = importlib.import_module(module_path)
-            fetcher_class = getattr(module, class_name)
-            return fetcher_class
-        except (ValueError, ModuleNotFoundError, AttributeError) as e:
-            raise ImportError(f"No se pudo importar '{class_path}': {e}")

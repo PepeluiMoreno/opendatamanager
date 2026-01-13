@@ -22,15 +22,9 @@
             <h1 class="text-3xl font-bold">{{ source.name }}</h1>
             <p class="text-gray-400 text-sm mt-1">{{ source.id }}</p>
           </div>
-          <div class="flex space-x-3">
-            <button
-              @click="fetchPreview"
-              :disabled="executing"
-              class="btn btn-primary text-sm"
-            >
-              {{ executing ? '⟳ Executing...' : 'Execute Test' }}
-            </button>
-          </div>
+          <router-link :to="`/resources`" class="btn btn-secondary text-sm">
+            Edit Resource
+          </router-link>
         </div>
 
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -41,7 +35,7 @@
           <div>
             <span class="text-gray-400 block mb-1">Type:</span>
             <code class="bg-gray-900 px-2 py-1 rounded text-blue-400 text-xs">
-              {{ source.fetcher.name }}
+              {{ source.fetcher.code }}
             </code>
           </div>
           <div>
@@ -59,6 +53,14 @@
           </div>
         </div>
 
+        <!-- Class Path -->
+        <div class="mt-4">
+          <span class="text-gray-400 text-sm block mb-1">Class Path:</span>
+          <code class="block bg-gray-900 p-2 rounded text-green-400 text-xs">
+            {{ source.fetcher.classPath }}
+          </code>
+        </div>
+
         <!-- Parameters Detail -->
         <div class="mt-4">
           <h3 class="font-bold mb-2 text-sm">Configuration Parameters:</h3>
@@ -74,6 +76,31 @@
         </div>
       </div>
 
+      <!-- Execute Section -->
+      <div class="card mb-6">
+        <h2 class="text-xl font-bold mb-4">Live Testing</h2>
+        <p class="text-gray-400 text-sm mb-4">
+          Execute this resource to fetch data from the configured endpoint.
+          This will run the full pipeline: EXTRACT → STAGE → ARTIFACT → LOAD → NOTIFY.
+        </p>
+        <div class="flex space-x-3">
+          <button
+            @click="executeTest"
+            :disabled="executing"
+            class="btn btn-primary"
+          >
+            {{ executing ? '⟳ Executing...' : '▶ Execute Resource Now' }}
+          </button>
+          <button
+            v-if="executionResult"
+            @click="clearResults"
+            class="btn btn-secondary"
+          >
+            Clear Results
+          </button>
+        </div>
+      </div>
+
       <!-- Execution Status -->
       <ExecutionStatus
         v-if="executionStatus !== 'idle'"
@@ -81,34 +108,85 @@
         :message="executionMessage"
         :timestamp="executionTimestamp"
         :details="executionDetails"
-        :on-retry="fetchPreview"
+        :on-retry="executeTest"
         class="mb-6"
       />
 
-      <!-- Preview Data Section -->
-      <div v-if="previewData.length > 0 && hasExecuted" class="mb-6">
-        <div class="card">
+      <!-- Execution Result with JSON Viewer -->
+      <div v-if="executionResult" class="mb-6">
+        <JsonViewer
+          :data="executionResult"
+          title="Execution Result"
+          max-height="max-h-[500px]"
+        />
+      </div>
+
+      <!-- Artifacts Section -->
+      <div class="card mb-6">
         <div class="flex items-center justify-between mb-4">
-          <div class="flex gap-2">
-            <span class="text-sm text-green-400">
-              {{ recordCount }} records extracted
-            </span>
-          </div>
-          <button
-            @click="togglePreviewFormat"
-            class="text-sm text-purple-400 hover:text-purple-300"
-          >
-            {{ isPrettyFormat ? 'Compact' : 'Pretty' }} Format
+          <h2 class="text-xl font-bold">Artifacts & Versions</h2>
+          <button @click="loadArtifacts" class="text-sm text-blue-400 hover:text-blue-300">
+            🔄 Refresh
           </button>
         </div>
 
-        <div class="bg-gray-900 rounded p-4 overflow-x-auto max-h-[600px] overflow-y-auto">
-          <pre class="text-xs text-green-400 font-mono">{{ showRawJson ? JSON.stringify(previewData, null, 2) : formattedPreviewData }}</pre>
+        <div v-if="loadingArtifacts" class="text-gray-400 text-center py-8">
+          Loading artifacts...
         </div>
 
-          <div class="mt-4 p-3 bg-blue-900 border border-blue-700 rounded text-blue-200 text-sm">
-            <strong>Note:</strong> This is a temporary preview. Data is NOT saved as a version.
-            To save data permanently, use the "Execute Resource Now" button above which runs the full pipeline.
+        <div v-else-if="artifacts.length === 0" class="text-gray-400 text-center py-8">
+          No artifacts yet. Execute this resource to generate the first artifact.
+        </div>
+
+        <div v-else class="space-y-3">
+          <div
+            v-for="artifact in artifacts"
+            :key="artifact.id"
+            class="p-4 bg-gray-700 rounded hover:bg-gray-650 transition-colors"
+          >
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <div class="flex items-center space-x-3">
+                  <span class="text-2xl font-bold text-blue-400">v{{ artifact.version }}</span>
+                  <span class="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">
+                    {{ artifact.recordCount }} records
+                  </span>
+                  <span class="text-xs text-gray-400">
+                    {{ new Date(artifact.createdAt).toLocaleString() }}
+                  </span>
+                </div>
+                <div class="mt-2 flex gap-2">
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.data)"
+                    target="_blank"
+                    class="text-xs bg-blue-900 hover:bg-blue-800 text-blue-200 px-3 py-1 rounded"
+                  >
+                    📄 data.jsonl
+                  </a>
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.schema)"
+                    target="_blank"
+                    class="text-xs bg-green-900 hover:bg-green-800 text-green-200 px-3 py-1 rounded"
+                  >
+                    📋 schema.json
+                  </a>
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.models)"
+                    target="_blank"
+                    class="text-xs bg-purple-900 hover:bg-purple-800 text-purple-200 px-3 py-1 rounded"
+                  >
+                    🐍 models.py
+                  </a>
+                  <a
+                    :href="getBackendUrl(artifact.downloadUrls.metadata)"
+                    target="_blank"
+                    class="text-xs bg-yellow-900 hover:bg-yellow-800 text-yellow-200 px-3 py-1 rounded"
+                  >
+                    ℹ️ metadata.json
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -185,7 +263,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { fetchResource, previewResourceData } from '../api/graphql'
+import { fetchResource, executeResource, fetchArtifacts } from '../api/graphql'
 import ExecutionStatus from '../components/ExecutionStatus.vue'
 import JsonViewer from '../components/JsonViewer.vue'
 
@@ -194,17 +272,15 @@ const source = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const executing = ref(false)
+const executionResult = ref(null)
 const executionHistory = ref([])
 const selectedHistoryItem = ref(null)
 const lastExecutionTime = ref(null)
 const lastExecutionSuccess = ref(null)
 const lastExecutionMessage = ref(null)
 const lastExecutionDetails = ref(null)
-const previewData = ref([])
-const recordCount = ref(0)
-const isPrettyFormat = ref(false)
-const showRawJson = ref(false)
-const hasExecuted = ref(false)
+const artifacts = ref([])
+const loadingArtifacts = ref(false)
 
 const executionStatus = computed(() => {
   if (executing.value) return 'loading'
@@ -225,15 +301,6 @@ const executionDetails = computed(() => {
   return lastExecutionDetails.value
 })
 
-const formattedPreviewData = computed(() => {
-  if (previewData.value.length === 0) return ''
-
-  if (isPrettyFormat.value) {
-    return previewData.value.map(item => JSON.stringify(item, null, 2)).join('\n\n')
-  }
-  return previewData.value.map(item => JSON.stringify(item)).join('\n')
-})
-
 async function loadSource() {
   try {
     loading.value = true
@@ -247,41 +314,39 @@ async function loadSource() {
   }
 }
 
-async function fetchPreview() {
+async function executeTest() {
   try {
     executing.value = true
     error.value = null
     lastExecutionTime.value = new Date().toLocaleString()
 
-    const result = await previewResourceData(route.params.id, 100)
-    console.log('Preview response:', result) // Debug
-    
-    // Asignar datos primero
-    const fetchedData = result.previewResourceData || []
-    previewData.value = fetchedData
-    
-    console.log('Preview data length:', previewData.value.length) // Debug
+    const result = await executeResource(route.params.id)
+    executionResult.value = result.executeResource
 
-    lastExecutionSuccess.value = true
-    recordCount.value = previewData.value.length
-    lastExecutionMessage.value = `Fetched ${previewData.value.length} records successfully`
-    lastExecutionDetails.value = `Preview data loaded (not saved)`
-    hasExecuted.value = true
+    lastExecutionSuccess.value = result.executeResource.success
+    lastExecutionMessage.value = result.executeResource.message
+    lastExecutionDetails.value = result.executeResource.resourceId
+      ? `Resource ID: ${result.executeResource.resourceId}`
+      : null
 
-    // Don't add previews to history - only actual executions
-    // executionHistory.value.unshift({
-    //   success: true,
-    //   message: `Preview: ${previewData.value.length} records`,
-    //   timestamp: lastExecutionTime.value,
-    //   data: previewData.value.slice(0, 10) // Only store first 10 in history
-    // })
+    // Add to history
+    executionHistory.value.unshift({
+      ...result.executeResource,
+      timestamp: lastExecutionTime.value,
+      data: result.executeResource
+    })
 
     // Keep only last 20 executions
     if (executionHistory.value.length > 20) {
       executionHistory.value = executionHistory.value.slice(0, 20)
     }
+
+    // Reload artifacts after successful execution
+    if (result.executeResource.success) {
+      await loadArtifacts()
+    }
   } catch (e) {
-    error.value = 'Failed to fetch preview: ' + e.message
+    error.value = 'Failed to execute resource: ' + e.message
     lastExecutionSuccess.value = false
     lastExecutionMessage.value = e.message
     lastExecutionDetails.value = e.stack || null
@@ -290,19 +355,11 @@ async function fetchPreview() {
   }
 }
 
-function clearPreview() {
-  previewData.value = []
+function clearResults() {
+  executionResult.value = null
   lastExecutionSuccess.value = null
   lastExecutionMessage.value = null
   lastExecutionDetails.value = null
-}
-
-function togglePreviewFormat() {
-  isPrettyFormat.value = !isPrettyFormat.value
-}
-
-function toggleJsonView() {
-  showRawJson.value = !showRawJson.value
 }
 
 function clearHistory() {
@@ -313,7 +370,28 @@ function viewHistoryItem(item) {
   selectedHistoryItem.value = item
 }
 
+async function loadArtifacts() {
+  try {
+    loadingArtifacts.value = true
+    const data = await fetchArtifacts(route.params.id)
+    artifacts.value = data.artifacts || []
+  } catch (e) {
+    console.error('Failed to load artifacts:', e)
+  } finally {
+    loadingArtifacts.value = false
+  }
+}
+
+function getBackendUrl(path) {
+  // Convert relative API paths to absolute URLs pointing to backend
+  if (path && path.startsWith('/api/')) {
+    return `http://localhost:8040${path}`
+  }
+  return path
+}
+
 onMounted(async () => {
   await loadSource()
+  await loadArtifacts()
 })
 </script>

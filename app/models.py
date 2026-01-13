@@ -4,7 +4,6 @@ from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, DateT
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
-from app.fetchers.registry import FetcherRegistry
 
 class FetcherType(Base):
     __tablename__ = "fetcher"
@@ -14,18 +13,7 @@ class FetcherType(Base):
     # DB migrations renamed this column to 'name' — keep attribute `code`
     # mapped to DB column 'name' for backward compatibility in code.
     code = Column('name', String(50), unique=True, nullable=False)
-
-    # `class_path` was removed from the DB (see alembic migration
-    # that dropped the column). We expose it as a computed property
-    # using the in-memory FetcherRegistry so code that expects
-    # `fetcher.class_path` continues to work without querying a
-    # non-existent column.
-    @property
-    def class_path(self) -> str:
-        try:
-            return FetcherRegistry.get_class_path(self.code)
-        except Exception:
-            return None
+    class_path = Column(String(255), nullable=True)  # Python class path for dynamic import
     description = Column(Text)
 
     params_def = relationship("TypeFetcherParams", back_populates="fetcher")
@@ -41,6 +29,8 @@ class TypeFetcherParams(Base):
     param_name = Column(String(100), nullable=False)
     required = Column(Boolean, default=True)
     data_type = Column(String(20), default="string")
+    default_value = Column(JSONB, nullable=True)
+    enum_values = Column(JSONB, nullable=True)  # For enum type: list of allowed values
 
     fetcher = relationship("FetcherType", back_populates="params_def")
 
@@ -91,7 +81,7 @@ class Application(Base):
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text)
     models_path = Column(String(255), nullable=False)  # Ruta donde escribir los modelos generados
-    subscribed_projects = Column(JSONB, nullable=False, default=list)  # Lista de projects a los que está suscrita
+    subscribed_projects = Column('subscribed_resources', JSONB, nullable=False, default=list)  # Lista de resources a los que está suscrita
     active = Column(Boolean, default=True)
 
     # New fields for artifact system

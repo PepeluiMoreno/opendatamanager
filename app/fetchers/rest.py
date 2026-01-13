@@ -1,4 +1,5 @@
 import requests
+import json
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 
 
@@ -10,6 +11,7 @@ class RESTFetcher(BaseFetcher):
         url = self.params.get("url")
         method = self.params.get("method", "GET").upper()
         headers = self.params.get("headers", {})
+        query_params = self.params.get("query_params", {})
         timeout = int(self.params.get("timeout", 30))
 
         if not url:
@@ -17,17 +19,25 @@ class RESTFetcher(BaseFetcher):
 
         # Parse headers if they're a JSON string
         if isinstance(headers, str):
-            import json
             headers = json.loads(headers)
 
-        # Make the HTTP request
-        response = requests.request(method, url, headers=headers, timeout=timeout)
+        # Parse query_params if they're a JSON string
+        if isinstance(query_params, str):
+            query_params = json.loads(query_params)
+
+        # Make the HTTP request with query params
+        response = requests.request(
+            method,
+            url,
+            headers=headers,
+            params=query_params,
+            timeout=timeout
+        )
         response.raise_for_status()
         return response.text
 
     def parse(self, raw: RawData) -> ParsedData:
         """Parsea el JSON"""
-        import json
         return json.loads(raw)
 
     def normalize(self, parsed: ParsedData) -> DomainData:
