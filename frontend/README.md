@@ -25,7 +25,7 @@ npm run build
 
 - **Dashboard**: Overview of system stats and quick actions
 - **Resources**: Full CRUD management of data resources with dynamic forms
-- **Source Test**: Live execution and testing of resources with JSON result viewer
+- **Resource Test**: Live execution and testing of resources with JSON result viewer
 - **Fetcher**: View available fetcher implementations
 - **Applications**: Manage subscribed applications and their project subscriptions
 

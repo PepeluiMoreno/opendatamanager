@@ -6,7 +6,7 @@
         @click="showCreateModal = true"
         class="btn btn-primary"
       >
-        Add Fetcher
+        Add neFetcher
       </button>
     </div>
 
@@ -120,7 +120,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { fetchFetchers, createFetcher, updateFetcher, deleteFetcher as deleteFetcherAPI } from '../api/graphql'
-import CreateEditFetcherModal from '../components/CreateEditFetcherModal.vue'
+import CreateEditFetcherModal from './CreateEditFetcherModal.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const Fetchers = ref([])

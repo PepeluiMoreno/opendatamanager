@@ -10,7 +10,7 @@ from app.models import (
     ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification
 )
 from app.graphql.types import (
-    Fetcher,
+    FetcherType,
     ResourceType,
     FetcherParamType,
     ResourceParamType,
@@ -53,7 +53,7 @@ def map_resource_param(param: ResourceParam) -> ResourceParamType:
     )
 
 
-def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> Fetcher:
+def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherType:
    
     if ft is None:
         return None
@@ -72,7 +72,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> Fetcher:
                 params=[]      # Don't load params for this lightweight view
             ))
 
-    return Fetcher(
+    return FetcherType(
         id=str(ft.id),
         code=ft.code,
         class_path=ft.class_path,
@@ -206,7 +206,7 @@ def map_application_notification(notif: ApplicationNotification) -> ApplicationN
 @strawberry.type
 class Query:
     @strawberry.field
-    def fetchers(self) -> List[Fetcher]:
+    def fetchers(self) -> List[FetcherType]:
         """Lista todos los fetchers disponibles"""
         db = get_db()
         try:
@@ -216,7 +216,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def fetcher(self, id: str) -> Optional[Fetcher]:
+    def fetcher(self, id: str) -> Optional[FetcherType]:
         """Obtiene un Fetcher por ID"""
         db = get_db()
         try:

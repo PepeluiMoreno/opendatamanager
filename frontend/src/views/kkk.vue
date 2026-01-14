@@ -21,55 +21,32 @@
     </div>
 
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <FetcherTypeCard
-        v-for="type in fetchers"
-        :key="type.id"
-        :fetcher-type="type"
-        :reresources-count="get Re resourcesCount(type.id)"
-        @select="showTypeDetails(type)"
+      <FetcherCard
+        v-for="fetcher in fetchers"
+        :key="fetcher.id"
+        :fetcher-fetcher="fetcher"
+        :resources-count="getResourcesCount(fetcher.id)"
+        @select="showfetcherDetails(fetcher)"
       />
     </div>
 
     <div v-if="!loading && fetchers.length === 0" class="text-gray-400 text-center py-8">
-      No hay tipos de servicio configurados todavía
+      No fetcher fetchers found. Click "Add Fetcher" to create one.
     </div>
 
-    <!-- Type Details Modal -->
-    <div
-      v-if="selectedType"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="selectedType = null"
-    >
-      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-        <div class="flex items-start justify-between mb-6">
-          <div>
-            <h2 class="text-2xl font-bold text-blue-400">{{ selectedType.code }}</h2>
-            <p class="text-sm text-gray-400 mt-1">{{ selectedType.id }}</p>
-          </div>
-          <div class="flex items-center space-x-2">
-            <button @click="editType(selectedType)" class="btn btn-secondary text-sm">
-              Edit
-            </button>
-            <button @click="confirmDelete(selectedType)" class="btn bg-red-800 hover:bg-red-700 text-sm">
-              Delete
-            </button>
-            <button @click="selectedType = null" class="text-gray-400 hover:text-white text-2xl ml-2">
-              ×
-            </button>
-          </div>
-        </div>
+    <FetcherDetailModal :editfetcher="editfetcher" :confirmDelete="confirmDelete" v-model:selectedfetcher="selectedfetcher" />
 
         <div class="space-y-4">
-          <div v-if="selectedType.description">
+          <div v-if="selectedfetcher.description">
             <h3 class="font-bold mb-2">Description:</h3>
-            <p class="text-gray-300">{{ selectedType.description }}</p>
+            <p class="text-gray-300">{{ selectedfetcher.description }}</p>
           </div>
 
           <div>
-            <h3 class="font-bold mb-2"> Resources using this type:</h3>
-            <div v-if="get ResourcesByType(selectedType.id).length > 0" class="space-y-2">
+            <h3 class="font-bold mb-2"> Resources using this fetcher:</h3>
+            <div v-if="get ResourcesByfetcher(selectedfetcher.id).length > 0" class="space-y-2">
               <router-link
-                v-for="resource in get ResourcesByType(selectedType.id)"
+                v-for="resource in get ResourcesByfetcher(selectedfetcher.id)"
                 :key="resource.id"
                 :to="`/rereresources/${resource.id}/test`"
                 class="block p-3 bg-gray-700 rounded hover:bg-gray-600 transition-colors"
@@ -79,7 +56,7 @@
               </router-link>
             </div>
             <div v-else class="text-gray-400 text-sm">
-              No reresources using this type yet
+              No reresources using this fetcher yet
             </div>
           </div>
         </div>
@@ -105,7 +82,7 @@
             <label class="block text-sm font-medium mb-2">Tipo de Servicio Web *</label>
             <input
               v-model="formData.code"
-              type="text"
+              fetcher="text"
               required
               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
               placeholder="e.g., API REST, SOAP, FILES, CSV"
@@ -119,7 +96,7 @@
               v-model="formData.description"
               rows="3"
               class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-              placeholder="Describe what this fetcher type does..."
+              placeholder="Describe what this fetcher fetcher does..."
             ></textarea>
           </div>
 
@@ -133,7 +110,7 @@
                 <label class="block text-sm font-medium mb-2">Class Path *</label>
                 <input
                   v-model="formData.classPath"
-                  type="text"
+                  fetcher="text"
                   required
                   class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono text-sm"
                   placeholder="e.g., app.fetchers.rest.RestFetcher"
@@ -148,10 +125,10 @@
           </div>
 
           <div class="flex justify-end space-x-3 pt-4">
-            <button type="button" @click="closeFormModal" class="btn btn-secondary">
+            <button fetcher="button" @click="closeFormModal" class="btn btn-secondary">
               Cancel
             </button>
-            <button type="submit" :disabled="submitting" class="btn btn-primary">
+            <button fetcher="submit" :disabled="submitting" class="btn btn-primary">
               {{ submitting ? 'Saving...' : (formMode === 'create' ? 'Create' : 'Update') }}
             </button>
           </div>
@@ -168,10 +145,10 @@
       <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
         <h2 class="text-xl font-bold mb-4">Confirm Delete</h2>
         <p class="text-gray-300 mb-4">
-          Are you sure you want to delete the fetcher type <strong class="text-blue-400">{{ deleteConfirmation.code }}</strong>?
+          Are you sure you want to delete the fetcher fetcher <strong class="text-blue-400">{{ deleteConfirmation.code }}</strong>?
         </p>
-        <div v-if="get ResourcesByType(deleteConfirmation.id).length > 0" class="p-3 bg-yellow-900 border border-yellow-700 rounded text-yellow-200 text-sm mb-4">
-          Warning: This fetcher type is being used by {{ get ResourcesByType(deleteConfirmation.id).length }} resource(s).
+        <div v-if="get ResourcesByfetcher(deleteConfirmation.id).length > 0" class="p-3 bg-yellow-900 border border-yellow-700 rounded text-yellow-200 text-sm mb-4">
+          Warning: This fetcher fetcher is being used by {{ get ResourcesByfetcher(deleteConfirmation.id).length }} resource(s).
           You cannot delete it until all reresources using it are removed or reassigned.
         </div>
         <div v-if="deleteError" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm mb-4">
@@ -183,7 +160,7 @@
           </button>
           <button
             @click="handleDelete"
-            :disabled="deleting || get ResourcesByType(deleteConfirmation.id).length > 0"
+            :disabled="deleting || get ResourcesByfetcher(deleteConfirmation.id).length > 0"
             class="btn bg-red-800 hover:bg-red-700 disabled:opacity-50"
           >
             {{ deleting ? 'Deleting...' : 'Delete' }}
@@ -199,17 +176,18 @@ import { ref, onMounted } from 'vue'
 import {
   fetchfetchers,
   fetchRereresources,
-  createFetcherType,
-  updateFetcherType,
-  deleteFetcherType
+  createFetcherfetcher,
+  updateFetcherfetcher,
+  deleteFetcherfetcher
 } from '../api/graphql'
-import FetcherTypeCard from '../components/FetcherTypeCard.vue'
+import FetcherfetcherCard from '../components/FetcherfetcherCard.vue'
+import FetcherDetailModal from './FetcherDetailModal.vue'
 
 const fetchers = ref([])
 const reresources = ref([])
 const loading = ref(true)
 const error = ref(null)
-const selectedType = ref(null)
+const selectedfetcher = ref(null)
 const showFormModal = ref(false)
 const formMode = ref('create') // 'create' or 'edit'
 const formData = ref({
@@ -219,7 +197,7 @@ const formData = ref({
 })
 const formError = ref(null)
 const submitting = ref(false)
-const editingTypeId = ref(null)
+const editingfetcherId = ref(null)
 const deleteConfirmation = ref(null)
 const deleteError = ref(null)
 const deleting = ref(false)
@@ -228,11 +206,11 @@ async function loadData() {
   try {
     loading.value = true
     error.value = null
-    const [typesData, rereresourcesData] = await Promise.all([
+    const [fetchersData, rereresourcesData] = await Promise.all([
       fetchfetchers(),
       fetchRereresources(false)
     ])
-    fetchers.value = typesData.fetchers
+    fetchers.value = fetchersData.fetchers
     reresources.value = rereresourcesData.rereresources
   } catch (e) {
     error.value = 'Failed to load data: ' + e.message
@@ -241,16 +219,16 @@ async function loadData() {
   }
 }
 
-function get Re resourcesCount(typeId) {
-  return reresources.value.filter(s => s.fetcher.id === typeId).length
+function get Re resourcesCount(fetcherId) {
+  return reresources.value.filter(s => s.fetcher.id === fetcherId).length
 }
 
-function get ResourcesByType(typeId) {
-  return reresources.value.filter(s => s.fetcher.id === typeId)
+function get ResourcesByfetcher(fetcherId) {
+  return reresources.value.filter(s => s.fetcher.id === fetcherId)
 }
 
-function showTypeDetails(type) {
-  selectedType.value = type
+function showfetcherDetails(fetcher) {
+  selectedfetcher.value = fetcher
 }
 
 function showCreateModal() {
@@ -261,20 +239,20 @@ function showCreateModal() {
     description: ''
   }
   formError.value = null
-  editingTypeId.value = null
+  editingfetcherId.value = null
   showFormModal.value = true
 }
 
-function editType(type) {
+function editfetcher(fetcher) {
   formMode.value = 'edit'
   formData.value = {
-    code: type.code,
-    classPath: type.classPath,
-    description: type.description || ''
+    code: fetcher.code,
+    classPath: fetcher.classPath,
+    description: fetcher.description || ''
   }
   formError.value = null
-  editingTypeId.value = type.id
-  selectedType.value = null
+  editingfetcherId.value = fetcher.id
+  selectedfetcher.value = null
   showFormModal.value = true
 }
 
@@ -282,7 +260,7 @@ function closeFormModal() {
   showFormModal.value = false
   formData.value = { code: '', classPath: '', description: '' }
   formError.value = null
-  editingTypeId.value = null
+  editingfetcherId.value = null
 }
 
 async function submitForm() {
@@ -297,23 +275,23 @@ async function submitForm() {
     }
 
     if (formMode.value === 'create') {
-      await createFetcherType(input)
+      await createFetcherfetcher(input)
     } else {
-      await updateFetcherType(editingTypeId.value, input)
+      await updateFetcherfetcher(editingfetcherId.value, input)
     }
 
     closeFormModal()
     await loadData()
   } catch (e) {
-    formError.value = e.message || 'Failed to save fetcher type'
+    formError.value = e.message || 'Failed to save fetcher fetcher'
   } finally {
     submitting.value = false
   }
 }
 
-function confirmDelete(type) {
-  selectedType.value = null
-  deleteConfirmation.value = type
+function confirmDelete(fetcher) {
+  selectedfetcher.value = null
+  deleteConfirmation.value = fetcher
   deleteError.value = null
 }
 
@@ -322,12 +300,12 @@ async function handleDelete() {
     deleting.value = true
     deleteError.value = null
 
-    await deleteFetcherType(deleteConfirmation.value.id)
+    await deleteFetcherfetcher(deleteConfirmation.value.id)
 
     deleteConfirmation.value = null
     await loadData()
   } catch (e) {
-    deleteError.value = e.message || 'Failed to delete fetcher type'
+    deleteError.value = e.message || 'Failed to delete fetcher fetcher'
   } finally {
     deleting.value = false
   }

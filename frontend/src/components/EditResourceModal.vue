@@ -97,9 +97,9 @@
         This resource type has no parameters configured
       </div>
 
-      <!-- Resources Using This Type -->
+      <!-- Resources Using This Fetcher -->
       <div v-if="Fetcher.resources && Fetcher.resources.length > 0" class="mt-6 pt-6 border-t border-gray-600">
-        <h4 class="text-lg font-medium mb-3">Resources Using This Type</h4>
+        <h4 class="text-lg font-medium mb-3">Resources Using This Fetcher</h4>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <router-link
             v-for="resource in Fetcher.resources"

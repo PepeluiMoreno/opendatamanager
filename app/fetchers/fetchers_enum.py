@@ -5,7 +5,7 @@ Estos son los únicos tipos válidos en el sistema.
 from enum import Enum
 
 
-class FetcherKind(Enum):
+class FetchersEnum(Enum):
     """Tipos de fetchers soportados (valores de conveniencia)."""
 
     API_REST = {

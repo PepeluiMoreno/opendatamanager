@@ -42,7 +42,7 @@ class Resource(Base):
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text)
     publisher = Column(String(50), nullable=False)
-    target_table = Column(String(100), nullable=False)
+    target_table = Column(String(100), nullable=True)
     fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id"))
     active = Column(Boolean, default=True)
 

@@ -20,7 +20,7 @@ FIELD_METADATA = [
         "table_name": "resource",
         "field_name": "project",
         "label": "Proyecto",
-        "help_text": "Proyecto o dominio al que pertenece este source. Usado para agrupar  resources relacionados. Ejemplo: 'clientes', 'ventas', 'inventario'",
+        "help_text": "Proyecto o dominio al que pertenece este resource, Usado para agrupar  resources relacionados. Ejemplo: 'clientes', 'ventas', 'inventario'",
         "placeholder": "e.g., clientes"
     },
     {
