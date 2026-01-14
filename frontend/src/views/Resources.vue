@@ -59,12 +59,12 @@
             </td>
             <td class="py-3 px-4">
               <div class="flex justify-end gap-2">
-              <!--   <button
+               <button
                   @click="showPreviewData(resource)"
                   class="btn btn-primary text-sm py-1 px-3"
                 >
                   Test
-                </button> -->
+                </button> 
                 <button
                   @click="editResource(resource)"
                   class="btn btn-secondary text-sm py-1 px-3"

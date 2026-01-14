@@ -5,6 +5,16 @@ import strawberry
 from typing import Optional, List
 from datetime import datetime
 
+@strawberry.type
+class FetcherType:
+    """Tipo de fetcher"""
+    id: str
+    code: str
+    class_path: str = strawberry.field(name="classPath")
+    description: Optional[str] = None
+    params_def: List["FetcherParamType"] = strawberry.field(default_factory=list)
+    name: str = strawberry.field(name="name")
+    resources: Optional[List["ResourceType"]] = None
 
 @strawberry.type
 class FetcherParamType:
@@ -201,20 +211,10 @@ class ResourceType:
     id: str
     name: str
     publisher: str
-    target_table: str = strawberry.field(name="targetTable")
+    target_table: Optional[str] = strawberry.field(name="targetTable")
     active: bool
-    fetcher: "Fetcher"
+    fetcher: FetcherType
     params: List[ResourceParamType]
 
 
-@strawberry.type
-class Fetcher:
-    """Fetcher disponible (REST API, HTML Forms, etc.)"""
-    id: str
-    code: str
-    name: str
-    class_path: Optional[str] = strawberry.field(default=None, name="classPath")
-    description: Optional[str] = None
-    params_def: Optional[List[FetcherParamType]] = strawberry.field(default=None, name="paramsDef")
-    resources: Optional[List[ResourceType]] = None
 

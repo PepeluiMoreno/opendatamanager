@@ -8,7 +8,7 @@ from app.database import SessionLocal
 from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application
 from app.graphql.types import (
     ResourceType,
-    Fetcher,
+    FetcherType,
     FetcherParamType,
     ApplicationType,
     CreateResourceInput,
@@ -53,7 +53,7 @@ class Mutation:
                 id=uuid4(),
                 name=input.name,
                 publisher=input.publisher,
-                target_table=input.target_table,
+             ##   target_table=input.target_table,
                 fetcher_id=input.fetcher_id,
                 active=input.active
             )
@@ -173,7 +173,7 @@ class Mutation:
 
     @strawberry.mutation
     def execute_all_resources(self) -> ExecutionResult:
-        """Ejecuta todos los  Resources activos"""
+        """Ejecuta todos los Sources activos"""
         db = get_db()
         try:
             FetcherManager.run_all(db)
@@ -190,7 +190,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def create_fetcher(self, input: CreateFetcherInput) -> Fetcher:
+    def create_fetcher(self, input: CreateFetcherInput) -> FetcherType:
         """Crea un nuevo tipo de fetcher"""
         db = get_db()
         try:
@@ -216,7 +216,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def update_fetcher(self, id: str, input: UpdateFetcherInput) -> Fetcher:
+    def update_fetcher(self, id: str, input: UpdateFetcherInput) -> FetcherType:
         """Actualiza un tipo de fetcher existente"""
         db = get_db()
         try:
@@ -479,5 +479,5 @@ class Mutation:
             raise e
         finally:
             db.close()      
-
+            
         
