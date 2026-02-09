@@ -3,7 +3,7 @@ import Dashboard from '../views/Dashboard.vue'
 import Resources from '../views/Resources.vue'
 import ResourceTest from '../views/ResourceTest.vue'
 import Applications from '../views/Applications.vue'
-import fetchers from '../views/fetchers.vue'
+import fetchers from '../views/Fetchers.vue'
 
 const routes = [
   {
