@@ -65,7 +65,7 @@
           <!-- Action Buttons -->
           <div class="flex gap-2 border-t border-gray-600 pt-4">
             <a
-              :href="`http://localhost:8040/api/datasets/${dataset.id}/data.jsonl`"
+              :href="`/api/datasets/${dataset.id}/data.jsonl`"
               download
               class="btn btn-primary text-sm"
               title="Download JSONL data file"

@@ -9,7 +9,7 @@ from app.models import (
     Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
     ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification
 )
-from app.graphql.types import (
+from app.graphql_api.types import (
     FetcherType,
     ResourceType,
     FetcherParamType,
@@ -107,6 +107,7 @@ def map_resource(resource: Resource) -> ResourceType:
         publisher=resource.publisher,
         target_table=resource.target_table,
         active=resource.active,
+        schedule=resource.schedule,
         fetcher=map_fetcher(resource.fetcher) if getattr(resource, 'fetcher', None) else None,
         params=[map_resource_param(p) for p in (resource.params or [])]
     )

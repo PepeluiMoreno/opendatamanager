@@ -117,7 +117,7 @@ async function loadData() {
     error.value = null
 
     // Fetch the JSONL data from the API
-    const response = await fetch(`http://localhost:8040/api/datasets/${props.datasetId}/data.jsonl`)
+    const response = await fetch(`/api/datasets/${props.datasetId}/data.jsonl`)
     if (!response.ok) {
       throw new Error(`Failed to fetch dataset: ${response.statusText}`)
     }

@@ -30,6 +30,8 @@ class FetcherParams(Base):
     required = Column(Boolean, default=True)
     data_type = Column(String(20), default="string")
     default_value = Column(JSONB, nullable=True)
+    enum_values = Column(JSONB, nullable=True)
+    description = Column(Text, nullable=True)
 
     fetcher = relationship("Fetcher", back_populates="params_def")
 
@@ -45,6 +47,7 @@ class Resource(Base):
     target_table = Column(String(100), nullable=True)
     fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id"))
     active = Column(Boolean, default=True)
+    schedule = Column(String(100), nullable=True)  # cron expression, e.g. "0 2 * * *"
 
     # New fields for dataset system
     enable_load = Column(Boolean, default=False)

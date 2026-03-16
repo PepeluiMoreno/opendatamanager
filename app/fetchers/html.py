@@ -28,7 +28,7 @@ class HtmlFetcher(BaseFetcher):
         excluded_params = {"url", "method", "timeout", "headers"}
         query_params = {
             k: v for k, v in self.params.items()
-            if k not in excluded_params and v  # Solo incluir si tiene valor
+            if k not in excluded_params and not k.startswith("_") and v
         }
 
         # Headers opcionales

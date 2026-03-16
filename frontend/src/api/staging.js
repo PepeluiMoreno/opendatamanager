@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_URL = 'http://localhost:8040/api/staging'
+const API_URL = '/api/staging'
 
 export async function listFiles() {
   try {

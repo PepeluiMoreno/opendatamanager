@@ -52,7 +52,7 @@
                 :key="project"
                 class="bg-gray-900 px-2 py-1 rounded text-blue-400"
               >
-                {{ project }}
+                {{ getResourceName(project) }}
               </span>
             </div>
           </div>
@@ -190,11 +190,18 @@ import {
   createApplication,
   updateApplication,
   deleteApplication,
+  fetchResources,
 } from '../api/graphql'
 
 const applications = ref([])
+const resources = ref([])
 const loading = ref(true)
 const error = ref(null)
+
+function getResourceName(id) {
+  const resource = resources.value.find(r => r.id === id)
+  return resource ? resource.name : id
+}
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -298,7 +305,9 @@ function closeModals() {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
+  const r = await fetchResources(false)
+  resources.value = r.resources || []
   loadData()
 })
 </script>

@@ -33,6 +33,7 @@
             <th class="text-left py-3 px-4">Publisher</th>
             <th class="text-left py-3 px-4">Type</th>
             <th class="text-left py-3 px-4">Status</th>
+            <th class="text-left py-3 px-4">Schedule</th>
             <th class="text-right py-3 px-4">Actions</th>
           </tr>
         </thead>
@@ -56,6 +57,12 @@
               >
                 {{ resource.active ? 'Active' : 'Inactive' }}
               </span>
+            </td>
+            <td class="py-3 px-4">
+              <span v-if="resource.schedule" class="text-xs font-mono text-yellow-400 bg-yellow-900 bg-opacity-30 px-2 py-1 rounded">
+                {{ resource.schedule }}
+              </span>
+              <span v-else class="text-xs text-gray-600">—</span>
             </td>
             <td class="py-3 px-4">
               <div class="flex justify-end gap-2">
@@ -171,6 +178,18 @@
                 ]"
               >
                 Concurrency & Parallelism
+              </button>
+              <button
+                type="button"
+                @click="activeParamTab = 'schedule'"
+                :class="[
+                  'px-4 py-2 text-sm font-medium transition-colors',
+                  activeParamTab === 'schedule'
+                    ? 'text-yellow-400 border-b-2 border-yellow-400'
+                    : 'text-gray-400 hover:text-gray-300'
+                ]"
+              >
+                Schedule
               </button>
             </div>
 
@@ -289,153 +308,109 @@
               </div>
             </div>
 
-            <!-- Tab Content: Concurrency & Parallelism -->
-            <div v-if="activeParamTab === 'concurrency'" class="h-[400px] overflow-y-auto pr-2">
+            <!-- Tab Content: Schedule -->
+            <div v-if="activeParamTab === 'schedule'" class="h-[400px] overflow-y-auto pr-2">
               <div class="space-y-4">
-                <!-- Number of Workers -->
                 <div>
-                  <Tooltip text="Controls how many parallel workers will process this resource. 1 = sequential processing, >1 = parallel processing with multiple workers.">
-                    <label class="block text-sm font-medium mb-2">
-                      Number of Workers
-                    </label>
-                  </Tooltip>
-                  <input
-                    v-model.number="form.numWorkers"
-                    type="number"
-                    min="1"
-                    max="20"
-                    class="input w-full text-sm"
-                    placeholder="1"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Parallel workers for processing (1 = sequential, >1 = parallel)
-                  </p>
-                  <p class="text-xs text-yellow-400 mt-1" v-if="form.numWorkers > 10">
-                    ⚠️ Using more than 10 workers may cause performance issues
-                  </p>
+                  <label class="block text-sm font-medium mb-2">Preset</label>
+                  <select @change="applySchedulePreset($event.target.value)" class="input w-full text-sm">
+                    <option value="">Choose a preset...</option>
+                    <option value="">— No schedule (manual only)</option>
+                    <option value="0 2 * * *">Daily at 2:00 AM</option>
+                    <option value="0 6 * * *">Daily at 6:00 AM</option>
+                    <option value="0 */6 * * *">Every 6 hours</option>
+                    <option value="0 */12 * * *">Every 12 hours</option>
+                    <option value="0 0 * * 1">Weekly (Monday midnight)</option>
+                    <option value="0 0 1 * *">Monthly (1st of month)</option>
+                  </select>
                 </div>
-
-                <!-- Max Concurrent Requests -->
                 <div>
-                  <Tooltip text="Maximum number of simultaneous HTTP requests that can be made to the API at once. Lower values are safer for rate-limited APIs.">
-                    <label class="block text-sm font-medium mb-2">
-                      Max Concurrent Requests
-                    </label>
-                  </Tooltip>
+                  <label class="block text-sm font-medium mb-2">Cron expression</label>
                   <input
-                    v-model.number="form.maxConcurrentRequests"
-                    type="number"
-                    min="1"
-                    max="50"
-                    class="input w-full text-sm"
-                    placeholder="5"
+                    v-model="form.schedule"
+                    type="text"
+                    class="input w-full text-sm font-mono"
+                    placeholder="e.g. 0 2 * * *  (min hour day month weekday)"
                   />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Maximum simultaneous HTTP requests (default: 5)
-                  </p>
-                </div>
-
-                <!-- Rate Limit per Second -->
-                <div>
-                  <Tooltip text="Maximum number of requests per second allowed to the API. Helps prevent hitting API rate limits and getting blocked.">
-                    <label class="block text-sm font-medium mb-2">
-                      Rate Limit (requests/second)
-                    </label>
-                  </Tooltip>
-                  <input
-                    v-model.number="form.rateLimitPerSecond"
-                    type="number"
-                    min="1"
-                    max="100"
-                    class="input w-full text-sm"
-                    placeholder="10"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Maximum requests per second to the API (default: 10)
-                  </p>
-                </div>
-
-                <!-- Request Delay -->
-                <div>
-                  <Tooltip text="Fixed delay in milliseconds between consecutive requests. Use this for APIs that require spacing between calls. 0 = no delay.">
-                    <label class="block text-sm font-medium mb-2">
-                      Request Delay (milliseconds)
-                    </label>
-                  </Tooltip>
-                  <input
-                    v-model.number="form.requestDelayMs"
-                    type="number"
-                    min="0"
-                    max="5000"
-                    class="input w-full text-sm"
-                    placeholder="0"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Delay between consecutive requests in milliseconds (default: 0)
-                  </p>
-                </div>
-
-                <!-- Retry Attempts -->
-                <div>
-                  <Tooltip text="Number of times to retry a failed request before giving up. 0 = no retries, higher values are more resilient to temporary failures.">
-                    <label class="block text-sm font-medium mb-2">
-                      Retry Attempts
-                    </label>
-                  </Tooltip>
-                  <input
-                    v-model.number="form.retryAttempts"
-                    type="number"
-                    min="0"
-                    max="10"
-                    class="input w-full text-sm"
-                    placeholder="3"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Number of retry attempts on failure (default: 3)
-                  </p>
-                </div>
-
-                <!-- Retry Backoff Factor -->
-                <div>
-                  <Tooltip text="Exponential backoff multiplier for retry delays. For example, with factor 2.0: first retry waits 2s, second waits 4s, third waits 8s. Higher values = longer waits between retries.">
-                    <label class="block text-sm font-medium mb-2">
-                      Retry Backoff Factor
-                    </label>
-                  </Tooltip>
-                  <input
-                    v-model.number="form.retryBackoffFactor"
-                    type="number"
-                    min="1"
-                    max="5"
-                    step="0.1"
-                    class="input w-full text-sm"
-                    placeholder="2.0"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Exponential backoff multiplier for retries (default: 2.0)
-                  </p>
-                </div>
-
-                <!-- Batch Size -->
-                <div>
-                  <Tooltip text="Number of records to process in each batch when paginating through large datasets. Smaller batches = more API calls but less memory usage. Larger batches = fewer API calls but more memory.">
-                    <label class="block text-sm font-medium mb-2">
-                      Batch Size
-                    </label>
-                  </Tooltip>
-                  <input
-                    v-model.number="form.batchSize"
-                    type="number"
-                    min="1"
-                    max="10000"
-                    class="input w-full text-sm"
-                    placeholder="100"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">
-                    Number of records per batch for pagination (default: 100)
-                  </p>
+                  <p class="text-xs text-gray-400 mt-1">5 fields: minute hour day month weekday — leave empty for manual execution only</p>
                 </div>
               </div>
+            </div>
+
+            <!-- Tab Content: Concurrency & Parallelism -->
+            <div v-if="activeParamTab === 'concurrency'" class="h-[400px] overflow-y-auto pr-2 space-y-4">
+
+              <!-- Fieldset: Parallelism -->
+              <fieldset class="border border-blue-700 rounded p-3">
+                <legend class="text-xs font-semibold text-blue-400 px-2">Parallelism</legend>
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <Tooltip text="Number of parallel workers. 1 = sequential processing.">
+                      <label class="block text-xs font-medium mb-1">Workers</label>
+                    </Tooltip>
+                    <input v-model.number="form.numWorkers" type="number" min="1" max="20"
+                      class="input w-full text-sm text-center" placeholder="1" />
+                    <p class="text-xs text-gray-400 mt-1">1 = sequential</p>
+                    <p class="text-xs text-yellow-400 mt-1" v-if="form.numWorkers > 10">⚠️ More than 10 may cause issues</p>
+                  </div>
+                  <div>
+                    <Tooltip text="Maximum simultaneous HTTP requests to the external server.">
+                      <label class="block text-xs font-medium mb-1">Max concurrent requests</label>
+                    </Tooltip>
+                    <input v-model.number="form.maxConcurrentRequests" type="number" min="1" max="50"
+                      class="input w-full text-sm" placeholder="5" />
+                    <p class="text-xs text-gray-400 mt-1">Default: 5</p>
+                  </div>
+                  <div>
+                    <Tooltip text="Maximum requests per second to the external API.">
+                      <label class="block text-xs font-medium mb-1">Rate limit (req/s)</label>
+                    </Tooltip>
+                    <input v-model.number="form.rateLimitPerSecond" type="number" min="1" max="100"
+                      class="input w-full text-sm" placeholder="10" />
+                    <p class="text-xs text-gray-400 mt-1">Default: 10</p>
+                  </div>
+                  <div>
+                    <Tooltip text="Records per request in paginated APIs.">
+                      <label class="block text-xs font-medium mb-1">Batch size</label>
+                    </Tooltip>
+                    <input v-model.number="form.batchSize" type="number" min="1" max="10000"
+                      class="input w-full text-sm" placeholder="100" />
+                    <p class="text-xs text-gray-400 mt-1">Default: 100</p>
+                  </div>
+                </div>
+              </fieldset>
+
+              <!-- Fieldset: Retries & Timing -->
+              <fieldset class="border border-yellow-700 rounded p-3">
+                <legend class="text-xs font-semibold text-yellow-400 px-2">Retries & Timing</legend>
+                <div class="grid grid-cols-3 gap-3">
+                  <div>
+                    <Tooltip text="Number of retries on failure before giving up.">
+                      <label class="block text-xs font-medium mb-1">Retry attempts</label>
+                    </Tooltip>
+                    <input v-model.number="form.retryAttempts" type="number" min="0" max="10"
+                      class="input w-full text-sm" placeholder="3" />
+                    <p class="text-xs text-gray-400 mt-1">Default: 3</p>
+                  </div>
+                  <div>
+                    <Tooltip text="Exponential backoff multiplier between retries. 2.0 → 2s, 4s, 8s...">
+                      <label class="block text-xs font-medium mb-1">Backoff factor</label>
+                    </Tooltip>
+                    <input v-model.number="form.retryBackoffFactor" type="number" min="1" max="5" step="0.1"
+                      class="input w-full text-sm" placeholder="2.0" />
+                    <p class="text-xs text-gray-400 mt-1">Default: 2.0</p>
+                  </div>
+                  <div>
+                    <Tooltip text="Fixed delay in ms between consecutive requests.">
+                      <label class="block text-xs font-medium mb-1">Request delay (ms)</label>
+                    </Tooltip>
+                    <input v-model.number="form.requestDelayMs" type="number" min="0" max="5000"
+                      class="input w-full text-sm" placeholder="0" />
+                    <p class="text-xs text-gray-400 mt-1">0 = no delay</p>
+                  </div>
+                </div>
+              </fieldset>
+
             </div>
           </div>
 
@@ -531,6 +506,7 @@ const form = ref({
   fetcherId: '',
   params: [],
   active: true,
+  schedule: null,
   numWorkers: 1,
   maxConcurrentRequests: null,
   rateLimitPerSecond: null,
@@ -539,6 +515,10 @@ const form = ref({
   retryBackoffFactor: null,
   batchSize: null,
 })
+
+function applySchedulePreset(value) {
+  form.value.schedule = value || null
+}
 
 const activeParamTab = ref('parameters')
 
@@ -724,6 +704,7 @@ function editResource(resource) {
     fetcherId: resource.fetcher.id,
     params: regularParams.map(p => ({ key: p.key, value: p.value })),
     active: resource.active,
+    schedule: resource.schedule || null,
     numWorkers: parseInt(getParam('num_workers', 1)),
     maxConcurrentRequests: getParam('max_concurrent_requests') ? parseInt(getParam('max_concurrent_requests')) : null,
     rateLimitPerSecond: getParam('rate_limit_per_second') ? parseInt(getParam('rate_limit_per_second')) : null,
@@ -823,6 +804,7 @@ async function submitForm() {
       fetcherId: form.value.fetcherId,
       params: allParams,
       active: form.value.active,
+      schedule: form.value.schedule || null,
     }
 
     if (showCreateModal.value) {
@@ -849,6 +831,7 @@ function closeModals() {
     fetcherId: '',
     params: [],
     active: true,
+    schedule: null,
     numWorkers: 1,
     maxConcurrentRequests: null,
     rateLimitPerSecond: null,

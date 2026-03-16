@@ -44,11 +44,15 @@
     </nav>
 
     <div class="p-4 border-t border-gray-700 text-xs text-gray-500">
-      <p>Backend: localhost:8040</p>
+      <p>Backend: {{ apiUrl }}</p>
       <p class="mt-1">Vue 3 + Vite + Tailwind</p>
     </div>
   </div>
 </template>
+
+<script setup>
+const apiUrl = import.meta.env.VITE_API_URL || '/graphql'
+</script>
 
 <style scoped>
 .nav-item {

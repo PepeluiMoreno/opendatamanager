@@ -1,0 +1,23 @@
+services:
+  app:
+    volumes:
+      - .:/app
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      - API_TARGET=http://app:8000
+    ports:
+      - "${FRONTEND_PORT}:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+  db:
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata_dev:

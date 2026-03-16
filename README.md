@@ -1,5 +1,28 @@
 # OpenDataManager
 
+**OpenDataManager** es un **gestor automatizado de fuentes de datos abiertos**.
+
+Imagina que trabajas en una organización y necesitas datos de varios sitios web del gobierno: subvenciones del Ministerio de Hacienda, catastro de la Junta de Andalucía, estadísticas del INE... Cada uno tiene su propia API, su propio formato, su propia forma de paginarse. Mantener todo eso a mano es un infierno.
+
+Esta aplicación resuelve exactamente eso. Funciona en tres capas:
+
+**1. Configuración de fuentes ("Resources")**
+Defines de dónde quieres sacar datos: una URL de API REST, un portal CKAN, un feed RSS, un fichero CSV... Le dices cómo conectarse (qué parámetros usar, qué credenciales si las hay) y qué tipo de "conector" (fetcher) usar para cada tipo de fuente.
+
+**2. Pipeline de extracción automática**
+Cuando ejecutas un recurso, la app hace todo el trabajo sucio:
+- **Extrae** los datos de la fuente
+- **Normaliza** el formato (convierte todo a JSON estructurado)
+- **Versiona** el resultado — si los datos cambian respecto a la vez anterior, crea una nueva versión (`v1.0.0`, `v1.1.0`, `v2.0.0`...) según si cambiaron los registros, la estructura, o ambas cosas
+- **Guarda** el paquete de datos con su esquema, sus modelos Python generados automáticamente y sus metadatos
+
+**3. Distribución a aplicaciones suscritas**
+Otros proyectos pueden suscribirse a cualquier fuente. Cuando hay datos nuevos, reciben un aviso automático con la versión disponible y pueden descargarse el dataset directamente. Por ejemplo, **grants-surveyor** es una aplicación que consume datos de convocatorias de subvenciones públicas — en lugar de ir a buscarlos ella misma cada vez, simplemente se suscribe a OpenDataManager y recibe los datos ya limpios y estructurados en cuanto hay una actualización.
+
+En resumen: es un **hub centralizado de datos abiertos** que conecta fuentes heterogéneas, estandariza lo que sacan, lleva control de versiones como si fuera un git de datos, y avisa a quien lo necesite cuando hay novedades.
+
+---
+
 Backend metadata-driven para gestión de recursos de datos OpenData con ETL automatizado y sistema de suscripciones.
 
 ## 🎯 Objetivos
@@ -80,55 +103,98 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
    - Send HMAC-signed webhooks to notify data updates
 ```
 
-## 🚀 Instalación
+## 🚀 Despliegue con Docker
 
-1. Clonar repositorio
-2. Crear entorno virtual:
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+La aplicación corre en contenedores. Hay tres entornos: desarrollo local (`optiplex-790`), staging (`vps2.europalaica.org`) y producción (`vps1.europalaica.org`).
+
+### Servicios por entorno
+
+| Servicio | Dev | Staging/Prod |
+|---|---|---|
+| `app` (FastAPI + GraphQL) | bind mount + `--reload` | imagen construida |
+| `frontend` (Vue 3) | Vite dev server, hot reload | build estático |
+| `db` (PostgreSQL) | puerto expuesto al host | solo interno |
+| `nginx` | no arranca | proxy + entrada Traefik |
+
+### Red Docker
+
+Todos los entornos comparten la red externa `traefik_public`. La API (`odmgr_app`) es accesible desde otros proyectos Docker a través de esa red — no se expone ningún puerto al host en staging/prod.
+
+Para que otro proyecto consuma la API, basta con que se una a `traefik_public` y use `http://odmgr_app:8000/graphql` como URL.
+
+### Archivos Compose
+
+| Archivo | Uso |
+|---|---|
+| `docker-compose.yml` | Base común: servicios, red `traefik_public` |
+| `docker-compose.dev.yml` | Overlay dev: bind mounts, puertos al host, frontend Vite |
+| `docker-compose.staging.yml` | Overlay staging: añade nginx con labels Traefik |
+| `docker-compose.prod.yml` | Overlay producción: igual con subdominio de prod |
+
+### Variables de entorno
+
+Copia `.env.example` como base. El archivo `.env` es cargado automáticamente en desarrollo.
+
+| Variable | Descripción |
+|---|---|
+| `APP_PREFIX` | Prefijo para nombres de contenedores (`odmgr`) |
+| `FRONTEND_PORT` | Puerto del frontend Vite en dev (`5173`) |
+| `POSTGRES_PORT` | Puerto externo de PostgreSQL (solo dev, `55432`) |
+| `POSTGRES_USER` | Usuario de la base de datos |
+| `POSTGRES_PASSWORD` | Contraseña de la base de datos |
+| `POSTGRES_DB` | Nombre de la base de datos |
+| `DATABASE_URL` | URL completa de conexión (usada por la app Python) |
+
+### Desarrollo (optiplex-790)
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
-3. Instalar dependencias:
-```powershell
-pip install -r requirements.txt
+Accesible en:
+- `http://optiplex-790:5173` — Frontend (Vite dev server, hot reload)
+- `http://optiplex-790:5173/graphql` — GraphiQL UI (proxiado por Vite)
+- `http://optiplex-790:55432` — PostgreSQL directo
+
+### Staging
+
+```sh
+docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.staging.yml up -d
 ```
 
-4. Configurar `.env`:
-```env
-DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/db?sslmode=require
-API_HOST=localhost
-API_PORT=8040
-API_URL=http://localhost:8040/graphql
+### Producción
+
+```sh
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-5. Ejecutar migraciones:
-```powershell
-python -m alembic upgrade head
+### Parar servicios
+
+```sh
+# Bajar sin borrar datos
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+
+# Bajar y eliminar volumen de datos (destructivo)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+```
+
+### Bootstrap de base de datos
+
+La inicialización no ocurre automáticamente al arrancar. Se ejecuta manualmente:
+
+```sh
+bash scripts/db-bootstrap.sh
 ```
 
 ## 🎮 Uso
 
-### Iniciar servidor GraphQL
+Endpoints disponibles en desarrollo:
 
-```powershell
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8040
-```
+- `http://optiplex-790:5173` — Frontend Vue 3
+- `http://optiplex-790:5173/graphql` — GraphiQL UI
+- `http://optiplex-790:5173/docs` — Swagger UI (proxiado por Vite)
 
-Acceder a:
-- **GraphQL API**: http://localhost:8040/graphql
-- **GraphiQL UI**: http://localhost:8040/graphql (navegador)
-- **Docs**: http://localhost:8040/docs
-
-### Ejecutar fetchers manualmente
-
-```powershell
-# Ejecutar todos los  resources activos
-python scripts\refresh_cores.py
-
-# Refrescar modelos de aplicaciones suscritas
-python scripts\refresh_app_models.py
-```
+En staging/prod, Traefik enruta el subdominio configurado hacia nginx, que sirve el frontend y hace proxy de `/graphql` hacia `app`.
 
 ## 📝 Ejemplos GraphQL
 
@@ -257,7 +323,7 @@ opendatamanager/
 │   │   └── factory.py        # Factory dinámico
 │   ├── manager/
 │   │   └── fetcher_manager.py # Orquestador
-│   ├── graphql/
+│   ├── graphql_api/
 │   │   ├── schema.py         # Schema Strawberry
 │   │   ├── types.py          # Tipos GraphQL
 │   │   ├── queries.py        # Queries

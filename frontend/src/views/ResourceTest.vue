@@ -385,7 +385,7 @@ async function loadDatasets() {
 function getBackendUrl(path) {
   // Convert relative API paths to absolute URLs pointing to backend
   if (path && path.startsWith('/api/')) {
-    return `http://localhost:8040${path}`
+    return path
   }
   return path
 }

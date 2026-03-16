@@ -6,7 +6,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application
-from app.graphql.types import (
+from app.graphql_api.types import (
     ResourceType,
     FetcherType,
     FetcherParamType,
@@ -21,8 +21,9 @@ from app.graphql.types import (
     UpdateApplicationInput,
     ExecutionResult
 )
-from app.graphql.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param
+from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param
 from app.manager.fetcher_manager import FetcherManager
+import app.scheduler as scheduler
 
 
 def get_db():
@@ -53,9 +54,9 @@ class Mutation:
                 id=uuid4(),
                 name=input.name,
                 publisher=input.publisher,
-             ##   target_table=input.target_table,
                 fetcher_id=input.fetcher_id,
-                active=input.active
+                active=input.active,
+                schedule=input.schedule,
             )
             db.add(resource)
             db.flush()  # Para obtener el ID
@@ -72,6 +73,7 @@ class Mutation:
 
             db.commit()
             db.refresh(resource)
+            scheduler.sync_schedule(str(resource.id), resource.schedule)
             return map_resource(resource)
         except Exception as e:
             db.rollback()
@@ -99,6 +101,8 @@ class Mutation:
                 resource.fetcher_id = input.fetcher_id
             if input.active is not None:
                 resource.active = input.active
+            if input.schedule is not None:
+                resource.schedule = input.schedule if input.schedule != "" else None
 
             # Actualizar parámetros si se proporcionan
             if input.params is not None:
@@ -117,6 +121,7 @@ class Mutation:
 
             db.commit()
             db.refresh(resource)
+            scheduler.sync_schedule(str(resource.id), resource.schedule)
             return map_resource(resource)
         except Exception as e:
             db.rollback()

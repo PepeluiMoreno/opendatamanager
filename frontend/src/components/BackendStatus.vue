@@ -53,7 +53,7 @@ async function checkConnection() {
   checking.value = true
   try {
     // Use raw fetch instead of GraphQL client for more control
-    const response = await fetch('http://localhost:8040/graphql', {
+    const response = await fetch('/graphql', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

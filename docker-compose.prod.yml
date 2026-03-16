@@ -1,0 +1,21 @@
+services:
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ${APP_PREFIX}_nginx
+    restart: always
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+      - frontend
+    networks:
+      - default
+      - traefik_public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.${APP_PREFIX}.rule=Host(`${APP_PREFIX}.tudominio.org`)"
+      - "traefik.http.services.${APP_PREFIX}.loadbalancer.server.port=80"
+
+networks:
+  traefik_public:
+    external: true

@@ -205,6 +205,8 @@ class FetcherManager:
 
         # Extract data only
         fetcher = FetcherFactory.create_from_resource(resource)
+        # Hint al fetcher para que corte temprano en modo preview
+        fetcher.params["_preview_limit"] = limit
         data = fetcher.execute()
 
         # Normalize data to list format

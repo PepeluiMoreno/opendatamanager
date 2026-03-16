@@ -38,6 +38,8 @@ class RESTFetcher(BaseFetcher):
 
     def parse(self, raw: RawData) -> ParsedData:
         """Parsea el JSON"""
+        if not raw or not raw.strip():
+            raise ValueError("La respuesta del servidor está vacía (body vacío)")
         return json.loads(raw)
 
     def normalize(self, parsed: ParsedData) -> DomainData:

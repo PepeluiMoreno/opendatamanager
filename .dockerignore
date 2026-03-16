@@ -1,0 +1,53 @@
+# Entorno virtual Python
+venv/
+.venv/
+ENV/
+env/
+
+# Datos de staging (se regeneran con los fetchers)
+data/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Frontend (tiene su propio build)
+frontend/
+
+# Variables de entorno con secretos
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+docker-compose*.yml
+
+# Docs y scripts que no van a producción
+docs/
+scripts/
+*.md
+config_rer.md
+
+# Archivos temporales
+*.tmp
+*.bak
+*.log

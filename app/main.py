@@ -5,19 +5,30 @@ Ejecutar con:
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8040
 """
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from strawberry.fastapi import GraphQLRouter
-from app.graphql.schema import schema
+from app.graphql_api.schema import schema
 from app.database import SessionLocal
 from app.models import Dataset
+import app.scheduler as scheduler
+
+
+@asynccontextmanager
+async def lifespan(app):
+    scheduler.start()
+    yield
+    scheduler.stop()
+
 
 # Crear aplicación FastAPI
 app = FastAPI(
     title="OpenDataManager API",
     description="API GraphQL para gestión de fuentes de datos OpenData",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Configurar CORS
@@ -132,6 +143,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=8040,
+        port=8000,
         reload=True
     )

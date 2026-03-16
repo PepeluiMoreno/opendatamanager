@@ -51,6 +51,7 @@ class CreateResourceInput:
     params: List[ResourceParamInput]
     active: bool = True
     target_table: Optional[str] = strawberry.field(default=None, name="targetTable")
+    schedule: Optional[str] = None
 
 
 @strawberry.input
@@ -62,6 +63,7 @@ class UpdateResourceInput:
     fetcher_id: Optional[str] = strawberry.field(default=None, name="fetcherId")
     params: Optional[List[ResourceParamInput]] = None
     active: Optional[bool] = None
+    schedule: Optional[str] = strawberry.field(default=None, name="schedule")
 
 
 @strawberry.input
@@ -213,6 +215,7 @@ class ResourceType:
     publisher: str
     target_table: Optional[str] = strawberry.field(name="targetTable")
     active: bool
+    schedule: Optional[str] = None
     fetcher: FetcherType
     params: List[ResourceParamType]
 

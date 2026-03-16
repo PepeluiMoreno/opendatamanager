@@ -1,6 +1,6 @@
 import { GraphQLClient } from 'graphql-request'
 
-const endpoint = 'http://localhost:8040/graphql'
+const endpoint = '/graphql'
 
 export const client = new GraphQLClient(endpoint, {
   headers: {
@@ -24,6 +24,7 @@ export const QUERIES = {
         publisher
         targetTable
         active
+        schedule
         fetcher {
           id
           name
