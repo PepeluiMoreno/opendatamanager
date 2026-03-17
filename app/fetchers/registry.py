@@ -24,6 +24,11 @@ class FetcherRegistry:
             "description": "Fetcher for CSV files from URLs",
              "name": "CSV File"
          },
+        "ATOM_PAGING": {
+            "class_path": "app.fetchers.atom_paging.AtomPagingFetcher",
+            "description": "Fetcher for Atom feeds with pagination (rel='next')",
+            "name": "Atom Paging"
+        },
          
         # Aquí se pueden agregar más fetchers cuando se implementen
         # "SOAP": {
