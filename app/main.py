@@ -11,9 +11,21 @@ from fastapi.responses import FileResponse
 from strawberry.fastapi import GraphQLRouter
 from app.graphql.schema import schema
 from app.database import SessionLocal
-from app.models import Dataset
+from app.models import Dataset, Resource
+from app.services.scheduler_service import SchedulerService
 
 # Crear aplicación FastAPI
+scheduler_service = SchedulerService()
+
+@app.on_event("startup")
+async def startup_event():
+    scheduler_service.start()
+    scheduler_service.add_resource_jobs()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    scheduler_service.shutdown()
+
 app = FastAPI(
     title="OpenDataManager API",
     description="API GraphQL para gestión de fuentes de datos OpenData",

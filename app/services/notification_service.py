@@ -48,6 +48,12 @@ class NotificationService:
             # Build payload
             payload = self._build_payload(session, dataset, subscription)
 
+            # Check auto_upgrade policy
+            new_version_type = payload["dataset"]["version_type"]
+            if not self._should_notify(subscription.auto_upgrade, new_version_type):
+                print(f"    Skipping notification for '{app.name}' due to auto_upgrade policy ({subscription.auto_upgrade} vs {new_version_type})")
+                continue
+
             # Sign with HMAC
             signature = self._compute_hmac(payload, app.webhook_secret or "")
 
@@ -88,6 +94,21 @@ class NotificationService:
                 print(f"    Error notifying '{app.name}': {e}")
 
         session.commit()
+
+    def _should_notify(self, auto_upgrade_policy: Optional[str], new_version_type: str) -> bool:
+        """
+        Determines if a notification should be sent based on the auto_upgrade policy.
+        """
+        if not auto_upgrade_policy or auto_upgrade_policy == "major":
+            return True  # Always notify if policy is major or not set
+        
+        if auto_upgrade_policy == "minor":
+            return new_version_type in ["patch", "minor"]
+        
+        if auto_upgrade_policy == "patch":
+            return new_version_type == "patch"
+            
+        return False # Default to not notifying
 
     def _build_payload(
         self,
