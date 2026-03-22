@@ -32,13 +32,13 @@ class FetchersEnum(Enum):
         "description": "Reports públicos de Power BI embebidos (API querydata con paginación DSR)"
     }
 
+    SOAP = {
+        "code": "SOAP",
+        "class_path": "app.fetchers.soap.SoapFetcher",
+        "description": "Servicio SOAP/WSDL — usa zeep para invocar operaciones de forma genérica"
+    }
+
     # Futuros tipos (comentados hasta implementación)
-    # SOAP = {
-    #     "code": "SOAP",
-    #     "class_path": "app.fetchers.soap.SoapFetcher",
-    #     "description": "Servicio SOAP/WSDL"
-    # }
-    #
     # FILES = {
     #     "code": "FILES",
     #     "class_path": "app.fetchers.files.FileFetcher",
