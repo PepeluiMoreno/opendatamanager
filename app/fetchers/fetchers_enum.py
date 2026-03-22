@@ -26,6 +26,12 @@ class FetchersEnum(Enum):
         "description": "Buscadores HTML con paginación automática y selectores configurables"
     }
 
+    POWER_BI = {
+        "code": "Power BI",
+        "class_path": "app.fetchers.powerbi.PowerBIFetcher",
+        "description": "Reports públicos de Power BI embebidos (API querydata con paginación DSR)"
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # SOAP = {
     #     "code": "SOAP",
