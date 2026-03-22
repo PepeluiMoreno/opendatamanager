@@ -38,13 +38,14 @@ class FetcherManager:
             return str(obj)
 
     @staticmethod
-    def run(session: Session, resource_id: str) -> Optional[Dataset]:
+    def run(session: Session, resource_id: str, execution_params: Optional[dict] = None) -> Optional[Dataset]:
         """
         Ejecuta pipeline: EXTRACT → STAGE (→ DATASET - TODO)
 
         Args:
             session: Sesión SQLAlchemy activa
             resource_id: UUID del Resource a ejecutar
+            execution_params: Parámetros runtime que sobreescriben/amplían los ResourceParam estáticos
 
         Returns:
             None (Dataset creation pending implementation)
@@ -65,7 +66,8 @@ class FetcherManager:
         execution = ResourceExecution(
             resource_id=resource_id,
             status="running",
-            started_at=datetime.utcnow()
+            started_at=datetime.utcnow(),
+            execution_params=execution_params,
         )
         session.add(execution)
         session.flush()  # Get execution.id
@@ -73,7 +75,7 @@ class FetcherManager:
         try:
             # 1. EXTRACT
             print(f"  [1/3] EXTRACT - Fetching data...")
-            fetcher = FetcherFactory.create_from_resource(resource)
+            fetcher = FetcherFactory.create_from_resource(resource, execution_params)
             data = fetcher.execute()
 
             # 2. STAGE - Write to filesystem

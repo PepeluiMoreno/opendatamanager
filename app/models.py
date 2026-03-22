@@ -115,6 +115,9 @@ class ResourceExecution(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id"), nullable=False)
 
+    # Runtime params that override/extend static ResourceParam values for this execution
+    execution_params = Column(JSONB, nullable=True)
+
     # Execution tracking
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
@@ -142,6 +145,9 @@ class Dataset(Base):
     major_version = Column(Integer, nullable=False)
     minor_version = Column(Integer, nullable=False)
     patch_version = Column(Integer, nullable=False)
+
+    # Human-readable label for this execution (e.g. "2023", "Q1-2024")
+    label = Column(String(100), nullable=True)
 
     # Package contents
     schema_json = Column(JSONB, nullable=False)

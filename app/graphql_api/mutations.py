@@ -148,8 +148,15 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def execute_resource(self, id: str) -> ExecutionResult:
-        """Ejecuta un Resource para actualizar sus datos"""
+    def execute_resource(self, id: str, params: Optional[strawberry.scalars.JSON] = None) -> ExecutionResult:
+        """Ejecuta un Resource para actualizar sus datos.
+
+        Args:
+            id: UUID del Resource
+            params: Parámetros runtime opcionales (clave-valor) que sobreescriben/amplían
+                    los ResourceParam estáticos definidos en el recurso. Ejemplo:
+                    { "año": "2023", "fechaDesde": "2023-01-01" }
+        """
         db = get_db()
         try:
             resource = db.query(Resource).filter(Resource.id == id).first()
@@ -159,8 +166,8 @@ class Mutation:
                     message=f"Resource con id '{id}' no encontrado"
                 )
 
-            # Ejecutar el fetcher
-            FetcherManager.run(db, id)
+            # Ejecutar el fetcher con params runtime opcionales
+            FetcherManager.run(db, id, execution_params=params)
 
             return ExecutionResult(
                 success=True,

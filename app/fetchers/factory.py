@@ -1,5 +1,5 @@
 import importlib
-from typing import Dict
+from typing import Dict, Optional
 from app.models import Resource
 from app.fetchers.base import BaseFetcher
 
@@ -17,7 +17,7 @@ class FetcherFactory:
     }
 
     @staticmethod
-    def create_from_resource(resource: Resource) -> BaseFetcher:
+    def create_from_resource(resource: Resource, execution_params: Optional[Dict] = None) -> BaseFetcher:
         if not resource.active:
             raise ValueError(f"Resource '{resource.name}' está desactivado")
 
@@ -43,7 +43,10 @@ class FetcherFactory:
                 f"No se pudo cargar el fetcher '{class_path}': {e}"
             )
 
+        # Static params from DB, overridden by runtime execution_params
         params_dict = FetcherFactory._build_params_dict(resource.params)
+        if execution_params:
+            params_dict.update(execution_params)
         return fetcher_class(params_dict)
 
     @staticmethod
