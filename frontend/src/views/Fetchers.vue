@@ -32,15 +32,11 @@
         >
           <div class="flex justify-between items-start">
             <div class="flex-1">
-              <div class="flex items-center space-x-3 mb-2">
-                <h3 class="text-xl font-semibold">{{ Fetcher.description }}</h3>
-              </div>
-              <div class="text-sm text-gray-500 mb-3">
-              {{ Fetcher.paramsDef?.length || 0 }} parameters configured
-            </div>
-              <div class="text-sm text-gray-400">
-                <div><strong>Parameters:</strong> {{ Fetcher.paramsDef?.length || 0 }} configured</div>
-                <div><strong>Resources using this fetcher:</strong> {{ Fetcher.resources?.length || 0 }}</div>
+              <h3 class="text-base font-semibold text-white mb-1">{{ Fetcher.name || Fetcher.code }}</h3>
+              <p v-if="Fetcher.description" class="text-sm text-gray-400 mb-3 leading-relaxed">{{ Fetcher.description }}</p>
+              <div class="text-xs text-gray-500 space-y-0.5">
+                <div>Parameters: {{ Fetcher.paramsDef?.length || 0 }} configured</div>
+                <div>Resources using this fetcher: {{ Fetcher.resources?.length || 0 }}</div>
               </div>
             </div>
             

@@ -2,7 +2,6 @@
 Mutations GraphQL para modificar datos.
 """
 import strawberry
-from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal

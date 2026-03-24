@@ -4,7 +4,8 @@ from datetime import datetime
 from typing import Dict, List, Any
 
 from sqlalchemy.orm import Session
-from sqlalchemy import text, create_engine, MetaData, Table, Column, String, Integer, DateTime, JSONB
+from sqlalchemy import text, create_engine, MetaData, Table, Column, String, Integer, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert
 
 from app.models import Dataset, Resource

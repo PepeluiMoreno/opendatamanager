@@ -44,18 +44,6 @@
             </code>
           </div>
 
-          <div>
-            <span class="text-gray-400">Subscribed Projects:</span>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <span
-                v-for="project in app.subscribedProjects"
-                :key="project"
-                class="bg-gray-900 px-2 py-1 rounded text-blue-400"
-              >
-                {{ getResourceName(project) }}
-              </span>
-            </div>
-          </div>
         </div>
 
         <div class="flex space-x-2">
@@ -116,27 +104,6 @@
             />
           </div>
 
-          <div>
-            <label class="block text-sm font-medium mb-2">
-              Subscribed Projects (comma-separated)
-            </label>
-            <input
-              v-model="projectsInput"
-              type="text"
-              class="input w-full"
-              placeholder="e.g., project1, project2, project3"
-            />
-            <div class="flex flex-wrap gap-2 mt-2">
-              <span
-                v-for="project in form.subscribedProjects"
-                :key="project"
-                class="bg-gray-900 px-2 py-1 rounded text-blue-400 text-sm"
-              >
-                {{ project }}
-              </span>
-            </div>
-          </div>
-
           <div class="flex items-center">
             <input
               v-model="form.active"
@@ -184,24 +151,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import {
   fetchApplications,
   createApplication,
   updateApplication,
   deleteApplication,
-  fetchResources,
 } from '../api/graphql'
 
 const applications = ref([])
-const resources = ref([])
 const loading = ref(true)
 const error = ref(null)
-
-function getResourceName(id) {
-  const resource = resources.value.find(r => r.id === id)
-  return resource ? resource.name : id
-}
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -213,18 +173,7 @@ const form = ref({
   name: '',
   description: '',
   modelsPath: '',
-  subscribedProjects: [],
   active: true,
-})
-
-const projectsInput = computed({
-  get: () => form.value.subscribedProjects.join(', '),
-  set: (value) => {
-    form.value.subscribedProjects = value
-      .split(',')
-      .map(p => p.trim())
-      .filter(p => p.length > 0)
-  }
 })
 
 async function loadData() {
@@ -246,7 +195,6 @@ function editApplication(app) {
     name: app.name,
     description: app.description || '',
     modelsPath: app.modelsPath,
-    subscribedProjects: [...app.subscribedProjects],
     active: app.active,
   }
   showEditModal.value = true
@@ -275,7 +223,6 @@ async function submitForm() {
       name: form.value.name,
       description: form.value.description,
       modelsPath: form.value.modelsPath,
-      subscribedProjects: form.value.subscribedProjects,
       active: form.value.active,
     }
 
@@ -300,14 +247,11 @@ function closeModals() {
     name: '',
     description: '',
     modelsPath: '',
-    subscribedProjects: [],
     active: true,
   }
 }
 
-onMounted(async () => {
-  const r = await fetchResources(false)
-  resources.value = r.resources || []
+onMounted(() => {
   loadData()
 })
 </script>

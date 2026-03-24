@@ -9,11 +9,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/graphql': {
-        target: process.env.API_TARGET || 'http://localhost:8002',
+        target: process.env.API_TARGET || 'http://localhost:8041',
         changeOrigin: true,
       },
       '/api': {
-        target: process.env.API_TARGET || 'http://localhost:8002',
+        target: process.env.API_TARGET || 'http://localhost:8041',
         changeOrigin: true,
       }
     }

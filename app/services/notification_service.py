@@ -3,6 +3,7 @@ Notification Service - Sends webhooks to subscribed applications.
 """
 import hmac
 import hashlib
+from typing import Optional
 import json
 import requests
 from typing import List, Dict
