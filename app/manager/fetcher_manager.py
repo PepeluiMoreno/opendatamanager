@@ -10,7 +10,7 @@ from app.models import Resource, ResourceExecution, Dataset
 from app.fetchers.factory import FetcherFactory
 from app.builders.dataset_builder import DatasetBuilder
 from app.services.notification_service import NotificationService
-from app.core import upsert
+from app.services.data_loader_service import DataLoaderService, stage_data
 
 
 class FetcherManager:
@@ -79,10 +79,7 @@ class FetcherManager:
             data = fetcher.execute()
 
             # 2. STAGE - Write to filesystem
-            print(f"  [2/3] STAGE - Writing to staging...")
-            staging_dir = f"data/staging/{resource_id}"
-            os.makedirs(staging_dir, exist_ok=True)
-
+            print(f"  [2/5] STAGE - Writing to staging...")
             # Normalize data to list format
             if isinstance(data, dict):
                 data_list = [data]
@@ -91,51 +88,45 @@ class FetcherManager:
             else:
                 raise ValueError(f"Unexpected data type from fetcher: {type(data)}")
 
-            staging_path = f"{staging_dir}/{execution.id}.jsonl"
-            with open(staging_path, 'w', encoding='utf-8') as f:
-                for item in data_list:
-                    # Convert to JSON-serializable format
-                    serializable_item = FetcherManager._make_serializable(item)
-                    f.write(json.dumps(serializable_item, ensure_ascii=False) + '\n')
+            staging_dir = f"data/staging/{resource_id}"
+            staging_path = stage_data(data_list, staging_dir, str(execution.id))
 
             # Update execution
             execution.staging_path = staging_path
             execution.total_records = len(data_list)
 
-            # 3. ARTIFACT - Generate package
-            # TODO: Re-implement as DATASET system (not ARTIFACT)
-            # For now, skip dataset/dataset creation to avoid DB errors
-            dataset = None
-            # dataset_builder = DatasetBuilder()
-            # dataset = dataset_builder.build(
-            #     session=session,
-            #     resource=resource,
-            #     execution=execution,
-            #     data=data_list
-            # )
-            # session.add(dataset)
+            # 3. DATASET - Generate package
+            print(f"  [3/5] DATASET - Building dataset...")
+            dataset_builder = DatasetBuilder()
+            dataset = dataset_builder.build(
+                session=session,
+                resource=resource,
+                execution=execution,
+                data=data_list
+            )
+            session.add(dataset)
 
             # 4. LOAD (optional) - Upsert to core schema
             if resource.enable_load:
                 print(f"  [4/5] LOAD - Loading data to core.{resource.target_table}...")
+                data_loader = DataLoaderService()
                 try:
-                    upsert(
+                    loaded_count = data_loader.load_data(
                         session=session,
-                        target_model=resource.target_table,
-                        data=data_list,
-                        mode=resource.load_mode or "replace"
+                        dataset=dataset,
+                        normalized_data=data_list,
+                        load_mode=resource.load_mode or "upsert"
                     )
-                    execution.records_loaded = len(data_list)
-                    print(f"    Loaded {execution.records_loaded} records")
+                    execution.records_loaded = loaded_count
                 except Exception as e:
                     execution.error_message = f"Load failed: {str(e)}"
                     print(f"    Load failed: {e}")
                     # Don't fail the whole pipeline if load fails
 
             # 5. NOTIFY - Send webhooks
-            # TODO: Re-enable when dataset system is implemented
-            # notification_service = NotificationService()
-            # notification_service.notify_subscribers(session, dataset)
+            print(f"  [5/5] NOTIFY - Sending notifications...")
+            notification_service = NotificationService()
+            notification_service.notify_subscribers(session, dataset)
 
             # Update execution
             execution.status = "completed"
