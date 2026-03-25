@@ -164,8 +164,8 @@
                 </div>
 
                 <!-- Default Value / Enum Values -->
-                <div class="col-span-3">
-                  <!-- Show enum values input if type is enum -->
+                <div class="col-span-3 space-y-1">
+                  <!-- Enum options always shown when type is enum -->
                   <input
                     v-if="param.dataType === 'enum'"
                     :value="param.enumValuesString || ''"
@@ -174,9 +174,17 @@
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
                     placeholder="[option1, option2, option3]"
                   />
-                  <!-- Show default value input for other types -->
+                  <!-- Default value always available (select for enum, text for others) -->
+                  <select
+                    v-if="param.dataType === 'enum' && param.enumValues && param.enumValues.length"
+                    v-model="param.defaultValue"
+                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-gray-400"
+                  >
+                    <option value="">Default (optional)</option>
+                    <option v-for="val in param.enumValues" :key="val" :value="val">{{ val }}</option>
+                  </select>
                   <input
-                    v-else
+                    v-else-if="param.dataType !== 'enum'"
                     v-model="param.defaultValue"
                     type="text"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"

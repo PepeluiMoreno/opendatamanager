@@ -15,6 +15,10 @@ export default defineConfig({
       '/api': {
         target: process.env.API_TARGET || 'http://localhost:8041',
         changeOrigin: true,
+      },
+      '/health': {
+        target: process.env.API_TARGET || 'http://localhost:8041',
+        changeOrigin: true,
       }
     }
   }

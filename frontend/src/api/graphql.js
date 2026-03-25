@@ -36,6 +36,7 @@ export const QUERIES = {
           id
           key
           value
+          isExternal
         }
       }
     }
@@ -60,6 +61,7 @@ export const QUERIES = {
           id
           key
           value
+          isExternal
         }
       }
     }
@@ -128,6 +130,17 @@ export const QUERIES = {
       }
     }
   `,
+  GET_APP_CONFIG: `
+    query GetAppConfig {
+      appConfig {
+        key
+        value
+        description
+        updatedAt
+      }
+    }
+  `,
+
   GET_FETCHERS: `
     query GetFetchers {
       fetchers {
@@ -186,8 +199,8 @@ export const MUTATIONS = {
   `,
 
   EXECUTE_RESOURCE: `
-    mutation ExecuteResource($id: String!) {
-      executeResource(id: $id) {
+    mutation ExecuteResource($id: String!, $params: JSON) {
+      executeResource(id: $id, params: $params) {
         success
         message
         resourceId
@@ -225,6 +238,31 @@ export const MUTATIONS = {
   DELETE_APPLICATION: `
     mutation DeleteApplication($id: String!) {
       deleteApplication(id: $id)
+    }
+  `,
+
+  DELETE_EXECUTION: `
+    mutation DeleteExecution($id: String!) {
+      deleteExecution(id: $id)
+    }
+  `,
+
+  SET_CONFIG: `
+    mutation SetConfig($input: SetConfigInput!) {
+      setConfig(input: $input) {
+        key
+        value
+        updatedAt
+      }
+    }
+  `,
+
+  ABORT_EXECUTION: `
+    mutation AbortExecution($id: String!) {
+      abortExecution(id: $id) {
+        success
+        message
+      }
     }
   `,
 
@@ -402,9 +440,9 @@ export async function deleteResource(id) {
   }
 }
 
-export async function executeResource(id) {
+export async function executeResource(id, params = null) {
   try {
-    return await client.request(MUTATIONS.EXECUTE_RESOURCE, { id })
+    return await client.request(MUTATIONS.EXECUTE_RESOURCE, { id, params })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -454,6 +492,38 @@ export async function previewResourceData(id, limit = 10) {
 export async function fetchDatasets(resourceId = null) {
   try {
     return await client.request(QUERIES.GET_ARTIFACTS, { resourceId })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function deleteExecution(id) {
+  try {
+    return await client.request(MUTATIONS.DELETE_EXECUTION, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchAppConfig() {
+  try {
+    return await client.request(QUERIES.GET_APP_CONFIG)
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function setConfig(key, value) {
+  try {
+    return await client.request(MUTATIONS.SET_CONFIG, { input: { key, value } })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function abortExecution(id) {
+  try {
+    return await client.request(MUTATIONS.ABORT_EXECUTION, { id })
   } catch (error) {
     handleGraphQLError(error)
   }

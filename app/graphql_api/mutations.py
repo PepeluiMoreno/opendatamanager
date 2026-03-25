@@ -2,12 +2,39 @@
 Mutations GraphQL para modificar datos.
 """
 import strawberry
+import threading
+import ctypes
 from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig
+from datetime import datetime
+
+# Global registry: execution_id (str) → Thread
+_running_threads: dict[str, threading.Thread] = {}
+_registry_lock = threading.Lock()
+
+
+class ExecutionAborted(Exception):
+    pass
+
+
+def _kill_thread(thread: threading.Thread):
+    """Raise ExecutionAborted inside a running thread via ctypes."""
+    if not thread.is_alive():
+        return
+    tid = thread.ident
+    if tid is None:
+        return
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+        ctypes.c_ulong(tid),
+        ctypes.py_object(ExecutionAborted),
+    )
+    return res  # 1 = success, 0 = thread not found
 from app.graphql_api.types import (
+    AppConfigType,
+    SetConfigInput,
     ResourceType,
     FetcherType,
     FetcherParamType,
@@ -68,7 +95,8 @@ class Mutation:
                     id=uuid4(),
                     resource_id=resource.id,
                     key=param_input.key,
-                    value=param_input.value
+                    value=param_input.value,
+                    is_external=param_input.is_external or False
                 )
                 db.add(param)
 
@@ -116,7 +144,8 @@ class Mutation:
                         id=uuid4(),
                         resource_id=resource.id,
                         key=param_input.key,
-                        value=param_input.value
+                        value=param_input.value,
+                        is_external=param_input.is_external or False
                     )
                     db.add(param)
 
@@ -162,45 +191,100 @@ class Mutation:
         try:
             resource = db.query(Resource).filter(Resource.id == id).first()
             if not resource:
+                return ExecutionResult(success=False, message=f"Resource con id '{id}' no encontrado")
+            resource_name = resource.name
+            resource_id = str(resource.id)
+
+            # Enforce max_concurrent_processes limit
+            cfg = db.query(AppConfig).filter(AppConfig.key == "max_concurrent_processes").first()
+            max_concurrent = int(cfg.value) if cfg else 3
+            running_count = db.query(ResourceExecution).filter(
+                ResourceExecution.status == "running",
+                ResourceExecution.deleted_at == None,
+            ).count()
+            if running_count >= max_concurrent:
                 return ExecutionResult(
                     success=False,
-                    message=f"Resource con id '{id}' no encontrado"
+                    message=f"Max concurrent processes reached ({running_count}/{max_concurrent}). Wait for a slot to free up.",
+                    resource_id=resource_id,
                 )
-
-            # Ejecutar el fetcher con params runtime opcionales
-            FetcherManager.run(db, id, execution_params=params)
-
-            return ExecutionResult(
-                success=True,
-                message=f"Resource '{resource.name}' ejecutado correctamente",
-                resource_id=str(resource.id)
-            )
         except Exception as e:
-            return ExecutionResult(
-                success=False,
-                message=f"Error al ejecutar Source: {str(e)}",
-                resource_id=id
-            )
+            return ExecutionResult(success=False, message=str(e), resource_id=id)
         finally:
             db.close()
+
+        # Run in a background thread so the event loop is never blocked
+        execution_id_holder = []
+
+        def _run():
+            bg_db = SessionLocal()
+            try:
+                dataset = FetcherManager.run(bg_db, resource_id, execution_params=params)
+            except ExecutionAborted:
+                # Mark as aborted in DB if we have the execution ID
+                if execution_id_holder:
+                    try:
+                        ex = bg_db.query(ResourceExecution).filter(
+                            ResourceExecution.id == execution_id_holder[0]
+                        ).first()
+                        if ex:
+                            ex.status = "aborted"
+                            ex.completed_at = datetime.utcnow()
+                            bg_db.commit()
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            finally:
+                bg_db.close()
+                # Unregister thread
+                if execution_id_holder:
+                    with _registry_lock:
+                        _running_threads.pop(execution_id_holder[0], None)
+
+        t = threading.Thread(target=_run, daemon=True, name=f"fetcher-{resource_id[:8]}")
+        t.start()
+
+        # Register once the execution record is created (slight delay — poll DB)
+        def _register():
+            import time
+            time.sleep(0.5)
+            reg_db = SessionLocal()
+            try:
+                ex = reg_db.query(ResourceExecution).filter(
+                    ResourceExecution.resource_id == resource_id,
+                    ResourceExecution.status == "running",
+                ).order_by(ResourceExecution.started_at.desc()).first()
+                if ex:
+                    eid = str(ex.id)
+                    execution_id_holder.append(eid)
+                    with _registry_lock:
+                        _running_threads[eid] = t
+            finally:
+                reg_db.close()
+
+        threading.Thread(target=_register, daemon=True).start()
+
+        return ExecutionResult(
+            success=True,
+            message=f"Resource '{resource_name}' iniciado en background",
+            resource_id=resource_id
+        )
 
     @strawberry.mutation
     def execute_all_resources(self) -> ExecutionResult:
-        """Ejecuta todos los Sources activos"""
-        db = get_db()
-        try:
-            FetcherManager.run_all(db)
-            return ExecutionResult(
-                success=True,
-                message="Todos los resources activos ejecutados correctamente"
-            )
-        except Exception as e:
-            return ExecutionResult(
-                success=False,
-                message=f"Error al ejecutar resources: {str(e)}"
-            )
-        finally:
-            db.close()
+        """Ejecuta todos los Sources activos en background"""
+        def _run_all():
+            db = SessionLocal()
+            try:
+                FetcherManager.run_all(db)
+            except Exception:
+                pass
+            finally:
+                db.close()
+
+        threading.Thread(target=_run_all, daemon=True).start()
+        return ExecutionResult(success=True, message="Todos los resources activos iniciados en background")
 
     @strawberry.mutation
     def create_fetcher(self, input: CreateFetcherInput) -> FetcherType:
@@ -357,6 +441,81 @@ class Mutation:
                 raise ValueError(f"TypeFetcherParam con id '{id}' no encontrado")
 
             db.delete(param)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def set_config(self, input: SetConfigInput) -> AppConfigType:
+        """Upsert a single application setting."""
+        db = get_db()
+        try:
+            row = db.query(AppConfig).filter(AppConfig.key == input.key).first()
+            if row:
+                row.value = input.value
+                row.updated_at = datetime.utcnow()
+            else:
+                row = AppConfig(key=input.key, value=input.value, updated_at=datetime.utcnow())
+                db.add(row)
+            db.commit()
+            db.refresh(row)
+            return AppConfigType(key=row.key, value=row.value, description=row.description, updated_at=row.updated_at)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def abort_execution(self, id: str) -> ExecutionResult:
+        """Mata el thread de una ejecución running y la marca como aborted."""
+        with _registry_lock:
+            t = _running_threads.get(id)
+
+        if t is None or not t.is_alive():
+            # Thread may have finished already — just mark as aborted if still running in DB
+            db = get_db()
+            try:
+                ex = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+                if ex and ex.status == "running":
+                    ex.status = "aborted"
+                    ex.completed_at = datetime.utcnow()
+                    db.commit()
+                    return ExecutionResult(success=True, message="Marked as aborted", resource_id=id)
+                return ExecutionResult(success=False, message="Execution not found or not running", resource_id=id)
+            finally:
+                db.close()
+
+        result = _kill_thread(t)
+        if result:
+            with _registry_lock:
+                _running_threads.pop(id, None)
+            # Update DB
+            db = get_db()
+            try:
+                ex = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+                if ex:
+                    ex.status = "aborted"
+                    ex.completed_at = datetime.utcnow()
+                    db.commit()
+            finally:
+                db.close()
+            return ExecutionResult(success=True, message="Execution aborted", resource_id=id)
+        return ExecutionResult(success=False, message="Could not kill thread", resource_id=id)
+
+    @strawberry.mutation
+    def delete_execution(self, id: str) -> bool:
+        """Soft-delete de una ejecución (la oculta de la vista)"""
+        db = get_db()
+        try:
+            ex = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+            if not ex:
+                raise ValueError(f"Execution '{id}' no encontrada")
+            ex.deleted_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:

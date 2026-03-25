@@ -4,6 +4,9 @@ import Resources from '../views/Resources.vue'
 import ResourceTest from '../views/ResourceTest.vue'
 import Applications from '../views/Applications.vue'
 import fetchers from '../views/Fetchers.vue'
+import Executions from '../views/Executions.vue'
+import Settings from '../views/Settings.vue'
+import Schedule from '../views/Schedule.vue'
 
 const routes = [
   {
@@ -30,6 +33,21 @@ const routes = [
     path: '/applications',
     name: 'Applications',
     component: Applications,
+  },
+  {
+    path: '/processes',
+    name: 'Processes',
+    component: Executions,
+  },
+  {
+    path: '/schedule',
+    name: 'Schedule',
+    component: Schedule,
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: Settings,
   },
 ]
 

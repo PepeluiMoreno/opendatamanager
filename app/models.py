@@ -1,9 +1,20 @@
 from uuid import uuid4
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, DateTime
+from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
+
+
+class AppConfig(Base):
+    """Global application settings stored as key-value pairs."""
+    __tablename__ = "app_config"
+    __table_args__ = {"schema": "opendata"}
+
+    key = Column(String(100), primary_key=True)
+    value = Column(JSONB, nullable=False)
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class Fetcher(Base):
     __tablename__ = "fetcher"
@@ -70,6 +81,7 @@ class ResourceParam(Base):
     resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
     key = Column(String(100), nullable=False)
     value = Column(Text, nullable=False)
+    is_external = Column(Boolean, default=False, nullable=False)
 
     resource = relationship("Resource", back_populates="params")
 
@@ -128,6 +140,7 @@ class ResourceExecution(Base):
     records_loaded = Column(Integer)
     staging_path = Column(String(500))
     error_message = Column(Text)
+    deleted_at = Column(DateTime, nullable=True)
 
     resource = relationship("Resource", back_populates="executions")
 

@@ -41,17 +41,105 @@
         <span class="text-lg mr-3">📦</span>
         Applications
       </router-link>
+
+      <router-link
+        to="/processes"
+        class="nav-item"
+        :class="{ 'active': $route.path === '/processes' }"
+      >
+        <span class="text-lg mr-3">⚡</span>
+        Processes
+      </router-link>
+
+      <router-link
+        to="/schedule"
+        class="nav-item"
+        :class="{ 'active': $route.path === '/schedule' }"
+      >
+        <span class="text-lg mr-3">🕐</span>
+        Schedule
+      </router-link>
+
+      <router-link
+        to="/settings"
+        class="nav-item"
+        :class="{ 'active': $route.path === '/settings' }"
+      >
+        <span class="text-lg mr-3">⚙️</span>
+        Settings
+      </router-link>
     </nav>
 
-    <div class="p-4 border-t border-gray-700 text-xs text-gray-500">
-      <p>Backend: {{ apiUrl }}</p>
-      <p class="mt-1">Vue 3 + Vite + Tailwind</p>
+    <!-- Backend status -->
+    <div class="p-4 border-t border-gray-700">
+      <!-- Disconnected banner -->
+      <div
+        v-if="status === 'offline'"
+        class="mb-3 flex items-center gap-2 bg-red-900 border border-red-600 text-red-200 rounded-lg px-3 py-2 text-xs font-medium animate-pulse"
+      >
+        <svg class="w-4 h-4 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        </svg>
+        Backend unreachable
+      </div>
+
+      <!-- Connecting indicator -->
+      <div
+        v-else-if="status === 'checking'"
+        class="mb-3 flex items-center gap-2 bg-yellow-900 border border-yellow-700 text-yellow-200 rounded-lg px-3 py-2 text-xs font-medium"
+      >
+        <svg class="w-4 h-4 flex-shrink-0 animate-spin text-yellow-400" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        </svg>
+        Connecting...
+      </div>
+
+      <div class="flex items-center justify-between text-xs text-gray-500">
+        <span>Backend</span>
+        <span class="flex items-center gap-1.5">
+          <span
+            class="inline-flex h-2 w-2 rounded-full"
+            :class="{
+              'bg-green-400': status === 'online',
+              'bg-red-500 animate-pulse': status === 'offline',
+              'bg-yellow-400 animate-pulse': status === 'checking',
+            }"
+          ></span>
+          <span :class="{
+            'text-green-400': status === 'online',
+            'text-red-400': status === 'offline',
+            'text-yellow-400': status === 'checking',
+          }">{{ status }}</span>
+        </span>
+      </div>
+      <p class="text-xs text-gray-600 mt-1">Vue 3 + Vite + Tailwind</p>
     </div>
   </div>
 </template>
 
 <script setup>
-const apiUrl = import.meta.env.VITE_API_URL || '/graphql'
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const status = ref('checking')
+let timer = null
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/health', { signal: AbortSignal.timeout(3000) })
+    status.value = res.ok ? 'online' : 'offline'
+  } catch {
+    status.value = 'offline'
+  }
+}
+
+onMounted(() => {
+  checkHealth()
+  timer = setInterval(checkHealth, 10000)
+})
+
+onUnmounted(() => clearInterval(timer))
 </script>
 
 <style scoped>

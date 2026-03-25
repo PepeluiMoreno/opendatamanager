@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
-    ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification
+    ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification, AppConfig
 )
 from app.graphql_api.types import (
     FetcherType,
@@ -19,7 +19,8 @@ from app.graphql_api.types import (
     ResourceExecutionType,
     DatasetType,
     DatasetSubscriptionType,
-    ApplicationNotificationType
+    ApplicationNotificationType,
+    AppConfigType,
 )
 
 
@@ -49,7 +50,8 @@ def map_resource_param(param: ResourceParam) -> ResourceParamType:
     return ResourceParamType(
         id=str(param.id),
         key=param.key,
-        value=param.value
+        value=param.value,
+        is_external=param.is_external or False
     )
 
 
@@ -308,7 +310,7 @@ class Query:
         """Lista ejecuciones de Resources, opcionalmente filtrado por resource_id"""
         db = get_db()
         try:
-            query = db.query(ResourceExecution)
+            query = db.query(ResourceExecution).filter(ResourceExecution.deleted_at == None)
             if resource_id:
                 query = query.filter(ResourceExecution.resource_id == resource_id)
             executions = query.order_by(ResourceExecution.started_at.desc()).all()
@@ -323,6 +325,19 @@ class Query:
         try:
             execution = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
             return map_resource_execution(execution) if execution else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def app_config(self) -> List[AppConfigType]:
+        """Returns all application settings."""
+        db = get_db()
+        try:
+            rows = db.query(AppConfig).order_by(AppConfig.key).all()
+            return [
+                AppConfigType(key=r.key, value=r.value, description=r.description, updated_at=r.updated_at)
+                for r in rows
+            ]
         finally:
             db.close()
 

@@ -33,20 +33,19 @@
             <th class="text-left py-3 px-4">Publisher</th>
             <th class="text-left py-3 px-4">Type</th>
             <th class="text-left py-3 px-4">Status</th>
-            <th class="text-left py-3 px-4">Schedule</th>
             <th class="text-right py-3 px-4">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="resource in filteredResources"
+            v-for="resource in pagedResources"
             :key="resource.id"
             class="border-b border-gray-700 hover:bg-gray-700 transition-colors"
           >
             <td class="py-3 px-4 font-medium">{{ resource.name }}</td>
             <td class="py-3 px-4 text-gray-400">{{ resource.publisher }}</td>
             <td class="py-3 px-4">
-              <code class="text-xs bg-gray-900 px-2 py-1 rounded text-blue-400">
+              <code class="text-xs bg-gray-900 px-2 py-1 rounded text-blue-400 whitespace-nowrap">
                 {{ resource.fetcher.code }}
               </code>
             </td>
@@ -59,19 +58,20 @@
               </span>
             </td>
             <td class="py-3 px-4">
-              <span v-if="resource.schedule" class="text-xs font-mono text-yellow-400 bg-yellow-900 bg-opacity-30 px-2 py-1 rounded">
-                {{ resource.schedule }}
-              </span>
-              <span v-else class="text-xs text-gray-600">—</span>
-            </td>
-            <td class="py-3 px-4">
               <div class="flex justify-end gap-2">
+                <button
+                  @click="openExecuteModal(resource)"
+                  class="btn btn-primary text-sm py-1 px-3"
+                  title="Execute resource"
+                >
+                  Run
+                </button>
                <button
                   @click="showPreviewData(resource)"
-                  class="btn btn-primary text-sm py-1 px-3"
+                  class="btn btn-secondary text-sm py-1 px-3"
                 >
                   Test
-                </button> 
+                </button>
                 <button
                   @click="editResource(resource)"
                   class="btn btn-secondary text-sm py-1 px-3"
@@ -93,6 +93,33 @@
       <div v-if="filteredResources.length === 0" class="text-gray-400 text-center py-8">
         <span v-if="searchQuery">No resources match your search.</span>
         <span v-else>No resources configured yet. Click "Create Resource" to add one.</span>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="filteredResources.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-700 text-sm">
+        <span class="text-gray-400">
+          {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredResources.length) }}
+          de {{ filteredResources.length }}
+        </span>
+        <div v-if="totalPages > 1" class="flex gap-1">
+          <button
+            @click="currentPage--"
+            :disabled="currentPage === 1"
+            class="px-3 py-1 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700"
+          >‹</button>
+          <button
+            v-for="p in totalPages"
+            :key="p"
+            @click="currentPage = p"
+            :class="p === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700'"
+            class="px-3 py-1 rounded border"
+          >{{ p }}</button>
+          <button
+            @click="currentPage++"
+            :disabled="currentPage === totalPages"
+            class="px-3 py-1 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700"
+          >›</button>
+        </div>
       </div>
     </div>
 
@@ -179,18 +206,6 @@
               >
                 Concurrency & Parallelism
               </button>
-              <button
-                type="button"
-                @click="activeParamTab = 'schedule'"
-                :class="[
-                  'px-4 py-2 text-sm font-medium transition-colors',
-                  activeParamTab === 'schedule'
-                    ? 'text-yellow-400 border-b-2 border-yellow-400'
-                    : 'text-gray-400 hover:text-gray-300'
-                ]"
-              >
-                Schedule
-              </button>
             </div>
 
             <!-- Tab Content: Parameters -->
@@ -226,6 +241,14 @@
                       class="input w-full text-xs"
                       @input="updateParamValue(param.paramName, $event.target.value)"
                     />
+                  </div>
+                  <div class="flex-shrink-0 flex items-center" title="Pedir valor al ejecutar">
+                    <button
+                      type="button"
+                      @click="toggleParamExternal(param.paramName)"
+                      :class="form.params.find(p=>p.key===param.paramName)?.isExternal ? 'text-yellow-400' : 'text-gray-600 hover:text-gray-400'"
+                      class="text-xs px-1"
+                    >⚡</button>
                   </div>
                 </div>
               </div>
@@ -281,7 +304,14 @@
                       @input="updateParamValue(paramName, $event.target.value)"
                     />
                   </div>
-                  <div class="w-8 flex-shrink-0 flex items-center justify-center">
+                  <div class="flex-shrink-0 flex items-center gap-1">
+                    <button
+                      type="button"
+                      @click="toggleParamExternal(paramName)"
+                      :class="form.params.find(p=>p.key===paramName)?.isExternal ? 'text-yellow-400' : 'text-gray-600 hover:text-gray-400'"
+                      class="text-xs px-1"
+                      title="Pedir valor al ejecutar"
+                    >⚡</button>
                     <button
                       type="button"
                       @click="removeOptionalParam(paramName)"
@@ -308,35 +338,6 @@
               </div>
             </div>
 
-            <!-- Tab Content: Schedule -->
-            <div v-if="activeParamTab === 'schedule'" class="h-[400px] overflow-y-auto pr-2">
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium mb-2">Preset</label>
-                  <select @change="applySchedulePreset($event.target.value)" class="input w-full text-sm">
-                    <option value="">Choose a preset...</option>
-                    <option value="">— No schedule (manual only)</option>
-                    <option value="0 2 * * *">Daily at 2:00 AM</option>
-                    <option value="0 6 * * *">Daily at 6:00 AM</option>
-                    <option value="0 */6 * * *">Every 6 hours</option>
-                    <option value="0 */12 * * *">Every 12 hours</option>
-                    <option value="0 0 * * 1">Weekly (Monday midnight)</option>
-                    <option value="0 0 1 * *">Monthly (1st of month)</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-2">Cron expression</label>
-                  <input
-                    v-model="form.schedule"
-                    type="text"
-                    class="input w-full text-sm font-mono"
-                    placeholder="e.g. 0 2 * * *  (min hour day month weekday)"
-                  />
-                  <p class="text-xs text-gray-400 mt-1">5 fields: minute hour day month weekday — leave empty for manual execution only</p>
-                </div>
-              </div>
-            </div>
-
             <!-- Tab Content: Concurrency & Parallelism -->
             <div v-if="activeParamTab === 'concurrency'" class="h-[400px] overflow-y-auto pr-2 space-y-4">
 
@@ -348,34 +349,44 @@
                     <Tooltip text="Number of parallel workers. 1 = sequential processing.">
                       <label class="block text-xs font-medium mb-1">Workers</label>
                     </Tooltip>
-                    <input v-model.number="form.numWorkers" type="number" min="1" max="20"
-                      class="input w-full text-sm text-center" placeholder="1" />
-                    <p class="text-xs text-gray-400 mt-1">1 = sequential</p>
-                    <p class="text-xs text-yellow-400 mt-1" v-if="form.numWorkers > 10">⚠️ More than 10 may cause issues</p>
+                    <input v-model.number="form.numWorkers" type="number"
+                      :min="concurrencyLimits.workers.min" :max="concurrencyLimits.workers.max"
+                      class="input w-full text-sm text-center"
+                      :placeholder="concurrencyLimits.workers.default" />
+                    <p class="text-xs text-gray-500 mt-1">1 = sequential · max {{ concurrencyLimits.workers.max }}</p>
+                    <p class="text-xs text-yellow-400 mt-1" v-if="form.numWorkers > concurrencyLimits.workers.max">
+                      ⚠️ Exceeds global limit ({{ concurrencyLimits.workers.max }})
+                    </p>
                   </div>
                   <div>
                     <Tooltip text="Maximum simultaneous HTTP requests to the external server.">
                       <label class="block text-xs font-medium mb-1">Max concurrent requests</label>
                     </Tooltip>
-                    <input v-model.number="form.maxConcurrentRequests" type="number" min="1" max="50"
-                      class="input w-full text-sm" placeholder="5" />
-                    <p class="text-xs text-gray-400 mt-1">Default: 5</p>
+                    <input v-model.number="form.maxConcurrentRequests" type="number"
+                      :min="concurrencyLimits.concReqs.min" :max="concurrencyLimits.concReqs.max"
+                      class="input w-full text-sm"
+                      :placeholder="concurrencyLimits.concReqs.default" />
+                    <p class="text-xs text-gray-500 mt-1">Default: {{ concurrencyLimits.concReqs.default }} · max {{ concurrencyLimits.concReqs.max }}</p>
                   </div>
                   <div>
                     <Tooltip text="Maximum requests per second to the external API.">
                       <label class="block text-xs font-medium mb-1">Rate limit (req/s)</label>
                     </Tooltip>
-                    <input v-model.number="form.rateLimitPerSecond" type="number" min="1" max="100"
-                      class="input w-full text-sm" placeholder="10" />
-                    <p class="text-xs text-gray-400 mt-1">Default: 10</p>
+                    <input v-model.number="form.rateLimitPerSecond" type="number"
+                      :min="concurrencyLimits.rateLimit.min" :max="concurrencyLimits.rateLimit.max"
+                      class="input w-full text-sm"
+                      :placeholder="concurrencyLimits.rateLimit.default" />
+                    <p class="text-xs text-gray-500 mt-1">Default: {{ concurrencyLimits.rateLimit.default }}</p>
                   </div>
                   <div>
                     <Tooltip text="Records per request in paginated APIs.">
                       <label class="block text-xs font-medium mb-1">Batch size</label>
                     </Tooltip>
-                    <input v-model.number="form.batchSize" type="number" min="1" max="10000"
-                      class="input w-full text-sm" placeholder="100" />
-                    <p class="text-xs text-gray-400 mt-1">Default: 100</p>
+                    <input v-model.number="form.batchSize" type="number"
+                      :min="concurrencyLimits.batchSize.min" :max="concurrencyLimits.batchSize.max"
+                      class="input w-full text-sm"
+                      :placeholder="concurrencyLimits.batchSize.default" />
+                    <p class="text-xs text-gray-500 mt-1">Default: {{ concurrencyLimits.batchSize.default }} · max {{ concurrencyLimits.batchSize.max }}</p>
                   </div>
                 </div>
               </fieldset>
@@ -388,25 +399,28 @@
                     <Tooltip text="Number of retries on failure before giving up.">
                       <label class="block text-xs font-medium mb-1">Retry attempts</label>
                     </Tooltip>
-                    <input v-model.number="form.retryAttempts" type="number" min="0" max="10"
-                      class="input w-full text-sm" placeholder="3" />
-                    <p class="text-xs text-gray-400 mt-1">Default: 3</p>
+                    <input v-model.number="form.retryAttempts" type="number"
+                      :min="concurrencyLimits.retries.min" :max="concurrencyLimits.retries.max"
+                      class="input w-full text-sm" :placeholder="concurrencyLimits.retries.default" />
+                    <p class="text-xs text-gray-400 mt-1">max {{ concurrencyLimits.retries.max }}</p>
                   </div>
                   <div>
                     <Tooltip text="Exponential backoff multiplier between retries. 2.0 → 2s, 4s, 8s...">
                       <label class="block text-xs font-medium mb-1">Backoff factor</label>
                     </Tooltip>
-                    <input v-model.number="form.retryBackoffFactor" type="number" min="1" max="5" step="0.1"
-                      class="input w-full text-sm" placeholder="2.0" />
-                    <p class="text-xs text-gray-400 mt-1">Default: 2.0</p>
+                    <input v-model.number="form.retryBackoffFactor" type="number"
+                      :min="concurrencyLimits.backoff.min" :max="concurrencyLimits.backoff.max" :step="concurrencyLimits.backoff.step"
+                      class="input w-full text-sm" :placeholder="concurrencyLimits.backoff.default" />
+                    <p class="text-xs text-gray-400 mt-1">max {{ concurrencyLimits.backoff.max }}</p>
                   </div>
                   <div>
                     <Tooltip text="Fixed delay in ms between consecutive requests.">
                       <label class="block text-xs font-medium mb-1">Request delay (ms)</label>
                     </Tooltip>
-                    <input v-model.number="form.requestDelayMs" type="number" min="0" max="5000"
-                      class="input w-full text-sm" placeholder="0" />
-                    <p class="text-xs text-gray-400 mt-1">0 = no delay</p>
+                    <input v-model.number="form.requestDelayMs" type="number"
+                      :min="concurrencyLimits.delay.min" :max="concurrencyLimits.delay.max"
+                      class="input w-full text-sm" :placeholder="concurrencyLimits.delay.default" />
+                    <p class="text-xs text-gray-400 mt-1">0 = no delay · max {{ concurrencyLimits.delay.max }}ms</p>
                   </div>
                 </div>
               </fieldset>
@@ -465,11 +479,48 @@
     </div>
 
     <PreviewDataModal :previewResource="previewResource" :loadingPreview="loadingPreview" :previewError="previewError" :previewData="previewData" :getRecordCount="getRecordCount" v-model:showPreviewModal="showPreviewModal" />
+
+    <!-- Execute Modal -->
+    <div
+      v-if="showExecuteModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      @click.self="showExecuteModal = false"
+    >
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <h2 class="text-xl font-bold mb-1">Run Resource</h2>
+        <p class="text-sm text-gray-400 mb-4">{{ executingResource?.name }}</p>
+
+        <!-- External params form -->
+        <div v-if="executingResource?.params?.filter(p => p.isExternal).length" class="space-y-3 mb-4">
+          <div
+            v-for="param in executingResource.params.filter(p => p.isExternal)"
+            :key="param.key"
+            class="space-y-1"
+          >
+            <label class="block text-xs font-medium text-yellow-400">{{ param.key }}</label>
+            <input
+              v-model="executeParams[param.key]"
+              type="text"
+              :placeholder="param.value || `Enter ${param.key}...`"
+              class="input w-full text-sm"
+            />
+          </div>
+        </div>
+        <p v-else class="text-sm text-gray-400 mb-4">
+          No hay parámetros externos. El recurso se ejecutará con su configuración actual.
+        </p>
+
+        <div class="flex justify-end gap-2">
+          <button @click="showExecuteModal = false" class="btn btn-secondary">Cancel</button>
+          <button @click="confirmExecute" class="btn btn-primary">Run</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import Tooltip from '../components/Tooltip.vue'
 import {
   fetchResources,
@@ -479,21 +530,56 @@ import {
   updateResource,
   deleteResource,
   previewResourceData,
+  executeResource,
+  fetchAppConfig,
 } from '../api/graphql'
 import PreviewDataModal from './PreviewDataModal.vue'
 
 const resources = ref([])
 const fetchers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
+const appConfig = ref({})  // key→value map
+const sysInfo   = ref(null)
+
+// Limits derived from settings + hardware — used in the concurrency inputs
+const concurrencyLimits = computed(() => {
+  const ram  = sysInfo.value?.ram_total_gb  ?? 4
+  const ramMb = sysInfo.value?.ram_total_mb ?? 4096
+  const cpu  = sysInfo.value?.cpu_logical   ?? 2
+  const maxProc = appConfig.value['max_concurrent_processes'] ?? 3
+  const defPageSize = appConfig.value['default_page_size'] ?? 100
+
+  return {
+    // Workers: bounded by global max_concurrent_processes and hardware
+    workers:    { min: 1, max: Math.min(maxProc, cpu * 2), default: 1 },
+    // Concurrent HTTP requests: independent of process limit but bounded by CPU
+    concReqs:   { min: 1, max: Math.min(50, cpu * 10), default: 5 },
+    // Rate limit: pure API concern, no hardware constraint
+    rateLimit:  { min: 1, max: 200, default: 10 },
+    // Batch size: bounded by default_page_size setting and RAM
+    batchSize:  { min: 1, max: Math.min(5000, Math.floor(ramMb / 5)), default: defPageSize },
+    // Retries: fixed sensible range
+    retries:    { min: 0, max: 10, default: 3 },
+    backoff:    { min: 1, max: 5,  default: 2, step: 0.1 },
+    delay:      { min: 0, max: 30000, default: 0 },
+  }
+})
 const loading = ref(true)
 const error = ref(null)
 const searchQuery = ref('')
+const currentPage = ref(1)
+const pageSize = 8
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
 const showDeleteModal = ref(false)
 const showPreviewModal = ref(false)
+const showExecuteModal = ref(false)
 const resourceToDelete = ref(null)
+const executingResource = ref(null)
+const executeParams = ref({})
+const executeLoading = ref(false)
+const executeResult = ref(null)
 const editingResource = ref(null)
 const previewResource = ref(null)
 const previewData = ref(null)
@@ -515,10 +601,6 @@ const form = ref({
   retryBackoffFactor: null,
   batchSize: null,
 })
-
-function applySchedulePreset(value) {
-  form.value.schedule = value || null
-}
 
 const activeParamTab = ref('parameters')
 
@@ -560,16 +642,23 @@ const availableOptionalParams = computed(() => {
 
 // Computed property to filter resources based on search query
 const filteredResources = computed(() => {
-  if (!searchQuery.value) {
-    return resources.value
-  }
-
-  const query = searchQuery.value.toLowerCase()
-  return resources.value.filter(resource =>
-    resource.name.toLowerCase().includes(query) ||
-    resource.publisher.toLowerCase().includes(query)
-  )
+  const list = searchQuery.value
+    ? resources.value.filter(r =>
+        r.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
+        r.publisher.toLowerCase().includes(searchQuery.value.toLowerCase())
+      )
+    : [...resources.value]
+  return list.sort((a, b) => a.name.localeCompare(b.name, 'es'))
 })
+
+const totalPages = computed(() => Math.ceil(filteredResources.value.length / pageSize))
+
+const pagedResources = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return filteredResources.value.slice(start, start + pageSize)
+})
+
+watch(searchQuery, () => { currentPage.value = 1 })
 
 const selectedOptionalParam = ref('')
 
@@ -577,11 +666,13 @@ async function loadData() {
   try {
     loading.value = true
     error.value = null
-    const [resourcesData, typesData, resourceMetadata, paramMetadata] = await Promise.all([
+    const [resourcesData, typesData, resourceMetadata, paramMetadata, cfgData, infoData] = await Promise.all([
       fetchResources(false),
       fetchFetchers(),
       fetchFieldMetadata('resource'),
       fetchFieldMetadata('resource_param'),
+      fetchAppConfig(),
+      fetch('/api/system/info').then(r => r.json()).catch(() => null),
     ])
     resources.value = resourcesData.resources
     fetchers.value = typesData.fetchers
@@ -595,6 +686,14 @@ async function loadData() {
       metaMap[m.fieldName] = m
     })
     fieldMetadata.value = metaMap
+
+    // Build key→value map from appConfig array
+    if (cfgData?.appConfig) {
+      const map = {}
+      cfgData.appConfig.forEach(c => { map[c.key] = c.value })
+      appConfig.value = map
+    }
+    if (infoData) sysInfo.value = infoData
   } catch (e) {
     error.value = 'Failed to load data: ' + e.message
   } finally {
@@ -649,8 +748,13 @@ function updateParamValue(paramName, value) {
   if (param) {
     param.value = value
   } else {
-    form.value.params.push({ key: paramName, value })
+    form.value.params.push({ key: paramName, value, isExternal: false })
   }
+}
+
+function toggleParamExternal(paramName) {
+  const param = form.value.params.find(p => p.key === paramName)
+  if (param) param.isExternal = !param.isExternal
 }
 
 function addOptionalParameter() {
@@ -660,9 +764,8 @@ function addOptionalParameter() {
   const existingParam = form.value.params.find(p => p.key === paramName)
 
   if (!existingParam) {
-    // Use defaultValue from parameter definition instead of empty string
     const defaultValue = getParamDefaultValue(paramName) || ''
-    form.value.params.push({ key: paramName, value: defaultValue })
+    form.value.params.push({ key: paramName, value: defaultValue, isExternal: false })
   }
 
   selectedOptionalParam.value = ''
@@ -702,7 +805,7 @@ function editResource(resource) {
     name: resource.name,
     publisher: resource.publisher,
     fetcherId: resource.fetcher.id,
-    params: regularParams.map(p => ({ key: p.key, value: p.value })),
+    params: regularParams.map(p => ({ key: p.key, value: p.value, isExternal: p.isExternal || false })),
     active: resource.active,
     schedule: resource.schedule || null,
     numWorkers: parseInt(getParam('num_workers', 1)),
@@ -755,6 +858,23 @@ function getRecordCount(data) {
   return 1
 }
 
+function openExecuteModal(resource) {
+  executingResource.value = resource
+  executeResult.value = null
+  // Pre-fill external params with their stored value as default
+  executeParams.value = {}
+  resource.params.filter(p => p.isExternal).forEach(p => {
+    executeParams.value[p.key] = p.value || ''
+  })
+  showExecuteModal.value = true
+}
+
+async function confirmExecute() {
+  const externalParams = Object.keys(executeParams.value).length > 0 ? executeParams.value : null
+  showExecuteModal.value = false
+  executeResource(executingResource.value.id, externalParams).catch(() => {})
+}
+
 function confirmDelete(resource) {
   resourceToDelete.value = resource
   showDeleteModal.value = true
@@ -776,7 +896,9 @@ async function submitForm() {
     error.value = null
 
     // Combine regular params with concurrency params
-    const allParams = [...form.value.params.filter(p => p.key && p.value)]
+    const allParams = [...form.value.params.filter(p => p.key && p.value).map(p => ({
+      key: p.key, value: p.value, isExternal: p.isExternal || false
+    }))]
 
     // Add concurrency params if not default/null
     const concurrencyParams = {

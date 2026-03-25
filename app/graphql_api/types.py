@@ -33,6 +33,7 @@ class ResourceParamType:
     id: str
     key: str
     value: str
+    is_external: bool = strawberry.field(default=False, name="isExternal")
 
 
 @strawberry.input
@@ -40,6 +41,7 @@ class ResourceParamInput:
     """Input para parámetros de Resource"""
     key: str
     value: str
+    is_external: bool = strawberry.field(default=False, name="isExternal")
 
 
 @strawberry.input
@@ -205,6 +207,20 @@ class ApplicationNotificationType:
     status_code: Optional[int] = strawberry.field(default=None, name="statusCode")
     response_body: Optional[str] = strawberry.field(default=None, name="responseBody")
     error_message: Optional[str] = strawberry.field(default=None, name="errorMessage")
+
+
+@strawberry.type
+class AppConfigType:
+    """Global application setting"""
+    key: str
+    value: strawberry.scalars.JSON
+    description: Optional[str] = None
+    updated_at: Optional[datetime] = strawberry.field(default=None, name="updatedAt")
+
+@strawberry.input
+class SetConfigInput:
+    key: str
+    value: strawberry.scalars.JSON
 
 
 @strawberry.type

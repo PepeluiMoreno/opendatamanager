@@ -1,4 +1,4 @@
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class SchedulerService:
     def __init__(self):
-        self.scheduler = AsyncIOScheduler()
+        self.scheduler = BackgroundScheduler()
 
     def start(self):
         if not self.scheduler.running:

@@ -12,6 +12,27 @@ from app.builders.dataset_builder import DatasetBuilder
 from app.services.notification_service import NotificationService
 from app.services.data_loader_service import DataLoaderService, stage_data
 
+LOG_DIR = "data/logs"
+
+
+class ExecutionLogger:
+    """Writes timestamped log lines to a per-execution file and stdout."""
+
+    def __init__(self, execution_id: str):
+        os.makedirs(LOG_DIR, exist_ok=True)
+        self.log_path = f"{LOG_DIR}/{execution_id}.log"
+        self._file = open(self.log_path, "a", buffering=1)
+
+    def log(self, message: str):
+        ts = datetime.utcnow().strftime("%H:%M:%S")
+        line = f"[{ts}] {message}"
+        print(line)
+        self._file.write(line + "\n")
+        self._file.flush()
+
+    def close(self):
+        self._file.close()
+
 
 class FetcherManager:
     """Orquestador de ejecución de fetchers"""
@@ -60,9 +81,7 @@ class FetcherManager:
             print(f"Resource '{resource.name}' está desactivado, omitiendo...")
             return None
 
-        print(f"Ejecutando Resource: {resource.name} (publisher: {resource.publisher})")
-
-        # Create execution record
+        # Create execution record first to get the ID for logging
         execution = ResourceExecution(
             resource_id=resource_id,
             status="running",
@@ -72,15 +91,17 @@ class FetcherManager:
         session.add(execution)
         session.flush()  # Get execution.id
 
+        logger = ExecutionLogger(str(execution.id))
         try:
+            logger.log(f"Ejecutando Resource: {resource.name} (publisher: {resource.publisher})")
+
             # 1. EXTRACT
-            print(f"  [1/3] EXTRACT - Fetching data...")
+            logger.log("[1/5] EXTRACT - Fetching data...")
             fetcher = FetcherFactory.create_from_resource(resource, execution_params)
             data = fetcher.execute()
 
             # 2. STAGE - Write to filesystem
-            print(f"  [2/5] STAGE - Writing to staging...")
-            # Normalize data to list format
+            logger.log("[2/5] STAGE - Writing to staging...")
             if isinstance(data, dict):
                 data_list = [data]
             elif isinstance(data, list):
@@ -91,12 +112,12 @@ class FetcherManager:
             staging_dir = f"data/staging/{resource_id}"
             staging_path = stage_data(data_list, staging_dir, str(execution.id))
 
-            # Update execution
             execution.staging_path = staging_path
             execution.total_records = len(data_list)
+            logger.log(f"  Staged {len(data_list)} records to {staging_path}")
 
             # 3. DATASET - Generate package
-            print(f"  [3/5] DATASET - Building dataset...")
+            logger.log("[3/5] DATASET - Building dataset...")
             dataset_builder = DatasetBuilder()
             dataset = dataset_builder.build(
                 session=session,
@@ -105,10 +126,11 @@ class FetcherManager:
                 data=data_list
             )
             session.add(dataset)
+            logger.log(f"  Dataset created: {dataset.version_string}")
 
             # 4. LOAD (optional) - Upsert to core schema
             if resource.enable_load:
-                print(f"  [4/5] LOAD - Loading data to core.{resource.target_table}...")
+                logger.log(f"[4/5] LOAD - Loading data to core.{resource.target_table}...")
                 data_loader = DataLoaderService()
                 try:
                     loaded_count = data_loader.load_data(
@@ -118,30 +140,31 @@ class FetcherManager:
                         load_mode=resource.load_mode or "upsert"
                     )
                     execution.records_loaded = loaded_count
+                    logger.log(f"  Loaded {loaded_count} records")
                 except Exception as e:
                     execution.error_message = f"Load failed: {str(e)}"
-                    print(f"    Load failed: {e}")
-                    # Don't fail the whole pipeline if load fails
+                    logger.log(f"  WARNING: Load failed: {e}")
+            else:
+                logger.log("[4/5] LOAD - Skipped (enable_load=False)")
 
             # 5. NOTIFY - Send webhooks
-            print(f"  [5/5] NOTIFY - Sending notifications...")
+            logger.log("[5/5] NOTIFY - Sending notifications...")
             notification_service = NotificationService()
             notification_service.notify_subscribers(session, dataset)
 
-            # Update execution
             execution.status = "completed"
             execution.completed_at = datetime.utcnow()
-
-            print(f"Resource '{resource.name}' completado - {len(data_list)} records")
+            logger.log(f"COMPLETED - {len(data_list)} records in {round((execution.completed_at - execution.started_at).total_seconds(), 1)}s")
 
         except Exception as e:
             execution.status = "failed"
             execution.error_message = str(e)
             execution.completed_at = datetime.utcnow()
-            print(f"Error en Resource '{resource.name}': {e}")
+            logger.log(f"FAILED: {e}")
             raise
 
         finally:
+            logger.close()
             session.commit()
 
         return dataset
