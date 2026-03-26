@@ -35,7 +35,7 @@
               <h3 class="text-base font-semibold text-white mb-1">{{ Fetcher.name || Fetcher.code }}</h3>
               <p v-if="Fetcher.description" class="text-sm text-gray-400 mb-3 leading-relaxed">{{ Fetcher.description }}</p>
               <div class="text-xs text-gray-500 space-y-0.5">
-                <div>Parameters: {{ Fetcher.paramsDef?.length || 0 }} configured</div>
+                <div>Parameters configured: {{ Fetcher.paramsDef?.length || 0 }}</div>
                 <div>Resources using this fetcher: {{ Fetcher.resources?.length || 0 }}</div>
               </div>
             </div>

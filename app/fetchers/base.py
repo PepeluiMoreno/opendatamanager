@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Generator, List
 
 RawData = Any
 ParsedData = Any
@@ -44,6 +44,23 @@ class BaseFetcher(ABC):
     def normalize(self, parsed: ParsedData) -> DomainData:
         """Transforma a formato listo para upsert en core.models"""
         pass
+
+    def stream(self) -> Generator[List, None, None]:
+        """Yields chunks of normalized records.
+
+        Streaming fetchers override this to yield one page/batch at a time so
+        FetcherManager can write each chunk to disk immediately without keeping
+        all records in memory.
+
+        Default implementation: runs the full execute() pipeline and yields the
+        result as a single chunk (backwards-compatible for non-streaming fetchers).
+        """
+        result = self.execute()
+        if isinstance(result, list):
+            if result:
+                yield result
+        elif isinstance(result, dict):
+            yield [result]
 
     def execute(self) -> DomainData:
         """Ejecuta el pipeline completo"""

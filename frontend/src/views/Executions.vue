@@ -93,7 +93,10 @@
                 {{ statusLabel(ex.status) }}
               </span>
               <div class="min-w-0">
-                <p class="font-medium text-sm truncate">{{ resourceName(ex.resourceId) }}</p>
+                <p class="font-medium text-sm truncate">
+                  {{ resourceName(ex.resourceId) }}
+                  <span v-if="execLabel(ex)" class="text-yellow-300 font-normal"> — {{ execLabel(ex) }}</span>
+                </p>
                 <p class="text-xs text-gray-500 mt-0.5">{{ formatDate(ex.startedAt) }}</p>
               </div>
             </div>
@@ -155,18 +158,59 @@
             </div>
           </div>
 
-          <!-- Progress bar -->
-          <div v-if="ex.status === 'running' || (ex.totalRecords && ex.recordsLoaded)" class="mt-3">
-            <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+          <!-- Progress bar + stats row -->
+          <div v-if="ex.status === 'running' || ex.status === 'completed' || ex.status === 'failed'" class="mt-3 space-y-2">
+
+            <!-- Bar with % overlay -->
+            <div class="relative h-5 bg-gray-700 rounded-full overflow-hidden">
               <div
-                :class="ex.status === 'failed' ? 'bg-red-500' : ex.status === 'running' ? 'bg-blue-500 animate-pulse' : 'bg-green-500'"
-                class="h-full rounded-full transition-all duration-500"
-                :style="{ width: (progressPct(ex) ?? 30) + '%' }"
+                :class="ex.status === 'failed' ? 'bg-red-600' : ex.status === 'running' ? 'bg-blue-600' : 'bg-green-600'"
+                class="h-full rounded-full transition-all duration-700"
+                :style="{ width: (progressPct(ex) ?? (ex.status === 'running' ? 8 : 0)) + '%' }"
               ></div>
+              <span class="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white mix-blend-plus-lighter select-none">
+                <template v-if="progressPct(ex) != null">{{ progressPct(ex) }}%</template>
+                <template v-else-if="ex.status === 'running'">extracting…</template>
+              </span>
             </div>
-            <div class="flex justify-between text-xs text-gray-500 mt-1">
-              <span>{{ progressPct(ex) != null ? progressPct(ex) + '%' : 'fetching...' }}</span>
-              <span v-if="ex.status === 'running'" class="text-blue-400 animate-pulse">running...</span>
+
+            <!-- Stats chips: records · ETA · params · memory -->
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
+
+              <!-- Records -->
+              <span v-if="ex.totalRecords">
+                <span class="text-white font-medium">{{ ex.totalRecords.toLocaleString() }}</span> records
+                <template v-if="ex.recordsLoaded">
+                  · <span class="text-green-400">{{ ex.recordsLoaded.toLocaleString() }}</span> loaded
+                </template>
+              </span>
+
+              <!-- ETA (only when we can compute a rate) -->
+              <span v-if="eta(ex)" class="text-yellow-400 font-medium">
+                ≈ {{ eta(ex) }} remaining
+              </span>
+
+              <!-- Execution param overrides — hidden when already shown in the title label -->
+              <template v-if="!execLabel(ex) && ex.executionParams && Object.keys(ex.executionParams).length">
+                <span v-for="(v, k) in ex.executionParams" :key="k"
+                  class="bg-blue-900/50 border border-blue-800 text-blue-300 px-1.5 py-0.5 rounded font-mono">
+                  {{ k }}={{ v }}
+                </span>
+              </template>
+
+              <!-- Key resource params (page_size, num_workers) -->
+              <template v-for="tag in resourceParamTags(ex.resourceId)" :key="tag">
+                <span class="bg-gray-700/60 border border-gray-600 text-gray-400 px-1.5 py-0.5 rounded font-mono">{{ tag }}</span>
+              </template>
+
+              <!-- Memory (only for running, from concurrency poll) -->
+              <span v-if="ex.status === 'running' && concurrency.process_mem_rss_mb" class="text-purple-400">
+                RAM proceso: {{ concurrency.process_mem_rss_mb }} MB
+                <template v-if="concurrency.ram_total_mb">
+                  ({{ Math.round(concurrency.process_mem_rss_mb / concurrency.ram_total_mb * 100) }}% of {{ Math.round(concurrency.ram_total_mb / 1024) }} GB)
+                </template>
+              </span>
+
             </div>
           </div>
 
@@ -268,11 +312,23 @@
       </div>
     </div>
   </div>
+
+  <!-- Confirm dialog -->
+  <ConfirmDialog
+    v-if="dialog.show"
+    :title="dialog.title"
+    :message="dialog.message"
+    :confirmText="dialog.confirmText"
+    :dangerMode="true"
+    @confirm="handleDialogConfirm"
+    @cancel="dialog.show = false"
+  />
 </template>
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution } from '../api/graphql.js'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const executions = ref([])
 const resources = ref([])
@@ -329,6 +385,12 @@ const displayLines = computed(() => {
 function resourceName(id) {
   return resources.value.find(r => r.id === id)?.name ?? id
 }
+function execLabel(ex) {
+  const p = ex.executionParams
+  if (!p || !Object.keys(p).length) return null
+  const vals = Object.values(p).filter(v => v != null && String(v).trim())
+  return vals.length ? vals.join(' · ') : null
+}
 function statusLabel(s) {
   return { running: 'RUNNING', completed: 'DONE', failed: 'FAILED', pending: 'PENDING', aborted: 'ABORTED' }[s] ?? s.toUpperCase()
 }
@@ -341,44 +403,91 @@ function statusClass(s) {
     pending:   'bg-gray-700 text-gray-300 border border-gray-600',
   }[s] ?? 'bg-gray-700 text-gray-300'
 }
+// Backend stores datetime.utcnow() without timezone info — append Z so browser parses as UTC
+function utc(iso) {
+  if (!iso) return null
+  return new Date(/Z|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z')
+}
 function formatDate(iso) {
   if (!iso) return '—'
-  return new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'medium' })
+  return utc(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'medium' })
 }
 function duration(start, end) {
   if (!start || !end) return '—'
-  const s = Math.round((new Date(end) - new Date(start)) / 1000)
+  const s = Math.round((utc(end) - utc(start)) / 1000)
   if (s < 60) return `${s}s`
   if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`
   return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`
 }
 function elapsed(start) {
   if (!start) return '—'
-  const s = Math.round((now.value - new Date(start)) / 1000)
+  const s = Math.round((now.value - utc(start)) / 1000)
   if (s < 60) return `${s}s`
   if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`
   return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`
 }
 function progressPct(ex) {
-  if (ex.status === 'completed' || ex.status === 'failed') return 100
-  if (ex.status === 'running' && !ex.totalRecords) return null
-  if (!ex.totalRecords) return 0
-  return Math.min(100, Math.round((ex.recordsLoaded / ex.totalRecords) * 100))
+  if (ex.status === 'completed') return 100
+  if (ex.status === 'failed')    return 100
+  if (!ex.totalRecords)          return null
+  if (!ex.recordsLoaded)         return null
+  return Math.min(99, Math.round((ex.recordsLoaded / ex.totalRecords) * 100))
+}
+
+function eta(ex) {
+  if (ex.status !== 'running') return null
+  if (!ex.totalRecords || !ex.recordsLoaded || ex.recordsLoaded <= 0) return null
+  const elapsedS = (now.value - utc(ex.startedAt)) / 1000
+  const rate = ex.recordsLoaded / elapsedS          // records/s
+  const remaining = ex.totalRecords - ex.recordsLoaded
+  const etaS = Math.round(remaining / rate)
+  if (etaS <= 0) return null
+  if (etaS < 60)   return `${etaS}s`
+  if (etaS < 3600) return `${Math.floor(etaS/60)}m ${etaS%60}s`
+  return `${Math.floor(etaS/3600)}h ${Math.floor((etaS%3600)/60)}m`
+}
+
+const CONCURRENCY_KEYS = new Set([
+  'num_workers','max_concurrent_requests','rate_limit_rps',
+  'batch_size','retry_attempts',
+])
+
+function resourceParamTags(resourceId) {
+  const res = resources.value.find(r => r.id === resourceId)
+  if (!res?.params) return []
+  return res.params
+    .filter(p => CONCURRENCY_KEYS.has(p.key) && p.value)
+    .map(p => `${p.key}=${p.value}`)
+}
+
+// ---- confirm dialog ----
+const dialog = ref({ show: false, title: '', message: '', confirmText: 'Confirm', _resolve: null })
+
+function showConfirm(title, message, confirmText = 'Confirm') {
+  return new Promise(resolve => {
+    dialog.value = { show: true, title, message, confirmText, _resolve: resolve }
+  })
+}
+
+function handleDialogConfirm() {
+  dialog.value.show = false
+  dialog.value._resolve?.(true)
 }
 
 // ---- kill / delete ----
 async function confirmAbort(ex) {
-  if (!confirm(`Kill running process "${resourceName(ex.resourceId)}"?`)) return
+  const ok = await showConfirm('Matar proceso', `¿Matar el proceso en curso de "${resourceName(ex.resourceId)}"?`, 'Matar')
+  if (!ok) return
   const res = await abortExecution(ex.id)
   if (res?.abortExecution?.success) {
-    // Optimistically mark as aborted; next poll will confirm
     const idx = executions.value.findIndex(e => e.id === ex.id)
     if (idx !== -1) executions.value[idx] = { ...executions.value[idx], status: 'aborted' }
   }
 }
 
 async function confirmDelete(ex) {
-  if (!confirm(`Remove "${resourceName(ex.resourceId)}" from the list?`)) return
+  const ok = await showConfirm('Eliminar ejecución', `¿Eliminar "${resourceName(ex.resourceId)}" del historial?`, 'Eliminar')
+  if (!ok) return
   await deleteExecution(ex.id)
   executions.value = executions.value.filter(e => e.id !== ex.id)
   if (openLog.value === ex.id) closeLog()
@@ -483,7 +592,7 @@ async function load() {
     ])
     executions.value = (exData?.resourceExecutions ?? [])
       .slice()
-      .sort((a, b) => new Date(b.startedAt) - new Date(a.startedAt))
+      .sort((a, b) => utc(b.startedAt) - utc(a.startedAt))
     resources.value = resData?.resources ?? []
   } finally {
     loading.value = false

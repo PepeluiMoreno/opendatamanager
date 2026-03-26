@@ -23,13 +23,12 @@ class DatasetBuilder:
         session: Session,
         resource: Resource,
         execution: ResourceExecution,
-        data: List[Dict]
     ) -> Dataset:
         """
-        Build complete dataset package.
+        Build complete dataset package from the execution's staging file.
 
         Creates a versioned package containing:
-        - data.jsonl: The actual data
+        - data.jsonl: The actual data (copied from staging)
         - schema.json: Inferred JSON Schema
         - models.py: Generated SQLAlchemy models
         - metadata.json: Package metadata
@@ -37,16 +36,28 @@ class DatasetBuilder:
         Args:
             session: SQLAlchemy session
             resource: Resource being processed
-            execution: ResourceExecution record
-            data: List of data records
+            execution: ResourceExecution record (must have staging_path and total_records set)
 
         Returns:
             Dataset record
         """
-        print(f"  [3/4] dataset - Generating package for {resource.name}...")
+        print(f"  [2/5] dataset - Generating package for {resource.name}...")
 
-        # 1. Infer schema from data
-        schema_json = infer_schema(data)
+        staging_path = execution.staging_path
+        record_count = execution.total_records or 0
+
+        # 1. Infer schema from first 500 records in staging file
+        sample: List[Dict] = []
+        if staging_path and os.path.exists(staging_path):
+            with open(staging_path, "r", encoding="utf-8") as f:
+                for i, line in enumerate(f):
+                    if i >= 500:
+                        break
+                    try:
+                        sample.append(json.loads(line))
+                    except Exception:
+                        pass
+        schema_json = infer_schema(sample)
 
         # 2. Get latest dataset for versioning
         latest_dataset = (
@@ -63,7 +74,6 @@ class DatasetBuilder:
         # 3. Compute version
         major, minor, patch = compute_next_version(latest_dataset, schema_json)
         version_str = f"{major}.{minor}.{patch}"
-
         print(f"    Version: {version_str}")
 
         # 4. Create dataset directory
@@ -72,13 +82,10 @@ class DatasetBuilder:
         os.makedirs(dataset_dir, exist_ok=True)
 
         # 5. Copy staged data to dataset
-        if os.path.exists(execution.staging_path):
-            shutil.copy(execution.staging_path, f"{dataset_dir}/data.jsonl")
+        if staging_path and os.path.exists(staging_path):
+            shutil.copy(staging_path, f"{dataset_dir}/data.jsonl")
         else:
-            # If staging file doesn't exist, write data directly
-            with open(f"{dataset_dir}/data.jsonl", 'w', encoding='utf-8') as f:
-                for item in data:
-                    f.write(json.dumps(item, ensure_ascii=False) + '\n')
+            open(f"{dataset_dir}/data.jsonl", "w").close()  # empty file as fallback
 
         # 6. Write schema
         with open(f"{dataset_dir}/schema.json", 'w', encoding='utf-8') as f:
@@ -100,7 +107,7 @@ class DatasetBuilder:
             "execution_id": str(execution.id),
             "version": version_str,
             "created_at": datetime.utcnow().isoformat(),
-            "record_count": len(data),
+            "record_count": record_count,
             "checksum": checksum
         }
         with open(f"{dataset_dir}/metadata.json", 'w', encoding='utf-8') as f:
@@ -114,9 +121,10 @@ class DatasetBuilder:
             major_version=major,
             minor_version=minor,
             patch_version=patch,
+            label=_make_execution_label(execution.execution_params),
             schema_json=schema_json,
             data_path=f"{dataset_dir}/data.jsonl",
-            record_count=len(data),
+            record_count=record_count,
             checksum=checksum,
             created_at=datetime.utcnow()
         )
@@ -195,3 +203,19 @@ class {class_name}(Base):
             "object": "JSONB"
         }
         return mapping.get(json_type, "Text")
+
+
+def _make_execution_label(execution_params: dict | None) -> str | None:
+    """Derive a human-readable label from execution params.
+
+    Examples:
+        {"year": "2025"}                        → "2025"
+        {"year": "2025", "municipio": "Lugo"}   → "2025 · Lugo"
+        None / {}                               → None
+    """
+    if not execution_params:
+        return None
+    values = [str(v) for v in execution_params.values() if v is not None and str(v).strip()]
+    if not values:
+        return None
+    return " · ".join(values)

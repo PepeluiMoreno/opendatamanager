@@ -49,7 +49,10 @@
           <div class="flex justify-between items-start mb-4">
             <div class="flex-1">
               <div class="flex items-center space-x-3 mb-2">
-                <h3 class="text-xl font-semibold">{{ getResourceName(dataset.resourceId) }}</h3>
+                <h3 class="text-xl font-semibold">
+                  {{ getResourceName(dataset.resourceId) }}
+                  <span v-if="dataset.label" class="text-yellow-300"> — {{ dataset.label }}</span>
+                </h3>
                 <span class="text-sm bg-blue-600 px-3 py-1 rounded">
                   v{{ dataset.majorVersion }}.{{ dataset.minorVersion }}.{{ dataset.patchVersion }}
                 </span>

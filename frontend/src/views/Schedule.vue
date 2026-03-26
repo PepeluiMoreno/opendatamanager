@@ -252,11 +252,23 @@
     </div>
 
   </div>
+
+  <!-- Confirm dialog -->
+  <ConfirmDialog
+    v-if="dialog.show"
+    :title="dialog.title"
+    :message="dialog.message"
+    :confirmText="dialog.confirmText"
+    :dangerMode="true"
+    @confirm="handleDialogConfirm"
+    @cancel="dialog.show = false"
+  />
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { fetchResources, updateResource } from '../api/graphql.js'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -390,8 +402,22 @@ async function saveForm() {
   }
 }
 
+const dialog = ref({ show: false, title: '', message: '', confirmText: 'Confirm', _resolve: null })
+
+function showConfirm(title, message, confirmText = 'Confirm') {
+  return new Promise(resolve => {
+    dialog.value = { show: true, title, message, confirmText, _resolve: resolve }
+  })
+}
+
+function handleDialogConfirm() {
+  dialog.value.show = false
+  dialog.value._resolve?.(true)
+}
+
 async function confirmRemove(res) {
-  if (!confirm(`Remove schedule for "${res.name}"?`)) return
+  const ok = await showConfirm('Eliminar programación', `¿Eliminar la programación de "${res.name}"?`, 'Eliminar')
+  if (!ok) return
   await updateResource(res.id, { schedule: '' })
   res.schedule = null
 }

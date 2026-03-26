@@ -16,6 +16,8 @@ from app.database import SessionLocal
 from app.models import Dataset, Resource, ResourceExecution
 from app.services.scheduler_service import SchedulerService
 from app.manager.fetcher_manager import LOG_DIR
+from app.graphql_data import engine as data_engine
+from app.graphql_data.router import router as data_router
 
 # Crear aplicación FastAPI
 app = FastAPI(
@@ -30,6 +32,12 @@ scheduler_service = SchedulerService()
 async def startup_event():
     scheduler_service.start()
     scheduler_service.add_resource_jobs()
+    # Construir el schema GraphQL de datos al arrancar
+    db = SessionLocal()
+    try:
+        data_engine.rebuild(db)
+    finally:
+        db.close()
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -44,9 +52,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configurar router GraphQL
+# Configurar router GraphQL (gestión — Strawberry)
 graphql_app = GraphQLRouter(schema)
 app.include_router(graphql_app, prefix="/graphql")
+
+# Configurar router GraphQL de datos (dinámico — graphql-core)
+app.include_router(data_router, prefix="/graphql/data", tags=["GraphQL Data API"])
 
 
 @app.get("/")
@@ -54,7 +65,8 @@ def root():
     return {
         "name": "OpenDataManager API",
         "version": "1.0.0",
-        "graphql_endpoint": "/graphql",
+        "graphql_management": "/graphql",
+        "graphql_data": "/graphql/data",
         "docs": "/docs",
     }
 
@@ -185,12 +197,97 @@ async def system_concurrency():
     finally:
         db.close()
 
+    try:
+        import psutil, os
+        proc = psutil.Process(os.getpid())
+        mem = proc.memory_info()
+        mem_rss_mb = round(mem.rss / 1024 / 1024, 1)
+        mem_vms_mb = round(mem.vms / 1024 / 1024, 1)
+    except Exception:
+        mem_rss_mb = None
+        mem_vms_mb = None
+
+    try:
+        vm = psutil.virtual_memory()
+        cgroup_limit_mb = None
+        for path in ("/sys/fs/cgroup/memory/memory.limit_in_bytes", "/sys/fs/cgroup/memory.max"):
+            try:
+                with open(path) as f:
+                    val = f.read().strip()
+                if val not in ("max", ""):
+                    limit_bytes = int(val)
+                    if limit_bytes < 2 ** 62:
+                        cgroup_limit_mb = round(limit_bytes / 1024 / 1024)
+                        break
+            except Exception:
+                pass
+        ram_total_mb = cgroup_limit_mb if cgroup_limit_mb else round(vm.total / 1024 / 1024)
+    except Exception:
+        ram_total_mb = None
+
     return {
         "total_threads": len(threads),
         "worker_threads": len(worker_threads),
         "running_executions": running,
         "threads": thread_list,
+        "process_mem_rss_mb": mem_rss_mb,
+        "process_mem_vms_mb": mem_vms_mb,
+        "ram_total_mb": ram_total_mb,
     }
+
+
+@app.get("/api/stats/resources")
+async def resource_stats():
+    """Per-resource extraction statistics: records extracted, trends, run history."""
+    from sqlalchemy import func
+    db = SessionLocal()
+    try:
+        resources = db.query(Resource).order_by(Resource.name).all()
+        result = []
+        for res in resources:
+            execs = (
+                db.query(ResourceExecution)
+                .filter(
+                    ResourceExecution.resource_id == res.id,
+                    ResourceExecution.deleted_at == None,
+                )
+                .order_by(ResourceExecution.started_at.desc())
+                .all()
+            )
+            completed = [e for e in execs if e.status == "completed"]
+            last = execs[0] if execs else None
+
+            last_records = completed[0].total_records if completed else None
+            prev_records = completed[1].total_records if len(completed) > 1 else None
+            total_extracted = sum(e.total_records or 0 for e in completed)
+
+            trend = None
+            if last_records is not None and prev_records is not None:
+                trend = last_records - prev_records
+
+            result.append({
+                "resource_id": str(res.id),
+                "resource_name": res.name,
+                "publisher": res.publisher,
+                "fetcher_code": res.fetcher.code if res.fetcher else None,
+                "active": res.active,
+                "total_executions": len(execs),
+                "successful_executions": len(completed),
+                "failed_executions": len([e for e in execs if e.status == "failed"]),
+                "last_run": last.started_at.isoformat() if last else None,
+                "last_status": last.status if last else None,
+                "last_duration_s": (
+                    round((last.completed_at - last.started_at).total_seconds())
+                    if last and last.completed_at and last.started_at else None
+                ),
+                "last_records": last_records,
+                "prev_records": prev_records,
+                "trend": trend,
+                "total_records_extracted": total_extracted,
+            })
+        return result
+    finally:
+        db.close()
 
 
 @app.get("/api/executions/{execution_id}/logs")

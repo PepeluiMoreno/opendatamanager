@@ -206,6 +206,20 @@
               >
                 Concurrency & Parallelism
               </button>
+              <button
+                v-if="showEditModal"
+                type="button"
+                @click="activeParamTab = 'outputs'"
+                :class="[
+                  'px-4 py-2 text-sm font-medium transition-colors',
+                  activeParamTab === 'outputs'
+                    ? 'text-green-400 border-b-2 border-green-400'
+                    : 'text-gray-400 hover:text-gray-300'
+                ]"
+              >
+                Outputs
+                <span v-if="derivedConfigs.length > 0" class="ml-1 text-xs bg-green-800 text-green-200 rounded-full px-1.5">{{ derivedConfigs.length }}</span>
+              </button>
             </div>
 
             <!-- Tab Content: Parameters -->
@@ -217,13 +231,13 @@
                 <div
                   v-for="param in requiredParams"
                   :key="`req-${param.paramName}`"
-                  class="flex gap-2 items-start border border-red-600 rounded p-2 bg-red-950 bg-opacity-20"
+                  class="flex gap-2 items-center border border-red-600 rounded p-2 bg-red-950 bg-opacity-20"
                 >
                   <div class="w-1/5 flex-shrink-0">
                     <label class="block text-xs text-gray-300 mb-1">{{ param.paramName }}</label>
                     <span class="text-xs text-gray-400">{{ param.dataType }}</span>
                   </div>
-                  <div class="flex-1 min-w-0">
+                  <div class="flex-1 min-w-0 max-w-[45%]">
                     <select
                       v-if="param.dataType === 'enum' && param.enumValues"
                       :value="getParamValue(param.paramName)"
@@ -242,13 +256,16 @@
                       @input="updateParamValue(param.paramName, $event.target.value)"
                     />
                   </div>
-                  <div class="flex-shrink-0 flex items-center" title="Pedir valor al ejecutar">
-                    <button
-                      type="button"
-                      @click="toggleParamExternal(param.paramName)"
-                      :class="form.params.find(p=>p.key===param.paramName)?.isExternal ? 'text-yellow-400' : 'text-gray-600 hover:text-gray-400'"
-                      class="text-xs px-1"
-                    >⚡</button>
+                  <div class="flex-1"></div>
+                  <div class="flex-shrink-0 flex items-center gap-1.5" title="Pedir valor al ejecutar">
+                    <input
+                      type="checkbox"
+                      :id="`ext-${param.paramName}`"
+                      :checked="form.params.find(p=>p.key===param.paramName)?.isExternal"
+                      @change="toggleParamExternal(param.paramName)"
+                      class="accent-yellow-400 cursor-pointer"
+                    />
+                    <label :for="`ext-${param.paramName}`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
                   </div>
                 </div>
               </div>
@@ -279,13 +296,13 @@
                 <div
                   v-for="paramName in addedOptionalParams"
                   :key="`opt-${paramName}`"
-                  class="flex gap-2 items-start border border-blue-600 rounded p-2 bg-blue-950 bg-opacity-20"
+                  class="flex gap-2 items-center border border-blue-600 rounded p-2 bg-blue-950 bg-opacity-20"
                 >
                   <div class="w-1/5 flex-shrink-0">
                     <label class="block text-xs text-gray-300 mb-1">{{ paramName }}</label>
                     <span class="text-xs text-gray-400">{{ getParamType(paramName) }}</span>
                   </div>
-                  <div class="flex-1 min-w-0">
+                  <div class="flex-1 min-w-0 max-w-[45%]">
                     <select
                       v-if="getParamType(paramName) === 'enum' && getParamEnumValues(paramName)"
                       :value="getParamValue(paramName)"
@@ -304,14 +321,17 @@
                       @input="updateParamValue(paramName, $event.target.value)"
                     />
                   </div>
+                  <div class="flex-1"></div>
                   <div class="flex-shrink-0 flex items-center gap-1">
-                    <button
-                      type="button"
-                      @click="toggleParamExternal(paramName)"
-                      :class="form.params.find(p=>p.key===paramName)?.isExternal ? 'text-yellow-400' : 'text-gray-600 hover:text-gray-400'"
-                      class="text-xs px-1"
+                    <input
+                      type="checkbox"
+                      :id="`ext-opt-${paramName}`"
+                      :checked="form.params.find(p=>p.key===paramName)?.isExternal"
+                      @change="toggleParamExternal(paramName)"
+                      class="accent-yellow-400 cursor-pointer"
                       title="Pedir valor al ejecutar"
-                    >⚡</button>
+                    />
+                    <label :for="`ext-opt-${paramName}`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
                     <button
                       type="button"
                       @click="removeOptionalParam(paramName)"
@@ -426,6 +446,134 @@
               </fieldset>
 
             </div>
+
+            <!-- Tab Content: Outputs (Derived Datasets) -->
+            <div v-if="activeParamTab === 'outputs'" class="h-[400px] overflow-y-auto pr-2 space-y-3">
+              <p class="text-xs text-gray-400">
+                Define catalog datasets extracted as a side-product of this resource's execution.
+                Each config specifies a <strong class="text-gray-300">natural key</strong> and the fields to collect.
+              </p>
+
+              <!-- Existing configs table -->
+              <div v-if="derivedConfigsLoading" class="text-center text-gray-500 py-4 text-xs">Loading...</div>
+              <div v-else>
+                <table v-if="derivedConfigs.length > 0" class="w-full text-xs mb-3">
+                  <thead>
+                    <tr class="border-b border-gray-700 text-gray-400">
+                      <th class="text-left py-1.5 pr-2">Target</th>
+                      <th class="text-left py-1.5 pr-2">Key field</th>
+                      <th class="text-left py-1.5 pr-2">Extract fields</th>
+                      <th class="text-left py-1.5 pr-2">Strategy</th>
+                      <th class="text-center py-1.5 pr-2">Entries</th>
+                      <th class="text-center py-1.5 pr-2">On</th>
+                      <th class="py-1.5"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="cfg in derivedConfigs" :key="cfg.id" class="border-b border-gray-800 hover:bg-gray-750">
+                      <!-- View mode -->
+                      <template v-if="editingDerivedId !== cfg.id">
+                        <td class="py-1.5 pr-2 font-mono text-green-300">{{ cfg.targetName }}</td>
+                        <td class="py-1.5 pr-2 font-mono text-yellow-300">{{ cfg.keyField }}</td>
+                        <td class="py-1.5 pr-2 text-gray-300">{{ (cfg.extractFields || []).join(', ') || '—' }}</td>
+                        <td class="py-1.5 pr-2">
+                          <span :class="cfg.mergeStrategy === 'upsert' ? 'text-blue-300' : 'text-orange-300'">{{ cfg.mergeStrategy }}</span>
+                        </td>
+                        <td class="py-1.5 pr-2 text-center text-gray-400">{{ cfg.entryCount ?? '—' }}</td>
+                        <td class="py-1.5 pr-2 text-center">
+                          <input type="checkbox" :checked="cfg.enabled"
+                            @change="toggleDerived(cfg)"
+                            class="accent-green-400 cursor-pointer" />
+                        </td>
+                        <td class="py-1.5 whitespace-nowrap flex gap-1">
+                          <button type="button" @click="startEditDerived(cfg)"
+                            class="text-blue-400 hover:text-blue-300 text-xs px-1">Edit</button>
+                          <button type="button" @click="deleteDerived(cfg.id)"
+                            class="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
+                        </td>
+                      </template>
+                      <!-- Inline edit mode -->
+                      <template v-else>
+                        <td class="py-1 pr-1">
+                          <input v-model="editingDerivedData.targetName" class="input w-full text-xs py-0.5" placeholder="beneficiarios" />
+                        </td>
+                        <td class="py-1 pr-1">
+                          <input v-model="editingDerivedData.keyField" class="input w-full text-xs py-0.5" placeholder="nif" />
+                        </td>
+                        <td class="py-1 pr-1">
+                          <input v-model="editingDerivedData.extractFieldsText" class="input w-full text-xs py-0.5" placeholder="nombre,municipio" />
+                        </td>
+                        <td class="py-1 pr-1">
+                          <select v-model="editingDerivedData.mergeStrategy" class="input text-xs py-0.5">
+                            <option value="upsert">upsert</option>
+                            <option value="insert_only">insert_only</option>
+                          </select>
+                        </td>
+                        <td class="py-1 pr-1 text-center text-gray-500">{{ cfg.entryCount ?? '—' }}</td>
+                        <td class="py-1 pr-1 text-center">
+                          <input type="checkbox" v-model="editingDerivedData.enabled" class="accent-green-400" />
+                        </td>
+                        <td class="py-1 whitespace-nowrap flex gap-1">
+                          <button type="button" @click="saveEditDerived(cfg.id)"
+                            class="text-green-400 hover:text-green-300 text-xs px-1">Save</button>
+                          <button type="button" @click="editingDerivedId = null"
+                            class="text-gray-400 hover:text-gray-300 text-xs px-1">✕</button>
+                        </td>
+                      </template>
+                    </tr>
+                  </tbody>
+                </table>
+                <p v-else-if="!showAddDerivedForm" class="text-xs text-gray-500 py-2">
+                  No derived datasets configured.
+                </p>
+
+                <!-- Add new config form -->
+                <div v-if="showAddDerivedForm" class="border border-green-800 rounded p-3 bg-green-950 bg-opacity-20 space-y-2">
+                  <h4 class="text-xs font-semibold text-green-400">New derived dataset</h4>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-0.5">Target name <span class="text-red-400">*</span></label>
+                      <input v-model="newDerivedConfig.targetName" class="input w-full text-xs" placeholder="beneficiarios" />
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-0.5">Key field <span class="text-red-400">*</span></label>
+                      <input v-model="newDerivedConfig.keyField" class="input w-full text-xs" placeholder="nif" />
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-0.5">Extract fields (comma-separated)</label>
+                    <input v-model="newDerivedConfig.extractFieldsText" class="input w-full text-xs" placeholder="nombre, municipio, provincia" />
+                  </div>
+                  <div class="flex gap-4 items-center">
+                    <div>
+                      <label class="block text-xs text-gray-400 mb-0.5">Strategy</label>
+                      <select v-model="newDerivedConfig.mergeStrategy" class="input text-xs py-1">
+                        <option value="upsert">upsert (overwrite)</option>
+                        <option value="insert_only">insert_only (keep existing)</option>
+                      </select>
+                    </div>
+                    <div class="flex items-center gap-1.5 mt-4">
+                      <input type="checkbox" v-model="newDerivedConfig.enabled" class="accent-green-400" id="new-derived-enabled" />
+                      <label for="new-derived-enabled" class="text-xs text-gray-400">Enabled</label>
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-400 mb-0.5">Description (optional)</label>
+                    <input v-model="newDerivedConfig.description" class="input w-full text-xs" placeholder="NIF + name from concesiones" />
+                  </div>
+                  <div class="flex gap-2 justify-end">
+                    <button type="button" @click="showAddDerivedForm = false" class="btn btn-secondary text-xs py-1">Cancel</button>
+                    <button type="button" @click="addDerived" class="btn btn-primary text-xs py-1">Add</button>
+                  </div>
+                </div>
+
+                <button v-if="!showAddDerivedForm" type="button" @click="showAddDerivedForm = true"
+                  class="text-xs text-green-400 hover:text-green-300 border border-green-800 rounded px-3 py-1 mt-1">
+                  + Add derived dataset
+                </button>
+              </div>
+            </div>
+
           </div>
 
           <div class="flex items-center">
@@ -490,24 +638,28 @@
         <h2 class="text-xl font-bold mb-1">Run Resource</h2>
         <p class="text-sm text-gray-400 mb-4">{{ executingResource?.name }}</p>
 
-        <!-- External params form -->
+        <!-- Runtime params form -->
         <div v-if="executingResource?.params?.filter(p => p.isExternal).length" class="space-y-3 mb-4">
+          <p class="text-xs text-gray-500">Override runtime parameters — leave blank to use the stored default.</p>
           <div
             v-for="param in executingResource.params.filter(p => p.isExternal)"
             :key="param.key"
             class="space-y-1"
           >
-            <label class="block text-xs font-medium text-yellow-400">{{ param.key }}</label>
+            <div class="flex items-baseline justify-between">
+              <label class="text-xs font-semibold text-yellow-300">{{ param.key }}</label>
+              <span v-if="param.value" class="text-xs text-gray-500">default: {{ param.value }}</span>
+            </div>
             <input
               v-model="executeParams[param.key]"
               type="text"
-              :placeholder="param.value || `Enter ${param.key}...`"
+              :placeholder="param.value ? `Leave blank to use '${param.value}'` : `Enter ${param.key}...`"
               class="input w-full text-sm"
             />
           </div>
         </div>
         <p v-else class="text-sm text-gray-400 mb-4">
-          No hay parámetros externos. El recurso se ejecutará con su configuración actual.
+          No runtime parameters. The resource will run with its saved configuration.
         </p>
 
         <div class="flex justify-end gap-2">
@@ -532,6 +684,11 @@ import {
   previewResourceData,
   executeResource,
   fetchAppConfig,
+  fetchDerivedDatasetConfigs,
+  createDerivedDatasetConfig,
+  updateDerivedDatasetConfig,
+  deleteDerivedDatasetConfig,
+  toggleDerivedDatasetConfig,
 } from '../api/graphql'
 import PreviewDataModal from './PreviewDataModal.vue'
 
@@ -603,6 +760,21 @@ const form = ref({
 })
 
 const activeParamTab = ref('parameters')
+
+// Derived datasets state
+const derivedConfigs = ref([])
+const derivedConfigsLoading = ref(false)
+const newDerivedConfig = ref({
+  targetName: '',
+  keyField: '',
+  extractFieldsText: '',
+  mergeStrategy: 'upsert',
+  enabled: true,
+  description: '',
+})
+const showAddDerivedForm = ref(false)
+const editingDerivedId = ref(null)
+const editingDerivedData = ref({})
 
 // Computed property for selected fetcher
 const selectedFetcher = computed(() => {
@@ -817,6 +989,7 @@ function editResource(resource) {
     batchSize: getParam('batch_size') ? parseInt(getParam('batch_size')) : null,
   }
   showEditModal.value = true
+  loadDerivedConfigs(resource.id)
 }
 
 async function showPreviewData(resource) {
@@ -861,16 +1034,16 @@ function getRecordCount(data) {
 function openExecuteModal(resource) {
   executingResource.value = resource
   executeResult.value = null
-  // Pre-fill external params with their stored value as default
-  executeParams.value = {}
-  resource.params.filter(p => p.isExternal).forEach(p => {
-    executeParams.value[p.key] = p.value || ''
-  })
+  executeParams.value = {}   // start empty — user fills only what they want to override
   showExecuteModal.value = true
 }
 
 async function confirmExecute() {
-  const externalParams = Object.keys(executeParams.value).length > 0 ? executeParams.value : null
+  // Only send params the user explicitly typed (non-empty strings)
+  const overrides = Object.fromEntries(
+    Object.entries(executeParams.value).filter(([, v]) => v !== '' && v !== null && v !== undefined)
+  )
+  const externalParams = Object.keys(overrides).length > 0 ? overrides : null
   showExecuteModal.value = false
   executeResource(executingResource.value.id, externalParams).catch(() => {})
 }
@@ -947,6 +1120,9 @@ function closeModals() {
   showEditModal.value = false
   editingResource.value = null
   activeParamTab.value = 'parameters'
+  derivedConfigs.value = []
+  showAddDerivedForm.value = false
+  editingDerivedId.value = null
   form.value = {
     name: '',
     publisher: '',
@@ -961,6 +1137,97 @@ function closeModals() {
     retryAttempts: null,
     retryBackoffFactor: null,
     batchSize: null,
+  }
+}
+
+// ── Derived datasets ─────────────────────────────────────────────────────────
+
+async function loadDerivedConfigs(resourceId) {
+  derivedConfigsLoading.value = true
+  try {
+    const result = await fetchDerivedDatasetConfigs(resourceId)
+    derivedConfigs.value = result?.derivedDatasetConfigs || []
+  } catch (e) {
+    // silently ignore — not critical
+  } finally {
+    derivedConfigsLoading.value = false
+  }
+}
+
+function parseFields(text) {
+  return (text || '').split(',').map(s => s.trim()).filter(Boolean)
+}
+
+async function addDerived() {
+  const cfg = newDerivedConfig.value
+  if (!cfg.targetName || !cfg.keyField) return
+  try {
+    await createDerivedDatasetConfig({
+      sourceResourceId: editingResource.value.id,
+      targetName: cfg.targetName,
+      keyField: cfg.keyField,
+      extractFields: parseFields(cfg.extractFieldsText),
+      mergeStrategy: cfg.mergeStrategy,
+      enabled: cfg.enabled,
+      description: cfg.description || null,
+    })
+    newDerivedConfig.value = { targetName: '', keyField: '', extractFieldsText: '', mergeStrategy: 'upsert', enabled: true, description: '' }
+    showAddDerivedForm.value = false
+    await loadDerivedConfigs(editingResource.value.id)
+  } catch (e) {
+    error.value = 'Failed to add derived dataset: ' + e.message
+  }
+}
+
+async function deleteDerived(id) {
+  try {
+    await deleteDerivedDatasetConfig(id)
+    await loadDerivedConfigs(editingResource.value.id)
+  } catch (e) {
+    error.value = 'Failed to delete: ' + e.message
+  }
+}
+
+async function toggleDerived(cfg) {
+  try {
+    const result = await toggleDerivedDatasetConfig(cfg.id, !cfg.enabled)
+    const updated = result?.toggleDerivedDatasetConfig
+    if (updated) {
+      const idx = derivedConfigs.value.findIndex(c => c.id === cfg.id)
+      if (idx !== -1) derivedConfigs.value[idx] = { ...derivedConfigs.value[idx], ...updated }
+    }
+  } catch (e) {
+    error.value = 'Failed to toggle: ' + e.message
+  }
+}
+
+function startEditDerived(cfg) {
+  editingDerivedId.value = cfg.id
+  editingDerivedData.value = {
+    targetName: cfg.targetName,
+    keyField: cfg.keyField,
+    extractFieldsText: (cfg.extractFields || []).join(', '),
+    mergeStrategy: cfg.mergeStrategy,
+    enabled: cfg.enabled,
+    description: cfg.description || '',
+  }
+}
+
+async function saveEditDerived(id) {
+  const d = editingDerivedData.value
+  try {
+    await updateDerivedDatasetConfig(id, {
+      targetName: d.targetName,
+      keyField: d.keyField,
+      extractFields: parseFields(d.extractFieldsText),
+      mergeStrategy: d.mergeStrategy,
+      enabled: d.enabled,
+      description: d.description || null,
+    })
+    editingDerivedId.value = null
+    await loadDerivedConfigs(editingResource.value.id)
+  } catch (e) {
+    error.value = 'Failed to update: ' + e.message
   }
 }
 

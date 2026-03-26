@@ -18,7 +18,7 @@ import logging
 import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
-from typing import Dict, List, Any, Optional
+from typing import Dict, Generator, List, Any, Optional
 
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 
@@ -198,35 +198,34 @@ class SearchLoopHtmlFetcher(BaseFetcher):
     # Interfaz BaseFetcher
     # ------------------------------------------------------------------
 
-    def fetch(self) -> RawData:
+    def _get_search_values(self) -> List[str]:
+        raw_values = self.params.get("search_field_values", "")
+        if raw_values:
+            if isinstance(raw_values, str):
+                return [v.strip() for v in raw_values.split(",") if v.strip()]
+            return list(raw_values)
+        return self._discover_search_values()
+
+    def stream(self) -> Generator[List[Dict], None, None]:
+        """Yields one batch of records per search value."""
         if not self.params.get("url"):
             raise ValueError("El parámetro 'url' es obligatorio")
         if not self.params.get("search_field_name"):
             raise ValueError("El parámetro 'search_field_name' es obligatorio")
 
-        # Valores: override manual o auto-discovery
-        raw_values = self.params.get("search_field_values", "")
-        if raw_values:
-            if isinstance(raw_values, str):
-                search_values = [v.strip() for v in raw_values.split(",") if v.strip()]
-            else:
-                search_values = list(raw_values)
-        else:
-            search_values = self._discover_search_values()
-
+        search_values = self._get_search_values()
         delay_between = float(self.params.get("delay_between_searches", 1.0))
-        all_records: List[Dict] = []
+        field_tag = self.params.get("search_field_name", "search_value")
 
         for i, val in enumerate(search_values):
             logger.info(f"[{i+1}/{len(search_values)}] Buscando valor: {val}")
             try:
                 records = self._fetch_for_value(val)
-                # Añadir el valor de búsqueda como campo para trazabilidad
-                field_tag = self.params.get("search_field_name", "search_value")
                 for r in records:
                     r.setdefault(f"_pivot_{field_tag}", val)
-                all_records.extend(records)
                 logger.info(f"  → {len(records)} registros")
+                if records:
+                    yield records
             except Exception as exc:
                 logger.error(f"  Error en valor '{val}': {exc}")
                 if self.params.get("stop_on_error", False):
@@ -235,6 +234,10 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             if delay_between > 0 and i < len(search_values) - 1:
                 time.sleep(delay_between)
 
+    def fetch(self) -> RawData:
+        all_records: List[Dict] = []
+        for chunk in self.stream():
+            all_records.extend(chunk)
         logger.info(f"Fetch completado: {len(all_records)} registros totales")
         return all_records
 

@@ -8,7 +8,7 @@ from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig
 from datetime import datetime
 
 # Global registry: execution_id (str) → Thread
@@ -47,9 +47,12 @@ from app.graphql_api.types import (
     UpdateTypeFetcherParamInput,
     CreateApplicationInput,
     UpdateApplicationInput,
-    ExecutionResult
+    ExecutionResult,
+    DerivedDatasetConfigType,
+    CreateDerivedDatasetConfigInput,
+    UpdateDerivedDatasetConfigInput,
 )
-from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param
+from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config
 from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
 
@@ -213,57 +216,64 @@ class Mutation:
         finally:
             db.close()
 
-        # Run in a background thread so the event loop is never blocked
-        execution_id_holder = []
+        # Create the execution record now (before the thread) so it is immediately
+        # visible in the DB and we can register the thread against a known ID.
+        pre_db = SessionLocal()
+        try:
+            pre_exec = ResourceExecution(
+                resource_id=resource_id,
+                status="running",
+                started_at=datetime.utcnow(),
+                execution_params=params,
+            )
+            pre_db.add(pre_exec)
+            pre_db.commit()
+            execution_id = str(pre_exec.id)
+        except Exception as e:
+            pre_db.rollback()
+            return ExecutionResult(success=False, message=f"Could not create execution record: {e}", resource_id=resource_id)
+        finally:
+            pre_db.close()
 
         def _run():
             bg_db = SessionLocal()
             try:
-                dataset = FetcherManager.run(bg_db, resource_id, execution_params=params)
+                FetcherManager.run(bg_db, resource_id, execution_params=params, execution_id=execution_id)
             except ExecutionAborted:
-                # Mark as aborted in DB if we have the execution ID
-                if execution_id_holder:
-                    try:
-                        ex = bg_db.query(ResourceExecution).filter(
-                            ResourceExecution.id == execution_id_holder[0]
-                        ).first()
-                        if ex:
-                            ex.status = "aborted"
-                            ex.completed_at = datetime.utcnow()
-                            bg_db.commit()
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+                try:
+                    ex = bg_db.query(ResourceExecution).filter(
+                        ResourceExecution.id == execution_id
+                    ).first()
+                    if ex:
+                        ex.status = "aborted"
+                        ex.completed_at = datetime.utcnow()
+                        bg_db.commit()
+                except Exception:
+                    pass
+            except Exception as exc:
+                # Last-resort: mark as failed if FetcherManager didn't handle it
+                try:
+                    ex = bg_db.query(ResourceExecution).filter(
+                        ResourceExecution.id == execution_id
+                    ).first()
+                    if ex and ex.status == "running":
+                        ex.status = "failed"
+                        ex.error_message = str(exc)
+                        ex.completed_at = datetime.utcnow()
+                        bg_db.commit()
+                except Exception:
+                    pass
             finally:
                 bg_db.close()
-                # Unregister thread
-                if execution_id_holder:
-                    with _registry_lock:
-                        _running_threads.pop(execution_id_holder[0], None)
+                with _registry_lock:
+                    _running_threads.pop(execution_id, None)
 
         t = threading.Thread(target=_run, daemon=True, name=f"fetcher-{resource_id[:8]}")
         t.start()
 
-        # Register once the execution record is created (slight delay — poll DB)
-        def _register():
-            import time
-            time.sleep(0.5)
-            reg_db = SessionLocal()
-            try:
-                ex = reg_db.query(ResourceExecution).filter(
-                    ResourceExecution.resource_id == resource_id,
-                    ResourceExecution.status == "running",
-                ).order_by(ResourceExecution.started_at.desc()).first()
-                if ex:
-                    eid = str(ex.id)
-                    execution_id_holder.append(eid)
-                    with _registry_lock:
-                        _running_threads[eid] = t
-            finally:
-                reg_db.close()
-
-        threading.Thread(target=_register, daemon=True).start()
+        # Register thread immediately — execution record already exists in DB
+        with _registry_lock:
+            _running_threads[execution_id] = t
 
         return ExecutionResult(
             success=True,
@@ -633,7 +643,7 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation
-    def remove_application_webhook(self, id: str) -> ApplicationType:          
+    def remove_application_webhook(self, id: str) -> ApplicationType:
         """Elimina el webhook de una Application"""
         db = get_db()
         try:
@@ -650,6 +660,102 @@ class Mutation:
             db.rollback()
             raise e
         finally:
-            db.close()      
-            
-        
+            db.close()
+
+    # ── DerivedDatasetConfig CRUD ─────────────────────────────────────────────
+
+    @strawberry.mutation
+    def create_derived_dataset_config(self, input: CreateDerivedDatasetConfigInput) -> DerivedDatasetConfigType:
+        """Crea una nueva configuración de dataset derivado"""
+        db = get_db()
+        try:
+            resource = db.query(Resource).filter(Resource.id == input.source_resource_id).first()
+            if not resource:
+                raise ValueError(f"Resource con id '{input.source_resource_id}' no encontrado")
+            cfg = DerivedDatasetConfig(
+                id=uuid4(),
+                source_resource_id=input.source_resource_id,
+                target_name=input.target_name,
+                key_field=input.key_field,
+                extract_fields=input.extract_fields or [],
+                merge_strategy=input.merge_strategy or "upsert",
+                enabled=input.enabled,
+                description=input.description,
+            )
+            db.add(cfg)
+            db.commit()
+            db.refresh(cfg)
+            return map_derived_dataset_config(cfg, entry_count=0)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def update_derived_dataset_config(self, id: str, input: UpdateDerivedDatasetConfigInput) -> DerivedDatasetConfigType:
+        """Actualiza una configuración de dataset derivado"""
+        db = get_db()
+        try:
+            from app.models import DerivedDatasetEntry
+            cfg = db.query(DerivedDatasetConfig).filter(DerivedDatasetConfig.id == id).first()
+            if not cfg:
+                raise ValueError(f"DerivedDatasetConfig con id '{id}' no encontrado")
+            if input.target_name is not None:
+                cfg.target_name = input.target_name
+            if input.key_field is not None:
+                cfg.key_field = input.key_field
+            if input.extract_fields is not None:
+                cfg.extract_fields = input.extract_fields
+            if input.merge_strategy is not None:
+                cfg.merge_strategy = input.merge_strategy
+            if input.enabled is not None:
+                cfg.enabled = input.enabled
+            if input.description is not None:
+                cfg.description = input.description
+            db.commit()
+            db.refresh(cfg)
+            count = db.query(DerivedDatasetEntry).filter(DerivedDatasetEntry.config_id == cfg.id).count()
+            return map_derived_dataset_config(cfg, entry_count=count)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def delete_derived_dataset_config(self, id: str) -> bool:
+        """Elimina una configuración de dataset derivado (y todas sus entradas)"""
+        db = get_db()
+        try:
+            cfg = db.query(DerivedDatasetConfig).filter(DerivedDatasetConfig.id == id).first()
+            if not cfg:
+                raise ValueError(f"DerivedDatasetConfig con id '{id}' no encontrado")
+            db.delete(cfg)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def toggle_derived_dataset_config(self, id: str, enabled: bool) -> DerivedDatasetConfigType:
+        """Activa o desactiva una configuración de dataset derivado"""
+        db = get_db()
+        try:
+            from app.models import DerivedDatasetEntry
+            cfg = db.query(DerivedDatasetConfig).filter(DerivedDatasetConfig.id == id).first()
+            if not cfg:
+                raise ValueError(f"DerivedDatasetConfig con id '{id}' no encontrado")
+            cfg.enabled = enabled
+            db.commit()
+            db.refresh(cfg)
+            count = db.query(DerivedDatasetEntry).filter(DerivedDatasetEntry.config_id == cfg.id).count()
+            return map_derived_dataset_config(cfg, entry_count=count)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()

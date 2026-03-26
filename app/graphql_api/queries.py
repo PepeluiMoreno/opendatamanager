@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
-    ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification, AppConfig
+    ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification, AppConfig,
+    DerivedDatasetConfig, DerivedDatasetEntry
 )
 from app.graphql_api.types import (
     FetcherType,
@@ -21,6 +22,7 @@ from app.graphql_api.types import (
     DatasetSubscriptionType,
     ApplicationNotificationType,
     AppConfigType,
+    DerivedDatasetConfigType,
 )
 
 
@@ -123,7 +125,9 @@ def map_application(app: Application) -> ApplicationType:
         description=app.description,
         models_path=app.models_path,
         subscribed_projects=app.subscribed_projects or [],
-        active=app.active
+        active=app.active,
+        webhook_url=app.webhook_url,
+        consumption_mode=app.consumption_mode or "webhook",
     )
 
 
@@ -150,7 +154,8 @@ def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
         total_records=re.total_records,
         records_loaded=re.records_loaded,
         staging_path=re.staging_path,
-        error_message=re.error_message
+        error_message=re.error_message,
+        execution_params=re.execution_params,
     )
 
 
@@ -161,6 +166,7 @@ def map_dataset(art: Dataset) -> DatasetType:
         resource_id=str(art.resource_id),
         execution_id=str(art.execution_id) if art.execution_id else None,
         version=art.version_string,
+        label=art.label,
         major_version=art.major_version,
         minor_version=art.minor_version,
         patch_version=art.patch_version,
@@ -188,6 +194,22 @@ def map_dataset_subscription(sub: DatasetSubscription) -> DatasetSubscriptionTyp
         auto_upgrade=sub.auto_upgrade,
         current_version=sub.current_version,
         notified_at=sub.notified_at
+    )
+
+
+def map_derived_dataset_config(cfg: DerivedDatasetConfig, entry_count: int = None) -> DerivedDatasetConfigType:
+    """Convierte modelo DerivedDatasetConfig a tipo GraphQL"""
+    return DerivedDatasetConfigType(
+        id=str(cfg.id),
+        source_resource_id=str(cfg.source_resource_id),
+        target_name=cfg.target_name,
+        key_field=cfg.key_field,
+        extract_fields=cfg.extract_fields or [],
+        merge_strategy=cfg.merge_strategy or "upsert",
+        enabled=cfg.enabled,
+        description=cfg.description,
+        created_at=cfg.created_at,
+        entry_count=entry_count,
     )
 
 
@@ -400,6 +422,25 @@ class Query:
                 query = query.filter(DatasetSubscription.resource_id == resource_id)
             subscriptions = query.all()
             return [map_dataset_subscription(sub) for sub in subscriptions]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def derived_dataset_configs(self, source_resource_id: Optional[str] = None) -> List[DerivedDatasetConfigType]:
+        """Lista configuraciones de datasets derivados, opcionalmente filtrado por source_resource_id"""
+        db = get_db()
+        try:
+            query = db.query(DerivedDatasetConfig)
+            if source_resource_id:
+                query = query.filter(DerivedDatasetConfig.source_resource_id == source_resource_id)
+            configs = query.order_by(DerivedDatasetConfig.created_at).all()
+            result = []
+            for cfg in configs:
+                count = db.query(DerivedDatasetEntry).filter(
+                    DerivedDatasetEntry.config_id == cfg.id
+                ).count()
+                result.append(map_derived_dataset_config(cfg, entry_count=count))
+            return result
         finally:
             db.close()
 

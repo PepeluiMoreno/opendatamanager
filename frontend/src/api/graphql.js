@@ -82,6 +82,8 @@ export const QUERIES = {
         modelsPath
         subscribedProjects
         active
+        webhookUrl
+        consumptionMode
       }
     }
   `,
@@ -105,6 +107,7 @@ export const QUERIES = {
         id
         resourceId
         version
+        label
         majorVersion
         minorVersion
         patchVersion
@@ -127,6 +130,7 @@ export const QUERIES = {
         totalRecords
         recordsLoaded
         errorMessage
+        executionParams
       }
     }
   `,
@@ -137,6 +141,23 @@ export const QUERIES = {
         value
         description
         updatedAt
+      }
+    }
+  `,
+
+  GET_DERIVED_DATASET_CONFIGS: `
+    query GetDerivedDatasetConfigs($sourceResourceId: String) {
+      derivedDatasetConfigs(sourceResourceId: $sourceResourceId) {
+        id
+        sourceResourceId
+        targetName
+        keyField
+        extractFields
+        mergeStrategy
+        enabled
+        description
+        createdAt
+        entryCount
       }
     }
   `,
@@ -222,6 +243,7 @@ export const MUTATIONS = {
       createApplication(input: $input) {
         id
         name
+        consumptionMode
       }
     }
   `,
@@ -231,6 +253,7 @@ export const MUTATIONS = {
       updateApplication(id: $id, input: $input) {
         id
         name
+        consumptionMode
       }
     }
   `,
@@ -291,6 +314,54 @@ export const MUTATIONS = {
   DELETE_FETCHER: `
     mutation DeleteFetcher($id: String!) {
       deleteFetcher(id: $id)
+    }
+  `,
+
+  CREATE_DERIVED_DATASET_CONFIG: `
+    mutation CreateDerivedDatasetConfig($input: CreateDerivedDatasetConfigInput!) {
+      createDerivedDatasetConfig(input: $input) {
+        id
+        sourceResourceId
+        targetName
+        keyField
+        extractFields
+        mergeStrategy
+        enabled
+        description
+        entryCount
+      }
+    }
+  `,
+
+  UPDATE_DERIVED_DATASET_CONFIG: `
+    mutation UpdateDerivedDatasetConfig($id: String!, $input: UpdateDerivedDatasetConfigInput!) {
+      updateDerivedDatasetConfig(id: $id, input: $input) {
+        id
+        sourceResourceId
+        targetName
+        keyField
+        extractFields
+        mergeStrategy
+        enabled
+        description
+        entryCount
+      }
+    }
+  `,
+
+  DELETE_DERIVED_DATASET_CONFIG: `
+    mutation DeleteDerivedDatasetConfig($id: String!) {
+      deleteDerivedDatasetConfig(id: $id)
+    }
+  `,
+
+  TOGGLE_DERIVED_DATASET_CONFIG: `
+    mutation ToggleDerivedDatasetConfig($id: String!, $enabled: Boolean!) {
+      toggleDerivedDatasetConfig(id: $id, enabled: $enabled) {
+        id
+        enabled
+        entryCount
+      }
     }
   `,
 
@@ -532,6 +603,46 @@ export async function abortExecution(id) {
 export async function fetchResourceExecutions(resourceId = null) {
   try {
     return await client.request(QUERIES.GET_RESOURCE_EXECUTIONS, { resourceId })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchDerivedDatasetConfigs(sourceResourceId = null) {
+  try {
+    return await client.request(QUERIES.GET_DERIVED_DATASET_CONFIGS, { sourceResourceId })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function createDerivedDatasetConfig(input) {
+  try {
+    return await client.request(MUTATIONS.CREATE_DERIVED_DATASET_CONFIG, { input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function updateDerivedDatasetConfig(id, input) {
+  try {
+    return await client.request(MUTATIONS.UPDATE_DERIVED_DATASET_CONFIG, { id, input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function deleteDerivedDatasetConfig(id) {
+  try {
+    return await client.request(MUTATIONS.DELETE_DERIVED_DATASET_CONFIG, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function toggleDerivedDatasetConfig(id, enabled) {
+  try {
+    return await client.request(MUTATIONS.TOGGLE_DERIVED_DATASET_CONFIG, { id, enabled })
   } catch (error) {
     handleGraphQLError(error)
   }

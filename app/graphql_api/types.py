@@ -114,6 +114,12 @@ class ApplicationType:
     models_path: str = strawberry.field(name="modelsPath")
     subscribed_projects: List[str] = strawberry.field(name="subscribedProjects")
     active: bool
+    webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
+    consumption_mode: str = strawberry.field(
+        default="webhook",
+        name="consumptionMode",
+        description="Modo de consumo: 'webhook' (publicación JSONL), 'graphql' (API GraphQL), 'both'.",
+    )
 
 @strawberry.input
 class CreateApplicationInput:
@@ -123,15 +129,17 @@ class CreateApplicationInput:
     models_path: str = strawberry.field(name="modelsPath")
     subscribed_projects: List[str] = strawberry.field(name="subscribedProjects")
     active: bool = True
+    consumption_mode: str = strawberry.field(default="webhook", name="consumptionMode")
 
 @strawberry.input
-class UpdateApplicationInput:           
+class UpdateApplicationInput:
     """Input para crear o actualizar una Application"""
     name: Optional[str] = None
     description: Optional[str] = None
     models_path: Optional[str] = strawberry.field(default=None, name="modelsPath")
     subscribed_projects: Optional[List[str]] = strawberry.field(default=None, name="subscribedProjects")
     active: Optional[bool] = None
+    consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
 
 @strawberry.type
 class ExecutionResult:
@@ -165,6 +173,7 @@ class ResourceExecutionType:
     records_loaded: Optional[int] = strawberry.field(default=None, name="recordsLoaded")
     staging_path: Optional[str] = strawberry.field(default=None, name="stagingPath")
     error_message: Optional[str] = strawberry.field(default=None, name="errorMessage")
+    execution_params: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="executionParams")
 
 
 @strawberry.type
@@ -174,6 +183,7 @@ class DatasetType:
     resource_id: str = strawberry.field(name="resourceId")
     execution_id: Optional[str] = strawberry.field(default=None, name="executionId")
     version: str
+    label: Optional[str] = None
     major_version: int = strawberry.field(name="majorVersion")
     minor_version: int = strawberry.field(name="minorVersion")
     patch_version: int = strawberry.field(name="patchVersion")
@@ -221,6 +231,42 @@ class AppConfigType:
 class SetConfigInput:
     key: str
     value: strawberry.scalars.JSON
+
+
+@strawberry.type
+class DerivedDatasetConfigType:
+    """Config for a derived/catalog dataset extracted as a side-product of a resource execution."""
+    id: str
+    source_resource_id: str = strawberry.field(name="sourceResourceId")
+    target_name: str = strawberry.field(name="targetName")
+    key_field: str = strawberry.field(name="keyField")
+    extract_fields: strawberry.scalars.JSON = strawberry.field(name="extractFields")
+    merge_strategy: str = strawberry.field(name="mergeStrategy")
+    enabled: bool
+    description: Optional[str] = None
+    created_at: datetime = strawberry.field(name="createdAt")
+    entry_count: Optional[int] = strawberry.field(default=None, name="entryCount")
+
+
+@strawberry.input
+class CreateDerivedDatasetConfigInput:
+    source_resource_id: str = strawberry.field(name="sourceResourceId")
+    target_name: str = strawberry.field(name="targetName")
+    key_field: str = strawberry.field(name="keyField")
+    extract_fields: strawberry.scalars.JSON = strawberry.field(name="extractFields")
+    merge_strategy: str = strawberry.field(default="upsert", name="mergeStrategy")
+    enabled: bool = True
+    description: Optional[str] = None
+
+
+@strawberry.input
+class UpdateDerivedDatasetConfigInput:
+    target_name: Optional[str] = strawberry.field(default=None, name="targetName")
+    key_field: Optional[str] = strawberry.field(default=None, name="keyField")
+    extract_fields: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="extractFields")
+    merge_strategy: Optional[str] = strawberry.field(default=None, name="mergeStrategy")
+    enabled: Optional[bool] = None
+    description: Optional[str] = None
 
 
 @strawberry.type

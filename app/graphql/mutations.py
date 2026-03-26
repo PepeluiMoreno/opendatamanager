@@ -365,7 +365,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def create_application(self, input: CreateApplicationInput) -> ApplicationType:                
+    def create_application(self, input: CreateApplicationInput) -> ApplicationType:
         """Crea una nueva Application"""
         db = get_db()
         try:
@@ -375,7 +375,8 @@ class Mutation:
                 description=input.description,
                 models_path=input.models_path,
                 subscribed_projects=input.subscribed_projects,
-                active=input.active
+                active=input.active,
+                consumption_mode=input.consumption_mode or "webhook",
             )
             db.add(application)
             db.commit()
@@ -405,6 +406,8 @@ class Mutation:
                 application.models_path = input.models_path
             if input.subscribed_projects is not None:
                 application.subscribed_projects = input.subscribed_projects
+            if input.consumption_mode is not None:
+                application.consumption_mode = input.consumption_mode
 
             db.commit()
             db.refresh(application)
@@ -413,7 +416,7 @@ class Mutation:
             db.rollback()
             raise e
         finally:
-            db.close()      
+            db.close()
 
     @strawberry.mutation
     def delete_application(self, id: str) -> bool:          

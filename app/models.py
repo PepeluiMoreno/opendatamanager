@@ -68,6 +68,7 @@ class Resource(Base):
     params = relationship("ResourceParam", back_populates="resource", cascade="all, delete-orphan")
     executions = relationship("ResourceExecution", back_populates="resource")
     datasets = relationship("Dataset", back_populates="resource")
+    derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
 
 
 class ResourceParam(Base):
@@ -101,6 +102,8 @@ class Application(Base):
     # New fields for dataset system
     webhook_url = Column(String(500))
     webhook_secret = Column(String(100))
+    # Modo de consumo: 'webhook' | 'graphql' | 'both'
+    consumption_mode = Column(String(20), nullable=False, default='webhook')
 
     # New relationships
     subscriptions = relationship("DatasetSubscription", back_populates="application")
@@ -133,7 +136,11 @@ class ResourceExecution(Base):
     # Execution tracking
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
-    status = Column(String(20))  # "running"|"completed"|"failed"
+    status = Column(String(20))  # "running"|"completed"|"failed"|"aborted"|"paused"
+
+    # Cooperative pause signal — set True from outside to ask the streaming loop to stop
+    # gracefully at the next page boundary and save state as "paused".
+    pause_requested = Column(Boolean, default=False, nullable=False)
 
     # Results
     total_records = Column(Integer)
@@ -196,6 +203,46 @@ class DatasetSubscription(Base):
 
     application = relationship("Application", back_populates="subscriptions")
     resource = relationship("Resource")
+
+
+class DerivedDatasetConfig(Base):
+    """Config for extracting derived/catalog datasets as a side-product of a resource execution.
+
+    Example: while fetching BDNS concesiones, also extract beneficiarios (NIF + nombre)
+    as a separate catalog, upserting by natural key (NIF).
+    """
+    __tablename__ = "derived_dataset_config"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    source_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
+    target_name = Column(String(100), nullable=False)     # e.g. "beneficiarios"
+    key_field = Column(String(100), nullable=False)        # e.g. "nif", "codConvocatoria"
+    extract_fields = Column(JSONB, nullable=False, default=list)  # ["nombre", "municipio", ...]
+    merge_strategy = Column(String(20), default="upsert", nullable=False)  # "upsert" | "insert_only"
+    enabled = Column(Boolean, default=True, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    source_resource = relationship("Resource", back_populates="derived_configs")
+    entries = relationship("DerivedDatasetEntry", back_populates="config", cascade="all, delete-orphan")
+
+
+class DerivedDatasetEntry(Base):
+    """A single record in a derived dataset, stored as JSONB."""
+    __tablename__ = "derived_dataset_entry"
+    __table_args__ = (
+        UniqueConstraint("config_id", "key_value", name="uq_derived_entry_config_key"),
+        {"schema": "opendata"},
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    config_id = Column(UUID(as_uuid=True), ForeignKey("opendata.derived_dataset_config.id", ondelete="CASCADE"), nullable=False)
+    key_value = Column(String(500), nullable=False)
+    data = Column(JSONB, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    config = relationship("DerivedDatasetConfig", back_populates="entries")
 
 
 class ApplicationNotification(Base):

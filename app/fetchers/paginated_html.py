@@ -7,7 +7,7 @@ del Ministerio de Justicia que devuelven resultados paginados.
 import requests
 from urllib.parse import urlencode, urljoin, urlparse
 from bs4 import BeautifulSoup
-from typing import Dict, List, Any, Optional
+from typing import Dict, Generator, List, Any, Optional
 import time
 import logging
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
@@ -243,48 +243,55 @@ class PaginatedHtmlFetcher(BaseFetcher):
                 logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
                 time.sleep(wait_time)
 
-    def fetch(self) -> RawData:
-        """
-        Realiza el fetching completo de todas las páginas.
-        """
+    def _apply_transformations(self, records: List[Dict]) -> List[Dict]:
+        transformations = self.params.get("field_transformations", {})
+        if not transformations:
+            return records
+        for record in records:
+            for field, transform in transformations.items():
+                if field in record:
+                    if transform == "trim":
+                        record[field] = record[field].strip()
+                    elif transform == "upper":
+                        record[field] = record[field].upper()
+                    elif transform == "lower":
+                        record[field] = record[field].lower()
+        return records
+
+    def stream(self) -> Generator[List[Dict], None, None]:
+        """Yields one page of records at a time (already transformed)."""
         self._validate_params()
 
         url = self.params["url"]
         method = self.params.get("method", "GET").upper()
-        max_pages = int(self.params.get("max_pages", 100))  # Safety limit
+        max_pages = int(self.params.get("max_pages", 100))
         delay_between_pages = float(self.params.get("delay_between_pages", 1.0))
 
-        all_data = []
         current_url = url
         current_page = 1
         pagination_info = None
 
-        logger.info(f"Starting paginated fetch from {url}")
+        logger.info(f"Starting paginated stream from {url}")
 
         while current_page <= max_pages:
-            # Fetch página actual
             logger.info(f"Fetching page {current_page}: {current_url}")
-            
+
             if self.params.get("pagination_type") == "form" and pagination_info and pagination_info.get("next_page_form"):
                 soup = self._fetch_page(current_url, "POST", pagination_info["next_page_form"])
             else:
                 soup = self._fetch_page(current_url, method)
 
-            # Extraer datos de esta página
-            page_data = self._extract_table_data(soup)
-            all_data.extend(page_data)
-            
+            page_data = self._apply_transformations(self._extract_table_data(soup))
             logger.info(f"Extracted {len(page_data)} records from page {current_page}")
 
-            # Extraer información de paginación
+            if page_data:
+                yield page_data
+
             pagination_info = self._extract_pagination_info(soup)
-            
-            # Determinar si hay siguiente página
             if not pagination_info["has_next"]:
                 logger.info("No more pages available")
                 break
 
-            # Preparar siguiente URL
             if pagination_info.get("next_page_url"):
                 current_url = pagination_info["next_page_url"]
             else:
@@ -292,62 +299,22 @@ class PaginatedHtmlFetcher(BaseFetcher):
                 break
 
             current_page += 1
-
-            # Delay entre páginas para no sobrecargar el servidor
             if delay_between_pages > 0:
                 time.sleep(delay_between_pages)
 
-        # Guardar metadata del fetch
+    def fetch(self) -> RawData:
+        all_data: List[Dict] = []
+        for chunk in self.stream():
+            all_data.extend(chunk)
         self._request_metadata = {
-            "url": url,
-            "method": method,
-            "total_pages": current_page - 1,
+            "url": self.params["url"],
             "total_records": len(all_data),
-            "pagination_info": pagination_info,
-            "parameters": {k: v for k, v in self.params.items() if not k.startswith("_")}
         }
-
-        logger.info(f"Fetch completed: {len(all_data)} records from {current_page - 1} pages")
+        logger.info(f"Fetch completed: {len(all_data)} records")
         return all_data
 
     def parse(self, raw: RawData) -> ParsedData:
-        """
-        Los datos ya vienen parseados del fetch, solo retorna estructura.
-        """
-        return {
-            "data": raw,
-            "metadata": self._request_metadata,
-            "source_type": "paginated_html"
-        }
+        return {"data": raw, "metadata": self._request_metadata, "source_type": "paginated_html"}
 
     def normalize(self, parsed: ParsedData) -> DomainData:
-        """
-        Normaliza los datos a formato de dominio.
-        """
-        data = parsed.get("data", [])
-        metadata = parsed.get("metadata", {})
-
-        # Aplicar transformaciones si se configuraron
-        if self.params.get("field_transformations"):
-            transformations = self.params.get("field_transformations", {})
-            for record in data:
-                for field, transform in transformations.items():
-                    if field in record:
-                        # Aplicar transformación simple (ej: trim, uppercase, etc.)
-                        if transform == "trim":
-                            record[field] = record[field].strip()
-                        elif transform == "upper":
-                            record[field] = record[field].upper()
-                        elif transform == "lower":
-                            record[field] = record[field].lower()
-
-        return {
-            "source": "PaginatedHTML",
-            "record_count": len(data),
-            "records": data,
-            "fetch_metadata": metadata,
-            "source_config": {
-                k: v for k, v in self.params.items() 
-                if not any(k.startswith(prefix) for prefix in ["_", "password", "secret", "token"])
-            }
-        }
+        return parsed.get("data", [])

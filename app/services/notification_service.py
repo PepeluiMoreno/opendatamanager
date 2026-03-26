@@ -41,13 +41,18 @@ class NotificationService:
 
         for subscription in subscriptions:
             app = subscription.application
+            mode = app.consumption_mode or "webhook"
 
-            if not app.webhook_url:
-                print(f"    Application '{app.name}' has no webhook_url")
+            if mode in ("webhook", "both") and not app.webhook_url:
+                print(f"    Application '{app.name}' has no webhook_url — skipping")
                 continue
 
-            # Build payload
-            payload = self._build_payload(session, dataset, subscription)
+            if mode == "graphql":
+                # Notificación ligera: avisa que hay datos nuevos sin incluir URLs de descarga masiva
+                payload = self._build_graphql_payload(dataset)
+            else:
+                # webhook / both: payload completo con URLs de descarga JSONL
+                payload = self._build_payload(session, dataset, subscription)
 
             # Check auto_upgrade policy
             new_version_type = payload["dataset"]["version_type"]
@@ -110,6 +115,33 @@ class NotificationService:
             return new_version_type == "patch"
             
         return False # Default to not notifying
+
+    def _build_graphql_payload(self, dataset: Dataset) -> Dict:
+        """
+        Payload ligero para aplicaciones que consumen datos vía GraphQL.
+
+        No incluye URLs de descarga masiva: la app consulta /graphql/data
+        directamente con los filtros que necesite.
+        """
+        from app.graphql_data.schema_builder import dataset_query_name
+        resource = dataset.resource
+        return {
+            "event": "dataset.published",
+            "consumption_mode": "graphql",
+            "dataset": {
+                "id": str(dataset.id),
+                "resource_id": str(resource.id),
+                "resource_name": resource.name,
+                "version": dataset.version_string,
+                "created_at": dataset.created_at.isoformat(),
+                "record_count": dataset.record_count,
+            },
+            "graphql": {
+                "endpoint": "/graphql/data",
+                "query_name": dataset_query_name(resource.name),
+                "hint": f'{{ {dataset_query_name(resource.name)}(limit: 100) {{ total items {{ ... }} }} }}',
+            },
+        }
 
     def _build_payload(
         self,

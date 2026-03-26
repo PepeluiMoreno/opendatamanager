@@ -12,7 +12,7 @@ import json
 import time
 import logging
 import requests
-from typing import List, Dict, Any
+from typing import Generator, List, Dict, Any
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,10 @@ class PaginatedRestFetcher(BaseFetcher):
         timeout           Timeout en segundos (default: 60)
     """
 
-    def fetch(self) -> RawData:
+    def _build_request_config(self):
+        """Returns (url, method, page_size, effective_page_size, fixed_params, headers,
+        page_param, page_size_param, content_field, id_field, max_pages, delay, timeout,
+        preview_limit) from self.params."""
         url = self.params.get("url")
         if not url:
             raise ValueError("El parámetro 'url' es obligatorio para PaginatedRestFetcher")
@@ -58,13 +61,10 @@ class PaginatedRestFetcher(BaseFetcher):
         delay = float(self.params.get("delay_between_pages", 0))
         timeout = int(self.params.get("timeout", 60))
 
-        # Params fijos declarados como JSON en query_params
         fixed_params = self.params.get("query_params", {})
         if isinstance(fixed_params, str):
             fixed_params = json.loads(fixed_params)
 
-        # Params sueltos: cualquier clave del recurso que no sea un param de control
-        # se inyecta en la query (permite parámetros externos como 'year')
         _control_keys = {
             "url", "method", "page_size", "page_size_param", "page_param",
             "content_field", "id_field", "max_pages", "delay_between_pages",
@@ -74,40 +74,44 @@ class PaginatedRestFetcher(BaseFetcher):
             if key not in _control_keys and value not in (None, ""):
                 fixed_params.setdefault(key, str(value))
 
-        # Headers adicionales
         headers = self.params.get("headers", {})
         if isinstance(headers, str):
             headers = json.loads(headers)
 
         preview_limit = int(self.params.get("_preview_limit", 0))
-
-        # En modo preview usamos el límite como page_size para no pedir más de lo necesario
         effective_page_size = min(page_size, preview_limit) if preview_limit else page_size
 
-        all_records: List[Dict[str, Any]] = []
-        seen_ids = set()
+        return (url, method, page_size, effective_page_size, fixed_params, headers,
+                page_param, page_size_param, content_field, id_field, max_pages, delay,
+                timeout, preview_limit)
+
+    def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
+        """Yields one page of records at a time — no full accumulation in RAM."""
+        (url, method, page_size, effective_page_size, fixed_params, headers,
+         page_param, page_size_param, content_field, id_field, max_pages, delay,
+         timeout, preview_limit) = self._build_request_config()
+
+        seen_ids: set = set()
         page = 0
         total_pages_fetched = 0
+        total_yielded = 0
 
-        logger.info(f"Iniciando fetch paginado: {url} (page_size={effective_page_size})"
+        logger.info(f"Iniciando fetch paginado (streaming): {url} (page_size={effective_page_size})"
                     + (f" [preview_limit={preview_limit}]" if preview_limit else ""))
 
-        session = requests.Session()
+        http = requests.Session()
 
         while True:
             query = {**fixed_params, page_param: str(page), page_size_param: str(effective_page_size)}
+            logger.info(f"  Página {page} — registros hasta ahora: {total_yielded}")
 
-            logger.info(f"  Página {page} — registros acumulados: {len(all_records)}")
-
-            response = session.request(method, url, params=query, headers=headers, timeout=timeout)
+            response = http.request(method, url, params=query, headers=headers, timeout=timeout)
             response.raise_for_status()
 
             if not response.text or not response.text.strip():
                 raise ValueError(f"La API devolvió respuesta vacía en página {page}")
 
             data = json.loads(response.text)
-
-            # Extraer registros del campo configurado
             content = data.get(content_field, [])
             if not isinstance(content, list):
                 raise ValueError(
@@ -115,7 +119,7 @@ class PaginatedRestFetcher(BaseFetcher):
                     f"Respuesta: {str(data)[:200]}"
                 )
 
-            batch_count = 0
+            page_records: List[Dict[str, Any]] = []
             for record in content:
                 if id_field:
                     record_id = str(record.get(id_field, ""))
@@ -123,37 +127,42 @@ class PaginatedRestFetcher(BaseFetcher):
                         continue
                     if record_id:
                         seen_ids.add(record_id)
+                page_records.append(record)
 
-                all_records.append(record)
-                batch_count += 1
-
+            batch_count = len(page_records)
             total_pages_fetched += 1
 
-            # En modo preview, parar en cuanto tengamos suficientes registros
-            if preview_limit and len(all_records) >= preview_limit:
-                logger.info(f"  Preview limit alcanzado: {len(all_records)} registros")
+            if page_records:
+                yield page_records
+            total_yielded += batch_count
+
+            if preview_limit and total_yielded >= preview_limit:
+                logger.info(f"  Preview limit alcanzado: {total_yielded} registros")
                 break
 
-            # Condición de fin: página incompleta = última página
             if batch_count < effective_page_size:
                 logger.info(f"  Última página alcanzada (batch={batch_count} < page_size={page_size})")
                 break
 
-            # Límite de seguridad
             if max_pages and total_pages_fetched >= max_pages:
                 logger.warning(f"  Límite de seguridad alcanzado: {max_pages} páginas")
                 break
 
             page += 1
-
             if delay > 0:
                 time.sleep(delay)
 
-        logger.info(f"Fetch completado: {len(all_records)} registros en {total_pages_fetched} páginas")
+        logger.info(f"Stream completado: {total_yielded} registros en {total_pages_fetched} páginas")
+
+    def fetch(self) -> RawData:
+        """Accumulates all pages — used for preview and backwards compat."""
+        all_records: List[Dict[str, Any]] = []
+        for chunk in self.stream():
+            all_records.extend(chunk)
+        logger.info(f"Fetch completado: {len(all_records)} registros totales")
         return all_records
 
     def parse(self, raw: RawData) -> ParsedData:
-        # Los datos ya vienen como lista de dicts desde fetch()
         return raw
 
     def normalize(self, parsed: ParsedData) -> DomainData:

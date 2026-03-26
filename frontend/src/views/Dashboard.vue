@@ -1,148 +1,220 @@
 <template>
   <div class="p-8">
-    <h1 class="text-3xl font-bold mb-8">Dashboard</h1>
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-3xl font-bold">Dashboard</h1>
+      <button @click="loadAll" class="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 border border-gray-700 rounded-lg transition-colors">
+        ↻ Refresh
+      </button>
+    </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-      <div class="card">
-        <div class="text-gray-400 text-sm mb-2">Active Resources</div>
-        <div class="text-4xl font-bold text-blue-400">{{ stats.activeResources }}</div>
+    <!-- Top KPI cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="card py-4 px-5">
+        <p class="text-xs text-gray-500 mb-1">Active resources</p>
+        <p class="text-3xl font-bold text-blue-400">{{ stats.activeResources }}</p>
       </div>
-
-      <div class="card">
-        <div class="text-gray-400 text-sm mb-2">Fetcher Types</div>
-        <div class="text-4xl font-bold text-green-400">{{ stats.fetchers }}</div>
+      <div class="card py-4 px-5">
+        <p class="text-xs text-gray-500 mb-1">Total extractions</p>
+        <p class="text-3xl font-bold text-green-400">{{ stats.totalExecutions.toLocaleString() }}</p>
       </div>
-
-      <div class="card">
-        <div class="text-gray-400 text-sm mb-2">Subscribed Apps</div>
-        <div class="text-4xl font-bold text-purple-400">{{ stats.applications }}</div>
+      <div class="card py-4 px-5">
+        <p class="text-xs text-gray-500 mb-1">Records extracted (all time)</p>
+        <p class="text-3xl font-bold text-yellow-400">{{ fmtBig(stats.totalRecords) }}</p>
+      </div>
+      <div class="card py-4 px-5">
+        <p class="text-xs text-gray-500 mb-1">Success rate</p>
+        <p class="text-3xl font-bold" :class="stats.successRate >= 80 ? 'text-green-400' : 'text-red-400'">
+          {{ stats.successRate }}%
+        </p>
       </div>
     </div>
 
-    <!-- Actions -->
-    <div class="card mb-8">
-      <h2 class="text-xl font-bold mb-4">Quick Actions</h2>
-      <div class="space-x-4">
-        <button
-          @click="executeAll"
-          :disabled="loading"
-          class="btn btn-primary"
-        >
-          {{ loading ? 'Executing...' : 'Execute All Resources' }}
-        </button>
-        <button
-          @click="loadStats"
-          class="btn btn-secondary"
-        >
-          Refresh Stats
-        </button>
+    <!-- Extraction stats table -->
+    <div class="card overflow-hidden mb-6">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+        <h2 class="text-sm font-semibold text-gray-300">Extraction statistics per resource</h2>
+        <span class="text-xs text-gray-600">{{ resourceStats.length }} resources</span>
       </div>
+
+      <div v-if="loadingStats" class="text-center py-10 text-gray-500 text-sm">Loading…</div>
+
+      <div v-else-if="resourceStats.length === 0" class="text-center py-10 text-gray-600 text-sm">
+        No executions yet.
+      </div>
+
+      <table v-else class="w-full text-sm">
+        <thead>
+          <tr class="bg-gray-800/50 text-xs text-gray-500 uppercase tracking-wider">
+            <th class="text-left px-5 py-3 font-medium">Resource</th>
+            <th class="text-right px-4 py-3 font-medium">Last run</th>
+            <th class="text-right px-4 py-3 font-medium">Last records</th>
+            <th class="text-right px-4 py-3 font-medium">Trend</th>
+            <th class="text-right px-4 py-3 font-medium">Total extracted</th>
+            <th class="text-right px-4 py-3 font-medium">Runs</th>
+            <th class="text-right px-5 py-3 font-medium">Duration</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-700/50">
+          <tr v-for="r in resourceStats" :key="r.resource_id"
+              class="hover:bg-gray-800/40 transition-colors">
+
+            <!-- Resource name -->
+            <td class="px-5 py-3">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-white truncate max-w-[220px]">{{ r.resource_name }}</span>
+                <span v-if="r.fetcher_code" class="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded font-mono flex-shrink-0">{{ r.fetcher_code }}</span>
+                <span v-if="!r.active" class="text-xs bg-yellow-900/60 text-yellow-500 px-1.5 py-0.5 rounded flex-shrink-0">inactive</span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">{{ r.publisher }}</p>
+            </td>
+
+            <!-- Last run date + status -->
+            <td class="px-4 py-3 text-right">
+              <span v-if="r.last_run" class="text-xs text-gray-300">{{ fmtDate(r.last_run) }}</span>
+              <span v-else class="text-xs text-gray-600">—</span>
+              <br/>
+              <span v-if="r.last_status" :class="statusClass(r.last_status)"
+                class="text-xs font-medium">{{ r.last_status }}</span>
+            </td>
+
+            <!-- Last run records -->
+            <td class="px-4 py-3 text-right">
+              <span v-if="r.last_records != null" class="text-white font-semibold">{{ r.last_records.toLocaleString() }}</span>
+              <span v-else class="text-gray-600">—</span>
+            </td>
+
+            <!-- Trend vs previous run -->
+            <td class="px-4 py-3 text-right">
+              <template v-if="r.trend != null">
+                <span v-if="r.trend > 0" class="text-green-400 text-xs font-medium">▲ +{{ r.trend.toLocaleString() }}</span>
+                <span v-else-if="r.trend < 0" class="text-red-400 text-xs font-medium">▼ {{ r.trend.toLocaleString() }}</span>
+                <span v-else class="text-gray-500 text-xs">= same</span>
+              </template>
+              <span v-else class="text-gray-600 text-xs">—</span>
+            </td>
+
+            <!-- Total extracted -->
+            <td class="px-4 py-3 text-right">
+              <span v-if="r.total_records_extracted" class="text-blue-300 font-semibold">{{ fmtBig(r.total_records_extracted) }}</span>
+              <span v-else class="text-gray-600">—</span>
+            </td>
+
+            <!-- Runs (success/total) -->
+            <td class="px-4 py-3 text-right">
+              <span class="text-gray-300">{{ r.successful_executions }}</span>
+              <span class="text-gray-600">/{{ r.total_executions }}</span>
+            </td>
+
+            <!-- Last duration -->
+            <td class="px-5 py-3 text-right text-xs text-gray-400">
+              <span v-if="r.last_duration_s != null">{{ fmtDuration(r.last_duration_s) }}</span>
+              <span v-else class="text-gray-600">—</span>
+            </td>
+
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- Recent Activity -->
-    <div class="card">
-      <h2 class="text-xl font-bold mb-4">Recent Resources</h2>
-      <div v-if="recentResources.length > 0" class="space-y-3">
-        <div
-          v-for="resource in recentResources"
-          :key="resource.id"
-          class="flex items-center justify-between p-4 bg-gray-700 rounded"
-        >
-          <div>
-            <div class="font-medium">{{ resource.name }}</div>
-            <div class="text-sm text-gray-400">{{ resource.publisher }} - {{ resource.fetcher.code }}</div>
-          </div>
-          <div class="flex items-center space-x-2">
-            <span
-              :class="resource.active ? 'text-green-400' : 'text-red-400'"
-              class="text-sm"
-            >
-              {{ resource.active ? 'Active' : 'Inactive' }}
-            </span>
-            <router-link
-              :to="`/resources/${resource.id}/test`"
-              class="btn btn-secondary text-sm py-1 px-3"
-            >
-              Test
-            </router-link>
-          </div>
-        </div>
-      </div>
-      <div v-else class="text-gray-400 text-center py-8">
-        No resources configured yet
-      </div>
-    </div>
-
-    <!-- Error Display -->
-    <div v-if="error" class="mt-4 p-4 bg-red-900 border border-red-700 rounded text-red-200">
-      {{ error }}
-    </div>
-
-    <!-- Success Display -->
-    <div v-if="successMessage" class="mt-4 p-4 bg-green-900 border border-green-700 rounded text-green-200">
-      {{ successMessage }}
+    <!-- Bottom row: Quick actions -->
+    <div class="card px-5 py-4 flex items-center gap-4">
+      <span class="text-sm text-gray-400 font-medium">Quick actions</span>
+      <button @click="executeAll" :disabled="loading"
+        class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
+        {{ loading ? 'Launching…' : 'Run all resources' }}
+      </button>
+      <span v-if="successMessage" class="text-sm text-green-400">{{ successMessage }}</span>
+      <span v-if="error" class="text-sm text-red-400">{{ error }}</span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { fetchResources, fetchFetchers, fetchApplications, executeAllResources } from '../api/graphql'
+import { ref, computed, onMounted } from 'vue'
+import { executeAllResources } from '../api/graphql'
 
-const stats = ref({
-  activeResources: 0,
-  fetchers: 0,
-  applications: 0,
-})
-
-const recentResources = ref([])
-const loading = ref(false)
-const error = ref(null)
+const resourceStats = ref([])
+const loadingStats  = ref(true)
+const loading       = ref(false)
+const error         = ref(null)
 const successMessage = ref(null)
 
-async function loadStats() {
+const stats = computed(() => {
+  const total   = resourceStats.value.reduce((s, r) => s + r.total_executions, 0)
+  const success = resourceStats.value.reduce((s, r) => s + r.successful_executions, 0)
+  const records = resourceStats.value.reduce((s, r) => s + r.total_records_extracted, 0)
+  const active  = resourceStats.value.filter(r => r.active).length
+  return {
+    activeResources: active,
+    totalExecutions: total,
+    totalRecords: records,
+    successRate: total > 0 ? Math.round((success / total) * 100) : 0,
+  }
+})
+
+async function loadAll() {
+  loadingStats.value = true
   try {
-    error.value = null
-    const [resourcesData, fetchersData, appsData] = await Promise.all([
-      fetchResources(false),
-      fetchFetchers(),
-      fetchApplications(),
-    ])
-
-    stats.value.activeResources = resourcesData.resources?.filter(r => r.active).length || 0
-    stats.value.fetchers = fetchersData.fetchers?.length || 0
-    stats.value.applications = appsData.applications?.filter(a => a.active).length || 0
-
-    recentResources.value = resourcesData.resources?.slice(0, 5) || []
+    const res = await fetch('/api/stats/resources')
+    resourceStats.value = await res.json()
   } catch (e) {
-    // Only show error if it's not just empty data
-    console.error('Dashboard error:', e)
-    error.value = 'Unable to load dashboard data. Please check that the backend is running.'
+    console.error(e)
+  } finally {
+    loadingStats.value = false
   }
 }
 
 async function executeAll() {
+  loading.value = true
+  error.value = null
+  successMessage.value = null
   try {
-    loading.value = true
-    error.value = null
-    successMessage.value = null
-
     const result = await executeAllResources()
-
     if (result.executeAllResources.success) {
       successMessage.value = result.executeAllResources.message
     } else {
       error.value = result.executeAllResources.message
     }
   } catch (e) {
-    error.value = 'Failed to execute resources: ' + e.message
+    error.value = e.message
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => {
-  loadStats()
-})
+// ─── Formatters ───────────────────────────────────────────────────────────────
+
+function fmtBig(n) {
+  if (!n) return '0'
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M'
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K'
+  return n.toLocaleString()
+}
+
+function fmtDate(iso) {
+  if (!iso) return ''
+  const d = new Date(/Z|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z')
+  const diffH = Math.round((Date.now() - d) / 3600000)
+  if (diffH < 24) return `${diffH}h ago`
+  if (diffH < 168) return `${Math.round(diffH / 24)}d ago`
+  return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' })
+}
+
+function fmtDuration(s) {
+  if (s == null) return ''
+  if (s < 60)  return `${s}s`
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`
+  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`
+}
+
+function statusClass(s) {
+  return {
+    completed: 'text-green-400',
+    running:   'text-blue-400',
+    failed:    'text-red-400',
+    aborted:   'text-yellow-500',
+  }[s] ?? 'text-gray-400'
+}
+
+onMounted(loadAll)
 </script>

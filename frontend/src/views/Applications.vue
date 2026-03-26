@@ -43,7 +43,20 @@
               {{ app.modelsPath }}
             </code>
           </div>
-
+          <div class="flex items-center gap-2">
+            <span class="text-gray-400">Consumption:</span>
+            <span
+              :class="{
+                'bg-blue-900 text-blue-300':  app.consumptionMode === 'graphql',
+                'bg-purple-900 text-purple-300': app.consumptionMode === 'webhook',
+                'bg-teal-900 text-teal-300':  app.consumptionMode === 'both',
+              }"
+              class="text-xs font-mono px-2 py-0.5 rounded"
+            >{{ app.consumptionMode }}</span>
+            <span v-if="app.webhookUrl" class="text-xs text-gray-500 truncate max-w-[160px]" :title="app.webhookUrl">
+              {{ app.webhookUrl }}
+            </span>
+          </div>
         </div>
 
         <div class="flex space-x-2">
@@ -102,6 +115,45 @@
               class="input w-full"
               placeholder="e.g., /path/to/app/core/models"
             />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Consumption Mode
+              <span class="text-gray-400 font-normal ml-1">— ¿cómo consume datos esta app?</span>
+            </label>
+            <div class="grid grid-cols-3 gap-2">
+              <label
+                v-for="opt in consumptionModes"
+                :key="opt.value"
+                :class="[
+                  'flex flex-col items-start p-3 rounded border cursor-pointer transition-colors',
+                  form.consumptionMode === opt.value
+                    ? 'border-purple-500 bg-purple-900/30'
+                    : 'border-gray-600 hover:border-gray-500',
+                ]"
+              >
+                <input
+                  type="radio"
+                  v-model="form.consumptionMode"
+                  :value="opt.value"
+                  class="sr-only"
+                />
+                <span class="text-sm font-mono font-semibold">{{ opt.value }}</span>
+                <span class="text-xs text-gray-400 mt-1">{{ opt.label }}</span>
+              </label>
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+              <template v-if="form.consumptionMode === 'webhook'">
+                Recibirás un POST con metadatos del dataset y URLs de descarga del fichero JSONL.
+              </template>
+              <template v-else-if="form.consumptionMode === 'graphql'">
+                Recibirás un POST ligero con el nombre de la query GraphQL. Consulta <code class="text-green-400">/graphql/data</code> cuando quieras.
+              </template>
+              <template v-else>
+                Recibirás tanto la notificación completa con JSONL como la referencia GraphQL.
+              </template>
+            </p>
           </div>
 
           <div class="flex items-center">
@@ -169,10 +221,17 @@ const showDeleteModal = ref(false)
 const appToDelete = ref(null)
 const editingApp = ref(null)
 
+const consumptionModes = [
+  { value: 'webhook', label: 'Descarga JSONL vía webhook' },
+  { value: 'graphql', label: 'Consulta API GraphQL' },
+  { value: 'both',    label: 'Ambos modos' },
+]
+
 const form = ref({
   name: '',
   description: '',
   modelsPath: '',
+  consumptionMode: 'webhook',
   active: true,
 })
 
@@ -195,6 +254,7 @@ function editApplication(app) {
     name: app.name,
     description: app.description || '',
     modelsPath: app.modelsPath,
+    consumptionMode: app.consumptionMode || 'webhook',
     active: app.active,
   }
   showEditModal.value = true
@@ -223,6 +283,7 @@ async function submitForm() {
       name: form.value.name,
       description: form.value.description,
       modelsPath: form.value.modelsPath,
+      consumptionMode: form.value.consumptionMode,
       active: form.value.active,
     }
 
@@ -247,6 +308,7 @@ function closeModals() {
     name: '',
     description: '',
     modelsPath: '',
+    consumptionMode: 'webhook',
     active: true,
   }
 }
