@@ -100,3 +100,6 @@ alembic/versions/*.db
 *.bak
 *.orig
 .temp/
+
+# Data directories (datasets, staging, logs — never commit)
+data/
