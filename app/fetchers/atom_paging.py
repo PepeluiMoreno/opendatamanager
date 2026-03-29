@@ -143,7 +143,7 @@ class AtomPagingFetcher(BaseFetcher):
         _mp = self.params.get("max_pages")
         max_pages = int(_mp) if _mp else None   # None = sin límite
         timeout = int(self.params.get("timeout", 30))
-        headers = self.params.get("headers", {})
+        headers = self.params.get("headers") or {}
         if isinstance(headers, str):
             headers = json.loads(headers)
 
@@ -168,8 +168,9 @@ class AtomPagingFetcher(BaseFetcher):
 
         while current_url and (max_pages is None or pages_fetched < max_pages):
             print(f"  [FETCH] Descargando página Atom: {current_url}")
-            response = requests.get(current_url, headers=headers, timeout=timeout)
-            response.raise_for_status()
+
+            response = self._request(None, "GET", current_url,
+                                      headers=headers, timeout=timeout)
 
             data = xmltodict.parse(response.text)
             feed = data.get("feed", {})

@@ -24,7 +24,8 @@ class FetcherParamType:
     required: bool
     data_type: str = strawberry.field(name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
-    enum_values: Optional[List[str]] = strawberry.field(default=None, name="enumValues")
+    enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
+    description: Optional[str] = None
 
 
 @strawberry.type
@@ -92,7 +93,7 @@ class CreateTypeFetcherParamInput:
     required: bool = True
     data_type: str = strawberry.field(name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
-    enum_values: Optional[List[str]] = strawberry.field(default=None, name="enumValues")
+    enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
 
 
 @strawberry.input
@@ -102,7 +103,7 @@ class UpdateTypeFetcherParamInput:
     required: Optional[bool] = None
     data_type: Optional[str] = strawberry.field(default=None, name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
-    enum_values: Optional[List[str]] = strawberry.field(default=None, name="enumValues")
+    enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
 
 
 @strawberry.type
@@ -166,6 +167,7 @@ class ResourceExecutionType:
     """Audit trail de ejecuciones de Resources"""
     id: str
     resource_id: str = strawberry.field(name="resourceId")
+    resource_name: Optional[str] = strawberry.field(default=None, name="resourceName")
     started_at: datetime = strawberry.field(name="startedAt")
     completed_at: Optional[datetime] = strawberry.field(default=None, name="completedAt")
     status: str

@@ -26,7 +26,8 @@ class RESTFetcher(BaseFetcher):
             query_params = json.loads(query_params)
 
         # Make the HTTP request with query params
-        response = requests.request(
+        response = self._request(
+            None,
             method,
             url,
             headers=headers,

@@ -129,6 +129,7 @@ class ResourceExecution(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id"), nullable=False)
+    resource_name = Column(String(300), nullable=True)  # snapshot del nombre en el momento de ejecución
 
     # Runtime params that override/extend static ResourceParam values for this execution
     execution_params = Column(JSONB, nullable=True)

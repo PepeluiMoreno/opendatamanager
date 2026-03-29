@@ -42,28 +42,34 @@
         No executions yet.
       </div>
 
-      <table v-else class="w-full text-sm">
-        <thead>
-          <tr class="bg-gray-800/50 text-xs text-gray-500 uppercase tracking-wider">
-            <th class="text-left px-5 py-3 font-medium">Resource</th>
-            <th class="text-right px-4 py-3 font-medium">Last run</th>
-            <th class="text-right px-4 py-3 font-medium">Last records</th>
-            <th class="text-right px-4 py-3 font-medium">Trend</th>
-            <th class="text-right px-4 py-3 font-medium">Total extracted</th>
-            <th class="text-right px-4 py-3 font-medium">Runs</th>
-            <th class="text-right px-5 py-3 font-medium">Duration</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-700/50">
+      <div v-else class="max-h-96 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 z-10 bg-gray-800">
+            <tr class="text-xs text-gray-500 uppercase tracking-wider">
+              <th class="text-left px-5 py-3 font-medium">Resource</th>
+              <th class="text-right px-4 py-3 font-medium">Last run</th>
+              <th class="text-right px-4 py-3 font-medium">Last records</th>
+              <th class="text-right px-4 py-3 font-medium">Trend</th>
+              <th class="text-right px-4 py-3 font-medium">Total extracted</th>
+              <th class="text-right px-4 py-3 font-medium">Runs</th>
+              <th class="text-right px-5 py-3 font-medium">Duration</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-700/50">
           <tr v-for="r in resourceStats" :key="r.resource_id"
               class="hover:bg-gray-800/40 transition-colors">
 
             <!-- Resource name -->
             <td class="px-5 py-3">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-medium text-white truncate max-w-[220px]">{{ r.resource_name }}</span>
-                <span v-if="r.fetcher_code" class="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded font-mono flex-shrink-0">{{ r.fetcher_code }}</span>
                 <span v-if="!r.active" class="text-xs bg-yellow-900/60 text-yellow-500 px-1.5 py-0.5 rounded flex-shrink-0">inactive</span>
+                <template v-if="r.last_execution_params">
+                  <span v-for="(v, k) in r.last_execution_params" :key="k"
+                    class="text-xs bg-blue-900/50 border border-blue-800 text-blue-300 px-1.5 py-0.5 rounded font-mono">
+                    {{ k === 'bounding_value' ? (r.bounding_field || 'bounding') + '≤' + v : k + '=' + v }}
+                  </span>
+                </template>
               </div>
               <p class="text-xs text-gray-500 mt-0.5">{{ r.publisher }}</p>
             </td>
@@ -112,32 +118,19 @@
             </td>
 
           </tr>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <!-- Bottom row: Quick actions -->
-    <div class="card px-5 py-4 flex items-center gap-4">
-      <span class="text-sm text-gray-400 font-medium">Quick actions</span>
-      <button @click="executeAll" :disabled="loading"
-        class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white text-sm rounded-lg transition-colors">
-        {{ loading ? 'Launching…' : 'Run all resources' }}
-      </button>
-      <span v-if="successMessage" class="text-sm text-green-400">{{ successMessage }}</span>
-      <span v-if="error" class="text-sm text-red-400">{{ error }}</span>
-    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { executeAllResources } from '../api/graphql'
 
 const resourceStats = ref([])
 const loadingStats  = ref(true)
-const loading       = ref(false)
-const error         = ref(null)
-const successMessage = ref(null)
 
 const stats = computed(() => {
   const total   = resourceStats.value.reduce((s, r) => s + r.total_executions, 0)
@@ -161,24 +154,6 @@ async function loadAll() {
     console.error(e)
   } finally {
     loadingStats.value = false
-  }
-}
-
-async function executeAll() {
-  loading.value = true
-  error.value = null
-  successMessage.value = null
-  try {
-    const result = await executeAllResources()
-    if (result.executeAllResources.success) {
-      successMessage.value = result.executeAllResources.message
-    } else {
-      error.value = result.executeAllResources.message
-    }
-  } catch (e) {
-    error.value = e.message
-  } finally {
-    loading.value = false
   }
 }
 

@@ -5,30 +5,77 @@ services:
     restart: always
     depends_on:
       - db
+    environment:
+      - OVERPASS_LOCAL_URL=${OVERPASS_LOCAL_URL}
     volumes:
       - .:/app
     networks:
-      - default
+      - internal
       - traefik_public
     deploy:
       resources:
         limits:
-          memory: ${APP_MEMORY_LIMIT:-2g}
-          cpus: '${APP_CPU_LIMIT:-2.0}'
+          memory: "${APP_MEMORY_LIMIT:-1g}"
+          cpus: "${APP_CPU_LIMIT:-2.0}"
         reservations:
-          memory: ${APP_MEMORY_RESERVATION:-512m}
+          memory: "${APP_MEMORY_RESERVATION:-256m}"
+
+  osm-updater:
+    build:
+      context: ./docker/osm-updater
+    container_name: ${APP_PREFIX}_osm_updater
+    restart: on-failure
+    networks:
+      - internal
+    environment:
+      - OVERPASS_CONTAINER=${APP_PREFIX}_overpass
+      - OVERPASS_PBF_URL=${OVERPASS_PLANET_URL:-https://download.geofabrik.de/europe/spain-latest.osm.pbf}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/osm:/data/osm
+      - ./data/overpass_db:/data/overpass_db
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test $(stat -c %s /data/osm/spain-latest.osm.pbf 2>/dev/null || echo 0) -gt 700000000"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90m
+
+  overpass:
+    build:
+      context: ./docker/overpass
+    container_name: ${APP_PREFIX}_overpass
+    restart: unless-stopped
+    networks:
+      - internal
+    depends_on:
+      osm-updater:
+        condition: service_healthy
+    environment:
+      OVERPASS_META: "no"
+      OVERPASS_MODE: "init"
+      OVERPASS_PLANET_URL: "http://osm-updater:8080/spain-latest.osm.pbf"
+    volumes:
+      - ./data/overpass_db:/db
+
   frontend:
     build:
       context: ./frontend
       target: prod
     container_name: ${APP_PREFIX}_frontend
     restart: always
+    networks:
+      - internal
+      - traefik_public
     depends_on:
       - app
+
   db:
     image: postgres:15-alpine
     container_name: ${APP_PREFIX}_db
     restart: always
+    networks:
+      - internal
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -40,5 +87,6 @@ volumes:
   pgdata:
 
 networks:
+  internal:
   traefik_public:
     external: true

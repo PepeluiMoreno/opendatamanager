@@ -78,7 +78,7 @@
       {{ executions.length === 0 ? 'No executions yet. Run a resource to see it here.' : 'No processes match this filter.' }}
     </div>
 
-    <div v-else class="space-y-3">
+    <div v-else class="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
       <div
         v-for="ex in filteredExecutions"
         :key="ex.id"
@@ -94,7 +94,7 @@
               </span>
               <div class="min-w-0">
                 <p class="font-medium text-sm truncate">
-                  {{ resourceName(ex.resourceId) }}
+                  {{ resourceName(ex.resourceId, ex) }}
                   <span v-if="execLabel(ex)" class="text-yellow-300 font-normal"> — {{ execLabel(ex) }}</span>
                 </p>
                 <p class="text-xs text-gray-500 mt-0.5">{{ formatDate(ex.startedAt) }}</p>
@@ -382,14 +382,25 @@ const displayLines = computed(() => {
 })
 
 // ---- execution list helpers ----
-function resourceName(id) {
+function resourceName(id, ex) {
+  // Preferir el snapshot histórico guardado en la ejecución; fallback al nombre actual del resource
+  if (ex?.resourceName) return ex.resourceName
   return resources.value.find(r => r.id === id)?.name ?? id
 }
 function execLabel(ex) {
   const p = ex.executionParams
   if (!p || !Object.keys(p).length) return null
-  const vals = Object.values(p).filter(v => v != null && String(v).trim())
-  return vals.length ? vals.join(' · ') : null
+  const resource = resources.value.find(r => r.id === ex.resourceId)
+  const resourceParams = resource?.params ?? []
+  const pairs = Object.entries(p).filter(([, v]) => v != null && String(v).trim())
+  return pairs.length ? pairs.map(([k, v]) => {
+    if (k === 'bounding_value') {
+      const fieldParam = resourceParams.find(rp => rp.key === 'bounding_field')
+      const fieldName = fieldParam?.value ?? 'bounding_value'
+      return `${fieldName}≤${v}`
+    }
+    return `${k}=${v}`
+  }).join(' · ') : null
 }
 function statusLabel(s) {
   return { running: 'RUNNING', completed: 'DONE', failed: 'FAILED', pending: 'PENDING', aborted: 'ABORTED' }[s] ?? s.toUpperCase()
@@ -476,7 +487,7 @@ function handleDialogConfirm() {
 
 // ---- kill / delete ----
 async function confirmAbort(ex) {
-  const ok = await showConfirm('Matar proceso', `¿Matar el proceso en curso de "${resourceName(ex.resourceId)}"?`, 'Matar')
+  const ok = await showConfirm('Matar proceso', `¿Matar el proceso en curso de "${resourceName(ex.resourceId, ex)}"?`, 'Matar')
   if (!ok) return
   const res = await abortExecution(ex.id)
   if (res?.abortExecution?.success) {
@@ -486,7 +497,7 @@ async function confirmAbort(ex) {
 }
 
 async function confirmDelete(ex) {
-  const ok = await showConfirm('Eliminar ejecución', `¿Eliminar "${resourceName(ex.resourceId)}" del historial?`, 'Eliminar')
+  const ok = await showConfirm('Eliminar ejecución', `¿Eliminar "${resourceName(ex.resourceId, ex)}" del historial?`, 'Eliminar')
   if (!ok) return
   await deleteExecution(ex.id)
   executions.value = executions.value.filter(e => e.id !== ex.id)

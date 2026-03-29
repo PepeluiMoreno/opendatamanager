@@ -69,6 +69,7 @@ class PaginatedRestFetcher(BaseFetcher):
             "url", "method", "page_size", "page_size_param", "page_param",
             "content_field", "id_field", "max_pages", "delay_between_pages",
             "query_params", "headers", "timeout", "_preview_limit",
+            "bounding_field", "bounding_value",
         }
         for key, value in self.params.items():
             if key not in _control_keys and value not in (None, ""):
@@ -91,6 +92,10 @@ class PaginatedRestFetcher(BaseFetcher):
          page_param, page_size_param, content_field, id_field, max_pages, delay,
          timeout, preview_limit) = self._build_request_config()
 
+        filter_lte_field = self.params.get("bounding_field", "")
+        _filter_lte_raw = self.params.get("bounding_value", "")
+        filter_lte_value = int(_filter_lte_raw) if _filter_lte_raw else None
+
         seen_ids: set = set()
         page = 0
         total_pages_fetched = 0
@@ -105,14 +110,18 @@ class PaginatedRestFetcher(BaseFetcher):
             query = {**fixed_params, page_param: str(page), page_size_param: str(effective_page_size)}
             logger.info(f"  Página {page} — registros hasta ahora: {total_yielded}")
 
-            response = http.request(method, url, params=query, headers=headers, timeout=timeout)
-            response.raise_for_status()
+            response = self._request(http, method, url,
+                                      params=query, headers=headers, timeout=timeout)
 
             if not response.text or not response.text.strip():
                 raise ValueError(f"La API devolvió respuesta vacía en página {page}")
 
             data = json.loads(response.text)
-            content = data.get(content_field, [])
+            if isinstance(data, list):
+                # API returns a top-level array directly
+                content = data
+            else:
+                content = data.get(content_field, [])
             if not isinstance(content, list):
                 raise ValueError(
                     f"El campo '{content_field}' no es una lista. "
@@ -127,6 +136,12 @@ class PaginatedRestFetcher(BaseFetcher):
                         continue
                     if record_id:
                         seen_ids.add(record_id)
+                if filter_lte_field and filter_lte_value is not None:
+                    try:
+                        if int(record.get(filter_lte_field, 0)) > filter_lte_value:
+                            continue
+                    except (TypeError, ValueError):
+                        pass
                 page_records.append(record)
 
             batch_count = len(page_records)

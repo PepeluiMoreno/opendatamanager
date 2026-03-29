@@ -39,17 +39,17 @@ from app.graphql_data import engine
 
 router = APIRouter()
 
-# ── GraphiQL HTML (playground ligero, sin dependencias CDN críticas) ──────────
+# ── GraphiQL HTML ─────────────────────────────────────────────────────────────
 
-_GRAPHIQL_HTML = """<!DOCTYPE html>
-<html>
+_GRAPHIQL_TEMPLATE = """<!DOCTYPE html>
+<html data-theme="dark">
 <head>
   <title>GraphiQL — OpenDataManager Datasets</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body { height: 100%; margin: 0; overflow: hidden; }
-    #graphiql { height: 100vh; }
+    html, body {{ height: 100%; margin: 0; overflow: hidden; background: #1a1a1a; }}
+    #graphiql {{ height: 100vh; }}
   </style>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.css" />
 </head>
@@ -59,10 +59,27 @@ _GRAPHIQL_HTML = """<!DOCTYPE html>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://cdn.jsdelivr.net/npm/graphiql@3/graphiql.min.js"></script>
   <script>
-    const fetcher = GraphiQL.createFetcher({ url: window.location.href });
-    ReactDOM.createRoot(document.getElementById('graphiql')).render(
-      React.createElement(GraphiQL, { fetcher })
-    );
+    const endpoint = window.location.pathname;
+    const fetcher = GraphiQL.createFetcher({{ url: endpoint }});
+
+    // Si viene ?query= en la URL, úsalo como query controlado (ignora localStorage)
+    const urlQuery = new URLSearchParams(window.location.search).get('query');
+    if (urlQuery) {{
+      localStorage.removeItem('graphiql:query');
+    }}
+    const initialQuery = urlQuery || {default_query};
+
+    // Estado controlado para que el usuario pueda editar libremente
+    function App() {{
+      const [query, setQuery] = React.useState(initialQuery);
+      return React.createElement(GraphiQL, {{
+        fetcher,
+        query,
+        onEditQuery: setQuery,
+        defaultTheme: 'dark',
+      }});
+    }}
+    ReactDOM.createRoot(document.getElementById('graphiql')).render(React.createElement(App));
   </script>
 </body>
 </html>"""
@@ -72,9 +89,17 @@ _GRAPHIQL_HTML = """<!DOCTYPE html>
 
 @router.get("", response_class=HTMLResponse, include_in_schema=False)
 @router.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def graphiql():
-    """Sirve el playground GraphiQL para explorar el schema de datasets."""
-    return HTMLResponse(_GRAPHIQL_HTML)
+async def graphiql(query: str = ""):
+    """
+    Sirve el playground GraphiQL.
+    Acepta ?query=<GraphQL+query> para pre-popular el editor.
+    """
+    import json
+    default_query_js = json.dumps(query) if query else json.dumps(
+        "{\n  datasets {\n    queryName\n    resourceName\n    recordCount\n    fields\n  }\n}"
+    )
+    html = _GRAPHIQL_TEMPLATE.format(default_query=default_query_js)
+    return HTMLResponse(html)
 
 
 @router.post("")

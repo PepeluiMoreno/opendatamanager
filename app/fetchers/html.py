@@ -58,11 +58,11 @@ class HtmlFetcher(BaseFetcher):
 
         # Hacer el request
         if method == "GET":
-            response = requests.get(url, params=query_params, headers=headers, timeout=timeout)
+            response = self._request(None, "GET", url, params=query_params, headers=headers, timeout=timeout)
         elif method == "POST":
-            response = requests.post(url, data=query_params, headers=headers, timeout=timeout)
+            response = self._request(None, "POST", url, data=query_params, headers=headers, timeout=timeout)
         else:
-            response = requests.request(method, url, data=query_params, headers=headers, timeout=timeout)
+            response = self._request(None, method, url, data=query_params, headers=headers, timeout=timeout)
 
         response.raise_for_status()
         return response.text

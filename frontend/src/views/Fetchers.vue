@@ -136,7 +136,7 @@ async function loadFetchers() {
     loading.value = true
     error.value = null
     const data = await fetchFetchers()
-    Fetchers.value = data.fetchers || []
+    Fetchers.value = (data.fetchers || []).slice().sort((a, b) => a.code.localeCompare(b.code))
   } catch (e) {
     error.value = e.message
   } finally {

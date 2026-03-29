@@ -61,8 +61,8 @@ def dataset_type_name(resource_name: str) -> str:
     }
     for src, dst in replacements.items():
         name = name.replace(src, dst)
-    # Dividir en palabras
-    words = re.split(r"[\s\-_./,;:]+", name)
+    # Dividir en palabras (incluye paréntesis y otros no alfanuméricos como separadores)
+    words = re.split(r"[^a-zA-Z0-9]+", name)
     # PascalCase de cada palabra (saltando las vacías)
     return "".join(w.capitalize() for w in words if w)
 
@@ -79,6 +79,33 @@ def dataset_query_name(resource_name: str) -> str:
     if not pascal:
         return ""
     return pascal[0].lower() + pascal[1:]
+
+
+def _sanitize_field_name(name: str) -> str:
+    """
+    Convierte un nombre de campo arbitrario en un identificador GraphQL válido [_a-zA-Z0-9].
+
+    Ejemplos:
+        "Nombre fundación" → "nombre_fundacion"
+        "col-01"           → "col_01"
+        "123campo"         → "_123campo"
+    """
+    replacements = {
+        "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u",
+        "Á": "A", "É": "E", "Í": "I", "Ó": "O", "Ú": "U",
+        "ñ": "n", "Ñ": "N", "ü": "u", "Ü": "U",
+    }
+    result = name
+    for src, dst in replacements.items():
+        result = result.replace(src, dst)
+    # Reemplazar cualquier carácter no alfanumérico por _
+    result = re.sub(r"[^a-zA-Z0-9]", "_", result)
+    # No puede empezar por dígito
+    if result and result[0].isdigit():
+        result = "_" + result
+    # Colapsar múltiples _ consecutivos
+    result = re.sub(r"_+", "_", result).strip("_") or "_"
+    return result
 
 
 def infer_fields(data_path: str) -> list[str]:
@@ -143,7 +170,7 @@ def _make_page_type(item_type: GraphQLObjectType) -> GraphQLObjectType:
     )
 
 
-def _make_resolver(data_path: str, fields: list[str]):
+def _make_resolver(data_path: str, fields: list[str], field_map: dict[str, str] | None = None):
     """
     Devuelve un resolver GraphQL para un dataset concreto.
 
@@ -159,19 +186,24 @@ def _make_resolver(data_path: str, fields: list[str]):
         offset : Int  (default 0)
         <campo>: String  por cada campo del dataset (filtro exacto, case-insensitive)
     """
-    field_set = set(fields)
+    # field_map: gql_name → original_name (cuando difieren por sanitización)
+    _field_map: dict[str, str] = field_map or {f: f for f in fields}
+    # Conjunto de nombres originales para filtrar
+    _orig_field_set = set(_field_map.values())
 
     def resolver(root, info, limit=100, offset=0, **filters):
         # Clamp limit para evitar respuestas gigantes
         limit = min(limit, 1000)
         offset = max(offset, 0)
 
-        # Normalizar filtros: ignorar los None (campo no pasado)
-        active_filters = {
-            k: v.lower()
-            for k, v in filters.items()
-            if v is not None and k in field_set
-        }
+        # Normalizar filtros: traducir nombre gql → original para buscar en el JSONL
+        active_filters = {}
+        for gql_k, v in filters.items():
+            if v is None:
+                continue
+            orig_k = _field_map.get(gql_k, gql_k)
+            if orig_k in _orig_field_set:
+                active_filters[orig_k] = v.lower()
 
         matched = []
         try:
@@ -201,9 +233,9 @@ def _make_resolver(data_path: str, fields: list[str]):
         total = len(matched)
         page_items = matched[offset: offset + limit]
 
-        # Proyectar solo los campos del schema (sin raw_xml_content etc.)
+        # Proyectar con nombres GraphQL (sanitizados), leyendo los originales del JSONL
         projected = [
-            {f: str(item.get(f) or "") for f in fields}
+            {gql_k: str(item.get(orig_k) or "") for gql_k, orig_k in _field_map.items()}
             for item in page_items
         ]
 
@@ -300,21 +332,32 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
         if not type_name or not query_name:
             continue
 
+        # Mapeo gql_name → original_name (sanitizar nombres con caracteres especiales)
+        field_map: dict[str, str] = {}
+        for orig in fields:
+            gql = _sanitize_field_name(orig)
+            # Evitar colisiones: si gql ya existe, añadir sufijo numérico
+            base, n = gql, 1
+            while gql in field_map:
+                gql = f"{base}_{n}"
+                n += 1
+            field_map[gql] = orig
+
         # Tipo de item (todos los campos como String)
         item_type = GraphQLObjectType(
             name=type_name,
             description=f"Registro de '{resource.name}'.",
             fields={
-                field: GraphQLField(
+                gql_name: GraphQLField(
                     GraphQLString,
-                    description=f"Campo '{field}' del dataset.",
+                    description=f"Campo '{orig_name}' del dataset.",
                 )
-                for field in fields
+                for gql_name, orig_name in field_map.items()
             },
         )
 
         page_type = _make_page_type(item_type)
-        resolver = _make_resolver(dataset.data_path, fields)
+        resolver = _make_resolver(dataset.data_path, list(field_map.keys()), field_map)
 
         # Argumentos de la query: limit, offset + un filtro por cada campo
         args = {
@@ -329,11 +372,11 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
                 description="Número de registros a saltar (para paginación).",
             ),
         }
-        for field in fields:
-            args[field] = GraphQLArgument(
+        for gql_name, orig_name in field_map.items():
+            args[gql_name] = GraphQLArgument(
                 GraphQLString,
                 default_value=None,
-                description=f"Filtro exacto (case-insensitive) por '{field}'.",
+                description=f"Filtro exacto (case-insensitive) por '{orig_name}'.",
             )
 
         query_fields[query_name] = GraphQLField(
@@ -351,7 +394,7 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
             "typeName": type_name,
             "resourceName": resource.name,
             "recordCount": dataset.record_count,
-            "fields": fields,
+            "fields": list(field_map.keys()),
             "dataPath": dataset.data_path,
         })
 

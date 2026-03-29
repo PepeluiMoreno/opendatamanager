@@ -210,38 +210,26 @@ class PaginatedHtmlFetcher(BaseFetcher):
 
     def _fetch_page(self, url: str, method: str = "GET", form_data: Optional[Dict] = None) -> BeautifulSoup:
         """
-        Fetch de una página específica con retry logic.
+        Fetch de una página específica.
         """
-        max_retries = int(self.params.get("max_retries", 3))
-        retry_delay = float(self.params.get("retry_delay", 2.0))
         timeout = int(self.params.get("timeout", 30))
         headers = self._get_headers()
 
-        for attempt in range(max_retries + 1):
-            try:
-                if method == "POST" and form_data:
-                    response = self.session.post(url, data=form_data, headers=headers, timeout=timeout)
-                else:
-                    response = self.session.get(url, headers=headers, timeout=timeout)
+        if method == "POST" and form_data:
+            response = self._request(self.session, "POST", url, data=form_data, headers=headers, timeout=timeout)
+        else:
+            response = self._request(self.session, "GET", url, headers=headers, timeout=timeout)
 
-                response.raise_for_status()
-                
-                # Verificar que no tengamos página de error
-                if error_selectors := self.params.get("error_selectors", []):
-                    soup = BeautifulSoup(response.text, 'html.parser')
-                    for selector in error_selectors:
-                        if soup.select_one(selector):
-                            raise ValueError(f"Error page detected with selector: {selector}")
+        response.raise_for_status()
 
-                return BeautifulSoup(response.text, 'html.parser')
+        # Verificar que no tengamos página de error
+        if error_selectors := self.params.get("error_selectors", []):
+            soup = BeautifulSoup(response.text, 'html.parser')
+            for selector in error_selectors:
+                if soup.select_one(selector):
+                    raise ValueError(f"Error page detected with selector: {selector}")
 
-            except Exception as e:
-                if attempt == max_retries:
-                    raise
-                
-                wait_time = retry_delay * (2 ** attempt)  # Exponential backoff
-                logger.warning(f"Attempt {attempt + 1} failed, retrying in {wait_time}s: {str(e)}")
-                time.sleep(wait_time)
+        return BeautifulSoup(response.text, 'html.parser')
 
     def _apply_transformations(self, records: List[Dict]) -> List[Dict]:
         transformations = self.params.get("field_transformations", {})

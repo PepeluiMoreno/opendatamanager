@@ -8,7 +8,7 @@ from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription
 from datetime import datetime
 
 # Global registry: execution_id (str) → Thread
@@ -51,8 +51,9 @@ from app.graphql_api.types import (
     DerivedDatasetConfigType,
     CreateDerivedDatasetConfigInput,
     UpdateDerivedDatasetConfigInput,
+    DatasetSubscriptionType,
 )
-from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config
+from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config, map_dataset_subscription
 from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
 
@@ -156,6 +157,51 @@ class Mutation:
             db.refresh(resource)
             scheduler.sync_schedule(str(resource.id), resource.schedule)
             return map_resource(resource)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def clone_resource(self, id: str, name: Optional[str] = None) -> ResourceType:
+        """Clona un Resource existente copiando todos sus parámetros.
+
+        El clon se crea inactivo y sin schedule para evitar ejecuciones no deseadas.
+        El nombre puede personalizarse; si no se indica se añade ' (copia)'.
+        """
+        db = get_db()
+        try:
+            source = db.query(Resource).filter(Resource.id == id).first()
+            if not source:
+                raise ValueError(f"Resource con id '{id}' no encontrado")
+
+            clone = Resource(
+                id=uuid4(),
+                name=name or f"{source.name} (copia)",
+                description=source.description,
+                publisher=source.publisher,
+                fetcher_id=source.fetcher_id,
+                active=False,
+                enable_load=source.enable_load,
+                load_mode=source.load_mode,
+                schedule=None,
+            )
+            db.add(clone)
+            db.flush()
+
+            for p in db.query(ResourceParam).filter(ResourceParam.resource_id == source.id):
+                db.add(ResourceParam(
+                    id=uuid4(),
+                    resource_id=clone.id,
+                    key=p.key,
+                    value=p.value,
+                    is_external=p.is_external,
+                ))
+
+            db.commit()
+            db.refresh(clone)
+            return map_resource(clone)
         except Exception as e:
             db.rollback()
             raise e
@@ -754,6 +800,61 @@ class Mutation:
             db.refresh(cfg)
             count = db.query(DerivedDatasetEntry).filter(DerivedDatasetEntry.config_id == cfg.id).count()
             return map_derived_dataset_config(cfg, entry_count=count)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def subscribe_resource(
+        self,
+        application_id: str,
+        resource_id: str,
+        pinned_version: Optional[str] = None,
+        auto_upgrade: str = "patch",
+    ) -> DatasetSubscriptionType:
+        """Suscribe una Application a un Resource para recibir notificaciones de nuevos datasets."""
+        db = get_db()
+        try:
+            if not db.query(Application).filter(Application.id == application_id).first():
+                raise ValueError(f"Application '{application_id}' no encontrada")
+            if not db.query(Resource).filter(Resource.id == resource_id).first():
+                raise ValueError(f"Resource '{resource_id}' no encontrado")
+            existing = db.query(DatasetSubscription).filter(
+                DatasetSubscription.application_id == application_id,
+                DatasetSubscription.resource_id == resource_id,
+            ).first()
+            if existing:
+                raise ValueError("Ya existe una suscripción para esta combinación Application/Resource")
+            sub = DatasetSubscription(
+                id=uuid4(),
+                application_id=application_id,
+                resource_id=resource_id,
+                pinned_version=pinned_version,
+                auto_upgrade=auto_upgrade,
+            )
+            db.add(sub)
+            db.commit()
+            db.refresh(sub)
+            return map_dataset_subscription(sub)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def unsubscribe_resource(self, id: str) -> bool:
+        """Elimina una suscripción por su id."""
+        db = get_db()
+        try:
+            sub = db.query(DatasetSubscription).filter(DatasetSubscription.id == id).first()
+            if not sub:
+                raise ValueError(f"Suscripción '{id}' no encontrada")
+            db.delete(sub)
+            db.commit()
+            return True
         except Exception as e:
             db.rollback()
             raise e

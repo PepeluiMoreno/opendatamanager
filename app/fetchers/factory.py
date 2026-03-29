@@ -43,11 +43,20 @@ class FetcherFactory:
                 f"No se pudo cargar el fetcher '{class_path}': {e}"
             )
 
-        # Static params from DB, overridden by runtime execution_params
-        params_dict = FetcherFactory._build_params_dict(resource.params)
+        # Resolution order: fetcher defaults → resource params → execution params
+        params_dict = FetcherFactory._build_defaults_dict(resource.fetcher.params_def)
+        params_dict.update(FetcherFactory._build_params_dict(resource.params))
         if execution_params:
             params_dict.update(execution_params)
         return fetcher_class(params_dict)
+
+    @staticmethod
+    def _build_defaults_dict(params_def: list) -> Dict[str, str]:
+        result = {}
+        for p in params_def:
+            if p.default_value is not None:
+                result[p.param_name] = str(p.default_value)
+        return result
 
     @staticmethod
     def _build_params_dict(params: list) -> Dict[str, str]:

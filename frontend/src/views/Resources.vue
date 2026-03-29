@@ -16,18 +16,64 @@
     </div>
 
     <div v-else class="card">
-      <!-- Search bar -->
-      <div class="mb-4 p-4 border-b border-gray-700">
+      <!-- Search + filters -->
+      <div class="p-4 border-b border-gray-700 space-y-3">
         <input
           v-model="searchQuery"
           type="text"
           placeholder="Search by name or publisher..."
           class="input w-full"
         />
+
+        <div class="flex flex-wrap gap-6 text-sm">
+          <!-- Type filter -->
+          <div class="flex items-center gap-2">
+            <span class="text-gray-400 font-medium">Type:</span>
+            <select
+              v-model="selectedType"
+              class="input py-1 px-2 text-sm"
+              style="min-width: 160px"
+            >
+              <option value="">Todos</option>
+              <option v-for="t in availableTypes" :key="t" :value="t">{{ t }}</option>
+            </select>
+          </div>
+
+          <!-- Publisher filter -->
+          <div class="flex items-center gap-2">
+            <span class="text-gray-400 font-medium">Publisher:</span>
+            <select
+              v-model="selectedPublisher"
+              class="input py-1 px-2 text-sm"
+              style="min-width: 180px"
+            >
+              <option value="">Todos</option>
+              <option v-for="p in availablePublishers" :key="p" :value="p">{{ p }}</option>
+            </select>
+          </div>
+
+          <!-- Status filter -->
+          <div>
+            <span class="text-gray-400 font-medium mr-2">Status:</span>
+            <label class="mr-3 cursor-pointer">
+              <input type="checkbox" v-model="filterAllStatuses" class="mr-1" @change="onAllStatuses" />
+              Todos
+            </label>
+            <label class="mr-3 cursor-pointer">
+              <input type="checkbox" value="active" v-model="filterStatuses" class="mr-1" @change="onStatusChange" />
+              <span class="text-green-400">Active</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="checkbox" value="inactive" v-model="filterStatuses" class="mr-1" @change="onStatusChange" />
+              <span class="text-red-400">Inactive</span>
+            </label>
+          </div>
+        </div>
       </div>
 
+      <div class="max-h-[calc(100vh-280px)] overflow-y-auto">
       <table class="w-full">
-        <thead>
+        <thead class="sticky top-0 z-10 bg-gray-800">
           <tr class="border-b border-gray-700">
             <th class="text-left py-3 px-4">Name</th>
             <th class="text-left py-3 px-4">Publisher</th>
@@ -50,12 +96,18 @@
               </code>
             </td>
             <td class="py-3 px-4">
-              <span
-                :class="resource.active ? 'text-green-400' : 'text-red-400'"
-                class="text-sm font-medium"
-              >
-                {{ resource.active ? 'Active' : 'Inactive' }}
-              </span>
+              <div class="flex items-center gap-2">
+                <span
+                  :class="resource.active ? 'text-green-400' : 'text-red-400'"
+                  class="text-sm font-medium"
+                >
+                  {{ resource.active ? 'Active' : 'Inactive' }}
+                </span>
+                <span v-if="runningResourceIds.has(resource.id)"
+                  class="text-xs font-bold bg-blue-900 text-blue-300 border border-blue-700 px-2 py-0.5 rounded-full animate-pulse">
+                  RUNNING
+                </span>
+              </div>
             </td>
             <td class="py-3 px-4">
               <div class="flex justify-end gap-2">
@@ -79,6 +131,13 @@
                   Edit
                 </button>
                 <button
+                  @click="handleClone(resource)"
+                  class="btn btn-secondary text-sm py-1 px-3"
+                  title="Clonar resource con todos sus parámetros"
+                >
+                  Clonar
+                </button>
+                <button
                   @click="confirmDelete(resource)"
                   class="btn btn-danger text-sm py-1 px-3"
                 >
@@ -89,9 +148,10 @@
           </tr>
         </tbody>
       </table>
+      </div>
 
       <div v-if="filteredResources.length === 0" class="text-gray-400 text-center py-8">
-        <span v-if="searchQuery">No resources match your search.</span>
+        <span v-if="searchQuery || selectedType || selectedPublisher || !filterAllStatuses">No resources match the filters.</span>
         <span v-else>No resources configured yet. Click "Create Resource" to add one.</span>
       </div>
 
@@ -231,22 +291,51 @@
                 <div
                   v-for="param in requiredParams"
                   :key="`req-${param.paramName}`"
-                  class="flex gap-2 items-center border border-red-600 rounded p-2 bg-red-950 bg-opacity-20"
+                  class="border border-red-600 rounded p-2 bg-red-950 bg-opacity-20"
+                  :class="isFullWidthParam(param.dataType) ? 'space-y-2' : 'flex gap-2 items-center'"
                 >
-                  <div class="w-1/5 flex-shrink-0">
-                    <label class="block text-xs text-gray-300 mb-1">{{ param.paramName }}</label>
-                    <span class="text-xs text-gray-400">{{ param.dataType }}</span>
+                  <!-- Header row: always flex -->
+                  <div :class="isFullWidthParam(param.dataType) ? 'flex items-center justify-between' : 'w-1/5 flex-shrink-0'">
+                    <div>
+                      <label class="block text-xs text-gray-300 mb-1">{{ param.paramName }}</label>
+                      <span class="text-xs text-gray-400">{{ param.dataType }}</span>
+                    </div>
+                    <div class="flex-shrink-0 flex items-center gap-1.5" :class="!isFullWidthParam(param.dataType) ? 'hidden' : ''" title="Pedir valor al ejecutar">
+                      <input type="checkbox" :id="`ext-${param.paramName}-top`"
+                             :checked="form.params.find(p=>p.key===param.paramName)?.isExternal"
+                             @change="toggleParamExternal(param.paramName)"
+                             class="accent-yellow-400 cursor-pointer" />
+                      <label :for="`ext-${param.paramName}-top`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
+                    </div>
                   </div>
-                  <div class="flex-1 min-w-0 max-w-[45%]">
-                    <select
-                      v-if="param.dataType === 'enum' && param.enumValues"
-                      :value="getParamValue(param.paramName)"
-                      @change="updateParamValue(param.paramName, $event.target.value)"
-                      class="input w-full text-xs"
-                    >
-                      <option value="">Select...</option>
-                      <option v-for="val in param.enumValues" :key="val" :value="val">{{ val }}</option>
-                    </select>
+                  <!-- Input area -->
+                  <div :class="isFullWidthParam(param.dataType) ? 'w-full' : 'flex-1 min-w-0 max-w-[45%]'">
+                    <FilterMapEditor
+                      v-if="param.dataType === 'json_filter_map' && param.enumValues"
+                      :modelValue="getParamValue(param.paramName) || '{}'"
+                      :enumValues="param.enumValues"
+                      @update:modelValue="updateParamValue(param.paramName, $event)"
+                    />
+                    <div v-else-if="param.dataType === 'overpass_query'" class="flex items-center gap-2">
+                      <span class="text-xs text-gray-400 font-mono flex-1 truncate">
+                        {{ overpassSummary(param.paramName) }}
+                      </span>
+                      <button type="button" @click="openOverpassModal(param.paramName)"
+                              class="px-2 py-0.5 text-xs rounded border border-blue-700 text-blue-400 hover:bg-blue-900">
+                        Editar query
+                      </button>
+                    </div>
+                    <div v-else-if="param.dataType === 'enum' && param.enumValues" class="space-y-1.5">
+                      <EnumRadioGroup
+                        :modelValue="getParamValue(param.paramName)"
+                        :options="enumOpts(param.enumValues)"
+                        :clearable="!param.required"
+                        @update:modelValue="updateParamValue(param.paramName, $event)"
+                      />
+                      <EnumMetaPreview
+                        :filters="selectedEnumMeta(param.paramName, param.enumValues, 'filters')"
+                      />
+                    </div>
                     <input
                       v-else
                       :value="getParamValue(param.paramName)"
@@ -256,8 +345,9 @@
                       @input="updateParamValue(param.paramName, $event.target.value)"
                     />
                   </div>
-                  <div class="flex-1"></div>
-                  <div class="flex-shrink-0 flex items-center gap-1.5" title="Pedir valor al ejecutar">
+                  <!-- Runtime checkbox (non-fullwidth params) -->
+                  <div v-if="!isFullWidthParam(param.dataType)" class="flex-1"></div>
+                  <div v-if="!isFullWidthParam(param.dataType)" class="flex-shrink-0 flex items-center gap-1.5" title="Pedir valor al ejecutar">
                     <input
                       type="checkbox"
                       :id="`ext-${param.paramName}`"
@@ -296,22 +386,57 @@
                 <div
                   v-for="paramName in addedOptionalParams"
                   :key="`opt-${paramName}`"
-                  class="flex gap-2 items-center border border-blue-600 rounded p-2 bg-blue-950 bg-opacity-20"
+                  class="border border-blue-600 rounded p-2 bg-blue-950 bg-opacity-20"
+                  :class="isFullWidthParam(getParamType(paramName)) ? 'space-y-2' : 'flex gap-2 items-center'"
                 >
-                  <div class="w-1/5 flex-shrink-0">
-                    <label class="block text-xs text-gray-300 mb-1">{{ paramName }}</label>
-                    <span class="text-xs text-gray-400">{{ getParamType(paramName) }}</span>
+                  <!-- Header row -->
+                  <div :class="isFullWidthParam(getParamType(paramName)) ? 'flex items-center justify-between' : 'w-1/5 flex-shrink-0'">
+                    <div>
+                      <label class="block text-xs text-gray-300 mb-1">{{ paramName }}</label>
+                      <span class="text-xs text-gray-400">{{ getParamType(paramName) }}</span>
+                    </div>
+                    <div v-if="isFullWidthParam(getParamType(paramName))" class="flex items-center gap-1">
+                      <input type="checkbox" :id="`ext-opt-${paramName}-top`"
+                             :checked="form.params.find(p=>p.key===paramName)?.isExternal"
+                             @change="toggleParamExternal(paramName)"
+                             class="accent-yellow-400 cursor-pointer" title="Pedir valor al ejecutar" />
+                      <label :for="`ext-opt-${paramName}-top`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
+                      <button type="button" @click="removeOptionalParam(paramName)"
+                              class="text-red-400 hover:text-red-300 ml-1" title="Remove optional parameter">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                  <div class="flex-1 min-w-0 max-w-[45%]">
-                    <select
-                      v-if="getParamType(paramName) === 'enum' && getParamEnumValues(paramName)"
-                      :value="getParamValue(paramName)"
-                      @change="updateParamValue(paramName, $event.target.value)"
-                      class="input w-full text-xs"
-                    >
-                      <option value="">Select...</option>
-                      <option v-for="val in getParamEnumValues(paramName)" :key="val" :value="val">{{ val }}</option>
-                    </select>
+                  <!-- Input area -->
+                  <div :class="isFullWidthParam(getParamType(paramName)) ? 'w-full' : 'flex-1 min-w-0 max-w-[45%]'">
+                    <FilterMapEditor
+                      v-if="getParamType(paramName) === 'json_filter_map' && getParamEnumValues(paramName)"
+                      :modelValue="getParamValue(paramName) || '{}'"
+                      :enumValues="getParamEnumValues(paramName)"
+                      @update:modelValue="updateParamValue(paramName, $event)"
+                    />
+                    <div v-else-if="getParamType(paramName) === 'overpass_query'" class="flex items-center gap-2">
+                      <span class="text-xs text-gray-400 font-mono flex-1 truncate">
+                        {{ overpassSummary(paramName) }}
+                      </span>
+                      <button type="button" @click="openOverpassModal(paramName)"
+                              class="px-2 py-0.5 text-xs rounded border border-blue-700 text-blue-400 hover:bg-blue-900">
+                        Editar query
+                      </button>
+                    </div>
+                    <div v-else-if="getParamType(paramName) === 'enum' && getParamEnumValues(paramName)" class="space-y-1.5">
+                      <EnumRadioGroup
+                        :modelValue="getParamValue(paramName)"
+                        :options="enumOpts(getParamEnumValues(paramName))"
+                        :clearable="true"
+                        @update:modelValue="updateParamValue(paramName, $event)"
+                      />
+                      <EnumMetaPreview
+                        :filters="selectedEnumMeta(paramName, getParamEnumValues(paramName), 'filters')"
+                      />
+                    </div>
                     <input
                       v-else
                       :value="getParamValue(paramName)"
@@ -321,8 +446,9 @@
                       @input="updateParamValue(paramName, $event.target.value)"
                     />
                   </div>
-                  <div class="flex-1"></div>
-                  <div class="flex-shrink-0 flex items-center gap-1">
+                  <!-- Runtime + remove (non-fullwidth) -->
+                  <div v-if="!isFullWidthParam(getParamType(paramName))" class="flex-1"></div>
+                  <div v-if="!isFullWidthParam(getParamType(paramName))" class="flex-shrink-0 flex items-center gap-1">
                     <input
                       type="checkbox"
                       :id="`ext-opt-${paramName}`"
@@ -628,6 +754,19 @@
 
     <PreviewDataModal :previewResource="previewResource" :loadingPreview="loadingPreview" :previewError="previewError" :previewData="previewData" :getRecordCount="getRecordCount" v-model:showPreviewModal="showPreviewModal" />
 
+    <!-- Overpass Query Builder Modal -->
+    <OverpassQueryModal
+      v-if="overpassModalParam"
+      :modelValue="getParamValue(overpassModalParam)"
+      :presets="getOverpassPresets(overpassModalParam)"
+      :demarcacion="getParamValue('demarcacion') || 'España'"
+      :elementTypes="getParamValue('element_types') || 'node,way'"
+      :timeout="getParamValue('timeout') || 60"
+      :outFormat="getParamValue('out_format') || 'center'"
+      @update:modelValue="updateParamValue(overpassModalParam, $event)"
+      @close="closeOverpassModal"
+    />
+
     <!-- Execute Modal -->
     <div
       v-if="showExecuteModal"
@@ -672,15 +811,21 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import Tooltip from '../components/Tooltip.vue'
+import FilterMapEditor from '../components/FilterMapEditor.vue'
+import EnumMetaPreview from '../components/EnumMetaPreview.vue'
+import EnumRadioGroup from '../components/EnumRadioGroup.vue'
+import OverpassQueryModal from '../components/OverpassQueryModal.vue'
 import {
   fetchResources,
+  fetchResourceExecutions,
   fetchFetchers,
   fetchFieldMetadata,
   createResource,
   updateResource,
   deleteResource,
+  cloneResource,
   previewResourceData,
   executeResource,
   fetchAppConfig,
@@ -726,6 +871,26 @@ const error = ref(null)
 const searchQuery = ref('')
 const currentPage = ref(1)
 const pageSize = 8
+
+// Filter state
+const selectedType      = ref('')
+const selectedPublisher = ref('')
+const filterAllStatuses = ref(true)
+const filterStatuses    = ref([])
+
+const availableTypes = computed(() =>
+  [...new Set(resources.value.map(r => r.fetcher?.code).filter(Boolean))].sort()
+)
+const availablePublishers = computed(() =>
+  [...new Set(resources.value.map(r => r.publisher).filter(Boolean))].sort()
+)
+
+function onAllStatuses() {
+  if (filterAllStatuses.value) filterStatuses.value = []
+}
+function onStatusChange() {
+  filterAllStatuses.value = filterStatuses.value.length === 0
+}
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -812,14 +977,22 @@ const availableOptionalParams = computed(() => {
   return optionalParams.value.filter(param => !currentParamNames.includes(param.paramName))
 })
 
-// Computed property to filter resources based on search query
+// Computed property to filter resources based on search query and filters
 const filteredResources = computed(() => {
-  const list = searchQuery.value
-    ? resources.value.filter(r =>
-        r.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        r.publisher.toLowerCase().includes(searchQuery.value.toLowerCase())
-      )
-    : [...resources.value]
+  const q = searchQuery.value.toLowerCase()
+  const list = resources.value.filter(r => {
+    if (q && !r.name.toLowerCase().includes(q) && !r.publisher.toLowerCase().includes(q))
+      return false
+    if (selectedType.value && r.fetcher?.code !== selectedType.value)
+      return false
+    if (selectedPublisher.value && r.publisher !== selectedPublisher.value)
+      return false
+    if (!filterAllStatuses.value && filterStatuses.value.length) {
+      const status = r.active ? 'active' : 'inactive'
+      if (!filterStatuses.value.includes(status)) return false
+    }
+    return true
+  })
   return list.sort((a, b) => a.name.localeCompare(b.name, 'es'))
 })
 
@@ -830,7 +1003,7 @@ const pagedResources = computed(() => {
   return filteredResources.value.slice(start, start + pageSize)
 })
 
-watch(searchQuery, () => { currentPage.value = 1 })
+watch([searchQuery, selectedType, selectedPublisher, filterStatuses], () => { currentPage.value = 1 })
 
 const selectedOptionalParam = ref('')
 
@@ -883,6 +1056,44 @@ function getPlaceholder(fieldName) {
   return fieldMetadata.value[fieldName]?.placeholder || ''
 }
 
+// ── Helpers para enum con {value, label, group?} o string[] ─────────────────
+
+/**
+ * Normaliza enum_values a [{value, label, ...rest}] independientemente de si
+ * es string[], {value,label}[] o {value,label,group,filters,...}[].
+ */
+function enumOpts(vals) {
+  if (!vals) return []
+  return vals.map(v => typeof v === 'string' ? { value: v, label: v } : v)
+}
+
+/**
+ * Devuelve [{group, options[{value,label}]}] si los items tienen 'group',
+ * o null si es una lista plana.
+ */
+function enumGroups(vals) {
+  const opts = enumOpts(vals)
+  if (!opts.length || !opts[0].group) return null
+  const map = new Map()
+  for (const opt of opts) {
+    const g = opt.group || ''
+    if (!map.has(g)) map.set(g, [])
+    map.get(g).push(opt)
+  }
+  return Array.from(map.entries()).map(([group, options]) => ({ group, options }))
+}
+
+/**
+ * Devuelve el campo extra de la opción seleccionada (p.ej. 'filters' del preset use_type).
+ * Devuelve null si la opción no existe o no tiene ese campo.
+ */
+function selectedEnumMeta(paramName, enumValues, field) {
+  const selected = getParamValue(paramName)
+  if (!selected || !enumValues) return null
+  const opt = enumOpts(enumValues).find(o => o.value === selected)
+  return opt?.[field] ?? null
+}
+
 // Helper functions for parameters
 function getParamValue(paramName) {
   const param = form.value.params.find(p => p.key === paramName)
@@ -897,6 +1108,44 @@ function getParamType(paramName) {
 function getParamEnumValues(paramName) {
   const param = optionalParams.value.find(p => p.paramName === paramName)
   return param ? param.enumValues : null
+}
+
+function getOverpassPresets(paramName) {
+  const req = requiredParams.value.find(p => p.paramName === paramName)
+  if (req) return req.enumValues || {}
+  return getParamEnumValues(paramName) || {}
+}
+
+/** Tipos de param que necesitan layout de ancho completo (sin flex-row). */
+function isFullWidthParam(dataType) {
+  return dataType === 'json_filter_map' || dataType === 'overpass_query'
+}
+
+/** Modal Overpass: qué param está siendo editado (null = cerrada). */
+const overpassModalParam = ref(null)
+
+function openOverpassModal(paramName) {
+  overpassModalParam.value = paramName
+}
+function closeOverpassModal() {
+  overpassModalParam.value = null
+}
+
+/**
+ * Muestra un resumen legible del valor almacenado en un param overpass_query.
+ * El valor es un JSON array de bloques: [{preset, pairs, mode}].
+ */
+function overpassSummary(paramName) {
+  const raw = getParamValue(paramName)
+  if (!raw) return 'sin condiciones'
+  try {
+    const blocks = JSON.parse(raw)
+    if (!Array.isArray(blocks) || !blocks.length) return 'sin condiciones'
+    const labels = blocks.map(b => b.preset || `(${b.pairs?.length || 0} pares)`)
+    return labels.join(' + ')
+  } catch {
+    return raw.slice(0, 60)
+  }
 }
 
 function getParamDefaultValue(paramName) {
@@ -992,6 +1241,12 @@ function editResource(resource) {
   loadDerivedConfigs(resource.id)
 }
 
+function testResource() {
+  if (editingResource.value) {
+    showPreviewData(editingResource.value)
+  }
+}
+
 async function showPreviewData(resource) {
   previewResource.value = resource
   previewData.value = null
@@ -1051,6 +1306,17 @@ async function confirmExecute() {
 function confirmDelete(resource) {
   resourceToDelete.value = resource
   showDeleteModal.value = true
+}
+
+async function handleClone(resource) {
+  try {
+    const result = await cloneResource(resource.id)
+    if (result?.cloneResource) {
+      await loadResources()
+    }
+  } catch (error) {
+    console.error('Error cloning resource:', error)
+  }
 }
 
 async function handleDelete() {
@@ -1231,7 +1497,28 @@ async function saveEditDerived(id) {
   }
 }
 
+const runningResourceIds = ref(new Set())
+let runningPollTimer = null
+
+async function pollRunning() {
+  try {
+    const data = await fetchResourceExecutions()
+    const ids = new Set(
+      (data?.resourceExecutions ?? [])
+        .filter(e => e.status === 'running')
+        .map(e => e.resourceId)
+    )
+    runningResourceIds.value = ids
+  } catch {}
+}
+
 onMounted(() => {
   loadData()
+  pollRunning()
+  runningPollTimer = setInterval(pollRunning, 5000)
+})
+
+onUnmounted(() => {
+  clearInterval(runningPollTimer)
 })
 </script>

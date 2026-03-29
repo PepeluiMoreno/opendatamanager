@@ -149,6 +149,7 @@
                      <option value="boolean">Boolean</option>
                      <option value="json">JSON</option>
                      <option value="enum">ENUM</option>
+                     <option value="json_filter_map">Filter Map (enum↔enum)</option>
                    </select>
                 </div>
 
@@ -280,10 +281,6 @@ const isFormValid = computed(() => {
     return false
   }
 
-  // At least one parameter must exist
-  if (parameters.value.length === 0) {
-    return false
-  }
   
   // All parameter names must be unique and filled
   const paramNames = parameters.value.map(p => p.paramName?.trim()).filter(n => n)
@@ -318,7 +315,7 @@ watch(() => props.Fetcher, (newFetcher) => {
         paramName: p.paramName || '',
         dataType: p.dataType || 'string',
         required: p.required !== undefined ? p.required : true,
-        defaultValue: p.defaultValue || null,
+        defaultValue: p.defaultValue ?? null,
         enumValues: p.enumValues || null,
         enumValuesString: p.enumValues && Array.isArray(p.enumValues) ? '[' + p.enumValues.join(', ') + ']' : ''
       }))

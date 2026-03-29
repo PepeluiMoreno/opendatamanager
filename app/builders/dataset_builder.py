@@ -91,10 +91,11 @@ class DatasetBuilder:
         with open(f"{dataset_dir}/schema.json", 'w', encoding='utf-8') as f:
             json.dump(schema_json, f, indent=2, ensure_ascii=False)
 
-        # 7. Generate models
-        models_code = self._generate_models(resource, schema_json)
-        with open(f"{dataset_dir}/models.py", 'w', encoding='utf-8') as f:
-            f.write(models_code)
+        # 7. Generate models (only when target_table is defined)
+        if resource.target_table:
+            models_code = self._generate_models(resource, schema_json)
+            with open(f"{dataset_dir}/models.py", 'w', encoding='utf-8') as f:
+                f.write(models_code)
 
         # 8. Compute checksum
         checksum = self._compute_checksum(f"{dataset_dir}/data.jsonl")

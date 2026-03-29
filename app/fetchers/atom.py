@@ -143,7 +143,7 @@ class AtomFetcher(BaseFetcher):
                 page_size_param: str(effective_page_size),
             }
 
-            response = session.request(method, url, params=query, headers=headers, timeout=timeout)
+            response = self._request(session, method, url, params=query, headers=headers, timeout=timeout)
             response.raise_for_status()
 
             if not response.text or not response.text.strip():

@@ -24,7 +24,7 @@ class FetcherParamType:
     required: bool
     data_type: str = strawberry.field(name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
-    enum_values: Optional[List[str]] = strawberry.field(default=None, name="enumValues")
+    enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
 
 
 @strawberry.type
@@ -90,7 +90,7 @@ class CreateTypeFetcherParamInput:
     required: bool = True
     data_type: str = strawberry.field(name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
-    enum_values: Optional[List[str]] = strawberry.field(default=None, name="enumValues")
+    enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
 
 
 @strawberry.input
@@ -100,7 +100,7 @@ class UpdateTypeFetcherParamInput:
     required: Optional[bool] = None
     data_type: Optional[str] = strawberry.field(default=None, name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
-    enum_values: Optional[List[str]] = strawberry.field(default=None, name="enumValues")
+    enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
 
 
 @strawberry.type

@@ -177,6 +177,7 @@ export const QUERIES = {
           required
           defaultValue
           enumValues
+          description
         }
         resources {
           id
@@ -184,6 +185,20 @@ export const QUERIES = {
           publisher
           active
         }
+      }
+    }
+  `,
+
+  GET_SUBSCRIPTIONS: `
+    query GetSubscriptions {
+      datasetSubscriptions {
+        id
+        applicationId
+        resourceId
+        pinnedVersion
+        autoUpgrade
+        currentVersion
+        notifiedAt
       }
     }
   `,
@@ -216,6 +231,20 @@ export const MUTATIONS = {
   DELETE_RESOURCE: `
     mutation DeleteResource($id: String!) {
       deleteResource(id: $id)
+    }
+  `,
+
+  CLONE_RESOURCE: `
+    mutation CloneResource($id: String!, $name: String) {
+      cloneResource(id: $id, name: $name) {
+        id
+        name
+        publisher
+        fetcherId
+        active
+        schedule
+        params { key value isExternal }
+      }
     }
   `,
 
@@ -396,6 +425,26 @@ export const MUTATIONS = {
       deleteTypeFetcherParam(id: $id)
     }
   `,
+
+  SUBSCRIBE_RESOURCE: `
+    mutation SubscribeResource($applicationId: String!, $resourceId: String!, $pinnedVersion: String, $autoUpgrade: String) {
+      subscribeResource(applicationId: $applicationId, resourceId: $resourceId, pinnedVersion: $pinnedVersion, autoUpgrade: $autoUpgrade) {
+        id
+        applicationId
+        resourceId
+        pinnedVersion
+        autoUpgrade
+        currentVersion
+        notifiedAt
+      }
+    }
+  `,
+
+  UNSUBSCRIBE_RESOURCE: `
+    mutation UnsubscribeResource($id: String!) {
+      unsubscribeResource(id: $id)
+    }
+  `,
 }
 
 // Helper functions with error handling
@@ -506,6 +555,14 @@ export async function updateResource(id, input) {
 export async function deleteResource(id) {
   try {
     return await client.request(MUTATIONS.DELETE_RESOURCE, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function cloneResource(id, name = null) {
+  try {
+    return await client.request(MUTATIONS.CLONE_RESOURCE, { id, name })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -643,6 +700,30 @@ export async function deleteDerivedDatasetConfig(id) {
 export async function toggleDerivedDatasetConfig(id, enabled) {
   try {
     return await client.request(MUTATIONS.TOGGLE_DERIVED_DATASET_CONFIG, { id, enabled })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchSubscriptions() {
+  try {
+    return await client.request(QUERIES.GET_SUBSCRIPTIONS)
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function subscribeResource(applicationId, resourceId, pinnedVersion = null, autoUpgrade = 'patch') {
+  try {
+    return await client.request(MUTATIONS.SUBSCRIBE_RESOURCE, { applicationId, resourceId, pinnedVersion, autoUpgrade })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function unsubscribeResource(id) {
+  try {
+    return await client.request(MUTATIONS.UNSUBSCRIBE_RESOURCE, { id })
   } catch (error) {
     handleGraphQLError(error)
   }

@@ -1,5 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generator, List
+import time
+import logging
+import requests
+
+logger = logging.getLogger(__name__)
 
 RawData = Any
 ParsedData = Any
@@ -19,16 +24,53 @@ class BaseFetcher(ABC):
         """
         self.params = params
         self.num_workers = int(params.get("num_workers", 1))
+        self._max_retries = int(params.get("max_retries", 5))
+        self._retry_backoff = float(params.get("retry_backoff", 2.0))
 
     @property
     def is_parallelizable(self) -> bool:
-        """
-        Indica si este fetcher puede ejecutarse con workers en paralelo.
-
-        Returns:
-            True si num_workers > 1, False en caso contrario
-        """
         return self.num_workers > 1
+
+    def _request(self, session_or_none, method: str, url: str, **kwargs) -> requests.Response:
+        """
+        Realiza una petición HTTP con reintentos ante Timeout y ConnectionError.
+
+        - En cada reintento el timeout se multiplica por (1 + intento).
+        - La espera entre reintentos sigue backoff exponencial: backoff^intento.
+        - Tras un ConnectionError se crea una nueva sesión para limpiar el estado TCP.
+
+        Args:
+            session_or_none: requests.Session activa o None (usa requests directamente).
+            method:          Verbo HTTP ('GET', 'POST', …).
+            url:             URL de destino.
+            **kwargs:        Argumentos adicionales para requests (params, headers, json…).
+                             El 'timeout' base se toma de kwargs o de self.params.
+        """
+        base_timeout = kwargs.pop("timeout", int(self.params.get("timeout", 30)))
+        http = session_or_none
+
+        for attempt in range(self._max_retries + 1):
+            try:
+                effective_timeout = base_timeout * (1 + attempt)
+                caller = http if http else requests
+                response = caller.request(method, url, timeout=effective_timeout, **kwargs)
+                response.raise_for_status()
+                return response
+            except (requests.exceptions.Timeout,
+                    requests.exceptions.ConnectionError) as exc:
+                if attempt >= self._max_retries:
+                    raise RuntimeError(
+                        f"Agotados {self._max_retries} reintentos en {url}: {exc}"
+                    ) from exc
+                wait = self._retry_backoff ** (attempt + 1)
+                logger.warning(
+                    f"[RETRY {attempt + 1}/{self._max_retries}] {url} — "
+                    f"esperando {wait:.0f}s tras: {exc}"
+                )
+                # Nueva sesión para limpiar estado TCP tras ConnectionError
+                if isinstance(exc, requests.exceptions.ConnectionError) and http is not None:
+                    http = requests.Session()
+                time.sleep(wait)
 
     @abstractmethod
     def fetch(self) -> RawData:
@@ -46,15 +88,7 @@ class BaseFetcher(ABC):
         pass
 
     def stream(self) -> Generator[List, None, None]:
-        """Yields chunks of normalized records.
-
-        Streaming fetchers override this to yield one page/batch at a time so
-        FetcherManager can write each chunk to disk immediately without keeping
-        all records in memory.
-
-        Default implementation: runs the full execute() pipeline and yields the
-        result as a single chunk (backwards-compatible for non-streaming fetchers).
-        """
+        """Yields chunks of normalized records."""
         result = self.execute()
         if isinstance(result, list):
             if result:

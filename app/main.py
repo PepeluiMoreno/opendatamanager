@@ -76,6 +76,12 @@ def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/api/graphql-data/registry")
+async def graphql_data_registry():
+    """Lista todos los datasets expuestos en la API GraphQL dinámica (/graphql/data)."""
+    return data_engine.get_registry()
+
+
 @app.get("/api/datasets/{dataset_id}/data.jsonl")
 async def download_dataset_data(dataset_id: str):
     session = SessionLocal()
@@ -245,17 +251,19 @@ async def resource_stats():
         resources = db.query(Resource).order_by(Resource.name).all()
         result = []
         for res in resources:
-            execs = (
+            # All executions (including soft-deleted) — used for immutable stats so
+            # that deleting a failed run from the UI does not change success_rate.
+            all_execs = (
                 db.query(ResourceExecution)
-                .filter(
-                    ResourceExecution.resource_id == res.id,
-                    ResourceExecution.deleted_at == None,
-                )
+                .filter(ResourceExecution.resource_id == res.id)
                 .order_by(ResourceExecution.started_at.desc())
                 .all()
             )
-            completed = [e for e in execs if e.status == "completed"]
-            last = execs[0] if execs else None
+            # Visible (non-deleted) executions — used only for "last run" display.
+            visible_execs = [e for e in all_execs if e.deleted_at is None]
+
+            completed = [e for e in all_execs if e.status == "completed"]
+            last = visible_execs[0] if visible_execs else None
 
             last_records = completed[0].total_records if completed else None
             prev_records = completed[1].total_records if len(completed) > 1 else None
@@ -265,15 +273,19 @@ async def resource_stats():
             if last_records is not None and prev_records is not None:
                 trend = last_records - prev_records
 
+            # Resolve bounding_field label (used for bounding_value display)
+            bounding_field = next(
+                (p.value for p in res.params if p.key == "bounding_field"), None
+            ) if res.params else None
+
             result.append({
                 "resource_id": str(res.id),
                 "resource_name": res.name,
                 "publisher": res.publisher,
-                "fetcher_code": res.fetcher.code if res.fetcher else None,
                 "active": res.active,
-                "total_executions": len(execs),
+                "total_executions": len(all_execs),
                 "successful_executions": len(completed),
-                "failed_executions": len([e for e in execs if e.status == "failed"]),
+                "failed_executions": len([e for e in all_execs if e.status == "failed"]),
                 "last_run": last.started_at.isoformat() if last else None,
                 "last_status": last.status if last else None,
                 "last_duration_s": (
@@ -284,6 +296,9 @@ async def resource_stats():
                 "prev_records": prev_records,
                 "trend": trend,
                 "total_records_extracted": total_extracted,
+                # External params used in the last visible execution
+                "last_execution_params": last.execution_params if last else None,
+                "bounding_field": bounding_field,
             })
         return result
     finally:

@@ -110,34 +110,52 @@
 
             <!-- Parameters Grid -->
             <div class="space-y-2">
-              <!-- Header -->
+              <!-- Header — col layout: 2 name | 2 type | 1 req | 6 default/enum | 1 del -->
               <div class="grid grid-cols-12 gap-2 text-xs font-medium text-gray-400 px-2">
-                <div class="col-span-3">Parameter Name</div>
-                <div class="col-span-2">Data Type</div>
-                <div class="col-span-1 text-center">Required</div>
-                <div class="col-span-3">Default Value / Enum</div>
-                <div class="col-span-3 text-center">Actions</div>
+                <div class="col-span-2">Nombre</div>
+                <div class="col-span-2">Tipo</div>
+                <div class="col-span-1 text-center">Req</div>
+                <div class="col-span-6">Valor por defecto / Opciones</div>
+                <div class="col-span-1"></div>
               </div>
 
               <!-- Rows -->
               <div
                 v-for="(param, index) in filteredParams"
                 :key="`param-${index}`"
-                class="grid grid-cols-12 gap-2 items-center p-2 border border-gray-600 rounded hover:bg-gray-700"
+                class="grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700"
               >
                 <!-- Parameter Name -->
-                <div class="col-span-3">
+                <div class="col-span-2 flex items-center gap-1 pt-1">
                   <input
                     v-model="param.paramName"
                     type="text"
                     required
-                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                    placeholder="e.g., url, timeout"
+                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono"
+                    placeholder="param_name"
                   />
+                  <div v-if="param.description" class="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      @click="toggleHelp(param)"
+                      class="text-blue-400 hover:text-blue-300 focus:outline-none"
+                      title="Ver descripción"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                    <div
+                      v-if="activeHelp === param.paramName"
+                      class="absolute left-0 top-6 z-50 w-80 p-3 bg-gray-900 border border-blue-500 rounded shadow-lg text-xs text-gray-200 leading-relaxed"
+                    >
+                      {{ param.description }}
+                    </div>
+                  </div>
                 </div>
 
                 <!-- Data Type -->
-                <div class="col-span-2">
+                <div class="col-span-2 pt-1">
                    <select
                      v-model="param.dataType"
                      required
@@ -149,11 +167,13 @@
                      <option value="boolean">Boolean</option>
                      <option value="json">JSON</option>
                      <option value="enum">ENUM</option>
+                     <option value="json_filter_map">Filter Map (enum↔enum)</option>
+                     <option value="overpass_query">Overpass Query Builder</option>
                    </select>
                 </div>
 
                 <!-- Required Checkbox -->
-                <div class="col-span-1 flex justify-center">
+                <div class="col-span-1 flex justify-center pt-2">
                   <label class="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
@@ -163,37 +183,42 @@
                   </label>
                 </div>
 
-                <!-- Default Value / Enum Values -->
-                <div class="col-span-3 space-y-1">
-                  <!-- Enum options always shown when type is enum -->
+                <!-- Default Value / Enum Values — ocupa el máximo espacio disponible -->
+                <div class="col-span-6 space-y-1">
+                  <!-- Enum: editar opciones como texto -->
                   <input
                     v-if="param.dataType === 'enum'"
                     :value="param.enumValuesString || ''"
                     @input="updateEnumValuesString(param, $event.target.value)"
                     type="text"
-                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                    placeholder="[option1, option2, option3]"
+                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono"
+                    placeholder="[opcion1, opcion2, opcion3]"
                   />
-                  <!-- Default value always available (select for enum, text for others) -->
+                  <!-- Enum: default value select (normalizado a {value,label}) -->
                   <select
                     v-if="param.dataType === 'enum' && param.enumValues && param.enumValues.length"
                     v-model="param.defaultValue"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-gray-400"
                   >
-                    <option value="">Default (optional)</option>
-                    <option v-for="val in param.enumValues" :key="val" :value="val">{{ val }}</option>
+                    <option value="">Default (opcional)</option>
+                    <option
+                      v-for="opt in normalizeOpts(param.enumValues)"
+                      :key="opt.value"
+                      :value="opt.value"
+                    >{{ opt.label }}</option>
                   </select>
+                  <!-- Otros tipos: campo de texto libre -->
                   <input
                     v-else-if="param.dataType !== 'enum'"
                     v-model="param.defaultValue"
                     type="text"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-                    placeholder="Optional default"
+                    placeholder="Valor por defecto (opcional)"
                   />
                 </div>
 
                 <!-- Actions -->
-                <div class="col-span-3 flex justify-center gap-2">
+                <div class="col-span-1 flex justify-center pt-1">
                   <button
                     type="button"
                     @click="removeParameter(parameters.indexOf(param))"
@@ -263,6 +288,11 @@ const parameters = ref([])
 const submitting = ref(false)
 const validationError = ref('')
 const activeTab = ref('required')
+const activeHelp = ref(null)
+
+function toggleHelp(param) {
+  activeHelp.value = activeHelp.value === param.paramName ? null : param.paramName
+}
 
 // Computed properties
 const requiredParams = computed(() => {
@@ -288,11 +318,6 @@ const isFormValid = computed(() => {
     return false
   }
 
-  // At least one parameter must exist
-  if (parameters.value.length === 0) {
-    return false
-  }
-  
   // All parameter names must be unique and filled
   const paramNames = parameters.value.map(p => p.paramName?.trim()).filter(n => n)
   const uniqueNames = new Set(paramNames)
@@ -326,9 +351,14 @@ watch(() => props.Fetcher, (newFetcher) => {
         paramName: p.paramName || '',
         dataType: p.dataType || 'string',
         required: p.required !== undefined ? p.required : true,
-        defaultValue: p.defaultValue || null,
+        defaultValue: p.defaultValue ?? null,
         enumValues: p.enumValues || null,
-        enumValuesString: p.enumValues && Array.isArray(p.enumValues) ? '[' + p.enumValues.join(', ') + ']' : ''
+        enumValuesString: p.enumValues && Array.isArray(p.enumValues)
+          ? (typeof p.enumValues[0] === 'string'
+              ? '[' + p.enumValues.join(', ') + ']'
+              : '(opciones complejas — editar por script)')
+          : '',
+        description: p.description || null
       }))
     } else {
       parameters.value = []
@@ -438,6 +468,12 @@ async function syncParameters(fetcherId) {
       param.id = result.createTypeFetcherParam.id
     }
   }
+}
+
+/** Normaliza enum_values a [{value, label}] para mostrar en selects. */
+function normalizeOpts(vals) {
+  if (!vals) return []
+  return vals.map(v => typeof v === 'string' ? { value: v, label: v } : { value: v.value ?? v, label: v.label ?? v.value ?? String(v) })
 }
 
 // ENUM helper function

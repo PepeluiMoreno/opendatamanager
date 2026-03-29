@@ -61,6 +61,15 @@
       </router-link>
 
       <router-link
+        to="/explorer"
+        class="nav-item"
+        :class="{ 'active': $route.path === '/explorer' }"
+      >
+        <span class="text-lg mr-3">🔍</span>
+        Data Explorer
+      </router-link>
+
+      <router-link
         to="/settings"
         class="nav-item"
         :class="{ 'active': $route.path === '/settings' }"
@@ -114,16 +123,45 @@
           }">{{ status }}</span>
         </span>
       </div>
-      <p class="text-xs text-gray-600 mt-1">Vue 3 + Vite + Tailwind</p>
+
+      <!-- RAM disponible -->
+      <div v-if="ramTotal > 0" class="mt-3">
+        <div class="flex items-center justify-between text-xs mb-1">
+          <span class="text-gray-500">RAM disponible</span>
+          <span :class="ramColor" class="font-mono tabular-nums">
+            {{ ramAvailGb }} / {{ ramTotalGb }} GB
+          </span>
+        </div>
+        <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            class="h-full rounded-full transition-all duration-700"
+            :class="ramColor === 'text-red-400' ? 'bg-red-500' : ramColor === 'text-yellow-400' ? 'bg-yellow-500' : 'bg-green-500'"
+            :style="{ width: (100 - ramUsedPct) + '%' }"
+          ></div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-const status = ref('checking')
+const status  = ref('checking')
+const ramTotal = ref(0)   // MB
+const ramAvail = ref(0)   // MB
 let timer = null
+
+const ramTotalGb  = computed(() => (ramTotal.value / 1024).toFixed(1))
+const ramAvailGb  = computed(() => (ramAvail.value  / 1024).toFixed(1))
+const ramUsedPct  = computed(() => ramTotal.value > 0
+  ? Math.round((1 - ramAvail.value / ramTotal.value) * 100) : 0)
+const ramColor    = computed(() => {
+  const pct = 100 - ramUsedPct.value  // % libre
+  if (pct < 15) return 'text-red-400'
+  if (pct < 30) return 'text-yellow-400'
+  return 'text-green-400'
+})
 
 async function checkHealth() {
   try {
@@ -134,9 +172,21 @@ async function checkHealth() {
   }
 }
 
+async function fetchSysInfo() {
+  try {
+    const res = await fetch('/api/system/info', { signal: AbortSignal.timeout(3000) })
+    if (res.ok) {
+      const d = await res.json()
+      ramTotal.value = d.ram_total_mb  ?? 0
+      ramAvail.value = d.ram_available_mb ?? 0
+    }
+  } catch {}
+}
+
 onMounted(() => {
   checkHealth()
-  timer = setInterval(checkHealth, 10000)
+  fetchSysInfo()
+  timer = setInterval(() => { checkHealth(); fetchSysInfo() }, 15000)
 })
 
 onUnmounted(() => clearInterval(timer))

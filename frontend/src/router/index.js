@@ -7,6 +7,7 @@ import fetchers from '../views/Fetchers.vue'
 import Executions from '../views/Executions.vue'
 import Settings from '../views/Settings.vue'
 import Schedule from '../views/Schedule.vue'
+import DataExplorer from '../views/DataExplorer.vue'
 
 const routes = [
   {
@@ -48,6 +49,11 @@ const routes = [
     path: '/settings',
     name: 'Settings',
     component: Settings,
+  },
+  {
+    path: '/explorer',
+    name: 'DataExplorer',
+    component: DataExplorer,
   },
 ]
 

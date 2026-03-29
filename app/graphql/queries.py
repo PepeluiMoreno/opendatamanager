@@ -292,16 +292,19 @@ class Query:
             db.close()
 
     @strawberry.field
-    def preview_resource_data(self, id: str, limit: int = 10) -> strawberry.scalars.JSON:
+    async def preview_resource_data(self, id: str, limit: int = 10) -> strawberry.scalars.JSON:
         """Obtiene una vista previa de los datos de un Resource sin guardarlos"""
+        import asyncio
         from app.manager.fetcher_manager import FetcherManager
-        db = get_db()
-        try:
-            # Extraer datos solo para preview
-            data = FetcherManager.fetch_only(db, id, limit)
-            return data
-        finally:
-            db.close()
+
+        def _fetch():
+            db = get_db()
+            try:
+                return FetcherManager.fetch_only(db, id, limit)
+            finally:
+                db.close()
+
+        return await asyncio.to_thread(_fetch)
 
     @strawberry.field
     def resource_executions(self, resource_id: Optional[str] = None) -> List[ResourceExecutionType]:

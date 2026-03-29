@@ -92,6 +92,17 @@ class FetcherManager:
 
         if not resource.active:
             print(f"Resource '{resource.name}' está desactivado, omitiendo...")
+            # Si ya se creó un registro de ejecución, marcarlo como abortado
+            if execution_id:
+                stale = session.query(ResourceExecution).filter(
+                    ResourceExecution.id == execution_id,
+                    ResourceExecution.status == "running",
+                ).first()
+                if stale:
+                    stale.status = "failed"
+                    stale.completed_at = __import__("datetime").datetime.utcnow()
+                    stale.error_message = "Resource desactivado al lanzar la ejecución"
+                    session.commit()
             return None
 
         # Use pre-created execution record if provided, otherwise create one now
@@ -104,6 +115,7 @@ class FetcherManager:
         else:
             execution = ResourceExecution(
                 resource_id=resource_id,
+                resource_name=resource.name,  # snapshot histórico: no cambia si se renombra el resource
                 status="running",
                 started_at=datetime.utcnow(),
                 execution_params=execution_params,
@@ -215,8 +227,9 @@ class FetcherManager:
             # Rebuild the dynamic GraphQL data schema so new data is immediately queryable
             try:
                 from app.graphql_data import engine as data_engine
+                session.flush()  # Ensure new dataset is visible to build_schema query (autoflush=False)
                 count = data_engine.rebuild(session)
-                logger.log(f"  GraphQL data schema rebuilt — {count} dataset(s) exposed.")
+                logger.log(f"  GraphQL data schema rebuilt — {count} dataset(s) total in data API.")
             except Exception as rebuild_err:
                 logger.log(f"  WARNING: GraphQL data schema rebuild failed: {rebuild_err}")
 
