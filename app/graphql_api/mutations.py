@@ -8,7 +8,7 @@ from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher
 from datetime import datetime
 
 # Global registry: execution_id (str) → Thread
@@ -18,6 +18,17 @@ _registry_lock = threading.Lock()
 
 class ExecutionAborted(Exception):
     pass
+
+
+def _append_execution_log(execution_id: str, message: str):
+    """Appends a timestamped line to an execution's log file."""
+    import os
+    log_path = f"data/logs/{execution_id}.log"
+    if not os.path.exists(log_path):
+        return
+    ts = datetime.utcnow().strftime("%H:%M:%S")
+    with open(log_path, "a", buffering=1) as f:
+        f.write(f"[{ts}] {message}\n")
 
 
 def _kill_thread(thread: threading.Thread):
@@ -52,8 +63,11 @@ from app.graphql_api.types import (
     CreateDerivedDatasetConfigInput,
     UpdateDerivedDatasetConfigInput,
     DatasetSubscriptionType,
+    PublisherType,
+    CreatePublisherInput,
+    UpdatePublisherInput,
 )
-from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config, map_dataset_subscription
+from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config, map_dataset_subscription, map_publisher
 from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
 
@@ -86,6 +100,7 @@ class Mutation:
                 id=uuid4(),
                 name=input.name,
                 publisher=input.publisher,
+                publisher_id=input.publisher_id or None,
                 fetcher_id=input.fetcher_id,
                 active=input.active,
                 schedule=input.schedule,
@@ -128,6 +143,8 @@ class Mutation:
                 resource.name = input.name
             if input.publisher is not None:
                 resource.publisher = input.publisher
+            if input.publisher_id is not None:
+                resource.publisher_id = input.publisher_id or None
             if input.target_table is not None:
                 resource.target_table = input.target_table
             if input.fetcher_id is not None:
@@ -541,6 +558,7 @@ class Mutation:
                     ex.status = "aborted"
                     ex.completed_at = datetime.utcnow()
                     db.commit()
+                    _append_execution_log(id, "🛑 Execution killed (thread already finished)")
                     return ExecutionResult(success=True, message="Marked as aborted", resource_id=id)
                 return ExecutionResult(success=False, message="Execution not found or not running", resource_id=id)
             finally:
@@ -558,10 +576,88 @@ class Mutation:
                     ex.status = "aborted"
                     ex.completed_at = datetime.utcnow()
                     db.commit()
+                    _append_execution_log(id, "🛑 Execution killed by user")
             finally:
                 db.close()
             return ExecutionResult(success=True, message="Execution aborted", resource_id=id)
         return ExecutionResult(success=False, message="Could not kill thread", resource_id=id)
+
+    @strawberry.mutation
+    def pause_execution(self, id: str) -> ExecutionResult:
+        """Señal cooperativa de pausa: el fetcher terminará la página actual y quedará en estado 'paused'."""
+        db = get_db()
+        try:
+            ex = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+            if not ex:
+                return ExecutionResult(success=False, message="Execution not found", resource_id=id)
+            if ex.status != "running":
+                return ExecutionResult(success=False, message=f"Execution is '{ex.status}', not running", resource_id=id)
+            ex.pause_requested = True
+            db.commit()
+            _append_execution_log(id, "⏸ Pause requested — will stop at next page boundary")
+            return ExecutionResult(success=True, message="Pause signal sent", resource_id=id)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def resume_execution(self, id: str) -> ExecutionResult:
+        """Reanuda una ejecución pausada lanzando un nuevo thread desde donde se dejó."""
+        db = get_db()
+        try:
+            ex = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+            if not ex:
+                return ExecutionResult(success=False, message="Execution not found", resource_id=id)
+            if ex.status != "paused":
+                return ExecutionResult(success=False, message=f"Execution is '{ex.status}', not paused", resource_id=id)
+            ex.status = "running"
+            ex.pause_requested = False
+            db.commit()
+            resource_id = str(ex.resource_id)
+            execution_id = str(ex.id)
+            params = ex.execution_params or {}
+            _append_execution_log(execution_id, "▶ Resume requested — restarting thread")
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+        def _run():
+            bg_db = SessionLocal()
+            try:
+                FetcherManager.run(bg_db, resource_id, execution_params=params, execution_id=execution_id)
+            except ExecutionAborted:
+                try:
+                    exc_r = bg_db.query(ResourceExecution).filter(ResourceExecution.id == execution_id).first()
+                    if exc_r:
+                        exc_r.status = "aborted"
+                        exc_r.completed_at = datetime.utcnow()
+                        bg_db.commit()
+                except Exception:
+                    pass
+            except Exception as exc:
+                try:
+                    exc_r = bg_db.query(ResourceExecution).filter(ResourceExecution.id == execution_id).first()
+                    if exc_r and exc_r.status == "running":
+                        exc_r.status = "failed"
+                        exc_r.error_message = str(exc)
+                        exc_r.completed_at = datetime.utcnow()
+                        bg_db.commit()
+                except Exception:
+                    pass
+            finally:
+                bg_db.close()
+                with _registry_lock:
+                    _running_threads.pop(execution_id, None)
+
+        t = threading.Thread(target=_run, daemon=True, name=f"resume-{execution_id[:8]}")
+        t.start()
+        with _registry_lock:
+            _running_threads[execution_id] = t
+        return ExecutionResult(success=True, message="Execution resumed", resource_id=resource_id)
 
     @strawberry.mutation
     def delete_execution(self, id: str) -> bool:
@@ -621,6 +717,12 @@ class Mutation:
                 application.models_path = input.models_path
             if input.subscribed_projects is not None:
                 application.subscribed_projects = input.subscribed_projects
+            if input.active is not None:
+                application.active = input.active
+            if input.consumption_mode is not None:
+                application.consumption_mode = input.consumption_mode
+            if input.webhook_url is not None:
+                application.webhook_url = input.webhook_url
 
             db.commit()
             db.refresh(application)
@@ -853,6 +955,74 @@ class Mutation:
             if not sub:
                 raise ValueError(f"Suscripción '{id}' no encontrada")
             db.delete(sub)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def create_publisher(self, input: CreatePublisherInput) -> PublisherType:
+        """Crea un nuevo Publisher"""
+        db = get_db()
+        try:
+            p = Publisher(
+                id=uuid4(),
+                nombre=input.nombre,
+                acronimo=input.acronimo,
+                nivel=input.nivel,
+                pais=input.pais,
+                comunidad_autonoma=input.comunidad_autonoma,
+                provincia=input.provincia,
+                municipio=input.municipio,
+                portal_url=input.portal_url,
+                email=input.email,
+                telefono=input.telefono,
+            )
+            db.add(p)
+            db.commit()
+            db.refresh(p)
+            return map_publisher(p)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def update_publisher(self, id: str, input: UpdatePublisherInput) -> PublisherType:
+        """Actualiza un Publisher existente"""
+        db = get_db()
+        try:
+            p = db.query(Publisher).filter(Publisher.id == id).first()
+            if not p:
+                raise ValueError(f"Publisher '{id}' no encontrado")
+            for field in ("nombre", "acronimo", "nivel", "pais", "comunidad_autonoma", "provincia", "municipio", "portal_url", "email", "telefono"):
+                val = getattr(input, field, None)
+                if val is not None:
+                    setattr(p, field, val)
+            db.commit()
+            db.refresh(p)
+            return map_publisher(p)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def delete_publisher(self, id: str) -> bool:
+        """Elimina un Publisher (solo si no tiene resources asociados)"""
+        db = get_db()
+        try:
+            p = db.query(Publisher).filter(Publisher.id == id).first()
+            if not p:
+                raise ValueError(f"Publisher '{id}' no encontrado")
+            if p.resources:
+                raise ValueError(f"El publisher tiene {len(p.resources)} resource(s) asociados. Reasígnalos primero.")
+            db.delete(p)
             db.commit()
             return True
         except Exception as e:

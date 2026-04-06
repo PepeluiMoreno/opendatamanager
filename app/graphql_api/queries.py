@@ -8,7 +8,7 @@ from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
     ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification, AppConfig,
-    DerivedDatasetConfig, DerivedDatasetEntry
+    DerivedDatasetConfig, DerivedDatasetEntry, Publisher
 )
 from app.graphql_api.types import (
     FetcherType,
@@ -23,6 +23,7 @@ from app.graphql_api.types import (
     ApplicationNotificationType,
     AppConfigType,
     DerivedDatasetConfigType,
+    PublisherType,
 )
 
 
@@ -104,12 +105,32 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
     ) """
 
 
+def map_publisher(p: Publisher) -> PublisherType:
+    return PublisherType(
+        id=str(p.id),
+        nombre=p.nombre,
+        acronimo=p.acronimo,
+        nivel=p.nivel,
+        pais=p.pais,
+        comunidad_autonoma=p.comunidad_autonoma,
+        provincia=p.provincia,
+        municipio=p.municipio,
+        portal_url=p.portal_url,
+        email=p.email,
+        telefono=p.telefono,
+        created_at=p.created_at,
+    )
+
+
 def map_resource(resource: Resource) -> ResourceType:
     """Convierte modelo Resource a tipo GraphQL"""
+    pub_obj = getattr(resource, 'publisher_obj', None)
     return ResourceType(
         id=str(resource.id),
         name=resource.name,
         publisher=resource.publisher,
+        publisher_id=str(resource.publisher_id) if resource.publisher_id else None,
+        publisher_obj=map_publisher(pub_obj) if pub_obj else None,
         target_table=resource.target_table,
         active=resource.active,
         schedule=resource.schedule,
@@ -158,6 +179,8 @@ def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
         staging_path=re.staging_path,
         error_message=re.error_message,
         execution_params=re.execution_params,
+        pause_requested=bool(re.pause_requested),
+        active_seconds=re.active_seconds,
     )
 
 
@@ -461,5 +484,24 @@ class Query:
                 query = query.filter(ApplicationNotification.dataset_id == dataset_id)
             notifications = query.order_by(ApplicationNotification.sent_at.desc()).all()
             return [map_application_notification(notif) for notif in notifications]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def publishers(self) -> List[PublisherType]:
+        """Lista todos los publishers ordenados por nombre"""
+        db = get_db()
+        try:
+            return [map_publisher(p) for p in db.query(Publisher).order_by(Publisher.nombre).all()]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def publisher(self, id: str) -> Optional[PublisherType]:
+        """Obtiene un Publisher por ID"""
+        db = get_db()
+        try:
+            p = db.query(Publisher).filter(Publisher.id == id).first()
+            return map_publisher(p) if p else None
         finally:
             db.close()

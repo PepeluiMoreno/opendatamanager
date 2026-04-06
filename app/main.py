@@ -30,14 +30,30 @@ scheduler_service = SchedulerService()
 
 @app.on_event("startup")
 async def startup_event():
+    import asyncio
+
     scheduler_service.start()
-    scheduler_service.add_resource_jobs()
-    # Construir el schema GraphQL de datos al arrancar
-    db = SessionLocal()
-    try:
-        data_engine.rebuild(db)
-    finally:
-        db.close()
+
+    async def _init_with_db():
+        """Espera a que la BD esté disponible y luego inicializa jobs y schema."""
+        for attempt in range(15):
+            try:
+                scheduler_service.add_resource_jobs()
+                db = SessionLocal()
+                try:
+                    data_engine.rebuild(db)
+                finally:
+                    db.close()
+                print("[startup] BD disponible — scheduler y schema GraphQL inicializados.")
+                return
+            except Exception as e:
+                wait = min(2 ** attempt, 30)
+                print(f"[startup] BD no disponible (intento {attempt+1}/15): {type(e).__name__} — reintentando en {wait}s")
+                await asyncio.sleep(wait)
+        print("[startup] WARN: BD inaccesible tras 15 intentos. Scheduler y schema GraphQL no inicializados.")
+
+    # Lanzar en background para que el servidor arranque aunque la BD tarde
+    asyncio.ensure_future(_init_with_db())
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -146,38 +162,35 @@ async def download_dataset_metadata(dataset_id: str):
 
 @app.get("/api/system/info")
 async def system_info():
-    """Returns container/host hardware info for the frontend to compute setting limits.
-    Inside Docker, psutil reads cgroup limits — i.e. the memory actually allocated to this container.
+    """Returns host hardware info for the frontend status panel.
+    Always reads from /proc/meminfo (host values visible inside Docker) so that
+    ram_total and ram_available are consistent with each other.
     """
     import psutil
-    vm = psutil.virtual_memory()
     cpu_logical = psutil.cpu_count(logical=True)
     cpu_physical = psutil.cpu_count(logical=False) or cpu_logical
 
-    # Attempt to read Docker cgroup memory limit (more precise than vm.total inside containers)
-    cgroup_limit_mb = None
-    for path in ("/sys/fs/cgroup/memory/memory.limit_in_bytes",   # cgroup v1
-                 "/sys/fs/cgroup/memory.max"):                     # cgroup v2
-        try:
-            with open(path) as f:
-                val = f.read().strip()
-            if val not in ("max", ""):
-                limit_bytes = int(val)
-                if limit_bytes < 2 ** 62:  # ignore "unlimited" sentinel
-                    cgroup_limit_mb = round(limit_bytes / 1024 / 1024)
-                    break
-        except Exception:
-            pass
+    # /proc/meminfo inside Docker reflects host RAM — use it for both values
+    # so they are always consistent (cgroup limit ≠ host available → confusing display).
+    meminfo = {}
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":", 1)
+                meminfo[k.strip()] = int(v.strip().split()[0])  # kB
+    except Exception:
+        pass
 
-    ram_total_mb = cgroup_limit_mb if cgroup_limit_mb else round(vm.total / 1024 / 1024)
+    ram_total_mb  = round(meminfo.get("MemTotal",  0) / 1024)
+    ram_avail_mb  = round(meminfo.get("MemAvailable", 0) / 1024)
 
     return {
         "ram_total_mb": ram_total_mb,
-        "ram_available_mb": round(vm.available / 1024 / 1024),
+        "ram_available_mb": ram_avail_mb,
         "ram_total_gb": round(ram_total_mb / 1024, 1),
         "cpu_logical": cpu_logical,
         "cpu_physical": cpu_physical,
-        "source": "cgroup" if cgroup_limit_mb else "host",
+        "source": "host",
     }
 
 
@@ -373,6 +386,151 @@ async def get_execution_logs(
 
     result = read_filtered(log_path)
     return PlainTextResponse("".join(result) if result else "")
+
+
+def _face_code_to_nivel(code: str) -> int:
+    """Infer administrative level from DIR3 code prefix."""
+    if not code:
+        return 0
+    if code.startswith("E"):
+        return 1   # AGE / Estatal
+    if code.startswith("A"):
+        return 2   # Autonómica
+    if code.startswith("L03") or code.startswith("L04"):
+        return 3   # Provincial (Diputaciones, Cabildos, Consejos)
+    if code.startswith("L"):
+        return 4   # Local (Ayuntamientos, entidades locales)
+    return 0
+
+
+def _get_latest_staging(db, name_pattern: str) -> str | None:
+    """Return the staging_path of the most-recent completed execution for a resource."""
+    res = (
+        db.query(Resource)
+        .filter(Resource.name.ilike(name_pattern))
+        .first()
+    )
+    if not res:
+        return None
+    exec_ = (
+        db.query(ResourceExecution)
+        .filter(
+            ResourceExecution.resource_id == res.id,
+            ResourceExecution.status == "completed",
+            ResourceExecution.staging_path.isnot(None),
+        )
+        .order_by(ResourceExecution.started_at.desc())
+        .first()
+    )
+    return exec_.staging_path if exec_ else None
+
+
+@app.get("/api/dir3/search")
+async def dir3_search(
+    q: str = Query(default=""),
+    nivel: int = Query(default=0, description="adm_level_id (0=all, 1=AGE, 2=Autonómica, 3=Provincial, 4=Local)"),
+    max_hier: int = Query(default=3, description="Max hierarchical_level for Junta DIR3 data"),
+    limit: int = Query(default=60, le=200),
+    prov: str = Query(default="", description="2-digit INE province code to filter L01/L03 codes"),
+):
+    """Search DIR3 units from Junta DIR3 staging AND FACE relations staging."""
+    import json
+
+    db = SessionLocal()
+    try:
+        dir3_path = _get_latest_staging(db, "%dir3%unidades%")
+        face_path = _get_latest_staging(db, "%face%relaciones%")
+    finally:
+        db.close()
+
+    q_lower = q.strip().lower()
+    results = []
+    seen_codes: set = set()
+
+    # ── Source 1: Junta DIR3 ──────────────────────────────────────────────
+    if dir3_path and os.path.exists(dir3_path):
+        with open(dir3_path, "r", encoding="utf-8") as f:
+            for line in f:
+                rec = json.loads(line)
+                if rec.get("state") != "V":
+                    continue
+                if nivel and int(rec.get("adm_level_id") or 0) != nivel:
+                    continue
+                if int(rec.get("hierarchical_level") or 99) > max_hier:
+                    continue
+                code = rec.get("id", "")
+                if prov and not (code.startswith(f"L01{prov}") or code.startswith(f"L03{prov}")):
+                    continue
+                if q_lower and q_lower not in rec.get("name", "").lower():
+                    continue
+                if code in seen_codes:
+                    continue
+                seen_codes.add(code)
+                results.append({
+                    "id": code,
+                    "name": rec.get("name"),
+                    "adm_level_id": int(rec.get("adm_level_id") or 0),
+                    "adm_level_name": rec.get("adm_level_name"),
+                    "nif_cif": rec.get("nif_cif"),
+                    "source": "dir3",
+                })
+                if len(results) >= limit:
+                    break
+
+    # ── Source 2: FACE relations (deduplicated by administration.code) ────
+    if face_path and os.path.exists(face_path) and len(results) < limit:
+        with open(face_path, "r", encoding="utf-8") as f:
+            for line in f:
+                rec = json.loads(line)
+                adm = rec.get("administration") or {}
+                code = adm.get("code", "")
+                name = adm.get("name", "")
+                if not code or not rec.get("active", True):
+                    continue
+                if code in seen_codes:
+                    continue
+                inferred_nivel = _face_code_to_nivel(code)
+                if nivel and inferred_nivel != nivel:
+                    continue
+                if prov and not (code.startswith(f"L01{prov}") or code.startswith(f"L03{prov}")):
+                    continue
+                if q_lower and q_lower not in name.lower():
+                    continue
+                seen_codes.add(code)
+                results.append({
+                    "id": code,
+                    "name": name,
+                    "adm_level_id": inferred_nivel,
+                    "adm_level_name": {1: "AGE", 2: "Autonómica", 3: "Provincial", 4: "Local"}.get(inferred_nivel, ""),
+                    "nif_cif": None,
+                    "source": "face",
+                })
+                if len(results) >= limit:
+                    break
+
+    if not dir3_path and not face_path:
+        raise HTTPException(status_code=404, detail="No DIR3/FACE staging data found. Run DIR3 or FACE resource first.")
+
+    return {"results": results, "total": len(results), "truncated": len(results) >= limit}
+
+
+@app.get("/api/check-url")
+async def check_url(url: str):
+    """Verifica si una URL es accesible (HEAD). Usado para validar portal_url en publishers."""
+    import asyncio, urllib.request, urllib.error
+    def _head(u):
+        req = urllib.request.Request(u, method="HEAD",
+              headers={"User-Agent": "OpenDataManager/1.0"})
+        try:
+            with urllib.request.urlopen(req, timeout=8) as r:
+                return {"ok": r.status < 400, "status": r.status}
+        except urllib.error.HTTPError as e:
+            return {"ok": e.code < 400, "status": e.code}
+        except urllib.error.URLError as e:
+            return {"ok": False, "error": str(e.reason)[:80]}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:80]}
+    return await asyncio.get_event_loop().run_in_executor(None, _head, url)
 
 
 if __name__ == "__main__":

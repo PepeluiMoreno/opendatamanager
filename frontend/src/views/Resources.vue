@@ -1,9 +1,9 @@
 <template>
-  <div class="p-8">
-    <div class="flex justify-between items-center mb-8">
-      <h1 class="text-3xl font-bold">Resources</h1>
-      <button @click="showCreateModal = true" class="btn btn-primary">
-        + Create Resource
+  <div class="p-6 flex flex-col h-full" ref="viewEl">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold">Resources</h1>
+      <button @click="showCreateModal = true" class="btn btn-primary text-sm">
+        + Nuevo recurso
       </button>
     </div>
 
@@ -15,131 +15,146 @@
       {{ error }}
     </div>
 
-    <div v-else class="card">
+    <div v-else class="card flex flex-col min-h-0 flex-1">
       <!-- Search + filters -->
-      <div class="p-4 border-b border-gray-700 space-y-3">
+      <div class="px-3 py-2 border-b border-gray-700 space-y-1.5 text-xs flex-shrink-0" ref="filterEl">
         <input
           v-model="searchQuery"
           type="text"
           placeholder="Search by name or publisher..."
-          class="input w-full"
+          class="input w-full text-xs py-1 px-2"
         />
 
-        <div class="flex flex-wrap gap-6 text-sm">
+        <div class="flex flex-wrap gap-4 items-center">
           <!-- Type filter -->
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Type:</span>
-            <select
-              v-model="selectedType"
-              class="input py-1 px-2 text-sm"
-              style="min-width: 160px"
-            >
-              <option value="">Todos</option>
+            <select v-model="selectedType" class="input py-0.5 px-2 text-xs" style="min-width:140px">
+              <option value="">All</option>
               <option v-for="t in availableTypes" :key="t" :value="t">{{ t }}</option>
             </select>
           </div>
 
           <!-- Publisher filter -->
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Publisher:</span>
-            <select
-              v-model="selectedPublisher"
-              class="input py-1 px-2 text-sm"
-              style="min-width: 180px"
-            >
-              <option value="">Todos</option>
-              <option v-for="p in availablePublishers" :key="p" :value="p">{{ p }}</option>
+            <select v-model="selectedPublisher" class="input py-0.5 px-2 text-xs" style="min-width:160px">
+              <option value="">All</option>
+              <option v-for="p in availablePublishers" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+            </select>
+          </div>
+
+          <!-- Level filter -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-gray-400 font-medium">Level:</span>
+            <select v-model="selectedNivel" class="input py-0.5 px-2 text-xs" style="min-width:110px">
+              <option value="">All</option>
+              <option v-for="n in availableNiveles" :key="n" :value="n">{{ n }}</option>
             </select>
           </div>
 
           <!-- Status filter -->
-          <div>
-            <span class="text-gray-400 font-medium mr-2">Status:</span>
-            <label class="mr-3 cursor-pointer">
-              <input type="checkbox" v-model="filterAllStatuses" class="mr-1" @change="onAllStatuses" />
-              Todos
+          <div class="flex items-center gap-2">
+            <span class="text-gray-400 font-medium">Status:</span>
+            <label class="cursor-pointer flex items-center gap-1">
+              <input type="checkbox" v-model="filterAllStatuses" class="accent-blue-500" @change="onAllStatuses" />
+              All
             </label>
-            <label class="mr-3 cursor-pointer">
-              <input type="checkbox" value="active" v-model="filterStatuses" class="mr-1" @change="onStatusChange" />
+            <label class="cursor-pointer flex items-center gap-1">
+              <input type="checkbox" value="active" v-model="filterStatuses" class="accent-green-500" @change="onStatusChange" />
               <span class="text-green-400">Active</span>
             </label>
-            <label class="cursor-pointer">
-              <input type="checkbox" value="inactive" v-model="filterStatuses" class="mr-1" @change="onStatusChange" />
+            <label class="cursor-pointer flex items-center gap-1">
+              <input type="checkbox" value="inactive" v-model="filterStatuses" class="accent-red-500" @change="onStatusChange" />
               <span class="text-red-400">Inactive</span>
             </label>
+          </div>
+
+          <!-- Result count + Clear filters -->
+          <div class="ml-auto flex items-center gap-3">
+            <span class="text-gray-500">
+              {{ filteredResources.length }} / {{ resources.length }}
+            </span>
+            <button @click="clearFilters"
+                    :disabled="!hasActiveFilters"
+                    class="text-xs px-2 py-0.5 rounded border"
+                    :class="hasActiveFilters
+                      ? 'border-yellow-600 text-yellow-400 hover:bg-yellow-900/30 cursor-pointer'
+                      : 'border-gray-700 text-gray-600 cursor-not-allowed'">
+              Clear filters
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="max-h-[calc(100vh-280px)] overflow-y-auto">
+      <div class="overflow-y-auto flex-1">
       <table class="w-full">
         <thead class="sticky top-0 z-10 bg-gray-800">
-          <tr class="border-b border-gray-700">
-            <th class="text-left py-3 px-4">Name</th>
-            <th class="text-left py-3 px-4">Publisher</th>
-            <th class="text-left py-3 px-4">Type</th>
-            <th class="text-left py-3 px-4">Status</th>
-            <th class="text-right py-3 px-4">Actions</th>
+          <tr class="border-b border-gray-700 text-xs text-gray-400">
+            <th class="text-left py-2 px-3 font-medium">Name</th>
+            <th class="text-left py-2 px-3 font-medium">Publisher</th>
+            <th class="text-left py-2 px-3 font-medium">Type</th>
+            <th class="text-left py-2 px-3 font-medium">Status</th>
+            <th class="text-right py-2 px-3 font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="resource in pagedResources"
             :key="resource.id"
-            class="border-b border-gray-700 hover:bg-gray-700 transition-colors"
+            class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
           >
-            <td class="py-3 px-4 font-medium">{{ resource.name }}</td>
-            <td class="py-3 px-4 text-gray-400">{{ resource.publisher }}</td>
-            <td class="py-3 px-4">
-              <code class="text-xs bg-gray-900 px-2 py-1 rounded text-blue-400 whitespace-nowrap">
+            <td class="py-1.5 px-3 text-xs font-medium text-white whitespace-nowrap">{{ resource.name }}</td>
+            <td class="py-1.5 px-3 text-xs text-gray-400 whitespace-nowrap">
+              <span v-if="resource.publisherObj?.acronimo"
+                    :title="resource.publisherObj.nombre"
+                    class="cursor-help">
+                {{ resource.publisherObj.acronimo }}
+                <span class="inline-flex items-center justify-center w-3 h-3 rounded-full bg-gray-600 text-gray-300 text-[9px] leading-none ml-0.5 align-middle">i</span>
+              </span>
+              <span v-else>{{ resource.publisherObj?.nombre || resource.publisher || '—' }}</span>
+            </td>
+            <td class="py-1.5 px-3 whitespace-nowrap">
+              <code class="text-xs bg-gray-900 px-1.5 py-0.5 rounded text-blue-400">
                 {{ resource.fetcher.code }}
               </code>
             </td>
-            <td class="py-3 px-4">
-              <div class="flex items-center gap-2">
-                <span
-                  :class="resource.active ? 'text-green-400' : 'text-red-400'"
-                  class="text-sm font-medium"
-                >
-                  {{ resource.active ? 'Active' : 'Inactive' }}
+            <td class="py-1.5 px-3 whitespace-nowrap">
+              <div class="flex items-center gap-1.5">
+                <span class="inline-block h-1.5 w-1.5 rounded-full flex-shrink-0"
+                      :class="resource.active ? 'bg-green-400' : 'bg-red-500'"></span>
+                <span class="text-xs" :class="resource.active ? 'text-green-400' : 'text-red-400'">
+                  {{ resource.active ? 'Activo' : 'Inactivo' }}
                 </span>
                 <span v-if="runningResourceIds.has(resource.id)"
-                  class="text-xs font-bold bg-blue-900 text-blue-300 border border-blue-700 px-2 py-0.5 rounded-full animate-pulse">
-                  RUNNING
+                  class="text-xs font-bold bg-blue-900 text-blue-300 border border-blue-700 px-1.5 py-0.5 rounded-full animate-pulse">
+                  RUN
                 </span>
               </div>
             </td>
-            <td class="py-3 px-4">
-              <div class="flex justify-end gap-2">
+            <td class="py-1.5 px-3">
+              <div class="flex justify-end gap-1">
                 <button
                   @click="openExecuteModal(resource)"
-                  class="btn btn-primary text-sm py-1 px-3"
-                  title="Execute resource"
-                >
-                  Run
-                </button>
-               <button
+                  class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
+                  title="Ejecutar"
+                >Run</button>
+                <button
                   @click="showPreviewData(resource)"
-                  class="btn btn-secondary text-sm py-1 px-3"
-                >
-                  Test
-                </button>
+                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                >Test</button>
                 <button
                   @click="editResource(resource)"
-                  class="btn btn-secondary text-sm py-1 px-3"
-                >
-                  Edit
-                </button>
+                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                >Edit</button>
                 <button
                   @click="handleClone(resource)"
-                  class="btn btn-secondary text-sm py-1 px-3"
-                  title="Clonar resource con todos sus parámetros"
-                >
-                  Clonar
-                </button>
+                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  title="Clonar"
+                >Clone</button>
                 <button
                   @click="confirmDelete(resource)"
-                  class="btn btn-danger text-sm py-1 px-3"
+                  class="text-xs px-2 py-0.5 rounded bg-red-900/60 hover:bg-red-800 text-red-300"
                 >
                   Delete
                 </button>
@@ -150,35 +165,39 @@
       </table>
       </div>
 
-      <div v-if="filteredResources.length === 0" class="text-gray-400 text-center py-8">
-        <span v-if="searchQuery || selectedType || selectedPublisher || !filterAllStatuses">No resources match the filters.</span>
-        <span v-else>No resources configured yet. Click "Create Resource" to add one.</span>
+      <div v-if="filteredResources.length === 0" class="text-gray-400 text-center py-8 space-y-2">
+        <div v-if="hasActiveFilters">
+          <p>No resources match the active filters.</p>
+          <button @click="clearFilters" class="mt-1 text-xs text-yellow-400 hover:text-yellow-300 underline">Clear filters</button>
+        </div>
+        <p v-else>No resources configured yet. Click "+ New resource" to add one.</p>
       </div>
 
       <!-- Pagination -->
-      <div v-if="filteredResources.length > 0" class="flex items-center justify-between px-4 py-3 border-t border-gray-700 text-sm">
-        <span class="text-gray-400">
-          {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredResources.length) }}
-          de {{ filteredResources.length }}
-        </span>
-        <div v-if="totalPages > 1" class="flex gap-1">
-          <button
-            @click="currentPage--"
-            :disabled="currentPage === 1"
-            class="px-3 py-1 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700"
-          >‹</button>
-          <button
-            v-for="p in totalPages"
-            :key="p"
-            @click="currentPage = p"
+      <div v-if="filteredResources.length > 0"
+           class="flex items-center justify-between px-3 py-1.5 border-t border-gray-700 text-xs flex-shrink-0"
+           ref="paginEl">
+        <div class="flex items-center gap-3 text-gray-400">
+          <span>
+            {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredResources.length) }}
+            de {{ filteredResources.length }}
+          </span>
+          <div class="flex items-center gap-1">
+            <span>Filas:</span>
+            <select v-model.number="pageSizeOverride" class="input py-0 px-1 text-xs">
+              <option :value="0">Auto ({{ autoPageSize }})</option>
+              <option v-for="n in [10,15,20,25,50]" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </div>
+        </div>
+        <div v-if="totalPages > 1" class="flex gap-0.5">
+          <button @click="currentPage--" :disabled="currentPage === 1"
+            class="px-2 py-0.5 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700">‹</button>
+          <button v-for="p in totalPages" :key="p" @click="currentPage = p"
             :class="p === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700'"
-            class="px-3 py-1 rounded border"
-          >{{ p }}</button>
-          <button
-            @click="currentPage++"
-            :disabled="currentPage === totalPages"
-            class="px-3 py-1 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700"
-          >›</button>
+            class="px-2 py-0.5 rounded border">{{ p }}</button>
+          <button @click="currentPage++" :disabled="currentPage === totalPages"
+            class="px-2 py-0.5 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700">›</button>
         </div>
       </div>
     </div>
@@ -210,16 +229,11 @@
             </div>
 
             <div>
-              <Tooltip :text="getTooltip('publisher')">
-                <label class="block text-xs font-medium mb-1">Publisher</label>
-              </Tooltip>
-              <input
-                v-model="form.publisher"
-                type="text"
-                required
-                class="input w-full text-sm"
-                :placeholder="getPlaceholder('publisher')"
-              />
+              <label class="block text-xs font-medium mb-1">Publisher</label>
+              <select v-model="form.publisherId" class="input w-full text-sm">
+                <option :value="null">Sin asignar</option>
+                <option v-for="p in publishers" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+              </select>
             </div>
           </div>
 
@@ -309,7 +323,7 @@
                     </div>
                   </div>
                   <!-- Input area -->
-                  <div :class="isFullWidthParam(param.dataType) ? 'w-full' : 'flex-1 min-w-0 max-w-[45%]'">
+                  <div :class="isFullWidthParam(param.dataType) ? 'w-full' : 'flex-1 min-w-0'">
                     <FilterMapEditor
                       v-if="param.dataType === 'json_filter_map' && param.enumValues"
                       :modelValue="getParamValue(param.paramName) || '{}'"
@@ -346,7 +360,6 @@
                     />
                   </div>
                   <!-- Runtime checkbox (non-fullwidth params) -->
-                  <div v-if="!isFullWidthParam(param.dataType)" class="flex-1"></div>
                   <div v-if="!isFullWidthParam(param.dataType)" class="flex-shrink-0 flex items-center gap-1.5" title="Pedir valor al ejecutar">
                     <input
                       type="checkbox"
@@ -410,7 +423,7 @@
                     </div>
                   </div>
                   <!-- Input area -->
-                  <div :class="isFullWidthParam(getParamType(paramName)) ? 'w-full' : 'flex-1 min-w-0 max-w-[45%]'">
+                  <div :class="isFullWidthParam(getParamType(paramName)) ? 'w-full' : 'flex-1 min-w-0'">
                     <FilterMapEditor
                       v-if="getParamType(paramName) === 'json_filter_map' && getParamEnumValues(paramName)"
                       :modelValue="getParamValue(paramName) || '{}'"
@@ -447,7 +460,6 @@
                     />
                   </div>
                   <!-- Runtime + remove (non-fullwidth) -->
-                  <div v-if="!isFullWidthParam(getParamType(paramName))" class="flex-1"></div>
                   <div v-if="!isFullWidthParam(getParamType(paramName))" class="flex-shrink-0 flex items-center gap-1">
                     <input
                       type="checkbox"
@@ -834,11 +846,36 @@ import {
   updateDerivedDatasetConfig,
   deleteDerivedDatasetConfig,
   toggleDerivedDatasetConfig,
+  fetchPublishers,
 } from '../api/graphql'
 import PreviewDataModal from './PreviewDataModal.vue'
 
+// ── Refs para medición de altura dinámica ─────────────────────────────────────
+const viewEl    = ref(null)
+const filterEl  = ref(null)
+const paginEl   = ref(null)
+
+const ROW_H        = 33   // px estimado por fila (py-1.5 + text-xs)
+const THEAD_H      = 33   // cabecera de tabla
+const autoPageSize = ref(15)
+const pageSizeOverride = ref(0)   // 0 = usar auto
+const pageSize = computed(() => pageSizeOverride.value || autoPageSize.value)
+
+function recalcPageSize() {
+  if (!filterEl.value) return
+  const winH    = window.innerHeight
+  const cardTop = filterEl.value.closest('.card')?.getBoundingClientRect().top ?? 120
+  const filterH = filterEl.value.clientHeight
+  const paginH  = paginEl.value?.clientHeight ?? 36
+  const available = winH - cardTop - filterH - THEAD_H - paginH - 16
+  autoPageSize.value = Math.max(5, Math.floor(available / ROW_H))
+}
+
+let _ro = null
+
 const resources = ref([])
 const fetchers = ref([])
+const publishers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
 const appConfig = ref({})  // key→value map
 const sysInfo   = ref(null)
@@ -870,19 +907,24 @@ const loading = ref(true)
 const error = ref(null)
 const searchQuery = ref('')
 const currentPage = ref(1)
-const pageSize = 8
 
 // Filter state
 const selectedType      = ref('')
 const selectedPublisher = ref('')
+const selectedNivel     = ref('')
 const filterAllStatuses = ref(true)
 const filterStatuses    = ref([])
 
 const availableTypes = computed(() =>
   [...new Set(resources.value.map(r => r.fetcher?.code).filter(Boolean))].sort()
 )
-const availablePublishers = computed(() =>
-  [...new Set(resources.value.map(r => r.publisher).filter(Boolean))].sort()
+// Publishers that actually appear in resources
+const availablePublishers = computed(() => {
+  const ids = new Set(resources.value.map(r => r.publisherId).filter(Boolean))
+  return publishers.value.filter(p => ids.has(p.id))
+})
+const availableNiveles = computed(() =>
+  [...new Set(availablePublishers.value.map(p => p.nivel).filter(Boolean))].sort()
 )
 
 function onAllStatuses() {
@@ -890,6 +932,20 @@ function onAllStatuses() {
 }
 function onStatusChange() {
   filterAllStatuses.value = filterStatuses.value.length === 0
+}
+
+const hasActiveFilters = computed(() =>
+  !!(searchQuery.value || selectedType.value || selectedPublisher.value || selectedNivel.value || !filterAllStatuses.value)
+)
+
+function clearFilters() {
+  searchQuery.value      = ''
+  selectedType.value     = ''
+  selectedPublisher.value = ''
+  selectedNivel.value    = ''
+  filterAllStatuses.value = true
+  filterStatuses.value   = []
+  currentPage.value      = 1
 }
 
 const showCreateModal = ref(false)
@@ -910,7 +966,7 @@ const previewError = ref(null)
 
 const form = ref({
   name: '',
-  publisher: '',
+  publisherId: null,
   fetcherId: '',
   params: [],
   active: true,
@@ -981,11 +1037,14 @@ const availableOptionalParams = computed(() => {
 const filteredResources = computed(() => {
   const q = searchQuery.value.toLowerCase()
   const list = resources.value.filter(r => {
-    if (q && !r.name.toLowerCase().includes(q) && !r.publisher.toLowerCase().includes(q))
+    const pubName = r.publisherObj?.nombre || r.publisher || ''
+    if (q && !r.name.toLowerCase().includes(q) && !pubName.toLowerCase().includes(q))
       return false
     if (selectedType.value && r.fetcher?.code !== selectedType.value)
       return false
-    if (selectedPublisher.value && r.publisher !== selectedPublisher.value)
+    if (selectedPublisher.value && r.publisherId !== selectedPublisher.value)
+      return false
+    if (selectedNivel.value && r.publisherObj?.nivel !== selectedNivel.value)
       return false
     if (!filterAllStatuses.value && filterStatuses.value.length) {
       const status = r.active ? 'active' : 'inactive'
@@ -996,14 +1055,15 @@ const filteredResources = computed(() => {
   return list.sort((a, b) => a.name.localeCompare(b.name, 'es'))
 })
 
-const totalPages = computed(() => Math.ceil(filteredResources.value.length / pageSize))
+const totalPages = computed(() => Math.ceil(filteredResources.value.length / pageSize.value))
 
 const pagedResources = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredResources.value.slice(start, start + pageSize)
+  const ps = pageSize.value
+  const start = (currentPage.value - 1) * ps
+  return filteredResources.value.slice(start, start + ps)
 })
 
-watch([searchQuery, selectedType, selectedPublisher, filterStatuses], () => { currentPage.value = 1 })
+watch([searchQuery, selectedType, selectedPublisher, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
 
 const selectedOptionalParam = ref('')
 
@@ -1011,9 +1071,10 @@ async function loadData() {
   try {
     loading.value = true
     error.value = null
-    const [resourcesData, typesData, resourceMetadata, paramMetadata, cfgData, infoData] = await Promise.all([
+    const [resourcesData, typesData, publishersData, resourceMetadata, paramMetadata, cfgData, infoData] = await Promise.all([
       fetchResources(false),
       fetchFetchers(),
+      fetchPublishers(),
       fetchFieldMetadata('resource'),
       fetchFieldMetadata('resource_param'),
       fetchAppConfig(),
@@ -1021,6 +1082,7 @@ async function loadData() {
     ])
     resources.value = resourcesData.resources
     fetchers.value = typesData.fetchers
+    publishers.value = publishersData?.publishers || []
 
     // Organize metadata by field_name for easy lookup
     const metaMap = {}
@@ -1224,7 +1286,7 @@ function editResource(resource) {
 
   form.value = {
     name: resource.name,
-    publisher: resource.publisher,
+    publisherId: resource.publisherId || null,
     fetcherId: resource.fetcher.id,
     params: regularParams.map(p => ({ key: p.key, value: p.value, isExternal: p.isExternal || false })),
     active: resource.active,
@@ -1361,7 +1423,7 @@ async function submitForm() {
 
     const input = {
       name: form.value.name,
-      publisher: form.value.publisher,
+      publisherId: form.value.publisherId || null,
       fetcherId: form.value.fetcherId,
       params: allParams,
       active: form.value.active,
@@ -1516,9 +1578,20 @@ onMounted(() => {
   loadData()
   pollRunning()
   runningPollTimer = setInterval(pollRunning, 5000)
+
+  // Cálculo dinámico de filas por página
+  _ro = new ResizeObserver(recalcPageSize)
+  // Observamos el filterEl cuando esté disponible (nextTick por si acaso)
+  setTimeout(() => {
+    if (filterEl.value) _ro.observe(filterEl.value)
+    recalcPageSize()
+  }, 100)
+  window.addEventListener('resize', recalcPageSize)
 })
 
 onUnmounted(() => {
   clearInterval(runningPollTimer)
+  _ro?.disconnect()
+  window.removeEventListener('resize', recalcPageSize)
 })
 </script>

@@ -123,24 +123,44 @@ class FetcherManager:
             session.add(execution)
             session.commit()  # Commit immediately so execution is visible as "running"
 
+        period_start = datetime.utcnow()  # defined before try so except can always reference it
         logger = ExecutionLogger(str(execution.id))
         try:
             logger.log(f"Ejecutando Resource: {resource.name} (publisher: {resource.publisher})")
 
             # 1. EXTRACT + STAGE (streaming — one page written to disk at a time)
-            logger.log("[1/5] EXTRACT+STAGE - Streaming data to staging file...")
-            fetcher = FetcherFactory.create_from_resource(resource, execution_params)
-
             staging_dir = f"data/staging/{resource_id}"
             os.makedirs(staging_dir, exist_ok=True)
             staging_path = os.path.join(staging_dir, f"{execution.id}.jsonl")
 
-            total_records = 0
+            # Detect resume: execution_params may carry _resume_state saved at pause time
+            saved_state = (execution.execution_params or {}).get("_resume_state")
+            is_resume   = bool(saved_state)
+
+            # Build runtime params for the fetcher, injecting resume info if needed
+            runtime_params = dict(execution_params or {})
+            runtime_params["_staging_path"] = staging_path
+            if saved_state:
+                runtime_params["_resume_state"] = saved_state
+
+            logger.log("[1/5] EXTRACT+STAGE - Streaming data to staging file...")
+            if is_resume:
+                hint = (
+                    f"pivot {saved_state['pivot_index']}" if "pivot_index" in saved_state else
+                    f"page {saved_state['pages_fetched']}" if "pages_fetched" in saved_state else
+                    f"page {saved_state['page']}" if "page" in saved_state else
+                    "saved state"
+                )
+                logger.log(f"  RESUME — continuing from {hint}, appending to existing staging file")
+            fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
+
+            # On resume, append to existing staging and recover already-staged record count
+            file_mode    = "a" if is_resume else "w"
+            total_records = int(execution.total_records or 0) if is_resume else 0
             paused = False
-            # Campos internos que no se persisten en el staging
             _STAGING_EXCLUDE = {"raw_xml_content", "raw_html", "_raw"}
 
-            with open(staging_path, "w", encoding="utf-8") as f:
+            with open(staging_path, file_mode, encoding="utf-8") as f:
                 for chunk in fetcher.stream():
                     for record in chunk:
                         clean = {k: v for k, v in record.items() if k not in _STAGING_EXCLUDE}
@@ -148,10 +168,10 @@ class FetcherManager:
                         f.write(json.dumps(serializable, ensure_ascii=False) + "\n")
                     total_records += len(chunk)
                     execution.total_records = total_records
-                    session.commit()  # Progressive persistence — survives a restart
+                    session.commit()
                     logger.log(f"  Staged {total_records} records so far...")
 
-                    # Check cooperative pause signal (set by exclusive mode or manual pause)
+                    # Check cooperative pause signal
                     session.refresh(execution)
                     if execution.pause_requested:
                         paused = True
@@ -159,9 +179,25 @@ class FetcherManager:
                         break
 
             if paused:
+                # Accumulate active time for this period
+                execution.active_seconds = (execution.active_seconds or 0) + int((datetime.utcnow() - period_start).total_seconds())
+
+                # Persist resume state from fetcher so next resume continues from here
+                resume_state = getattr(fetcher, "current_state", {})
+                current_params = dict(execution.execution_params or {})
+                current_params["_resume_state"] = resume_state
+                execution.execution_params = current_params
                 execution.status = "paused"
                 execution.completed_at = datetime.utcnow()
-                logger.log(f"PAUSED — {total_records} records staged. Resume to restart.")
+                if resume_state.get("pivot_index") is not None:
+                    next_hint = f" (next: pivot {resume_state['pivot_index']})"
+                elif resume_state.get("pages_fetched") is not None:
+                    next_hint = f" (next: page {resume_state['pages_fetched'] + 1})"
+                elif resume_state.get("page") is not None:
+                    next_hint = f" (next: page {resume_state['page']})"
+                else:
+                    next_hint = ""
+                logger.log(f"PAUSED — {total_records} records staged{next_hint}. Resume to continue.")
                 session.commit()
                 logger.close()
                 return None
@@ -220,9 +256,10 @@ class FetcherManager:
             notification_service = NotificationService()
             notification_service.notify_subscribers(session, dataset)
 
+            execution.active_seconds = (execution.active_seconds or 0) + int((datetime.utcnow() - period_start).total_seconds())
             execution.status = "completed"
             execution.completed_at = datetime.utcnow()
-            logger.log(f"COMPLETED - {total_records} records in {round((execution.completed_at - execution.started_at).total_seconds(), 1)}s")
+            logger.log(f"COMPLETED - {total_records} records in {execution.active_seconds}s active")
 
             # Rebuild the dynamic GraphQL data schema so new data is immediately queryable
             try:
@@ -234,6 +271,7 @@ class FetcherManager:
                 logger.log(f"  WARNING: GraphQL data schema rebuild failed: {rebuild_err}")
 
         except Exception as e:
+            execution.active_seconds = (execution.active_seconds or 0) + int((datetime.utcnow() - period_start).total_seconds())
             execution.status = "failed"
             execution.error_message = str(e)
             execution.completed_at = datetime.utcnow()

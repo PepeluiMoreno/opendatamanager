@@ -47,6 +47,27 @@ class FetcherParams(Base):
     fetcher = relationship("Fetcher", back_populates="params_def")
 
 
+class Publisher(Base):
+    """Entidad publicadora de datos abiertos (organismo, portal, administración)."""
+    __tablename__ = "publisher"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    nombre = Column(String(200), nullable=False)
+    acronimo = Column(String(30), nullable=True)
+    nivel = Column(String(30), nullable=False)  # ESTATAL | AUTONOMICO | PROVINCIAL | LOCAL | EUROPEO | INTERNACIONAL
+    pais = Column(String(100), nullable=False, default="España")
+    comunidad_autonoma = Column(String(100), nullable=True)
+    provincia = Column(String(100), nullable=True)
+    municipio = Column(String(200), nullable=True)
+    portal_url = Column(String(500), nullable=True)
+    email = Column(String(200), nullable=True)
+    telefono = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    resources = relationship("Resource", back_populates="publisher_obj")
+
+
 class Resource(Base):
     __tablename__ = "resource"
     __table_args__ = {"schema": "opendata"}
@@ -54,7 +75,8 @@ class Resource(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text)
-    publisher = Column(String(50), nullable=False)
+    publisher = Column(String(200), nullable=True)   # texto libre (legado / fallback)
+    publisher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.publisher.id"), nullable=True)
     target_table = Column(String(100), nullable=True)
     fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id"))
     active = Column(Boolean, default=True)
@@ -65,8 +87,9 @@ class Resource(Base):
     load_mode = Column(String(20), default="replace")
 
     fetcher = relationship("Fetcher", back_populates="resources")
+    publisher_obj = relationship("Publisher", back_populates="resources")
     params = relationship("ResourceParam", back_populates="resource", cascade="all, delete-orphan")
-    executions = relationship("ResourceExecution", back_populates="resource")
+    executions = relationship("ResourceExecution", back_populates="resource", cascade="all, delete-orphan")
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
 
@@ -142,6 +165,10 @@ class ResourceExecution(Base):
     # Cooperative pause signal — set True from outside to ask the streaming loop to stop
     # gracefully at the next page boundary and save state as "paused".
     pause_requested = Column(Boolean, default=False, nullable=False)
+
+    # Accumulated active time in seconds (excludes paused periods).
+    # Incremented each time the process pauses or completes.
+    active_seconds = Column(Integer, nullable=True, default=0)
 
     # Results
     total_records = Column(Integer)

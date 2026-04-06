@@ -26,6 +26,11 @@ class BaseFetcher(ABC):
         self.num_workers = int(params.get("num_workers", 1))
         self._max_retries = int(params.get("max_retries", 5))
         self._retry_backoff = float(params.get("retry_backoff", 2.0))
+        # Resume protocol: fetchers that support mid-stream resumption update this dict
+        # after each natural "savepoint" (page, pivot, etc.).
+        # FetcherManager reads it at pause time and persists it to the execution record.
+        # On resume, FetcherManager passes it back via params["_resume_state"].
+        self.current_state: Dict[str, Any] = {}
 
     @property
     def is_parallelizable(self) -> bool:

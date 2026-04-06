@@ -33,11 +33,13 @@ else
         log "PBF ya en disco: $(( PBF_SIZE / 1024 / 1024 )) MB. Saltando descarga."
     fi
 
-    # --flush-size = RAM_total / 2 (mínimo 1 GB), autodetectado desde /proc/meminfo.
+    # --flush-size conservador: RAM/6, mínimo 1 GB, máximo 2 GB.
+    # Con RAM/2 el OOM killer mataba el proceso en máquinas con ≤8 GB.
     RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     RAM_GB=$(( RAM_KB / 1024 / 1024 ))
-    FLUSH_SIZE=$(( RAM_GB / 2 ))
+    FLUSH_SIZE=$(( RAM_GB / 6 ))
     [ "$FLUSH_SIZE" -lt 1 ] && FLUSH_SIZE=1
+    [ "$FLUSH_SIZE" -gt 2 ] && FLUSH_SIZE=2
     log "RAM detectada: ${RAM_GB} GB → --flush-size=${FLUSH_SIZE} GB"
     log "Importando con osmium → update_database (puede tardar 30-90 min)..."
     osmium cat "$TMP_PBF" -o - --output-format osm \

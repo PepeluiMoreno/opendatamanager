@@ -22,6 +22,15 @@ export const QUERIES = {
         id
         name
         publisher
+        publisherId
+        publisherObj {
+          id
+          nombre
+          acronimo
+          nivel
+          pais
+          comunidadAutonoma
+        }
         targetTable
         active
         schedule
@@ -131,6 +140,8 @@ export const QUERIES = {
         recordsLoaded
         errorMessage
         executionParams
+        pauseRequested
+        activeSeconds
       }
     }
   `,
@@ -212,6 +223,7 @@ export const MUTATIONS = {
         id
         name
         publisher
+        publisherId
         targetTable
       }
     }
@@ -223,6 +235,7 @@ export const MUTATIONS = {
         id
         name
         publisher
+        publisherId
         targetTable
       }
     }
@@ -312,6 +325,24 @@ export const MUTATIONS = {
   ABORT_EXECUTION: `
     mutation AbortExecution($id: String!) {
       abortExecution(id: $id) {
+        success
+        message
+      }
+    }
+  `,
+
+  PAUSE_EXECUTION: `
+    mutation PauseExecution($id: String!) {
+      pauseExecution(id: $id) {
+        success
+        message
+      }
+    }
+  `,
+
+  RESUME_EXECUTION: `
+    mutation ResumeExecution($id: String!) {
+      resumeExecution(id: $id) {
         success
         message
       }
@@ -657,6 +688,22 @@ export async function abortExecution(id) {
   }
 }
 
+export async function pauseExecution(id) {
+  try {
+    return await client.request(MUTATIONS.PAUSE_EXECUTION, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function resumeExecution(id) {
+  try {
+    return await client.request(MUTATIONS.RESUME_EXECUTION, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
 export async function fetchResourceExecutions(resourceId = null) {
   try {
     return await client.request(QUERIES.GET_RESOURCE_EXECUTIONS, { resourceId })
@@ -724,6 +771,54 @@ export async function subscribeResource(applicationId, resourceId, pinnedVersion
 export async function unsubscribeResource(id) {
   try {
     return await client.request(MUTATIONS.UNSUBSCRIBE_RESOURCE, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+// ── Publishers ────────────────────────────────────────────────────────────────
+
+const PUBLISHER_FIELDS = `
+  id nombre acronimo nivel pais comunidadAutonoma provincia municipio portalUrl email telefono createdAt
+`
+
+export async function fetchPublishers() {
+  try {
+    return await client.request(`query { publishers { ${PUBLISHER_FIELDS} } }`)
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function createPublisher(input) {
+  try {
+    return await client.request(`
+      mutation CreatePublisher($input: CreatePublisherInput!) {
+        createPublisher(input: $input) { ${PUBLISHER_FIELDS} }
+      }
+    `, { input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function updatePublisher(id, input) {
+  try {
+    return await client.request(`
+      mutation UpdatePublisher($id: String!, $input: UpdatePublisherInput!) {
+        updatePublisher(id: $id, input: $input) { ${PUBLISHER_FIELDS} }
+      }
+    `, { id, input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function deletePublisher(id) {
+  try {
+    return await client.request(`
+      mutation DeletePublisher($id: String!) { deletePublisher(id: $id) }
+    `, { id })
   } catch (error) {
     handleGraphQLError(error)
   }

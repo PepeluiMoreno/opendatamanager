@@ -6,76 +6,44 @@
     </div>
 
     <nav class="flex-1 p-4 space-y-2">
-      <router-link
-        to="/"
-        class="nav-item"
-        :class="{ 'active': $route.path === '/' }"
-      >
-        <span class="text-lg mr-3">📊</span>
-        Dashboard
+      <router-link to="/" class="nav-item" :class="{ 'active': $route.path === '/' }">
+        <span class="text-lg mr-3">📊</span>Dashboard
       </router-link>
 
-      <router-link
-        to="/resources"
-        class="nav-item"
-        :class="{ 'active': $route.path.startsWith('/resources') }"
-      >
-        <span class="text-lg mr-3">🔌</span>
-        Resources
+      <router-link to="/publishers" class="nav-item" :class="{ 'active': $route.path === '/publishers' }">
+        <span class="text-lg mr-3">🏛️</span>Publishers
       </router-link>
 
-      <router-link
-        to="/fetchers"
-        class="nav-item"
-        :class="{ 'active': $route.path.startsWith('/fetchers') }"
-      >
-        <span class="text-lg mr-3">🔧</span>
-        Fetchers
+      <router-link to="/resources" class="nav-item" :class="{ 'active': $route.path.startsWith('/resources') }">
+        <span class="text-lg mr-3">🔌</span>Resources
       </router-link>
 
-      <router-link
-        to="/applications"
-        class="nav-item"
-        :class="{ 'active': $route.path === '/applications' }"
-      >
-        <span class="text-lg mr-3">📦</span>
-        Applications
+      <router-link to="/fetchers" class="nav-item" :class="{ 'active': $route.path.startsWith('/fetchers') }">
+        <span class="text-lg mr-3">🔧</span>Fetchers
       </router-link>
 
-      <router-link
-        to="/processes"
-        class="nav-item"
-        :class="{ 'active': $route.path === '/processes' }"
-      >
-        <span class="text-lg mr-3">⚡</span>
-        Processes
+      <router-link to="/processes" class="nav-item" :class="{ 'active': $route.path === '/processes' }">
+        <span class="text-lg mr-3">⚡</span>Processes
       </router-link>
 
-      <router-link
-        to="/schedule"
-        class="nav-item"
-        :class="{ 'active': $route.path === '/schedule' }"
-      >
-        <span class="text-lg mr-3">🕐</span>
-        Schedule
+      <router-link to="/explorer" class="nav-item" :class="{ 'active': $route.path === '/explorer' }">
+        <span class="text-lg mr-3">🔍</span>Data Explorer
       </router-link>
 
-      <router-link
-        to="/explorer"
-        class="nav-item"
-        :class="{ 'active': $route.path === '/explorer' }"
-      >
-        <span class="text-lg mr-3">🔍</span>
-        Data Explorer
+      <router-link to="/applications" class="nav-item" :class="{ 'active': $route.path === '/applications' }">
+        <span class="text-lg mr-3">📦</span>Applications
       </router-link>
 
-      <router-link
-        to="/settings"
-        class="nav-item"
-        :class="{ 'active': $route.path === '/settings' }"
-      >
-        <span class="text-lg mr-3">⚙️</span>
-        Settings
+      <router-link to="/subscriptions" class="nav-item" :class="{ 'active': $route.path === '/subscriptions' }">
+        <span class="text-lg mr-3">🔗</span>Subscriptions
+      </router-link>
+
+      <router-link to="/schedule" class="nav-item" :class="{ 'active': $route.path === '/schedule' }">
+        <span class="text-lg mr-3">🕐</span>Schedule
+      </router-link>
+
+      <router-link to="/settings" class="nav-item" :class="{ 'active': $route.path === '/settings' }">
+        <span class="text-lg mr-3">⚙️</span>Settings
       </router-link>
     </nav>
 
@@ -163,12 +131,18 @@ const ramColor    = computed(() => {
   return 'text-green-400'
 })
 
+let _healthFailures = 0
 async function checkHealth() {
   try {
-    const res = await fetch('/health', { signal: AbortSignal.timeout(3000) })
-    status.value = res.ok ? 'online' : 'offline'
+    const res = await fetch('/health', { signal: AbortSignal.timeout(8000) })
+    if (res.ok) {
+      _healthFailures = 0
+      status.value = 'online'
+    } else {
+      if (++_healthFailures >= 2) status.value = 'offline'
+    }
   } catch {
-    status.value = 'offline'
+    if (++_healthFailures >= 2) status.value = 'offline'
   }
 }
 

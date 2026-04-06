@@ -69,7 +69,7 @@ class PaginatedRestFetcher(BaseFetcher):
             "url", "method", "page_size", "page_size_param", "page_param",
             "content_field", "id_field", "max_pages", "delay_between_pages",
             "query_params", "headers", "timeout", "_preview_limit",
-            "bounding_field", "bounding_value",
+            "bounding_field", "bounding_value", "page_start",
         }
         for key, value in self.params.items():
             if key not in _control_keys and value not in (None, ""):
@@ -96,11 +96,20 @@ class PaginatedRestFetcher(BaseFetcher):
         _filter_lte_raw = self.params.get("bounding_value", "")
         filter_lte_value = int(_filter_lte_raw) if _filter_lte_raw else None
 
+        # Resume protocol: restore page number from saved state
+        resume_state = self.params.get("_resume_state") or {}
+        if isinstance(resume_state, str):
+            resume_state = json.loads(resume_state)
+        default_page = int(self.params.get("page_start", 0))
+        start_page = int(resume_state.get("page", default_page))
+
         seen_ids: set = set()
-        page = 0
+        page = start_page
         total_pages_fetched = 0
         total_yielded = 0
 
+        if start_page:
+            logger.info(f"Resuming from page {start_page}")
         logger.info(f"Iniciando fetch paginado (streaming): {url} (page_size={effective_page_size})"
                     + (f" [preview_limit={preview_limit}]" if preview_limit else ""))
 
@@ -148,6 +157,9 @@ class PaginatedRestFetcher(BaseFetcher):
             total_pages_fetched += 1
 
             if page_records:
+                # Set savepoint BEFORE yield — if FetcherManager breaks at yield,
+                # code after yield won't run. Next page to fetch = page + 1.
+                self.current_state = {"page": page + 1}
                 yield page_records
             total_yielded += batch_count
 

@@ -163,8 +163,14 @@ class AtomPagingFetcher(BaseFetcher):
         else:
             range_start = range_end = range_label = None
 
-        current_url = url
-        pages_fetched = 0
+        # Resume protocol: start from saved URL if resuming
+        resume_state = self.params.get("_resume_state") or {}
+        if isinstance(resume_state, str):
+            import json as _json; resume_state = _json.loads(resume_state)
+        current_url = resume_state.get("resume_url") or url
+        pages_fetched = int(resume_state.get("pages_fetched", 0))
+        if pages_fetched:
+            print(f"  [FETCH] Resuming from page {pages_fetched + 1}: {current_url}")
 
         while current_url and (max_pages is None or pages_fetched < max_pages):
             print(f"  [FETCH] Descargando página Atom: {current_url}")
@@ -180,6 +186,20 @@ class AtomPagingFetcher(BaseFetcher):
                 entries = [entries]
 
             normalized = [self._normalize_entry(e) for e in entries]
+
+            # Determine next_url BEFORE yielding so we can set current_state first.
+            # If FetcherManager breaks at yield, code after yield won't run.
+            links = feed.get("link", [])
+            if isinstance(links, dict):
+                links = [links]
+            next_url = None
+            for link in links:
+                if link.get("@rel") == "next":
+                    next_url = link.get("@href")
+                    break
+
+            # Set savepoint state before any yield on this iteration
+            self.current_state = {"resume_url": next_url, "pages_fetched": pages_fetched + 1}
 
             if range_start:
                 page_out = []
@@ -200,16 +220,6 @@ class AtomPagingFetcher(BaseFetcher):
             else:
                 if normalized:
                     yield normalized
-
-            links = feed.get("link", [])
-            if isinstance(links, dict):
-                links = [links]
-
-            next_url = None
-            for link in links:
-                if link.get("@rel") == "next":
-                    next_url = link.get("@href")
-                    break
 
             current_url = next_url
             pages_fetched += 1

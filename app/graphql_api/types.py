@@ -49,10 +49,11 @@ class ResourceParamInput:
 class CreateResourceInput:
     """Input para crear un nuevo Resource"""
     name: str
-    publisher: str
     fetcher_id: str = strawberry.field(name="fetcherId")
     params: List[ResourceParamInput]
     active: bool = True
+    publisher: Optional[str] = None                                               # texto libre (legado)
+    publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")  # FK
     target_table: Optional[str] = strawberry.field(default=None, name="targetTable")
     schedule: Optional[str] = None
 
@@ -62,6 +63,7 @@ class UpdateResourceInput:
     """Input para actualizar un Resource"""
     name: Optional[str] = None
     publisher: Optional[str] = None
+    publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")
     target_table: Optional[str] = strawberry.field(default=None, name="targetTable")
     fetcher_id: Optional[str] = strawberry.field(default=None, name="fetcherId")
     params: Optional[List[ResourceParamInput]] = None
@@ -128,7 +130,7 @@ class CreateApplicationInput:
     name: str
     description: Optional[str] = None
     models_path: str = strawberry.field(name="modelsPath")
-    subscribed_projects: List[str] = strawberry.field(name="subscribedProjects")
+    subscribed_projects: List[str] = strawberry.field(default_factory=list, name="subscribedProjects")
     active: bool = True
     consumption_mode: str = strawberry.field(default="webhook", name="consumptionMode")
 
@@ -141,6 +143,7 @@ class UpdateApplicationInput:
     subscribed_projects: Optional[List[str]] = strawberry.field(default=None, name="subscribedProjects")
     active: Optional[bool] = None
     consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
+    webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
 
 @strawberry.type
 class ExecutionResult:
@@ -176,6 +179,8 @@ class ResourceExecutionType:
     staging_path: Optional[str] = strawberry.field(default=None, name="stagingPath")
     error_message: Optional[str] = strawberry.field(default=None, name="errorMessage")
     execution_params: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="executionParams")
+    pause_requested: bool = strawberry.field(default=False, name="pauseRequested")
+    active_seconds: Optional[int] = strawberry.field(default=None, name="activeSeconds")
 
 
 @strawberry.type
@@ -272,11 +277,58 @@ class UpdateDerivedDatasetConfigInput:
 
 
 @strawberry.type
+class PublisherType:
+    """Organismo o portal publicador de datos abiertos"""
+    id: str
+    nombre: str
+    acronimo: Optional[str] = None
+    nivel: str
+    pais: str
+    comunidad_autonoma: Optional[str] = strawberry.field(default=None, name="comunidadAutonoma")
+    provincia: Optional[str] = None
+    municipio: Optional[str] = None
+    portal_url: Optional[str] = strawberry.field(default=None, name="portalUrl")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
+
+
+@strawberry.input
+class CreatePublisherInput:
+    nombre: str
+    nivel: str
+    pais: str = "España"
+    acronimo: Optional[str] = None
+    comunidad_autonoma: Optional[str] = strawberry.field(default=None, name="comunidadAutonoma")
+    provincia: Optional[str] = None
+    municipio: Optional[str] = None
+    portal_url: Optional[str] = strawberry.field(default=None, name="portalUrl")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+
+
+@strawberry.input
+class UpdatePublisherInput:
+    nombre: Optional[str] = None
+    nivel: Optional[str] = None
+    pais: Optional[str] = None
+    acronimo: Optional[str] = None
+    comunidad_autonoma: Optional[str] = strawberry.field(default=None, name="comunidadAutonoma")
+    provincia: Optional[str] = None
+    municipio: Optional[str] = None
+    portal_url: Optional[str] = strawberry.field(default=None, name="portalUrl")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+
+
+@strawberry.type
 class ResourceType:
     """Fuente de datos configurada"""
     id: str
     name: str
-    publisher: str
+    publisher: Optional[str] = None
+    publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")
+    publisher_obj: Optional[PublisherType] = strawberry.field(default=None, name="publisherObj")
     target_table: Optional[str] = strawberry.field(name="targetTable")
     active: bool
     schedule: Optional[str] = None

@@ -8,6 +8,8 @@ import Executions from '../views/Executions.vue'
 import Settings from '../views/Settings.vue'
 import Schedule from '../views/Schedule.vue'
 import DataExplorer from '../views/DataExplorer.vue'
+import Publishers from '../views/Publishers.vue'
+import Subscriptions from '../views/Subscriptions.vue'
 
 const routes = [
   {
@@ -54,6 +56,16 @@ const routes = [
     path: '/explorer',
     name: 'DataExplorer',
     component: DataExplorer,
+  },
+  {
+    path: '/publishers',
+    name: 'Publishers',
+    component: Publishers,
+  },
+  {
+    path: '/subscriptions',
+    name: 'Subscriptions',
+    component: Subscriptions,
   },
 ]
 

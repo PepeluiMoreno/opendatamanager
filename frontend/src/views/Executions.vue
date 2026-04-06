@@ -62,12 +62,6 @@
           <p class="text-xs text-gray-500 mt-0.5">Active fetcher threads</p>
         </div>
       </div>
-      <!-- Scheduler info -->
-      <p class="text-xs text-gray-600 mt-3">
-        Scheduler: <span class="text-gray-400">BackgroundScheduler (thread pool)</span> —
-        Fetchers: <span class="text-gray-400">daemon threads, fire-and-forget</span> —
-        Event loop: <span class="text-green-500">never blocked</span>
-      </p>
     </div>
 
     <div v-if="loading && executions.length === 0" class="text-gray-400 text-center py-16">
@@ -107,9 +101,9 @@
                 <p class="text-lg font-bold text-blue-400">{{ ex.recordsLoaded?.toLocaleString() }}</p>
                 <p class="text-xs text-gray-500">/ {{ ex.totalRecords?.toLocaleString() }} records</p>
               </div>
-              <div v-if="ex.completedAt" class="text-right">
-                <p class="text-sm font-medium text-gray-300">{{ duration(ex.startedAt, ex.completedAt) }}</p>
-                <p class="text-xs text-gray-500">duration</p>
+              <div v-if="ex.completedAt || ex.status === 'paused'" class="text-right">
+                <p class="text-sm font-medium text-gray-300">{{ activeDuration(ex) }}</p>
+                <p class="text-xs text-gray-500">{{ ex.activeSeconds ? 'active time' : 'duration' }}</p>
               </div>
               <div v-else-if="ex.status === 'running'" class="text-right">
                 <p class="text-sm font-medium text-yellow-400">{{ elapsed(ex.startedAt) }}</p>
@@ -131,9 +125,61 @@
                 {{ openLog === ex.id ? 'Hide logs' : 'View logs' }}
               </button>
 
-              <!-- Kill button (running only) -->
+              <!-- Pausing… indicator (pause requested but still running) -->
+              <span
+                v-if="ex.status === 'running' && ex.pauseRequested"
+                class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-yellow-800 text-yellow-600 cursor-default"
+                title="Waiting for current page to finish…"
+              >
+                <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                Pausing…
+              </span>
+
+              <!-- Pause button (running, not yet requested) -->
               <button
-                v-if="ex.status === 'running'"
+                v-else-if="ex.status === 'running'"
+                @click="doPause(ex)"
+                class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-yellow-800 text-yellow-500 hover:bg-yellow-950 hover:border-yellow-600 hover:text-yellow-300 transition-colors"
+                title="Pause at next page boundary"
+              >
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
+                </svg>
+                Pause
+              </button>
+
+              <!-- Restarting… indicator (resume requested, waiting for thread) -->
+              <span
+                v-if="ex.status === 'paused' && resumingIds.has(ex.id)"
+                class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-green-800 text-green-600 cursor-default"
+                title="Launching thread…"
+              >
+                <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+                </svg>
+                Restarting…
+              </span>
+
+              <!-- Resume button (paused, not yet requested) -->
+              <button
+                v-else-if="ex.status === 'paused'"
+                @click="doResume(ex)"
+                class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-green-800 text-green-500 hover:bg-green-950 hover:border-green-600 hover:text-green-300 transition-colors"
+                title="Resume execution"
+              >
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7L8 5z"/>
+                </svg>
+                Resume
+              </button>
+
+              <!-- Kill button (running or paused) -->
+              <button
+                v-if="ex.status === 'running' || ex.status === 'paused'"
                 @click="confirmAbort(ex)"
                 class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-red-900 text-red-500 hover:bg-red-950 hover:border-red-600 hover:text-red-300 transition-colors"
                 title="Kill process"
@@ -144,9 +190,9 @@
                 Kill
               </button>
 
-              <!-- Delete button (non-running) -->
+              <!-- Delete button (non-running, non-paused) -->
               <button
-                v-if="ex.status !== 'running'"
+                v-if="ex.status !== 'running' && ex.status !== 'paused'"
                 @click="confirmDelete(ex)"
                 class="flex items-center gap-1 px-2 py-1.5 text-xs rounded border border-gray-700 text-gray-500 hover:border-red-700 hover:text-red-400 transition-colors"
                 title="Remove from list"
@@ -327,7 +373,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution } from '../api/graphql.js'
+import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const executions = ref([])
@@ -335,12 +381,14 @@ const resources = ref([])
 const loading = ref(true)
 const concurrency = ref({})
 const statusFilter = ref('all')
+const resumingIds = ref(new Set())
 let timer = null
 const now = ref(Date.now())
 
 const statusTabs = [
   { value: 'all',       label: 'All' },
   { value: 'running',   label: 'Running' },
+  { value: 'paused',    label: 'Paused' },
   { value: 'completed', label: 'Done' },
   { value: 'failed',    label: 'Failed' },
   { value: 'aborted',   label: 'Aborted' },
@@ -403,7 +451,7 @@ function execLabel(ex) {
   }).join(' · ') : null
 }
 function statusLabel(s) {
-  return { running: 'RUNNING', completed: 'DONE', failed: 'FAILED', pending: 'PENDING', aborted: 'ABORTED' }[s] ?? s.toUpperCase()
+  return { running: 'RUNNING', completed: 'DONE', failed: 'FAILED', pending: 'PENDING', aborted: 'ABORTED', paused: 'PAUSED' }[s] ?? s.toUpperCase()
 }
 function statusClass(s) {
   return {
@@ -411,6 +459,7 @@ function statusClass(s) {
     completed: 'bg-green-900 text-green-300 border border-green-700',
     failed:    'bg-red-900 text-red-300 border border-red-700',
     aborted:   'bg-orange-900 text-orange-300 border border-orange-700',
+    paused:    'bg-yellow-900 text-yellow-300 border border-yellow-700',
     pending:   'bg-gray-700 text-gray-300 border border-gray-600',
   }[s] ?? 'bg-gray-700 text-gray-300'
 }
@@ -423,12 +472,20 @@ function formatDate(iso) {
   if (!iso) return '—'
   return utc(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'medium' })
 }
-function duration(start, end) {
-  if (!start || !end) return '—'
-  const s = Math.round((utc(end) - utc(start)) / 1000)
+function fmtSeconds(s) {
   if (s < 60) return `${s}s`
   if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s`
   return `${Math.floor(s/3600)}h ${Math.floor((s%3600)/60)}m`
+}
+function duration(start, end) {
+  if (!start || !end) return '—'
+  return fmtSeconds(Math.round((utc(end) - utc(start)) / 1000))
+}
+function activeDuration(ex) {
+  // Prefer accumulated active_seconds (excludes paused periods)
+  if (ex.activeSeconds != null) return fmtSeconds(ex.activeSeconds)
+  // Fallback: wall-clock duration
+  return duration(ex.startedAt, ex.completedAt)
 }
 function elapsed(start) {
   if (!start) return '—'
@@ -485,7 +542,27 @@ function handleDialogConfirm() {
   dialog.value._resolve?.(true)
 }
 
-// ---- kill / delete ----
+// ---- pause / resume / kill / delete ----
+async function doPause(ex) {
+  const res = await pauseExecution(ex.id)
+  if (res?.pauseExecution?.success) {
+    // Mark pauseRequested locally so the UI shows "Pausing…" immediately.
+    // The polling will set status='paused' once the fetcher actually stops.
+    const idx = executions.value.findIndex(e => e.id === ex.id)
+    if (idx !== -1) executions.value[idx] = { ...executions.value[idx], pauseRequested: true }
+  }
+}
+
+async function doResume(ex) {
+  resumingIds.value = new Set([...resumingIds.value, ex.id])
+  const res = await resumeExecution(ex.id)
+  if (!res?.resumeExecution?.success) {
+    resumingIds.value.delete(ex.id)
+    resumingIds.value = new Set(resumingIds.value)
+  }
+  // On success, leave resumingIds until polling picks up status='running' and clears it
+}
+
 async function confirmAbort(ex) {
   const ok = await showConfirm('Matar proceso', `¿Matar el proceso en curso de "${resourceName(ex.resourceId, ex)}"?`, 'Matar')
   if (!ok) return
@@ -605,6 +682,11 @@ async function load() {
       .slice()
       .sort((a, b) => utc(b.startedAt) - utc(a.startedAt))
     resources.value = resData?.resources ?? []
+    // Clear resumingIds for executions that have transitioned to running
+    if (resumingIds.value.size) {
+      const nowRunning = new Set(executions.value.filter(e => e.status === 'running').map(e => e.id))
+      resumingIds.value = new Set([...resumingIds.value].filter(id => !nowRunning.has(id)))
+    }
   } finally {
     loading.value = false
   }
