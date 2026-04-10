@@ -187,15 +187,30 @@ FETCHER_DEFS = [
         ],
     },
     {
-        "code": "Fotocasa Agencias",
-        "class_path": "app.fetchers.fotocasa.FotocasaFetcher",
-        "description": "Scraper del directorio de agencias inmobiliarias de Fotocasa — pivota sobre 52 provincias con paginación automática",
+        "code": "URL Loop HTML",
+        "class_path": "app.fetchers.url_loop_html.UrlLoopHtmlFetcher",
+        "description": (
+            "HTML scraper genérico: pivota sobre una lista de valores, construye una URL por cada uno "
+            "({value} en url_template), extrae múltiples registros por página mediante selectores CSS "
+            "sobre texto, atributos o subelementos, y pagina automáticamente via un enlace next."
+        ),
         "params": [
-            {"param_name": "provinces",               "data_type": "json",    "required": False},
-            {"param_name": "delay_between_pages",     "data_type": "number",  "required": False, "default_value": 1.5},
-            {"param_name": "delay_between_provinces", "data_type": "number",  "required": False, "default_value": 2.0},
-            {"param_name": "max_pages",               "data_type": "integer", "required": False, "default_value": 500},
-            {"param_name": "timeout",                 "data_type": "integer", "required": False, "default_value": 30},
+            {"param_name": "url_template",           "data_type": "string",  "required": True},
+            {"param_name": "pivot_values",           "data_type": "json",    "required": True},
+            {"param_name": "record_selector",        "data_type": "string",  "required": True},
+            {"param_name": "field_attrs",            "data_type": "json",    "required": False},
+            {"param_name": "field_selectors",        "data_type": "json",    "required": False},
+            {"param_name": "field_attr_selectors",   "data_type": "json",    "required": False},
+            {"param_name": "field_all_text",         "data_type": "json",    "required": False},
+            {"param_name": "next_page_selector",     "data_type": "string",  "required": False},
+            {"param_name": "next_page_attr",         "data_type": "string",  "required": False, "default_value": "href"},
+            {"param_name": "pivot_field",            "data_type": "string",  "required": False, "default_value": "pivot_value"},
+            {"param_name": "delay_between_pages",    "data_type": "number",  "required": False, "default_value": 1.5},
+            {"param_name": "delay_between_pivots",   "data_type": "number",  "required": False, "default_value": 2.0},
+            {"param_name": "max_pages",              "data_type": "integer", "required": False, "default_value": 500},
+            {"param_name": "stop_on_error",          "data_type": "boolean", "required": False, "default_value": False},
+            {"param_name": "headers",                "data_type": "json",    "required": False},
+            {"param_name": "timeout",                "data_type": "integer", "required": False, "default_value": 30},
         ],
     },
     {
@@ -527,23 +542,47 @@ RESOURCE_DEFS = [
     },
     {
         "name":               "Agencias Inmobiliarias (Fotocasa)",
-        "fetcher_code":       "Fotocasa Agencias",
+        "fetcher_code":       "URL Loop HTML",
         "publisher_acronimo": "FOTOCASA",
         "target_table":       "agencias_inmobiliarias",
         "schedule":           "0 2 1 * *",   # mensual, día 1 a las 02:00
         # Scraper del directorio https://www.fotocasa.es/buscar-agencias-inmobiliarias/
-        # Pivota sobre las 52 provincias españolas y pagina con rel="next".
-        # Campos: agency_id (clave), nombre, provincia, inmuebles_zona,
-        #         inmuebles_total, precio_minimo, url_busqueda.
-        # agency_id coincide con el clientId de Fotocasa → sirve para detectar
-        # altas y bajas de agencias entre ejecuciones.
-        # La misma agencia aparece en varias provincias si tiene presencia multizonal;
-        # el campo 'provincia' permite agrupar y deduplican por agency_id en el ETL.
+        # Las 52 provincias como pivot. Paginación via rel="next".
+        # agency_id (= clientId de Fotocasa) es la clave idempotente para detectar
+        # altas y bajas entre ejecuciones. Una misma cadena de agencias aparece
+        # en múltiples provincias — el ETL agrupa por agency_id.
         "params": {
-            "delay_between_pages":     "1.5",
-            "delay_between_provinces": "2.0",
-            "max_pages":               "500",
-            "timeout":                 "30",
+            "url_template":    "https://www.fotocasa.es/buscar-agencias-inmobiliarias/{value}/todas-las-zonas/l",
+            "pivot_values":    (
+                '["a-coruna-provincia","albacete-provincia","alicante-provincia",'
+                '"almeria-provincia","araba-alava-provincia","asturias-provincia",'
+                '"avila-provincia","badajoz-provincia","barcelona-provincia",'
+                '"bizkaia-provincia","burgos-provincia","caceres-provincia",'
+                '"cadiz-provincia","cantabria-provincia","castellon-provincia",'
+                '"ceuta-provincia","ciudad-real-provincia","cordoba-provincia",'
+                '"cuenca-provincia","gipuzkoa-provincia","girona-provincia",'
+                '"granada-provincia","guadalajara-provincia","huelva-provincia",'
+                '"huesca-provincia","illes-balears-provincia","jaen-provincia",'
+                '"la-rioja-provincia","las-palmas-provincia","leon-provincia",'
+                '"lleida-provincia","lugo-provincia","madrid-provincia",'
+                '"malaga-provincia","melilla-provincia","murcia-provincia",'
+                '"navarra-provincia","ourense-provincia","palencia-provincia",'
+                '"pontevedra-provincia","salamanca-provincia",'
+                '"santa-cruz-de-tenerife-provincia","segovia-provincia",'
+                '"sevilla-provincia","soria-provincia","tarragona-provincia",'
+                '"teruel-provincia","toledo-provincia","valencia-provincia",'
+                '"valladolid-provincia","zamora-provincia","zaragoza-provincia"]'
+            ),
+            "record_selector":       "article[data-agency-id]",
+            "field_attrs":           '{"agency_id": "data-agency-id", "nombre": "data-agency-name"}',
+            "field_attr_selectors":  '{"url_busqueda": {"selector": "button[data-promiseref]", "attr": "data-promiseref"}}',
+            "field_all_text":        '{"estadisticas": ".re-description-item label"}',
+            "next_page_selector":    'a[rel="next"]',
+            "pivot_field":           "provincia",
+            "delay_between_pages":   "1.5",
+            "delay_between_pivots":  "2.0",
+            "max_pages":             "500",
+            "timeout":               "30",
         },
     },
     # CSCAE (Colegios de Arquitectos) y CGATE (Aparejadores) no exponen APIs JSON públicas.
