@@ -8,7 +8,7 @@ from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher, ApplicationNotification
 from datetime import datetime
 
 # Global registry: execution_id (str) → Thread
@@ -99,6 +99,7 @@ class Mutation:
             resource = Resource(
                 id=uuid4(),
                 name=input.name,
+                description=input.description,
                 publisher=input.publisher,
                 publisher_id=input.publisher_id or None,
                 fetcher_id=input.fetcher_id,
@@ -141,10 +142,18 @@ class Mutation:
             # Actualizar campos
             if input.name is not None:
                 resource.name = input.name
-            if input.publisher is not None:
-                resource.publisher = input.publisher
+            if input.description is not None:
+                resource.description = input.description
             if input.publisher_id is not None:
-                resource.publisher_id = input.publisher_id or None
+                new_pub_id = input.publisher_id or None
+                resource.publisher_id = new_pub_id
+                if new_pub_id:
+                    pub = db.query(Publisher).filter(Publisher.id == new_pub_id).first()
+                    resource.publisher = pub.nombre if pub else resource.publisher
+                else:
+                    resource.publisher = input.publisher if input.publisher is not None else None
+            elif input.publisher is not None:
+                resource.publisher = input.publisher
             if input.target_table is not None:
                 resource.target_table = input.target_table
             if input.fetcher_id is not None:
@@ -226,15 +235,32 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def delete_resource(self, id: str) -> bool:
-        """Elimina una fuente de datos"""
+    def delete_resource(self, id: str, hard_delete: bool = False) -> bool:
+        """Elimina una fuente de datos.
+
+        Si hard_delete=False (por defecto): soft-delete — marca deleted_at en el resource
+        y en todas sus ejecuciones, conservando el historial en BD.
+        Si hard_delete=True: elimina físicamente las ejecuciones y luego el resource.
+        """
         db = get_db()
         try:
             resource = db.query(Resource).filter(Resource.id == id).first()
             if not resource:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
 
-            db.delete(resource)
+            now = datetime.utcnow()
+            if hard_delete:
+                db.query(ResourceExecution).filter(
+                    ResourceExecution.resource_id == resource.id
+                ).delete(synchronize_session=False)
+                db.delete(resource)
+            else:
+                db.query(ResourceExecution).filter(
+                    ResourceExecution.resource_id == resource.id,
+                    ResourceExecution.deleted_at == None,
+                ).update({"deleted_at": now}, synchronize_session=False)
+                resource.deleted_at = now
+
             db.commit()
             return True
         except Exception as e:
@@ -421,23 +447,28 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def delete_fetcher(self, id: str) -> bool:
-        """Elimina un tipo de fetcher"""
+    def delete_fetcher(self, id: str, hard_delete: bool = False) -> bool:
+        """Soft-delete (or hard-delete) de un Fetcher"""
         db = get_db()
         try:
             fetcher = db.query(Fetcher).filter(Fetcher.id == id).first()
             if not fetcher:
-                raise ValueError(f"Fetcher con id '{id}' no encontrado")
+                raise ValueError(f"Fetcher with id '{id}' not found")
 
-            # Verificar que no haya resources usando este fetcher
-            resources_count = db.query(Resource).filter(Resource.fetcher_id == id).count()
-            if resources_count > 0:
+            active_resources = db.query(Resource).filter(
+                Resource.fetcher_id == id, Resource.deleted_at == None
+            ).count()
+            if active_resources > 0:
                 raise ValueError(
-                    f"No se puede eliminar el Fetcher porque {resources_count} "
-                    f"resource(s) lo están usando"
+                    f"Cannot delete: {active_resources} active resource(s) use this fetcher. "
+                    "Delete them first."
                 )
 
-            db.delete(fetcher)
+            if hard_delete:
+                db.query(FetcherParams).filter(FetcherParams.fetcher_id == id).delete()
+                db.delete(fetcher)
+            else:
+                fetcher.deleted_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:
@@ -660,14 +691,17 @@ class Mutation:
         return ExecutionResult(success=True, message="Execution resumed", resource_id=resource_id)
 
     @strawberry.mutation
-    def delete_execution(self, id: str) -> bool:
-        """Soft-delete de una ejecución (la oculta de la vista)"""
+    def delete_execution(self, id: str, hard_delete: bool = False) -> bool:
+        """Soft-delete (o hard-delete) de una ejecución"""
         db = get_db()
         try:
             ex = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
             if not ex:
                 raise ValueError(f"Execution '{id}' no encontrada")
-            ex.deleted_at = datetime.utcnow()
+            if hard_delete:
+                db.delete(ex)
+            else:
+                ex.deleted_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:
@@ -685,9 +719,10 @@ class Mutation:
                 id=uuid4(),
                 name=input.name,
                 description=input.description,
-                models_path=input.models_path,
                 subscribed_projects=input.subscribed_projects,
-                active=input.active
+                active=input.active,
+                consumption_mode=input.consumption_mode,
+                webhook_url=input.webhook_url,
             )
             db.add(application)
             db.commit()
@@ -713,8 +748,6 @@ class Mutation:
                 application.name = input.name
             if input.description is not None:
                 application.description = input.description
-            if input.models_path is not None:
-                application.models_path = input.models_path
             if input.subscribed_projects is not None:
                 application.subscribed_projects = input.subscribed_projects
             if input.active is not None:
@@ -734,15 +767,20 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation
-    def delete_application(self, id: str) -> bool:          
-        """Elimina una Application"""
+    def delete_application(self, id: str, hard_delete: bool = False) -> bool:
+        """Soft-delete (or hard-delete) de una Application"""
         db = get_db()
         try:
             application = db.query(Application).filter(Application.id == id).first()
             if not application:
-                raise ValueError(f"Application con id '{id}' no encontrada")
+                raise ValueError(f"Application with id '{id}' not found")
 
-            db.delete(application)
+            if hard_delete:
+                db.query(ApplicationNotification).filter(ApplicationNotification.application_id == id).delete()
+                db.query(DatasetSubscription).filter(DatasetSubscription.application_id == id).delete()
+                db.delete(application)
+            else:
+                application.deleted_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:
@@ -872,14 +910,17 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def delete_derived_dataset_config(self, id: str) -> bool:
-        """Elimina una configuración de dataset derivado (y todas sus entradas)"""
+    def delete_derived_dataset_config(self, id: str, hard_delete: bool = False) -> bool:
+        """Soft-delete (or hard-delete) de una configuración de dataset derivado"""
         db = get_db()
         try:
             cfg = db.query(DerivedDatasetConfig).filter(DerivedDatasetConfig.id == id).first()
             if not cfg:
-                raise ValueError(f"DerivedDatasetConfig con id '{id}' no encontrado")
-            db.delete(cfg)
+                raise ValueError(f"DerivedDatasetConfig with id '{id}' not found")
+            if hard_delete:
+                db.delete(cfg)  # cascade deletes entries
+            else:
+                cfg.deleted_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:
@@ -1013,20 +1054,113 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def delete_publisher(self, id: str) -> bool:
-        """Elimina un Publisher (solo si no tiene resources asociados)"""
+    def delete_publisher(self, id: str, hard_delete: bool = False) -> bool:
+        """Soft-delete (or hard-delete) de un Publisher"""
         db = get_db()
         try:
             p = db.query(Publisher).filter(Publisher.id == id).first()
             if not p:
-                raise ValueError(f"Publisher '{id}' no encontrado")
-            if p.resources:
-                raise ValueError(f"El publisher tiene {len(p.resources)} resource(s) asociados. Reasígnalos primero.")
-            db.delete(p)
+                raise ValueError(f"Publisher '{id}' not found")
+
+            active_resources = db.query(Resource).filter(
+                Resource.publisher_id == id, Resource.deleted_at == None
+            ).count()
+            if active_resources > 0:
+                raise ValueError(
+                    f"Cannot delete: {active_resources} active resource(s) are linked to this publisher. "
+                    "Reassign or delete them first."
+                )
+
+            if hard_delete:
+                db.delete(p)
+            else:
+                p.deleted_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:
             db.rollback()
             raise e
+        finally:
+            db.close()
+
+    # ── Restore (undo soft-delete) ─────────────────────────────────────────────
+
+    @strawberry.mutation
+    def restore_resource(self, id: str) -> bool:
+        db = get_db()
+        try:
+            r = db.query(Resource).filter(Resource.id == id).first()
+            if not r:
+                raise ValueError(f"Resource '{id}' not found")
+            r.deleted_at = None
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def restore_application(self, id: str) -> bool:
+        db = get_db()
+        try:
+            a = db.query(Application).filter(Application.id == id).first()
+            if not a:
+                raise ValueError(f"Application '{id}' not found")
+            a.deleted_at = None
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def restore_publisher(self, id: str) -> bool:
+        db = get_db()
+        try:
+            p = db.query(Publisher).filter(Publisher.id == id).first()
+            if not p:
+                raise ValueError(f"Publisher '{id}' not found")
+            p.deleted_at = None
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def restore_fetcher(self, id: str) -> bool:
+        db = get_db()
+        try:
+            f = db.query(Fetcher).filter(Fetcher.id == id).first()
+            if not f:
+                raise ValueError(f"Fetcher '{id}' not found")
+            f.deleted_at = None
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def restore_execution(self, id: str) -> bool:
+        db = get_db()
+        try:
+            e = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
+            if not e:
+                raise ValueError(f"Execution '{id}' not found")
+            e.deleted_at = None
+            db.commit()
+            return True
+        except Exception as e2:
+            db.rollback()
+            raise e2
         finally:
             db.close()

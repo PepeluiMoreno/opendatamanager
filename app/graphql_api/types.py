@@ -15,6 +15,7 @@ class FetcherType:
     params_def: List["FetcherParamType"] = strawberry.field(default_factory=list)
     name: str = strawberry.field(name="name")
     resources: Optional[List["ResourceType"]] = None
+    deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
 @strawberry.type
 class FetcherParamType:
@@ -49,11 +50,12 @@ class ResourceParamInput:
 class CreateResourceInput:
     """Input para crear un nuevo Resource"""
     name: str
+    description: Optional[str] = None
     fetcher_id: str = strawberry.field(name="fetcherId")
     params: List[ResourceParamInput]
     active: bool = True
-    publisher: Optional[str] = None                                               # texto libre (legado)
-    publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")  # FK
+    publisher: Optional[str] = None
+    publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")
     target_table: Optional[str] = strawberry.field(default=None, name="targetTable")
     schedule: Optional[str] = None
 
@@ -62,6 +64,7 @@ class CreateResourceInput:
 class UpdateResourceInput:
     """Input para actualizar un Resource"""
     name: Optional[str] = None
+    description: Optional[str] = None
     publisher: Optional[str] = None
     publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")
     target_table: Optional[str] = strawberry.field(default=None, name="targetTable")
@@ -114,32 +117,26 @@ class ApplicationType:
     id: str
     name: str
     description: Optional[str] = None
-    models_path: str = strawberry.field(name="modelsPath")
+    models_path: Optional[str] = strawberry.field(default=None, name="modelsPath")
     subscribed_projects: List[str] = strawberry.field(name="subscribedProjects")
     active: bool
     webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
-    consumption_mode: str = strawberry.field(
-        default="webhook",
-        name="consumptionMode",
-        description="Modo de consumo: 'webhook' (publicación JSONL), 'graphql' (API GraphQL), 'both'.",
-    )
+    consumption_mode: str = strawberry.field(default="webhook", name="consumptionMode")
+    deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
 @strawberry.input
 class CreateApplicationInput:
-    """Input para crear o actualizar una Application"""
     name: str
     description: Optional[str] = None
-    models_path: str = strawberry.field(name="modelsPath")
     subscribed_projects: List[str] = strawberry.field(default_factory=list, name="subscribedProjects")
     active: bool = True
     consumption_mode: str = strawberry.field(default="webhook", name="consumptionMode")
+    webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
 
 @strawberry.input
 class UpdateApplicationInput:
-    """Input para crear o actualizar una Application"""
     name: Optional[str] = None
     description: Optional[str] = None
-    models_path: Optional[str] = strawberry.field(default=None, name="modelsPath")
     subscribed_projects: Optional[List[str]] = strawberry.field(default=None, name="subscribedProjects")
     active: Optional[bool] = None
     consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
@@ -181,6 +178,7 @@ class ResourceExecutionType:
     execution_params: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="executionParams")
     pause_requested: bool = strawberry.field(default=False, name="pauseRequested")
     active_seconds: Optional[int] = strawberry.field(default=None, name="activeSeconds")
+    deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
 
 @strawberry.type
@@ -291,6 +289,7 @@ class PublisherType:
     email: Optional[str] = None
     telefono: Optional[str] = None
     created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
+    deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
 
 @strawberry.input
@@ -326,6 +325,7 @@ class ResourceType:
     """Fuente de datos configurada"""
     id: str
     name: str
+    description: Optional[str] = None
     publisher: Optional[str] = None
     publisher_id: Optional[str] = strawberry.field(default=None, name="publisherId")
     publisher_obj: Optional[PublisherType] = strawberry.field(default=None, name="publisherObj")
@@ -334,6 +334,8 @@ class ResourceType:
     schedule: Optional[str] = None
     fetcher: FetcherType
     params: List[ResourceParamType]
+    created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
+    deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
 
 

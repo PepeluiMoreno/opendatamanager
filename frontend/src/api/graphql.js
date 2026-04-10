@@ -21,6 +21,7 @@ export const QUERIES = {
       resources(activeOnly: $activeOnly) {
         id
         name
+        description
         publisher
         publisherId
         publisherObj {
@@ -56,6 +57,7 @@ export const QUERIES = {
       resource(id: $id) {
         id
         name
+        description
         publisher
         targetTable
         active
@@ -77,8 +79,8 @@ export const QUERIES = {
   `,
 
   PREVIEW_RESOURCE_DATA: `
-    query PreviewResourceData($id: String!, $limit: Int = 10) {
-      previewResourceData(id: $id, limit: $limit)
+    query PreviewResourceData($id: String!, $limit: Int = 10, $params: JSON) {
+      previewResourceData(id: $id, limit: $limit, params: $params)
     }
   `,
 
@@ -88,7 +90,6 @@ export const QUERIES = {
         id
         name
         description
-        modelsPath
         subscribedProjects
         active
         webhookUrl
@@ -117,6 +118,7 @@ export const QUERIES = {
         resourceId
         version
         label
+        executionParams
         majorVersion
         minorVersion
         patchVersion
@@ -222,6 +224,7 @@ export const MUTATIONS = {
       createResource(input: $input) {
         id
         name
+        description
         publisher
         publisherId
         targetTable
@@ -234,6 +237,7 @@ export const MUTATIONS = {
       updateResource(id: $id, input: $input) {
         id
         name
+        description
         publisher
         publisherId
         targetTable
@@ -242,8 +246,8 @@ export const MUTATIONS = {
   `,
 
   DELETE_RESOURCE: `
-    mutation DeleteResource($id: String!) {
-      deleteResource(id: $id)
+    mutation DeleteResource($id: String!, $hardDelete: Boolean) {
+      deleteResource(id: $id, hardDelete: $hardDelete)
     }
   `,
 
@@ -301,14 +305,15 @@ export const MUTATIONS = {
   `,
 
   DELETE_APPLICATION: `
-    mutation DeleteApplication($id: String!) {
-      deleteApplication(id: $id)
+    mutation DeleteApplication($id: String!, $hardDelete: Boolean) {
+      deleteApplication(id: $id, hardDelete: $hardDelete)
     }
   `,
 
+
   DELETE_EXECUTION: `
-    mutation DeleteExecution($id: String!) {
-      deleteExecution(id: $id)
+    mutation DeleteExecution($id: String!, $hardDelete: Boolean) {
+      deleteExecution(id: $id, hardDelete: $hardDelete)
     }
   `,
 
@@ -372,8 +377,8 @@ export const MUTATIONS = {
   `,
 
   DELETE_FETCHER: `
-    mutation DeleteFetcher($id: String!) {
-      deleteFetcher(id: $id)
+    mutation DeleteFetcher($id: String!, $hardDelete: Boolean) {
+      deleteFetcher(id: $id, hardDelete: $hardDelete)
     }
   `,
 
@@ -519,9 +524,9 @@ export async function updateFetcher(id, input) {
   }
 }
 
-export async function deleteFetcher(id) {
+export async function deleteFetcher(id, hardDelete = false) {
   try {
-    return await client.request(MUTATIONS.DELETE_FETCHER, { id })
+    return await client.request(MUTATIONS.DELETE_FETCHER, { id, hardDelete })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -583,9 +588,9 @@ export async function updateResource(id, input) {
   }
 }
 
-export async function deleteResource(id) {
+export async function deleteResource(id, hardDelete = false) {
   try {
-    return await client.request(MUTATIONS.DELETE_RESOURCE, { id })
+    return await client.request(MUTATIONS.DELETE_RESOURCE, { id, hardDelete })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -631,18 +636,18 @@ export async function updateApplication(id, input) {
   }
 }
 
-export async function deleteApplication(id) {
+export async function deleteApplication(id, hardDelete = false) {
   try {
-    return await client.request(MUTATIONS.DELETE_APPLICATION, { id })
+    return await client.request(MUTATIONS.DELETE_APPLICATION, { id, hardDelete })
   } catch (error) {
     handleGraphQLError(error)
   }
 }
 
 
-export async function previewResourceData(id, limit = 10) {
+export async function previewResourceData(id, limit = 10, params = null) {
   try {
-    return await client.request(QUERIES.PREVIEW_RESOURCE_DATA, { id, limit })
+    return await client.request(QUERIES.PREVIEW_RESOURCE_DATA, { id, limit, params })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -656,9 +661,9 @@ export async function fetchDatasets(resourceId = null) {
   }
 }
 
-export async function deleteExecution(id) {
+export async function deleteExecution(id, hardDelete = false) {
   try {
-    return await client.request(MUTATIONS.DELETE_EXECUTION, { id })
+    return await client.request(MUTATIONS.DELETE_EXECUTION, { id, hardDelete })
   } catch (error) {
     handleGraphQLError(error)
   }
@@ -814,12 +819,71 @@ export async function updatePublisher(id, input) {
   }
 }
 
-export async function deletePublisher(id) {
+export async function deletePublisher(id, hardDelete = false) {
   try {
     return await client.request(`
-      mutation DeletePublisher($id: String!) { deletePublisher(id: $id) }
-    `, { id })
+      mutation DeletePublisher($id: String!, $hardDelete: Boolean) { deletePublisher(id: $id, hardDelete: $hardDelete) }
+    `, { id, hardDelete })
   } catch (error) {
     handleGraphQLError(error)
   }
+}
+
+// ── Trash: fetch deleted ────────────────────────────────────────────────────
+
+export async function fetchDeletedResources() {
+  try {
+    return await client.request(`query { deletedResources { id name deletedAt } }`)
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function fetchDeletedApplications() {
+  try {
+    return await client.request(`query { deletedApplications { id name description deletedAt } }`)
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function fetchDeletedPublishers() {
+  try {
+    return await client.request(`query { deletedPublishers { id nombre acronimo deletedAt } }`)
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function fetchDeletedFetchers() {
+  try {
+    return await client.request(`query { deletedFetchers { id code description deletedAt } }`)
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function fetchDeletedExecutions() {
+  try {
+    return await client.request(`query { deletedExecutions { id resourceId resourceName status startedAt deletedAt } }`)
+  } catch (e) { handleGraphQLError(e) }
+}
+
+// ── Trash: restore ──────────────────────────────────────────────────────────
+
+export async function restoreResource(id) {
+  try { return await client.request(`mutation { restoreResource(id: "${id}") }`) }
+  catch (e) { handleGraphQLError(e) }
+}
+
+export async function restoreApplication(id) {
+  try { return await client.request(`mutation { restoreApplication(id: "${id}") }`) }
+  catch (e) { handleGraphQLError(e) }
+}
+
+export async function restorePublisher(id) {
+  try { return await client.request(`mutation { restorePublisher(id: "${id}") }`) }
+  catch (e) { handleGraphQLError(e) }
+}
+
+export async function restoreFetcher(id) {
+  try { return await client.request(`mutation { restoreFetcher(id: "${id}") }`) }
+  catch (e) { handleGraphQLError(e) }
+}
+
+export async function restoreExecution(id) {
+  try { return await client.request(`mutation { restoreExecution(id: "${id}") }`) }
+  catch (e) { handleGraphQLError(e) }
 }

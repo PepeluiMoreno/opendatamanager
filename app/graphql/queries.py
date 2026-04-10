@@ -167,6 +167,8 @@ def map_dataset(art: Dataset) -> DatasetType:
         record_count=art.record_count,
         checksum=art.checksum,
         created_at=art.created_at,
+        label=art.label,
+        execution_params=getattr(art.execution, 'execution_params', None),
         download_urls={
             "data": f"/api/datasets/{art.id}/data.jsonl",
             "schema": f"/api/datasets/{art.id}/schema.json",
@@ -292,7 +294,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    async def preview_resource_data(self, id: str, limit: int = 10) -> strawberry.scalars.JSON:
+    async def preview_resource_data(self, id: str, limit: int = 10, params: Optional[strawberry.scalars.JSON] = None) -> strawberry.scalars.JSON:
         """Obtiene una vista previa de los datos de un Resource sin guardarlos"""
         import asyncio
         from app.manager.fetcher_manager import FetcherManager
@@ -300,7 +302,7 @@ class Query:
         def _fetch():
             db = get_db()
             try:
-                return FetcherManager.fetch_only(db, id, limit)
+                return FetcherManager.fetch_only(db, id, limit, runtime_params=params or {})
             finally:
                 db.close()
 

@@ -359,7 +359,7 @@
     </div>
   </div>
 
-  <!-- Confirm dialog -->
+  <!-- Confirm dialog (abort) -->
   <ConfirmDialog
     v-if="dialog.show"
     :title="dialog.title"
@@ -369,6 +369,30 @@
     @confirm="handleDialogConfirm"
     @cancel="dialog.show = false"
   />
+
+  <!-- Delete process modal -->
+  <div
+    v-if="showDeleteModal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+    @click.self="showDeleteModal = false"
+  >
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+      <h2 class="text-lg font-bold mb-3">Delete process</h2>
+      <p class="text-sm text-gray-300 mb-4">
+        Are you sure you want to delete the execution record for
+        <strong>{{ resourceName(executionToDelete?.resourceId, executionToDelete) }}</strong>?
+        The log and execution history entry will be removed.
+      </p>
+      <label class="flex items-start gap-2 text-sm text-gray-300 mb-5 cursor-pointer">
+        <input type="checkbox" v-model="hardDeleteFlag" class="accent-red-500 mt-0.5" />
+        <span>Permanently delete</span>
+      </label>
+      <div class="flex justify-end gap-2">
+        <button @click="showDeleteModal = false" class="btn btn-secondary">Cancel</button>
+        <button @click="handleDelete" class="btn btn-danger">Delete</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -528,7 +552,7 @@ function resourceParamTags(resourceId) {
     .map(p => `${p.key}=${p.value}`)
 }
 
-// ---- confirm dialog ----
+// ---- confirm dialog (abort only) ----
 const dialog = ref({ show: false, title: '', message: '', confirmText: 'Confirm', _resolve: null })
 
 function showConfirm(title, message, confirmText = 'Confirm') {
@@ -540,6 +564,27 @@ function showConfirm(title, message, confirmText = 'Confirm') {
 function handleDialogConfirm() {
   dialog.value.show = false
   dialog.value._resolve?.(true)
+}
+
+// ---- delete execution modal ----
+const showDeleteModal = ref(false)
+const executionToDelete = ref(null)
+const hardDeleteFlag = ref(false)
+
+function confirmDelete(ex) {
+  executionToDelete.value = ex
+  hardDeleteFlag.value = false
+  showDeleteModal.value = true
+}
+
+async function handleDelete() {
+  if (!executionToDelete.value) return
+  await deleteExecution(executionToDelete.value.id, hardDeleteFlag.value)
+  executions.value = executions.value.filter(e => e.id !== executionToDelete.value.id)
+  if (openLog.value === executionToDelete.value.id) closeLog()
+  showDeleteModal.value = false
+  executionToDelete.value = null
+  hardDeleteFlag.value = false
 }
 
 // ---- pause / resume / kill / delete ----
@@ -573,13 +618,7 @@ async function confirmAbort(ex) {
   }
 }
 
-async function confirmDelete(ex) {
-  const ok = await showConfirm('Eliminar ejecución', `¿Eliminar "${resourceName(ex.resourceId, ex)}" del historial?`, 'Eliminar')
-  if (!ok) return
-  await deleteExecution(ex.id)
-  executions.value = executions.value.filter(e => e.id !== ex.id)
-  if (openLog.value === ex.id) closeLog()
-}
+// confirmDelete is now defined below with the delete modal state
 
 // ---- log viewer ----
 function lineClass(line) {

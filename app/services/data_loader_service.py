@@ -25,7 +25,8 @@ class DataLoaderService:
         session: Session,
         dataset: Dataset,
         normalized_data: List[Dict[str, Any]],
-        load_mode: str = "upsert"
+        load_mode: str = "upsert",
+        table_name: str = None,
     ) -> int:
         """
         Loads normalized data into the database.
@@ -35,6 +36,9 @@ class DataLoaderService:
             dataset: The Dataset object associated with the data.
             normalized_data: A list of dictionaries, where each dictionary is a record.
             load_mode: 'upsert' to update existing records or insert new ones, 'replace' to delete all existing data and insert new ones.
+            table_name: Fully-qualified table name (e.g. 'core.bdns_concesiones'). If not
+                        provided it is derived from the resource's target_table via the dataset
+                        relationship — prefer passing it explicitly to avoid lazy-load issues.
 
         Returns:
             The number of records loaded.
@@ -43,7 +47,8 @@ class DataLoaderService:
             print("  [LOAD] No data to load.")
             return 0
 
-        table_name = f"core.{dataset.resource.name.lower().replace(' ', '_')}"
+        if not table_name:
+            table_name = f"core.{dataset.resource.target_table}"
         print(f"  [LOAD] Loading data into table: {table_name} with mode: {load_mode}")
 
         # Ensure table exists and matches schema
@@ -63,7 +68,12 @@ class DataLoaderService:
         Creates the table if it doesn't exist, or alters it if necessary.
         """
         schema_name, simple_table_name = table_name.split('.')
-        
+
+        # Ensure the schema exists (CREATE SCHEMA IF NOT EXISTS is idempotent)
+        with self.engine.connect() as conn:
+            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
+            conn.commit()
+
         # Reflect metadata to check for table existence
         self.metadata.reflect(bind=self.engine, schema=schema_name)
 

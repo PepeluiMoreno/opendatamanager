@@ -5,7 +5,10 @@
       <p class="text-xs text-gray-400 mt-1">Metadata-driven Backend</p>
     </div>
 
-    <nav class="flex-1 p-4 space-y-2">
+    <nav
+      class="flex-1 p-4 space-y-2 relative transition-opacity duration-300"
+      :class="status !== 'online' ? 'opacity-40 pointer-events-none select-none' : ''"
+    >
       <router-link to="/" class="nav-item" :class="{ 'active': $route.path === '/' }">
         <span class="text-lg mr-3">📊</span>Dashboard
       </router-link>
@@ -45,6 +48,20 @@
       <router-link to="/settings" class="nav-item" :class="{ 'active': $route.path === '/settings' }">
         <span class="text-lg mr-3">⚙️</span>Settings
       </router-link>
+
+      <router-link to="/trash" class="nav-item" :class="{ 'active': $route.path === '/trash' }">
+        <span class="text-lg mr-3">🗑️</span>Trash
+      </router-link>
+
+      <!-- Offline overlay hint -->
+      <div
+        v-if="status !== 'online'"
+        class="absolute inset-0 flex items-center justify-center"
+      >
+        <p class="text-xs text-gray-500 text-center px-4">
+          Navigation unavailable<br>while backend is {{ status }}
+        </p>
+      </div>
     </nav>
 
     <!-- Backend status -->

@@ -17,7 +17,15 @@ Cuando ejecutas un recurso, la app hace todo el trabajo sucio:
 - **Guarda** el paquete de datos con su esquema, sus modelos Python generados automáticamente y sus metadatos
 
 **3. Distribución a aplicaciones suscritas**
-Otros proyectos pueden suscribirse a cualquier fuente. Cuando hay datos nuevos, reciben un aviso automático con la versión disponible y pueden descargarse el dataset directamente. Por ejemplo, **grants-surveyor** es una aplicación que consume datos de convocatorias de subvenciones públicas — en lugar de ir a buscarlos ella misma cada vez, simplemente se suscribe a OpenDataManager y recibe los datos ya limpios y estructurados en cuanto hay una actualización.
+Otros proyectos pueden suscribirse a cualquier fuente. Cuando hay datos nuevos, ODMGR dispara automáticamente un **webhook** hacia cada aplicación suscrita, avisando de que hay una nueva versión disponible. A partir de ahí, la aplicación puede obtener los datos de dos formas según su `consumption_mode`:
+
+- **`webhook`** — el propio webhook lleva el payload completo: metadatos del dataset y URL de descarga directa del fichero JSONL. La app descarga el fichero y ejecuta su ETL.
+- **`graphql`** — el webhook es un aviso ligero ("hay datos nuevos en el recurso X"). La app consulta entonces `/graphql/data` para obtener exactamente lo que necesita.
+- **`both`** — recibe ambas cosas: payload completo + referencia GraphQL.
+
+El webhook y la API GraphQL **no son excluyentes**: el webhook actúa de *trigger* y GraphQL es el *transporte de datos*. Sin webhook, la app consumidora tendría que hacer polling ("¿hay algo nuevo?") o lanzar su ETL a ciegas por cron.
+
+Por ejemplo, **GSH** es una aplicación que consume datos de ODMGR vía red Docker: recibe el webhook cuando hay una ejecución completada y ejecuta su ETL consultando `/graphql/data`.
 
 En resumen: es un **hub centralizado de datos abiertos** que conecta fuentes heterogéneas, estandariza lo que sacan, lleva control de versiones como si fuera un git de datos, y avisa a quien lo necesite cuando hay novedades.
 
@@ -79,7 +87,7 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
 - **API GraphQL**: Interfaz para gestionar y consultar todo el sistema
 - **FetcherManager**: Orquestador que ejecuta fetchers
 - **DataLoader**: Carga datos desde staging → core schema
-- **ApplicationNotifier**: Notifica aplicaciones suscritas vía webhooks y genera modelos
+- **ApplicationNotifier**: Notifica aplicaciones suscritas vía webhooks (HMAC-signed)
 
 **Storage Layer**:
 - **Staging**: Filesystem temporal para raw data (JSONL)
@@ -99,8 +107,8 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
    ↓
 4. NOTIFY
    ApplicationNotifier:
-   - Generate/update SQLAlchemy models for subscribed apps
-   - Send HMAC-signed webhooks to notify data updates
+   - Send HMAC-signed webhooks to subscribed apps
+   - Payload varía según consumption_mode: JSONL URL (webhook), ping ligero (graphql), o ambos (both)
 ```
 
 ## 🚀 Despliegue con Docker

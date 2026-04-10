@@ -388,6 +388,136 @@ async def get_execution_logs(
     return PlainTextResponse("".join(result) if result else "")
 
 
+@app.get("/api/catastro/lookup")
+async def catastro_lookup(lat: float = Query(..., description="Latitud WGS84"), lon: float = Query(..., description="Longitud WGS84")):
+    """
+    Dado un punto geográfico (lat, lon), devuelve los datos catastrales del inmueble
+    en esa ubicación consultando el OVC de la Dirección General del Catastro vía SOAP.
+
+    Paso 1: coordenadas → Referencia Catastral  (Consulta_RCCOOR SOAP)
+    Paso 2: RC → datos del inmueble             (Consulta_DNPRC SOAP)
+    """
+    from zeep import Client, Settings
+    from zeep.helpers import serialize_object
+    from lxml import etree
+
+    WSDL_COORD = "https://ovc.catastro.meh.es/ovcservweb/OVCSWLocalizacionRC/OVCCoordenadas.asmx?WSDL"
+    WSDL_CALLEJERO = "https://ovc.catastro.meh.es/ovcservweb/OVCSWLocalizacionRC/OVCCallejero.asmx?WSDL"
+    settings = Settings(strict=False, xml_huge_tree=True)
+
+    # ── Paso 1: lat/lon → RC vía Consulta_RCCOOR ─────────────────────────────
+    try:
+        client_coord = Client(WSDL_COORD, settings=settings)
+        raw = client_coord.service.Consulta_RCCOOR(
+            SRS="EPSG:4326",
+            Coordenada_X=str(lon),
+            Coordenada_Y=str(lat),
+        )
+        # raw es un lxml Element con namespace http://www.catastro.meh.es/
+        xml_str = etree.tostring(raw, encoding="unicode")
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(xml_str)
+        ns = "http://www.catastro.meh.es/"
+        cuerr = root.findtext(f"{{{ns}}}control/{{{ns}}}cuerr") or root.findtext(".//cuerr") or "0"
+        if cuerr != "0":
+            lerr = root.findtext(f".//{{{ns}}}lerr") or root.findtext(".//lerr")
+            raise HTTPException(status_code=404, detail=lerr or "No se encontró parcela catastral en esas coordenadas")
+        pc1 = (root.findtext(f".//{{{ns}}}pc1") or root.findtext(".//pc1") or "").strip()
+        pc2 = (root.findtext(f".//{{{ns}}}pc2") or root.findtext(".//pc2") or "").strip()
+        ldt = root.findtext(f".//{{{ns}}}ldt") or root.findtext(".//ldt") or ""
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Error consultando Catastro OVC (coordenadas): {exc}")
+
+    if not pc1 or not pc2:
+        raise HTTPException(status_code=404, detail="No se encontró referencia catastral para esas coordenadas")
+
+    rc_parcela = pc1 + pc2
+
+    def _safe_int(v):
+        try:
+            return int(v) if v is not None else None
+        except (ValueError, TypeError):
+            return None
+
+    client_cal = Client(WSDL_CALLEJERO, settings=settings)
+
+    # ── Paso 2: RC parcela → lista de fincas + datos de ubicación ────────────
+    try:
+        raw2 = client_cal.service.Consulta_DNPRC(Provincia="", Municipio="", RC=rc_parcela)
+        xml2 = etree.tostring(raw2, encoding="unicode")
+        root2 = ET.fromstring(xml2)
+        ns = "http://www.catastro.meh.es/"
+
+        # Extraer primera finca para obtener su RC completo (pc1+pc2+car+cc1+cc2)
+        first_rcdnp = root2.find(f".//{{{ns}}}rcdnp")
+        rc_finca = None
+        municipio = provincia = direccion = None
+
+        if first_rcdnp is not None:
+            fpc1 = (first_rcdnp.findtext(f".//{{{ns}}}pc1") or "").strip()
+            fpc2 = (first_rcdnp.findtext(f".//{{{ns}}}pc2") or "").strip()
+            fcar = (first_rcdnp.findtext(f".//{{{ns}}}car") or "").strip()
+            fcc1 = (first_rcdnp.findtext(f".//{{{ns}}}cc1") or "").strip()
+            fcc2 = (first_rcdnp.findtext(f".//{{{ns}}}cc2") or "").strip()
+            if fpc1 and fpc2 and fcar:
+                rc_finca = fpc1 + fpc2 + fcar + fcc1 + fcc2
+
+            dt2 = first_rcdnp.find(f".//{{{ns}}}dt")
+            if dt2 is not None:
+                municipio = dt2.findtext(f"{{{ns}}}nm")
+                provincia = dt2.findtext(f"{{{ns}}}np")
+                ldir2 = dt2.find(f".//{{{ns}}}dir")
+                if ldir2 is not None:
+                    tv = ldir2.findtext(f"{{{ns}}}tv") or ""
+                    nv = ldir2.findtext(f"{{{ns}}}nv") or ""
+                    pnp = ldir2.findtext(f"{{{ns}}}pnp") or ""
+                    direccion = " ".join(filter(None, [tv, nv, pnp])).strip() or None
+
+        unidades = len(root2.findall(f".//{{{ns}}}rcdnp"))
+    except Exception:
+        rc_finca = None
+        municipio = provincia = direccion = None
+        unidades = None
+
+    direccion = direccion or ldt or None
+
+    # ── Paso 3: RC finca → uso, superficie, año (debi) ────────────────────────
+    uso = sup_suelo = sup_construida = plantas = año = None
+    if rc_finca:
+        try:
+            raw3 = client_cal.service.Consulta_DNPRC(Provincia="", Municipio="", RC=rc_finca)
+            xml3 = etree.tostring(raw3, encoding="unicode")
+            root3 = ET.fromstring(xml3)
+            ns = "http://www.catastro.meh.es/"
+            debi = root3.find(f".//{{{ns}}}debi")
+            if debi is not None:
+                uso         = debi.findtext(f"{{{ns}}}luso")
+                sup_suelo   = _safe_int(debi.findtext(f"{{{ns}}}sfc"))
+                plantas     = _safe_int(debi.findtext(f"{{{ns}}}npt"))
+                año         = _safe_int(debi.findtext(f"{{{ns}}}ant"))
+            lcons = root3.find(f".//{{{ns}}}dfcons")
+            if lcons is not None:
+                sup_construida = _safe_int(lcons.findtext(f"{{{ns}}}stl"))
+        except Exception:
+            pass
+
+    return {
+        "rc_parcela":        rc_parcela,
+        "rc_finca":          rc_finca,
+        "municipio":         municipio,
+        "provincia":         provincia,
+        "direccion":         direccion,
+        "unidades":          unidades,
+        "uso":               uso,
+        "sup_suelo_m2":      sup_suelo,
+        "sup_construida_m2": sup_construida,
+        "plantas":           plantas,
+        "año_construccion":  año,
+    }
+
+
 def _face_code_to_nivel(code: str) -> int:
     """Infer administrative level from DIR3 code prefix."""
     if not code:

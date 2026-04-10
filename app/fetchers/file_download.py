@@ -101,6 +101,18 @@ class FileDownloadFetcher(BaseFetcher):
         encoding = params.get("encoding", "utf-8-sig")
         skip_rows = int(params.get("skip_rows", 0))
 
+        # Columnas explícitas (para ficheros sin cabecera, e.g. Geonames TSV)
+        # Si se proporcionan, la primera fila se trata como dato, no como cabecera.
+        explicit_columns_raw = params.get("columns", "")
+        if explicit_columns_raw:
+            if isinstance(explicit_columns_raw, str):
+                import json as _json
+                explicit_columns = _json.loads(explicit_columns_raw)
+            else:
+                explicit_columns = list(explicit_columns_raw)
+        else:
+            explicit_columns = []
+
         text = content.decode(encoding, errors="replace")
 
         if not delimiter:
@@ -114,12 +126,15 @@ class FileDownloadFetcher(BaseFetcher):
         for _ in range(skip_rows):
             next(reader, None)
 
-        raw_header = next(reader, None)
-        if not raw_header:
-            return []
-
-        columns = [_normalize_col(c) for c in raw_header]
-        logger.info(f"[FileDownloadFetcher] csv — {len(columns)} columnas: {columns}")
+        if explicit_columns:
+            columns = [_normalize_col(c) for c in explicit_columns]
+            logger.info(f"[FileDownloadFetcher] csv (sin cabecera) — {len(columns)} columnas explícitas")
+        else:
+            raw_header = next(reader, None)
+            if not raw_header:
+                return []
+            columns = [_normalize_col(c) for c in raw_header]
+            logger.info(f"[FileDownloadFetcher] csv — {len(columns)} columnas: {columns}")
 
         records = []
         for row in reader:
@@ -150,16 +165,16 @@ class FileDownloadFetcher(BaseFetcher):
         if not url:
             raise ValueError("El parámetro 'url' es obligatorio para FileDownloadFetcher")
 
-        fmt = self.params.get("format", "").lower()
+        fmt = self.params.get("format", "").lower().strip()
         if not fmt:
-            # Intentar inferir por extensión de la URL
+            # Infer from URL extension as fallback
             for ext in ("xlsx", "csv", "tsv"):
-                if ext in url.lower():
+                if url.lower().endswith(f".{ext}") or f".{ext}?" in url.lower():
                     fmt = ext
                     break
         if not fmt:
             raise ValueError(
-                "El parámetro 'format' es obligatorio (xlsx | csv | tsv)"
+                "El parámetro 'format' es obligatorio. Valores válidos: xlsx, csv, tsv"
             )
 
         timeout = int(self.params.get("timeout", 60))

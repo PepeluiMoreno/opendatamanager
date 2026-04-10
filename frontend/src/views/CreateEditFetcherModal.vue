@@ -164,8 +164,10 @@
                    >
                      <option value="string">String</option>
                      <option value="integer">Integer</option>
+                     <option value="number">Number</option>
                      <option value="boolean">Boolean</option>
                      <option value="json">JSON</option>
+                     <option value="bbox">BBox [minx, miny, maxx, maxy]</option>
                      <option value="enum">ENUM</option>
                      <option value="json_filter_map">Filter Map (enum↔enum)</option>
                      <option value="overpass_query">Overpass Query Builder</option>

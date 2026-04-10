@@ -100,16 +100,29 @@
       </div>
     </transition>
 
-    <!-- Confirm Delete Dialog -->
-    <ConfirmDialog
-      v-if="showDeleteDialog"
-      title="Delete Fetcher"
-      :message="`Are you sure you want to delete fetcher '${fetcherToDelete?.name || fetcherToDelete?.description}'? ${fetcherToDelete?.resources?.length > 0 ? 'This fetcher is being used by ' + fetcherToDelete.resources.length + ' resource(s).' : ''}`"
-      confirm-text="Delete"
-      cancel-text="Cancel"
-      @confirm="confirmDeleteFetcher"
-      @cancel="cancelDeleteFetcher"
-    />
+    <!-- Delete Modal -->
+    <div v-if="showDeleteDialog"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         @click.self="cancelDeleteFetcher">
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4">Delete Fetcher</h2>
+        <p class="mb-6">
+          Are you sure you want to delete <strong class="text-purple-300">{{ fetcherToDelete?.name || fetcherToDelete?.description }}</strong>?
+          The fetcher will be hidden from the UI.
+        </p>
+        <label class="flex items-start gap-2 mb-6 cursor-pointer">
+          <input type="checkbox" v-model="hardDeleteFlag" class="accent-red-500 mt-0.5" />
+          <span>
+            <span class="text-sm text-gray-300">Permanently delete</span>
+            <span class="block text-xs text-gray-500 mt-0.5">The fetcher record will be removed from the database.</span>
+          </span>
+        </label>
+        <div class="flex justify-end gap-2">
+          <button @click="cancelDeleteFetcher" class="btn btn-secondary">Cancel</button>
+          <button @click="confirmDeleteFetcher" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -128,6 +141,7 @@ const successMessage = ref(null)
 // Modal states
 const showCreateModal = ref(false)
 const showDeleteDialog = ref(false)
+const hardDeleteFlag = ref(false)
 const editingFetcher = ref(null)
 const fetcherToDelete = ref(null)
 
@@ -151,6 +165,7 @@ function editFetcher(Fetcher) {
 
 function deleteFetcher(Fetcher) {
   fetcherToDelete.value = Fetcher
+  hardDeleteFlag.value = false
   showDeleteDialog.value = true
 }
 
@@ -158,7 +173,7 @@ async function confirmDeleteFetcher() {
   if (!fetcherToDelete.value) return
 
   try {
-    await deleteFetcherAPI(fetcherToDelete.value.id)
+    await deleteFetcherAPI(fetcherToDelete.value.id, hardDeleteFlag.value)
     successMessage.value = `Fetcher "${fetcherToDelete.value.name || fetcherToDelete.value.description}" deleted successfully`
     showDeleteDialog.value = false
     fetcherToDelete.value = null

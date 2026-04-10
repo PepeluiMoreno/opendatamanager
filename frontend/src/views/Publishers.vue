@@ -237,6 +237,30 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Modal -->
+    <div v-if="showDeleteModal"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         @click.self="showDeleteModal = false">
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4">Delete Publisher</h2>
+        <p class="mb-6">
+          Are you sure you want to delete <strong class="text-purple-300">{{ publisherToDelete?.nombre }}</strong>?
+          The publisher will be hidden from the UI.
+        </p>
+        <label class="flex items-start gap-2 mb-6 cursor-pointer">
+          <input type="checkbox" v-model="hardDeleteFlag" class="accent-red-500 mt-0.5" />
+          <span>
+            <span class="text-sm text-gray-300">Permanently delete</span>
+            <span class="block text-xs text-gray-500 mt-0.5">The publisher record will be removed from the database.</span>
+          </span>
+        </label>
+        <div class="flex justify-end gap-2">
+          <button @click="showDeleteModal = false" class="btn btn-secondary">Cancel</button>
+          <button @click="handleDelete" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -255,14 +279,17 @@ const NIVELES = [
 
 const ADM_LEVEL_TO_NIVEL = { 1: 'ESTATAL', 2: 'AUTONOMICO', 3: 'PROVINCIAL', 4: 'LOCAL' }
 
-const publishers  = ref([])
-const resources   = ref([])
-const loading     = ref(true)
-const showModal   = ref(false)
-const editing     = ref(null)
-const saving      = ref(false)
-const formError   = ref('')
-const checkingUrl = ref(false)
+const publishers       = ref([])
+const resources        = ref([])
+const loading          = ref(true)
+const showModal        = ref(false)
+const showDeleteModal  = ref(false)
+const publisherToDelete = ref(null)
+const hardDeleteFlag   = ref(false)
+const editing          = ref(null)
+const saving           = ref(false)
+const formError        = ref('')
+const checkingUrl      = ref(false)
 const urlStatus   = ref('')   // '' | 'ok' | 'error'
 const urlError    = ref('')
 
@@ -521,10 +548,17 @@ async function save() {
   }
 }
 
-async function confirmDelete(p) {
-  if (!confirm(`Delete "${p.nombre}"?`)) return
+function confirmDelete(p) {
+  publisherToDelete.value = p
+  hardDeleteFlag.value = false
+  showDeleteModal.value = true
+}
+
+async function handleDelete() {
   try {
-    await deletePublisher(p.id)
+    await deletePublisher(publisherToDelete.value.id, hardDeleteFlag.value)
+    showDeleteModal.value = false
+    publisherToDelete.value = null
     await load()
   } catch (e) {
     alert(e.message || 'Error deleting publisher')

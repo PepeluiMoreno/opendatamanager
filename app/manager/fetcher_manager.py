@@ -241,7 +241,8 @@ class FetcherManager:
                         session=session,
                         dataset=dataset,
                         normalized_data=data_for_load,
-                        load_mode=resource.load_mode or "upsert"
+                        load_mode=resource.load_mode or "upsert",
+                        table_name=f"core.{resource.target_table}",
                     )
                     execution.records_loaded = loaded_count
                     logger.log(f"  Loaded {loaded_count} records")
@@ -386,7 +387,7 @@ class FetcherManager:
         print("Ejecucion completada")
 
     @staticmethod
-    def fetch_only(session: Session, resource_id: str, limit: int = 10) -> list:
+    def fetch_only(session: Session, resource_id: str, limit: int = 10, runtime_params: dict = None) -> list:
         """
         Extract data only (no staging, no dataset, no load)
         
@@ -412,6 +413,11 @@ class FetcherManager:
 
         # Extract data only
         fetcher = FetcherFactory.create_from_resource(resource)
+        # Inject runtime overrides (external params defined at sandbox time)
+        if runtime_params:
+            for k, v in runtime_params.items():
+                if v not in (None, ""):
+                    fetcher.params[k] = v
         # Hint al fetcher para que corte temprano en modo preview
         fetcher.params["_preview_limit"] = limit
         data = fetcher.execute()

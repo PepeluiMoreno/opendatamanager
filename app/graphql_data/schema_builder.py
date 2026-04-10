@@ -389,6 +389,7 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
             ),
         )
 
+        exec_params = getattr(dataset.execution, 'execution_params', None) if dataset.execution else None
         registry.append({
             "queryName": query_name,
             "typeName": type_name,
@@ -396,6 +397,8 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
             "recordCount": dataset.record_count,
             "fields": list(field_map.keys()),
             "dataPath": dataset.data_path,
+            "label": dataset.label,
+            "executionParams": exec_params,
         })
 
     # Query de descubrimiento: lista todos los datasets disponibles

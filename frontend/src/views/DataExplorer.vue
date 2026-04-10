@@ -26,6 +26,18 @@
             : 'text-gray-300 hover:bg-gray-700'"
         >
           <div class="font-medium text-xs truncate">{{ ds.resourceName }}</div>
+          <!-- execution params badge -->
+          <div v-if="ds.executionParams && Object.keys(ds.executionParams).length" class="flex flex-wrap gap-1 mt-0.5">
+            <span
+              v-for="(v, k) in ds.executionParams"
+              :key="k"
+              class="inline-flex items-center gap-0.5 bg-blue-900 text-blue-200 rounded px-1"
+              style="font-size:0.6rem"
+            >
+              <span class="opacity-60">{{ k }}:</span>
+              <span class="font-mono font-semibold">{{ v }}</span>
+            </span>
+          </div>
           <div class="flex items-center gap-1 mt-0.5">
             <span class="text-xs opacity-60 font-mono truncate" style="font-size:0.65rem">{{ ds.queryName }}</span>
             <span class="opacity-50 ml-auto flex-shrink-0" style="font-size:0.65rem">

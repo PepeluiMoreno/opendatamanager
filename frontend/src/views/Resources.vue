@@ -238,6 +238,16 @@
           </div>
 
           <div>
+            <label class="block text-xs font-medium mb-1">Description</label>
+            <textarea
+              v-model="form.description"
+              class="input w-full text-sm"
+              rows="2"
+              placeholder="Optional description of this resource..."
+            ></textarea>
+          </div>
+
+          <div>
             <Tooltip :text="getTooltip('fetcher_id')">
               <label class="block text-xs font-medium mb-1">Fetcher Type</label>
             </Tooltip>
@@ -339,6 +349,39 @@
                         Editar query
                       </button>
                     </div>
+                    <div v-else-if="param.dataType === 'bbox'" class="space-y-1">
+                      <div class="grid grid-cols-2 gap-1">
+                        <div>
+                          <label class="text-xs text-gray-500">Min X (lon W)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(param.paramName))[0]"
+                            @input="updateBbox(param.paramName, 0, $event.target.value)"
+                            class="input w-full text-xs" placeholder="-6.4" />
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">Min Y (lat S)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(param.paramName))[1]"
+                            @input="updateBbox(param.paramName, 1, $event.target.value)"
+                            class="input w-full text-xs" placeholder="36.9" />
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">Max X (lon E)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(param.paramName))[2]"
+                            @input="updateBbox(param.paramName, 2, $event.target.value)"
+                            class="input w-full text-xs" placeholder="-5.3" />
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">Max Y (lat N)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(param.paramName))[3]"
+                            @input="updateBbox(param.paramName, 3, $event.target.value)"
+                            class="input w-full text-xs" placeholder="37.9" />
+                        </div>
+                      </div>
+                      <p class="text-xs text-gray-600 font-mono">{{ getParamValue(param.paramName) || '—' }}</p>
+                    </div>
                     <div v-else-if="param.dataType === 'enum' && param.enumValues" class="space-y-1.5">
                       <EnumRadioGroup
                         :modelValue="getParamValue(param.paramName)"
@@ -438,6 +481,39 @@
                               class="px-2 py-0.5 text-xs rounded border border-blue-700 text-blue-400 hover:bg-blue-900">
                         Editar query
                       </button>
+                    </div>
+                    <div v-else-if="getParamType(paramName) === 'bbox'" class="space-y-1">
+                      <div class="grid grid-cols-2 gap-1">
+                        <div>
+                          <label class="text-xs text-gray-500">Min X (lon W)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(paramName))[0]"
+                            @input="updateBbox(paramName, 0, $event.target.value)"
+                            class="input w-full text-xs" placeholder="-6.4" />
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">Min Y (lat S)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(paramName))[1]"
+                            @input="updateBbox(paramName, 1, $event.target.value)"
+                            class="input w-full text-xs" placeholder="36.9" />
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">Max X (lon E)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(paramName))[2]"
+                            @input="updateBbox(paramName, 2, $event.target.value)"
+                            class="input w-full text-xs" placeholder="-5.3" />
+                        </div>
+                        <div>
+                          <label class="text-xs text-gray-500">Max Y (lat N)</label>
+                          <input type="number" step="any"
+                            :value="parseBbox(getParamValue(paramName))[3]"
+                            @input="updateBbox(paramName, 3, $event.target.value)"
+                            class="input w-full text-xs" placeholder="37.9" />
+                        </div>
+                      </div>
+                      <p class="text-xs text-gray-600 font-mono">{{ getParamValue(paramName) || '—' }}</p>
                     </div>
                     <div v-else-if="getParamType(paramName) === 'enum' && getParamEnumValues(paramName)" class="space-y-1.5">
                       <EnumRadioGroup
@@ -748,23 +824,26 @@
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       @click.self="showDeleteModal = false"
     >
-      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-        <h2 class="text-2xl font-bold mb-4">Confirm Delete</h2>
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700 shadow-2xl">
+        <h2 class="text-xl font-bold mb-4">Delete Resource</h2>
         <p class="mb-6">
-          Are you sure you want to delete resource "{{ resourceToDelete?.name }}"?
+          Are you sure you want to delete <strong class="text-purple-300">{{ resourceToDelete?.name }}</strong>?
+          The resource and its execution history will be deleted.
         </p>
-        <div class="flex justify-end space-x-2">
-          <button @click="showDeleteModal = false" class="btn btn-secondary">
-            Cancel
-          </button>
-          <button @click="handleDelete" class="btn btn-danger">
-            Delete
-          </button>
+
+        <label class="flex items-start gap-2 mb-6 cursor-pointer">
+          <input type="checkbox" v-model="hardDeleteFlag" class="accent-red-500 mt-0.5" />
+          <span class="text-sm text-gray-300">Permanently delete</span>
+        </label>
+
+        <div class="flex justify-end gap-2">
+          <button @click="showDeleteModal = false" class="btn btn-secondary">Cancel</button>
+          <button @click="handleDelete" class="btn btn-danger">Delete</button>
         </div>
       </div>
     </div>
 
-    <PreviewDataModal :previewResource="previewResource" :loadingPreview="loadingPreview" :previewError="previewError" :previewData="previewData" :getRecordCount="getRecordCount" v-model:showPreviewModal="showPreviewModal" />
+    <PreviewDataModal :previewResource="previewResource" :loadingPreview="loadingPreview" :previewError="previewError" :previewData="previewData" :getRecordCount="getRecordCount" v-model:showPreviewModal="showPreviewModal" v-model:previewParams="previewParams" :onRunPreview="runPreviewWithParams" />
 
     <!-- Overpass Query Builder Modal -->
     <OverpassQueryModal
@@ -950,7 +1029,8 @@ function clearFilters() {
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
-const showDeleteModal = ref(false)
+const showDeleteModal  = ref(false)
+const hardDeleteFlag   = ref(false)
 const showPreviewModal = ref(false)
 const showExecuteModal = ref(false)
 const resourceToDelete = ref(null)
@@ -963,9 +1043,11 @@ const previewResource = ref(null)
 const previewData = ref(null)
 const loadingPreview = ref(false)
 const previewError = ref(null)
+const previewParams = ref({})
 
 const form = ref({
   name: '',
+  description: '',
   publisherId: null,
   fetcherId: '',
   params: [],
@@ -1180,7 +1262,23 @@ function getOverpassPresets(paramName) {
 
 /** Tipos de param que necesitan layout de ancho completo (sin flex-row). */
 function isFullWidthParam(dataType) {
-  return dataType === 'json_filter_map' || dataType === 'overpass_query'
+  return dataType === 'json_filter_map' || dataType === 'overpass_query' || dataType === 'bbox'
+}
+
+/** BBox helpers: parsea "minx,miny,maxx,maxy" → [minx,miny,maxx,maxy] */
+function parseBbox(val) {
+  if (!val) return ['', '', '', '']
+  const parts = String(val).split(',').map(s => s.trim())
+  while (parts.length < 4) parts.push('')
+  return parts
+}
+
+function updateBbox(paramName, index, newVal) {
+  const current = parseBbox(getParamValue(paramName))
+  current[index] = newVal
+  // Solo serializar si los 4 valores están presentes
+  const joined = current.join(',')
+  updateParamValue(paramName, joined)
 }
 
 /** Modal Overpass: qué param está siendo editado (null = cerrada). */
@@ -1286,6 +1384,7 @@ function editResource(resource) {
 
   form.value = {
     name: resource.name,
+    description: resource.description || '',
     publisherId: resource.publisherId || null,
     fetcherId: resource.fetcher.id,
     params: regularParams.map(p => ({ key: p.key, value: p.value, isExternal: p.isExternal || false })),
@@ -1313,14 +1412,48 @@ async function showPreviewData(resource) {
   previewResource.value = resource
   previewData.value = null
   previewError.value = null
+  // Initialise external param inputs with stored defaults
+  previewParams.value = Object.fromEntries(
+    (resource.params || []).filter(p => p.isExternal).map(p => [p.key, p.value || ''])
+  )
   showPreviewModal.value = true
   loadingPreview.value = true
 
   try {
-    const result = await previewResourceData(resource.id, 100)
-    previewData.value = result.previewResourceData
+    const runtimeParams = Object.fromEntries(
+      Object.entries(previewParams.value).filter(([, v]) => v !== '')
+    )
+    const result = await previewResourceData(resource.id, 100, Object.keys(runtimeParams).length ? runtimeParams : null)
+    const raw = result.previewResourceData
+    if (raw?.error) {
+      previewError.value = raw.error
+    } else {
+      previewData.value = raw?.records ?? raw
+    }
   } catch (e) {
-    previewError.value = 'Failed to load preview data: ' + e.message
+    previewError.value = e.message
+  } finally {
+    loadingPreview.value = false
+  }
+}
+
+async function runPreviewWithParams() {
+  previewData.value = null
+  previewError.value = null
+  loadingPreview.value = true
+  try {
+    const runtimeParams = Object.fromEntries(
+      Object.entries(previewParams.value).filter(([, v]) => v !== '')
+    )
+    const result = await previewResourceData(previewResource.value.id, 100, Object.keys(runtimeParams).length ? runtimeParams : null)
+    const raw = result.previewResourceData
+    if (raw?.error) {
+      previewError.value = raw.error
+    } else {
+      previewData.value = raw?.records ?? raw
+    }
+  } catch (e) {
+    previewError.value = e.message
   } finally {
     loadingPreview.value = false
   }
@@ -1351,22 +1484,25 @@ function getRecordCount(data) {
 function openExecuteModal(resource) {
   executingResource.value = resource
   executeResult.value = null
-  executeParams.value = {}   // start empty — user fills only what they want to override
+  // Pre-populate with stored default values so they appear in the execution label even if unchanged
+  const defaults = {}
+  for (const p of (resource.params || []).filter(p => p.isExternal)) {
+    if (p.value != null && p.value !== '') defaults[p.key] = p.value
+  }
+  executeParams.value = defaults
   showExecuteModal.value = true
 }
 
 async function confirmExecute() {
-  // Only send params the user explicitly typed (non-empty strings)
-  const overrides = Object.fromEntries(
-    Object.entries(executeParams.value).filter(([, v]) => v !== '' && v !== null && v !== undefined)
-  )
-  const externalParams = Object.keys(overrides).length > 0 ? overrides : null
+  // Send all external params (pre-populated with defaults, overridable by user)
+  const externalParams = Object.keys(executeParams.value).length > 0 ? { ...executeParams.value } : null
   showExecuteModal.value = false
   executeResource(executingResource.value.id, externalParams).catch(() => {})
 }
 
 function confirmDelete(resource) {
   resourceToDelete.value = resource
+  hardDeleteFlag.value = false
   showDeleteModal.value = true
 }
 
@@ -1383,9 +1519,10 @@ async function handleClone(resource) {
 
 async function handleDelete() {
   try {
-    await deleteResource(resourceToDelete.value.id)
+    await deleteResource(resourceToDelete.value.id, hardDeleteFlag.value)
     showDeleteModal.value = false
     resourceToDelete.value = null
+    hardDeleteFlag.value = false
     await loadData()
   } catch (e) {
     error.value = 'Failed to delete resource: ' + e.message
@@ -1423,6 +1560,7 @@ async function submitForm() {
 
     const input = {
       name: form.value.name,
+      description: form.value.description || null,
       publisherId: form.value.publisherId || null,
       fetcherId: form.value.fetcherId,
       params: allParams,
@@ -1453,6 +1591,7 @@ function closeModals() {
   editingDerivedId.value = null
   form.value = {
     name: '',
+    description: '',
     publisher: '',
     fetcherId: '',
     params: [],

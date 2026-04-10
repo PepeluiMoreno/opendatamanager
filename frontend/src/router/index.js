@@ -10,6 +10,7 @@ import Schedule from '../views/Schedule.vue'
 import DataExplorer from '../views/DataExplorer.vue'
 import Publishers from '../views/Publishers.vue'
 import Subscriptions from '../views/Subscriptions.vue'
+import Trash from '../views/Trash.vue'
 
 const routes = [
   {
@@ -66,6 +67,11 @@ const routes = [
     path: '/subscriptions',
     name: 'Subscriptions',
     component: Subscriptions,
+  },
+  {
+    path: '/trash',
+    name: 'Trash',
+    component: Trash,
   },
 ]
 

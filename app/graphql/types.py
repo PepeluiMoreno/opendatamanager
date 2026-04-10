@@ -181,6 +181,9 @@ class DatasetType:
     checksum: Optional[str] = None
     created_at: datetime = strawberry.field(name="createdAt")
     download_urls: strawberry.scalars.JSON = strawberry.field(name="downloadUrls")
+    label: Optional[str] = None
+    execution_params: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="executionParams")
+    # ^ execution_params comes from the related ResourceExecution, not stored on Dataset directly
 
 
 @strawberry.type

@@ -64,11 +64,37 @@ FETCHER_DEFS = [
     {
         "code": "File Download",
         "class_path": "app.fetchers.file_download.FileDownloadFetcher",
-        "description": "Downloads a static file (CSV, JSON, Excel, XML)",
+        "description": "Downloads a static file and converts rows to records. Supports XLSX, CSV and TSV.",
         "params": [
-            {"param_name": "url",     "data_type": "string", "required": True},
-            {"param_name": "format",  "data_type": "string", "required": False, "default_value": "json"},
-            {"param_name": "timeout", "data_type": "integer","required": False, "default_value": 60},
+            {"param_name": "url",        "data_type": "string",  "required": True},
+            {"param_name": "format",     "data_type": "string",  "required": True},
+            {"param_name": "sheet",      "data_type": "string",  "required": False, "default_value": "0"},
+            {"param_name": "skip_rows",  "data_type": "integer", "required": False, "default_value": 0},
+            {"param_name": "delimiter",  "data_type": "string",  "required": False},
+            {"param_name": "encoding",   "data_type": "string",  "required": False, "default_value": "utf-8-sig"},
+            {"param_name": "columns",    "data_type": "json",    "required": False},
+            {"param_name": "headers",    "data_type": "json",    "required": False},
+            {"param_name": "batch_size", "data_type": "integer", "required": False, "default_value": 1000},
+            {"param_name": "timeout",    "data_type": "integer", "required": False, "default_value": 60},
+        ],
+    },
+    {
+        "code": "Compressed File",
+        "class_path": "app.fetchers.compressed_file.CompressedFileFetcher",
+        "description": "Downloads a compressed archive (ZIP, TAR, TAR.GZ, TAR.BZ2, GZ) and parses the extracted file as CSV, TSV or XLSX.",
+        "params": [
+            {"param_name": "url",          "data_type": "string",  "required": True},
+            {"param_name": "format",       "data_type": "string",  "required": True},
+            {"param_name": "entry",        "data_type": "string",  "required": False},
+            {"param_name": "inner_format", "data_type": "string",  "required": False},
+            {"param_name": "skip_rows",    "data_type": "integer", "required": False, "default_value": 0},
+            {"param_name": "delimiter",    "data_type": "string",  "required": False},
+            {"param_name": "encoding",     "data_type": "string",  "required": False, "default_value": "utf-8-sig"},
+            {"param_name": "sheet",        "data_type": "string",  "required": False, "default_value": "0"},
+            {"param_name": "columns",      "data_type": "json",    "required": False},
+            {"param_name": "headers",      "data_type": "json",    "required": False},
+            {"param_name": "batch_size",   "data_type": "integer", "required": False, "default_value": 1000},
+            {"param_name": "timeout",      "data_type": "integer", "required": False, "default_value": 120},
         ],
     },
     {
@@ -118,13 +144,37 @@ FETCHER_DEFS = [
         ],
     },
     {
-        "code": "Servicios Geográficos",
-        "class_path": "app.fetchers.geo.GeoFetcher",
-        "description": "WFS/WMS geographic services",
+        "code": "WFS",
+        "class_path": "app.fetchers.wfs.WFSFetcher",
+        "description": "OGC Web Feature Service — vector features with automatic pagination",
         "params": [
-            {"param_name": "url",      "data_type": "string", "required": True},
-            {"param_name": "layer",    "data_type": "string", "required": True},
-            {"param_name": "format",   "data_type": "string", "required": False, "default_value": "GeoJSON"},
+            {"param_name": "endpoint",      "data_type": "string",  "required": True},
+            {"param_name": "typenames",     "data_type": "string",  "required": True},
+            {"param_name": "version",       "data_type": "string",  "required": False, "default_value": "2.0.0"},
+            {"param_name": "outputFormat",  "data_type": "string",  "required": False, "default_value": "application/json"},
+            {"param_name": "srsName",       "data_type": "string",  "required": False, "default_value": "EPSG:4326"},
+            {"param_name": "bbox",          "data_type": "bbox",    "required": False},
+            {"param_name": "cql_filter",    "data_type": "string",  "required": False},
+            {"param_name": "count",         "data_type": "integer", "required": False, "default_value": 1000},
+            {"param_name": "id_field",      "data_type": "string",  "required": False},
+            {"param_name": "timeout",       "data_type": "integer", "required": False, "default_value": 120},
+        ],
+    },
+    {
+        "code": "WMS",
+        "class_path": "app.fetchers.wms.WMSFetcher",
+        "description": "OGC Web Map Service — map image metadata + URL",
+        "params": [
+            {"param_name": "endpoint",  "data_type": "string",  "required": True},
+            {"param_name": "layers",    "data_type": "string",  "required": True},
+            {"param_name": "bbox",      "data_type": "bbox",    "required": True},
+            {"param_name": "version",   "data_type": "string",  "required": False, "default_value": "1.3.0"},
+            {"param_name": "format",    "data_type": "string",  "required": False, "default_value": "image/png"},
+            {"param_name": "crs",       "data_type": "string",  "required": False, "default_value": "EPSG:4326"},
+            {"param_name": "styles",    "data_type": "string",  "required": False},
+            {"param_name": "width",     "data_type": "integer", "required": False, "default_value": 1024},
+            {"param_name": "height",    "data_type": "integer", "required": False, "default_value": 1024},
+            {"param_name": "timeout",   "data_type": "integer", "required": False, "default_value": 120},
         ],
     },
     {
@@ -215,6 +265,56 @@ PUBLISHER_DEFS = [
         "pais":     "España",
         "portal_url": "https://www.notariado.org",
     },
+    {
+        "acronimo": "DGC",
+        "nombre":   "Dirección General del Catastro",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.catastro.meh.es",
+    },
+    {
+        "acronimo": "JDA",
+        "nombre":   "Junta de Andalucía",
+        "nivel":    "AUTONOMICO",
+        "pais":     "España",
+        "comunidad_autonoma": "Andalucía",
+        "portal_url": "https://www.juntadeandalucia.es",
+    },
+    {
+        "acronimo": "BDNS",
+        "nombre":   "Base de Datos Nacional de Subvenciones",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.infosubvenciones.es",
+    },
+    {
+        "acronimo": "CORPME",
+        "nombre":   "Colegio de Registradores de la Propiedad, Bienes Muebles y Mercantiles de España",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.registradores.org",
+    },
+    {
+        "acronimo": "CSCAE",
+        "nombre":   "Consejo Superior de los Colegios de Arquitectos de España",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.cscae.com",
+    },
+    {
+        "acronimo": "CGATE",
+        "nombre":   "Consejo General de la Arquitectura Técnica de España",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.cgate.es",
+    },
+    {
+        "acronimo": "CEE",
+        "nombre":   "Conferencia Episcopal Española",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.conferenciaepiscopal.es",
+    },
 ]
 
 
@@ -226,9 +326,9 @@ PUBLISHER_DEFS = [
 
 RESOURCE_DEFS = [
     {
-        "name":             "DIR3 - Unidades Orgánicas",
-        "fetcher_code":     "API REST Paginada",
-        "publisher_acronimo": "MPTFP",
+        "name":             "DIR3 - Unidades Orgánicas de España",
+        "fetcher_code":     "API REST",
+        "publisher_acronimo": "JDA",
         "target_table":     "dir3_unidades",
         "schedule":         "0 3 * * 0",   # weekly, Sunday 03:00
         "params": {
@@ -236,19 +336,21 @@ RESOURCE_DEFS = [
             "method":          "GET",
             "timeout":         "120",
             "id_field":        "id",
-            "bounding_field":  "hierarchical_level",
         },
     },
     {
         "name":             "España - Municipios (INE)",
-        "fetcher_code":     "API REST",
+        "fetcher_code":     "File Download",
         "publisher_acronimo": "INE",
         "target_table":     "geo_municipios",
         "schedule":         "0 4 1 1 *",   # yearly, 1 Jan 04:00
+        # URL uses 2-digit year suffix (e.g. 26codmun.xlsx for 2026). Update annually.
         "params": {
-            "url":     "https://servicios.ine.es/wstempus/js/ES/MUNICIPIOS",
-            "method":  "GET",
-            "timeout": "60",
+            "url":       "https://www.ine.es/daco/daco42/codmun/26codmun.xlsx",
+            "format":    "xlsx",
+            "skip_rows": "2",   # INE header occupies rows 0-1; data starts at row 2
+            "timeout":   "60",
+            "headers":   '{"User-Agent": "Mozilla/5.0", "Referer": "https://www.ine.es/"}',
         },
     },
     {
@@ -257,8 +359,10 @@ RESOURCE_DEFS = [
         "publisher_acronimo": "INE",
         "target_table":     "geo_provincias",
         "schedule":         "0 4 1 1 *",   # yearly, 1 Jan 04:00
+        # VALORES_VARIABLE/20: 52 provincias con Id interno, Codigo (2 dig), Nombre,
+        # FK_JerarquiaPadres[0].Id -> Id interno de la CCAA padre
         "params": {
-            "url":     "https://servicios.ine.es/wstempus/js/ES/PROVINCIA",
+            "url":     "https://servicios.ine.es/wstempus/js/ES/VALORES_VARIABLE/20",
             "method":  "GET",
             "timeout": "60",
         },
@@ -269,8 +373,9 @@ RESOURCE_DEFS = [
         "publisher_acronimo": "INE",
         "target_table":     "geo_ccaa",
         "schedule":         "0 4 1 1 *",   # yearly, 1 Jan 04:00
+        # VALORES_VARIABLE/70: 19 CCAA con Id interno, Codigo (2 dig), Nombre
         "params": {
-            "url":     "https://servicios.ine.es/wstempus/js/ES/CCAA",
+            "url":     "https://servicios.ine.es/wstempus/js/ES/VALORES_VARIABLE/70",
             "method":  "GET",
             "timeout": "60",
         },
@@ -309,12 +414,205 @@ RESOURCE_DEFS = [
             "timeout":  "60",
         },
     },
+    {
+        "name":               "Catastro - Parcelas (Sevilla)",
+        "fetcher_code":       "WFS",
+        "publisher_acronimo": "DGC",
+        "target_table":       "catastro_parcelas",
+        "schedule":           "0 3 1 * *",
+        "params": {
+            "endpoint":      "http://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx",
+            "typenames":     "cp:CadastralParcel",
+            "bbox":          "-6.4,36.9,-5.3,37.9",
+            "outputFormat":  "application/gml+xml; version=3.2",
+            "srsName":       "EPSG:4326",
+            "count":         "500",
+            "id_field":      "nationalCadastralReference",
+            "timeout":       "120",
+        },
+    },
+    {
+        "name":               "OSM - Inmuebles Eclesiásticos (España)",
+        "fetcher_code":       "OSM Overpass",
+        "publisher_acronimo": None,   # dato de OSM community, sin publisher institucional
+        "target_table":       "osm_inmuebles_eclesiasticos",
+        "schedule":           "0 2 * * 0",   # weekly, Sunday 02:00
+        "params": {
+            # Presets RELIGIOUS_ALL + RELIGIOUS_BUILDING_EXTRA cubren:
+            # iglesias, catedrales, basílicas, capillas, monasterios, conventos,
+            # ermitas, cruces, humilladeros, grottas de Lourdes — con y sin denominación
+            "use_types":      '[{"preset": "RELIGIOUS_ALL"}, {"preset": "RELIGIOUS_BUILDING_EXTRA"}]',
+            "demarcacion":    "España",
+            "element_types":  "node,way,relation",
+            "out_format":     "center",
+            "timeout":        "1800",
+            "max_elements":   "0",
+        },
+    },
+    {
+        "name":               "BDNS - Concesiones de Subvenciones",
+        "fetcher_code":       "API REST Paginada",
+        "publisher_acronimo": "BDNS",
+        "target_table":       "bdns_concesiones",
+        "schedule":           "0 4 * * 1",   # weekly, Monday 04:00
+        "params": {
+            "url":            "https://www.infosubvenciones.es/bdnstrans/api/concesiones/busqueda",
+            "page_param":     "page",
+            "page_size_param": "pageSize",
+            "page_size":      "10000",
+            "content_field":  "content",
+            "id_field":       "id",
+            # External (runtime-overridable) — date range in DD/MM/YYYY
+            "fechaDesde":     {"value": "01/01/2026", "is_external": True},
+            "fechaHasta":     {"value": "31/12/2026", "is_external": True},
+        },
+    },
+    {
+        "name":               "BDNS - Convocatorias de Subvenciones",
+        "fetcher_code":       "API REST Paginada",
+        "publisher_acronimo": "BDNS",
+        "target_table":       "bdns_grants",
+        "schedule":           "0 3 * * 1",   # weekly, Monday 03:00
+        "params": {
+            "url":            "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda",
+            "method":         "get",
+            "page_param":     "page",
+            "page_size_param": "pageSize",
+            "page_size":      "10000",
+            "content_field":  "content",
+            "id_field":       "id",
+            "timeout":        "60",
+            "query_params":   '{"page": "0", "pageSize": "100", "order": "numeroConvocatoria", "direccion": "desc", "vpd": "GE"}',
+            # External (runtime-overridable) — date range in DD/MM/YYYY
+            "fechaDesde":     {"value": "01/01/2026", "is_external": True},
+            "fechaHasta":     {"value": "31/12/2026", "is_external": True},
+        },
+    },
+    # ── SIPI: Agentes poblables por ETL ──────────────────────────────────────
+    {
+        "name":               "Registros de la Propiedad (CORPME)",
+        "fetcher_code":       "File Download",
+        "publisher_acronimo": "CORPME",
+        "target_table":       "registros_propiedad",
+        "schedule":           "0 3 1 * *",   # mensual, día 1 a las 03:00
+        # CORPME publica el listado oficial en XLSX desde su portal de estadística.
+        # El fichero contiene: Número de Registro, Denominación, Municipio, Provincia,
+        # Dirección, CP, Teléfono, Fax, Email, URL.
+        "params": {
+            "url":       "https://www.registradores.org/documents/20122/573720/Listado_Registros_Propiedad.xlsx",
+            "format":    "xlsx",
+            "skip_rows": "1",
+            "timeout":   "60",
+            "headers":   '{"User-Agent": "Mozilla/5.0", "Referer": "https://www.registradores.org/"}',
+        },
+    },
+    {
+        "name":               "Colegios de Arquitectos (CSCAE)",
+        "fetcher_code":       "API REST",
+        "publisher_acronimo": "CSCAE",
+        "target_table":       "colegios_profesionales",
+        "schedule":           "0 3 1 1 *",   # anual, 1 enero
+        # El CSCAE expone un JSON con los 30 colegios territoriales (uno por demarcación).
+        # Campos: id, nombre, comunidad_autonoma, url, email, telefono, direccion, cp, municipio.
+        "params": {
+            "url":     "https://www.cscae.com/wp-json/cscae/v1/colegios",
+            "method":  "GET",
+            "timeout": "30",
+        },
+    },
+    {
+        "name":               "Colegios de Aparejadores y Arquitectos Técnicos (CGATE)",
+        "fetcher_code":       "API REST",
+        "publisher_acronimo": "CGATE",
+        "target_table":       "colegios_profesionales",
+        "schedule":           "0 3 1 1 *",   # anual, 1 enero
+        # CGATE (Consejo General de la Arquitectura Técnica de España).
+        # La web de CGATE lista sus delegaciones territoriales.
+        # URL: directorio de delegaciones en cgate.es — ajustar si la estructura cambia.
+        "params": {
+            "url":     "https://www.cgate.es/wp-json/wp/v2/delegaciones?per_page=100",
+            "method":  "GET",
+            "timeout": "30",
+        },
+    },
+    {
+        "name":               "Agencias Inmobiliarias (RERA Andalucía)",
+        "fetcher_code":       "API REST Paginada",
+        "publisher_acronimo": "JDA",
+        "target_table":       "agencias_inmobiliarias",
+        "schedule":           "0 4 * * 0",   # semanal, domingos 04:00
+        # Registro de Agentes Inmobiliarios de Andalucía (RERA).
+        # CKAN datastore API — datos.juntadeandalucia.es
+        # El resource_id puede variar; verificar en:
+        # https://datos.juntadeandalucia.es/dataset/rera-registro-de-agentes-inmobiliarios
+        "params": {
+            "url":             "https://datos.juntadeandalucia.es/api/action/datastore_search",
+            "method":          "GET",
+            "page_param":      "offset",
+            "page_size_param": "limit",
+            "page_size":       "1000",
+            "content_field":   "result.records",
+            "id_field":        "_id",
+            "timeout":         "60",
+            "resource_id":     {"value": "d84a2543-e94b-4d9e-854b-58e4d0b7db38", "is_external": True},
+        },
+    },
+    {
+        "name":               "Diócesis y Entidades Religiosas (CEE)",
+        "fetcher_code":       "File Download",
+        "publisher_acronimo": "CEE",
+        "target_table":       "entidades_religiosas",
+        "schedule":           "0 3 1 1 *",   # anual, 1 enero
+        # La CEE publica el directorio de diócesis y archidiócesis en su web.
+        # Fichero XLSX con: nombre, tipo (diócesis/archidiócesis/prelatura),
+        # obispo, sede, municipio, provincia, teléfono, web.
+        "params": {
+            "url":       "https://www.conferenciaepiscopal.es/data/diocesis.xlsx",
+            "format":    "xlsx",
+            "skip_rows": "1",
+            "timeout":   "30",
+            "headers":   '{"User-Agent": "Mozilla/5.0"}',
+        },
+    },
+    {
+        "name":               "Geonames - Entidades de Población (España)",
+        "fetcher_code":       "Compressed File",
+        "publisher_acronimo": None,
+        "target_table":       "geo_elm",
+        "schedule":           "0 3 1 1 *",   # yearly, 1 Jan 03:00
+        # Geonames ES.zip → ES.txt (TSV, sin cabecera, columnas fijas)
+        # Columnas: geonameid, name, asciiname, alternatenames, lat, lon,
+        #           feature_class, feature_code, country, cc2,
+        #           admin1, admin2, admin3 (código INE municipio 5 dígitos), admin4,
+        #           population, elevation, dem, timezone, modification
+        # Filtrar en SIPI-ETL: feature_class=P y feature_code in (PPL, PPLX, PPLL, PPLF, ...)
+        "params": {
+            "url":          "https://download.geonames.org/export/dump/ES.zip",
+            "format":       "zip",
+            "entry":        "ES.txt",
+            "inner_format": "tsv",
+            "timeout":      "120",
+            "headers":      '{"User-Agent": "ODMGR/1.0 (investigacion patrimonial)"}',
+            # ES.txt no tiene cabecera — definimos las columnas explícitamente
+            "columns":      '["geonameid","name","asciiname","alternatenames","lat","lon","feature_class","feature_code","country","cc2","admin1","admin2","admin3","admin4","population","elevation","dem","timezone","modification"]',
+        },
+    },
 ]
 
 
 # ---------------------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------------------
+
+def _retire_fetcher(db, code: str):
+    """Soft-delete a legacy fetcher by code (leaves it in Trash, frees the code slot)."""
+    from datetime import datetime, timezone
+    ft = db.query(Fetcher).filter(Fetcher.code == code, Fetcher.deleted_at == None).first()
+    if ft:
+        ft.deleted_at = datetime.now(timezone.utc)
+        db.flush()
+        print(f"  ⚠ retired legacy fetcher '{code}'")
+
 
 def _upsert_fetcher(db, defn: dict) -> Fetcher:
     """Create or update a Fetcher by code."""
@@ -358,7 +656,7 @@ def _upsert_publisher(db, defn: dict) -> Publisher:
 def _upsert_resource(db, defn: dict, fetchers: dict, publishers: dict) -> Resource:
     """Create or update a Resource by name."""
     ft = fetchers[defn["fetcher_code"]]
-    pub = publishers.get(defn["publisher_acronimo"])
+    pub = publishers.get(defn.get("publisher_acronimo"))
 
     res = db.query(Resource).filter(Resource.name == defn["name"]).first()
     if not res:
@@ -374,14 +672,23 @@ def _upsert_resource(db, defn: dict, fetchers: dict, publishers: dict) -> Resour
     db.flush()
 
     # Sync params: replace all (these are foundation resources, params are authoritative)
+    # Each param value may be a plain string/number or a dict {"value": ..., "is_external": bool}
     existing = {p.key: p for p in (res.params or [])}
     seen = set()
-    for key, value in defn.get("params", {}).items():
+    for key, spec in defn.get("params", {}).items():
         seen.add(key)
-        if key in existing:
-            existing[key].value = str(value)
+        if isinstance(spec, dict):
+            raw_value = str(spec["value"])
+            is_external = bool(spec.get("is_external", False))
         else:
-            db.add(ResourceParam(id=uuid.uuid4(), resource_id=res.id, key=key, value=str(value)))
+            raw_value = str(spec)
+            is_external = False
+        if key in existing:
+            existing[key].value = raw_value
+            existing[key].is_external = is_external
+        else:
+            db.add(ResourceParam(id=uuid.uuid4(), resource_id=res.id, key=key,
+                                 value=raw_value, is_external=is_external))
 
     # Remove params no longer in definition
     for key, param in existing.items():
@@ -399,6 +706,9 @@ def seed():
     db = SessionLocal()
     try:
         print("[seed] Syncing fetchers...")
+        # Retire legacy fetchers that were replaced
+        _retire_fetcher(db, "Servicios Geográficos")
+
         fetchers = {}
         for defn in FETCHER_DEFS:
             ft = _upsert_fetcher(db, defn)

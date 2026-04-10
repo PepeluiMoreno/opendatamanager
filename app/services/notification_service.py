@@ -49,7 +49,7 @@ class NotificationService:
 
             if mode == "graphql":
                 # Notificación ligera: avisa que hay datos nuevos sin incluir URLs de descarga masiva
-                payload = self._build_graphql_payload(dataset)
+                payload = self._build_graphql_payload(session, dataset)
             else:
                 # webhook / both: payload completo con URLs de descarga JSONL
                 payload = self._build_payload(session, dataset, subscription)
@@ -116,7 +116,7 @@ class NotificationService:
             
         return False # Default to not notifying
 
-    def _build_graphql_payload(self, dataset: Dataset) -> Dict:
+    def _build_graphql_payload(self, session: Session, dataset: Dataset) -> Dict:
         """
         Payload ligero para aplicaciones que consumen datos vía GraphQL.
 
@@ -124,7 +124,8 @@ class NotificationService:
         directamente con los filtros que necesite.
         """
         from app.graphql_data.schema_builder import dataset_query_name
-        resource = dataset.resource
+        from app.models import Resource as ResourceModel
+        resource = session.get(ResourceModel, dataset.resource_id)
         return {
             "event": "dataset.published",
             "consumption_mode": "graphql",
@@ -150,7 +151,8 @@ class NotificationService:
         subscription: DatasetSubscription
     ) -> Dict:
         """Build notification payload"""
-        resource = dataset.resource
+        from app.models import Resource as ResourceModel
+        resource = session.get(ResourceModel, dataset.resource_id)
 
         # Compute schema diff if there's a previous version
         schema_diff = {}

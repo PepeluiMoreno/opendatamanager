@@ -24,8 +24,9 @@ class Fetcher(Base):
     # DB migrations renamed this column to 'name' — keep attribute `code`
     # mapped to DB column 'name' for backward compatibility in code.
     code = Column('name', String(50), unique=True, nullable=False)
-    class_path = Column(String(255), nullable=True)  # Python class path for dynamic import
+    class_path = Column(String(255), nullable=True)
     description = Column(Text)
+    deleted_at = Column(DateTime, nullable=True)
 
     params_def = relationship("FetcherParams", back_populates="fetcher")
     resources = relationship("Resource", back_populates="fetcher")
@@ -64,6 +65,7 @@ class Publisher(Base):
     email = Column(String(200), nullable=True)
     telefono = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     resources = relationship("Resource", back_populates="publisher_obj")
 
@@ -86,10 +88,13 @@ class Resource(Base):
     enable_load = Column(Boolean, default=False)
     load_mode = Column(String(20), default="replace")
 
+    created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
     fetcher = relationship("Fetcher", back_populates="resources")
     publisher_obj = relationship("Publisher", back_populates="resources")
     params = relationship("ResourceParam", back_populates="resource", cascade="all, delete-orphan")
-    executions = relationship("ResourceExecution", back_populates="resource", cascade="all, delete-orphan")
+    executions = relationship("ResourceExecution", back_populates="resource")
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
 
@@ -118,17 +123,17 @@ class Application(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(100), unique=True, nullable=False)
     description = Column(Text)
-    models_path = Column(String(255), nullable=False)  # Ruta donde escribir los modelos generados
-    subscribed_projects = Column('subscribed_resources', JSONB, nullable=False, default=list)  # Lista de resources a los que está suscrita
+    models_path = Column(String(255), nullable=True)  # Deprecated
+    subscribed_projects = Column('subscribed_resources', JSONB, nullable=False, default=list)
     active = Column(Boolean, default=True)
+    deleted_at = Column(DateTime, nullable=True)
 
-    # New fields for dataset system
+    # Dataset system fields
     webhook_url = Column(String(500))
     webhook_secret = Column(String(100))
-    # Modo de consumo: 'webhook' | 'graphql' | 'both'
     consumption_mode = Column(String(20), nullable=False, default='webhook')
 
-    # New relationships
+    # Relationships
     subscriptions = relationship("DatasetSubscription", back_populates="application")
 
 
@@ -228,6 +233,7 @@ class DatasetSubscription(Base):
     # State
     current_version = Column(String(20))
     notified_at = Column(DateTime)
+    deleted_at = Column(DateTime, nullable=True)
 
     application = relationship("Application", back_populates="subscriptions")
     resource = relationship("Resource")
@@ -251,6 +257,7 @@ class DerivedDatasetConfig(Base):
     enabled = Column(Boolean, default=True, nullable=False)
     description = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     source_resource = relationship("Resource", back_populates="derived_configs")
     entries = relationship("DerivedDatasetEntry", back_populates="config", cascade="all, delete-orphan")

@@ -3,7 +3,7 @@ Queries GraphQL para consultar datos.
 """
 import strawberry
 from typing import List, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
@@ -84,9 +84,10 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
         class_path=ft.class_path,
         description=ft.description,
         params_def=[map_type_fetcher_param(p) for p in (ft.params_def or [])],
-        name=ft.code,  # Use code as name for display
-        resources=resources if include_resources else None
-    ) 
+        name=ft.code,
+        resources=resources if include_resources else None,
+        deleted_at=ft.deleted_at,
+    )
 
 
 """ def map_fetcher(ft: FetcherModel) -> Optional[Fetcher]:
@@ -119,6 +120,7 @@ def map_publisher(p: Publisher) -> PublisherType:
         email=p.email,
         telefono=p.telefono,
         created_at=p.created_at,
+        deleted_at=p.deleted_at,
     )
 
 
@@ -128,6 +130,7 @@ def map_resource(resource: Resource) -> ResourceType:
     return ResourceType(
         id=str(resource.id),
         name=resource.name,
+        description=resource.description,
         publisher=resource.publisher,
         publisher_id=str(resource.publisher_id) if resource.publisher_id else None,
         publisher_obj=map_publisher(pub_obj) if pub_obj else None,
@@ -135,7 +138,9 @@ def map_resource(resource: Resource) -> ResourceType:
         active=resource.active,
         schedule=resource.schedule,
         fetcher=map_fetcher(resource.fetcher) if getattr(resource, 'fetcher', None) else None,
-        params=[map_resource_param(p) for p in (resource.params or [])]
+        params=[map_resource_param(p) for p in (resource.params or [])],
+        created_at=getattr(resource, 'created_at', None),
+        deleted_at=resource.deleted_at,
     )
 
 
@@ -150,6 +155,7 @@ def map_application(app: Application) -> ApplicationType:
         active=app.active,
         webhook_url=app.webhook_url,
         consumption_mode=app.consumption_mode or "webhook",
+        deleted_at=app.deleted_at,
     )
 
 
@@ -181,6 +187,7 @@ def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
         execution_params=re.execution_params,
         pause_requested=bool(re.pause_requested),
         active_seconds=re.active_seconds,
+        deleted_at=re.deleted_at,
     )
 
 
@@ -260,7 +267,7 @@ class Query:
         """Lista todos los fetchers disponibles"""
         db = get_db()
         try:
-            fetchers = db.query(FetcherModel).all()
+            fetchers = db.query(FetcherModel).filter(FetcherModel.deleted_at == None).all()
             return [map_fetcher(ft, include_resources=True) for ft in fetchers]
         finally:
             db.close()
@@ -270,7 +277,7 @@ class Query:
         """Obtiene un Fetcher por ID"""
         db = get_db()
         try:
-            ft = db.query(FetcherModel).filter(FetcherModel.id == id).first()
+            ft = db.query(FetcherModel).filter(FetcherModel.id == id, FetcherModel.deleted_at == None).first()
             return map_fetcher(ft, include_resources=True) if ft else None
         finally:
             db.close()
@@ -280,10 +287,10 @@ class Query:
         """Lista todas las fuentes de datos"""
         db = get_db()
         try:
-            query = db.query(Resource)
+            query = db.query(Resource).options(joinedload(Resource.publisher_obj)).filter(Resource.deleted_at == None)
             if active_only:
                 query = query.filter(Resource.active == True)
-            resources = query.all()
+            resources = query.order_by(Resource.created_at.desc()).all()
             return [map_resource(r) for r in resources]
         finally:
             db.close()
@@ -293,7 +300,7 @@ class Query:
         """Obtiene un Resource por ID"""
         db = get_db()
         try:
-            resource = db.query(Resource).filter(Resource.id == id).first()
+            resource = db.query(Resource).filter(Resource.id == id, Resource.deleted_at == None).first()
             return map_resource(resource) if resource else None
         finally:
             db.close()
@@ -313,7 +320,7 @@ class Query:
         """Lista todas las aplicaciones suscritas"""
         db = get_db()
         try:
-            apps = db.query(Application).all()
+            apps = db.query(Application).filter(Application.deleted_at == None).all()
             return [map_application(app) for app in apps]
         finally:
             db.close()
@@ -323,7 +330,7 @@ class Query:
         """Obtiene una Application por ID"""
         db = get_db()
         try:
-            app = db.query(Application).filter(Application.id == id).first()
+            app = db.query(Application).filter(Application.id == id, Application.deleted_at == None).first()
             return map_application(app) if app else None
         finally:
             db.close()
@@ -341,7 +348,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    async def preview_resource_data(self, id: str, limit: int = 10) -> strawberry.scalars.JSON:
+    async def preview_resource_data(self, id: str, limit: int = 10, params: Optional[strawberry.scalars.JSON] = None) -> strawberry.scalars.JSON:
         """Obtiene una vista previa de los datos de un Resource sin guardarlos"""
         import asyncio
         from app.manager.fetcher_manager import FetcherManager
@@ -349,7 +356,9 @@ class Query:
         def _fetch():
             db = get_db()
             try:
-                return FetcherManager.fetch_only(db, id, limit)
+                return {"records": FetcherManager.fetch_only(db, id, limit, runtime_params=params or {}), "error": None}
+            except Exception as e:
+                return {"records": [], "error": str(e)}
             finally:
                 db.close()
 
@@ -443,7 +452,7 @@ class Query:
         """Lista suscripciones, filtrado por application_id o resource_id"""
         db = get_db()
         try:
-            query = db.query(DatasetSubscription)
+            query = db.query(DatasetSubscription).filter(DatasetSubscription.deleted_at == None)
             if application_id:
                 query = query.filter(DatasetSubscription.application_id == application_id)
             if resource_id:
@@ -458,7 +467,7 @@ class Query:
         """Lista configuraciones de datasets derivados, opcionalmente filtrado por source_resource_id"""
         db = get_db()
         try:
-            query = db.query(DerivedDatasetConfig)
+            query = db.query(DerivedDatasetConfig).filter(DerivedDatasetConfig.deleted_at == None)
             if source_resource_id:
                 query = query.filter(DerivedDatasetConfig.source_resource_id == source_resource_id)
             configs = query.order_by(DerivedDatasetConfig.created_at).all()
@@ -492,7 +501,7 @@ class Query:
         """Lista todos los publishers ordenados por nombre"""
         db = get_db()
         try:
-            return [map_publisher(p) for p in db.query(Publisher).order_by(Publisher.nombre).all()]
+            return [map_publisher(p) for p in db.query(Publisher).filter(Publisher.deleted_at == None).order_by(Publisher.nombre).all()]
         finally:
             db.close()
 
@@ -501,7 +510,54 @@ class Query:
         """Obtiene un Publisher por ID"""
         db = get_db()
         try:
-            p = db.query(Publisher).filter(Publisher.id == id).first()
+            p = db.query(Publisher).filter(Publisher.id == id, Publisher.deleted_at == None).first()
             return map_publisher(p) if p else None
+        finally:
+            db.close()
+
+    # ── Trash queries ──────────────────────────────────────────────────────────
+
+    @strawberry.field
+    def deleted_resources(self) -> List[ResourceType]:
+        db = get_db()
+        try:
+            rows = db.query(Resource).filter(Resource.deleted_at != None).order_by(Resource.deleted_at.desc()).all()
+            return [map_resource(r) for r in rows]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def deleted_applications(self) -> List[ApplicationType]:
+        db = get_db()
+        try:
+            rows = db.query(Application).filter(Application.deleted_at != None).order_by(Application.deleted_at.desc()).all()
+            return [map_application(a) for a in rows]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def deleted_publishers(self) -> List[PublisherType]:
+        db = get_db()
+        try:
+            rows = db.query(Publisher).filter(Publisher.deleted_at != None).order_by(Publisher.deleted_at.desc()).all()
+            return [map_publisher(p) for p in rows]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def deleted_fetchers(self) -> List[FetcherType]:
+        db = get_db()
+        try:
+            rows = db.query(FetcherModel).filter(FetcherModel.deleted_at != None).order_by(FetcherModel.deleted_at.desc()).all()
+            return [map_fetcher(ft) for ft in rows]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def deleted_executions(self) -> List[ResourceExecutionType]:
+        db = get_db()
+        try:
+            rows = db.query(ResourceExecution).filter(ResourceExecution.deleted_at != None).order_by(ResourceExecution.deleted_at.desc()).all()
+            return [map_resource_execution(e) for e in rows]
         finally:
             db.close()
