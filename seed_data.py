@@ -506,35 +506,17 @@ RESOURCE_DEFS = [
             "headers":   '{"User-Agent": "Mozilla/5.0", "Referer": "https://www.registradores.org/"}',
         },
     },
-    {
-        "name":               "Colegios de Arquitectos (CSCAE)",
-        "fetcher_code":       "API REST",
-        "publisher_acronimo": "CSCAE",
-        "target_table":       "colegios_profesionales",
-        "schedule":           "0 3 1 1 *",   # anual, 1 enero
-        # El CSCAE expone un JSON con los 30 colegios territoriales (uno por demarcación).
-        # Campos: id, nombre, comunidad_autonoma, url, email, telefono, direccion, cp, municipio.
-        "params": {
-            "url":     "https://www.cscae.com/wp-json/cscae/v1/colegios",
-            "method":  "GET",
-            "timeout": "30",
-        },
-    },
-    {
-        "name":               "Colegios de Aparejadores y Arquitectos Técnicos (CGATE)",
-        "fetcher_code":       "API REST",
-        "publisher_acronimo": "CGATE",
-        "target_table":       "colegios_profesionales",
-        "schedule":           "0 3 1 1 *",   # anual, 1 enero
-        # CGATE (Consejo General de la Arquitectura Técnica de España).
-        # La web de CGATE lista sus delegaciones territoriales.
-        # URL: directorio de delegaciones en cgate.es — ajustar si la estructura cambia.
-        "params": {
-            "url":     "https://www.cgate.es/wp-json/wp/v2/delegaciones?per_page=100",
-            "method":  "GET",
-            "timeout": "30",
-        },
-    },
+    # CSCAE (Colegios de Arquitectos) y CGATE (Aparejadores) no exponen APIs JSON públicas.
+    # Sus directorios de colegios son páginas HTML estáticas sin endpoint de datos.
+    # Pendiente: cargar manualmente o buscar fuente alternativa verificada.
+    # {
+    #     "name": "Colegios de Arquitectos (CSCAE)",
+    #     ...  # sin API pública verificada a 2026-04
+    # },
+    # {
+    #     "name": "Colegios de Aparejadores y Arquitectos Técnicos (CGATE)",
+    #     ...  # sin API pública verificada a 2026-04
+    # },
     {
         "name":               "Agencias Inmobiliarias (RERA Andalucía)",
         "fetcher_code":       "API REST Paginada",
