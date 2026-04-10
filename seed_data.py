@@ -187,6 +187,18 @@ FETCHER_DEFS = [
         ],
     },
     {
+        "code": "Fotocasa Agencias",
+        "class_path": "app.fetchers.fotocasa.FotocasaFetcher",
+        "description": "Scraper del directorio de agencias inmobiliarias de Fotocasa — pivota sobre 52 provincias con paginación automática",
+        "params": [
+            {"param_name": "provinces",               "data_type": "json",    "required": False},
+            {"param_name": "delay_between_pages",     "data_type": "number",  "required": False, "default_value": 1.5},
+            {"param_name": "delay_between_provinces", "data_type": "number",  "required": False, "default_value": 2.0},
+            {"param_name": "max_pages",               "data_type": "integer", "required": False, "default_value": 500},
+            {"param_name": "timeout",                 "data_type": "integer", "required": False, "default_value": 30},
+        ],
+    },
+    {
         "code": "REST Loop",
         "class_path": "app.fetchers.rest_loop.RestLoopFetcher",
         "description": "REST API iterated over a list of pivot values (e.g. province codes)",
@@ -314,6 +326,13 @@ PUBLISHER_DEFS = [
         "nivel":    "ESTATAL",
         "pais":     "España",
         "portal_url": "https://www.conferenciaepiscopal.es",
+    },
+    {
+        "acronimo": "FOTOCASA",
+        "nombre":   "Fotocasa (Schibsted Spain)",
+        "nivel":    "PRIVADO",
+        "pais":     "España",
+        "portal_url": "https://www.fotocasa.es",
     },
 ]
 
@@ -504,6 +523,27 @@ RESOURCE_DEFS = [
             "skip_rows": "1",
             "timeout":   "60",
             "headers":   '{"User-Agent": "Mozilla/5.0", "Referer": "https://www.registradores.org/"}',
+        },
+    },
+    {
+        "name":               "Agencias Inmobiliarias (Fotocasa)",
+        "fetcher_code":       "Fotocasa Agencias",
+        "publisher_acronimo": "FOTOCASA",
+        "target_table":       "agencias_inmobiliarias",
+        "schedule":           "0 2 1 * *",   # mensual, día 1 a las 02:00
+        # Scraper del directorio https://www.fotocasa.es/buscar-agencias-inmobiliarias/
+        # Pivota sobre las 52 provincias españolas y pagina con rel="next".
+        # Campos: agency_id (clave), nombre, provincia, inmuebles_zona,
+        #         inmuebles_total, precio_minimo, url_busqueda.
+        # agency_id coincide con el clientId de Fotocasa → sirve para detectar
+        # altas y bajas de agencias entre ejecuciones.
+        # La misma agencia aparece en varias provincias si tiene presencia multizonal;
+        # el campo 'provincia' permite agrupar y deduplican por agency_id en el ETL.
+        "params": {
+            "delay_between_pages":     "1.5",
+            "delay_between_provinces": "2.0",
+            "max_pages":               "500",
+            "timeout":                 "30",
         },
     },
     # CSCAE (Colegios de Arquitectos) y CGATE (Aparejadores) no exponen APIs JSON públicas.
