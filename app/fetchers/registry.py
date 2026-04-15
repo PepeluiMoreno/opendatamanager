@@ -40,13 +40,16 @@ class FetcherRegistry:
             "name": "HTML SearchLoop"
         },
 
-        # Aquí se pueden agregar más fetchers cuando se implementen
-        # "SOAP": {
-        #     "class_path": "app.fetchers.soap.SoapFetcher",
-        #     "description": "Fetcher for SOAP web services",
-        #     "name": "SOAP"
-        # },
-       
+        "JSON_TIMESERIES": {
+            "class_path": "app.fetchers.json_timeseries.JsonTimeseriesFetcher",
+            "description": "Generic fetcher for APIs returning arrays of time series with nested metadata + data points",
+            "name": "JSON Time Series"
+        },
+        "XBRL_ZIP": {
+            "class_path": "app.fetchers.xbrl.XbrlFetcher",
+            "description": "Generic fetcher for ZIP archives containing XBRL documents (financial/accounting XML standard)",
+            "name": "XBRL ZIP"
+        },
     }
 
     @classmethod

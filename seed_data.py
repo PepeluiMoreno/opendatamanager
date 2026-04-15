@@ -7,9 +7,10 @@ Orden:
   2. Publishers — organismos base del estado español
   3. Resources  — recursos fundacionales (referencia: DIR3, geografía)
 """
+import json
 import uuid
 from app.database import SessionLocal
-from app.models import Fetcher, FetcherParams, Publisher, Resource, ResourceParam
+from app.models import Application, DatasetSubscription, Fetcher, FetcherParams, Publisher, Resource, ResourceParam
 
 
 # ---------------------------------------------------------------------------
@@ -195,22 +196,88 @@ FETCHER_DEFS = [
             "sobre texto, atributos o subelementos, y pagina automáticamente via un enlace next."
         ),
         "params": [
-            {"param_name": "url_template",           "data_type": "string",  "required": True},
-            {"param_name": "pivot_values",           "data_type": "json",    "required": True},
-            {"param_name": "record_selector",        "data_type": "string",  "required": True},
-            {"param_name": "field_attrs",            "data_type": "json",    "required": False},
-            {"param_name": "field_selectors",        "data_type": "json",    "required": False},
-            {"param_name": "field_attr_selectors",   "data_type": "json",    "required": False},
-            {"param_name": "field_all_text",         "data_type": "json",    "required": False},
-            {"param_name": "next_page_selector",     "data_type": "string",  "required": False},
-            {"param_name": "next_page_attr",         "data_type": "string",  "required": False, "default_value": "href"},
-            {"param_name": "pivot_field",            "data_type": "string",  "required": False, "default_value": "pivot_value"},
-            {"param_name": "delay_between_pages",    "data_type": "number",  "required": False, "default_value": 1.5},
-            {"param_name": "delay_between_pivots",   "data_type": "number",  "required": False, "default_value": 2.0},
-            {"param_name": "max_pages",              "data_type": "integer", "required": False, "default_value": 500},
-            {"param_name": "stop_on_error",          "data_type": "boolean", "required": False, "default_value": False},
-            {"param_name": "headers",                "data_type": "json",    "required": False},
-            {"param_name": "timeout",                "data_type": "integer", "required": False, "default_value": 30},
+            # ── Grupo: URL ──────────────────────────────────────────────────────────
+            {"param_name": "url_template",    "data_type": "string", "required": True,  "group": "url",
+             "description": "Plantilla de URL. Usa {value} para el valor del pivot y {page} para el número de página. "
+                            "Puede ser '{value}' si los valores del pivot ya son URLs completas."},
+            {"param_name": "page_base_url",   "data_type": "string", "required": False, "group": "url",
+             "description": "Host base para resolver hrefs relativos en la paginación (ej. 'https://example.com'). "
+                            "Necesario cuando url_template es '{value}' y los enlaces de paginación son relativos."},
+            # ── Grupo: Pivot estático ───────────────────────────────────────────────
+            {"param_name": "pivot_values",    "data_type": "json",   "required": False, "group": "pivot_static",
+             "description": "Lista JSON de valores sobre los que pivotar. Cada valor se sustituye en {value} de url_template. "
+                            "Puede ser una lista de slugs, IDs, o URLs completas si url_template = '{value}'. "
+                            "Alternativa: usar pivot dinámico desde ODMGR (ver grupo pivot_source)."},
+            {"param_name": "pivot_field",     "data_type": "string", "required": False, "group": "pivot_static",
+             "default_value": "pivot_value",
+             "description": "Nombre del campo que se añade a cada registro con el valor del pivot actual."},
+            # ── Grupo: Pivot dinámico ODMGR ────────────────────────────────────────
+            {"param_name": "pivot_source_odmgr_query",  "data_type": "string", "required": False, "group": "pivot_source",
+             "description": "Nombre de la query GraphQL del endpoint /graphql/data de ODMGR desde la que obtener "
+                            "los valores del pivot. Formato camelCase del nombre del resource "
+                            "(ej. 'agenciasInmobiliariasFotocasa'). Alternativa a pivot_values."},
+            {"param_name": "pivot_source_field",        "data_type": "string", "required": False, "group": "pivot_source",
+             "description": "Campo a extraer de cada registro del dataset ODMGR como valor del pivot "
+                            "(ej. 'url_busqueda', 'provincia_id', 'codigo_ine')."},
+            {"param_name": "pivot_source_odmgr_url",    "data_type": "string", "required": False, "group": "pivot_source",
+             "description": "URL del endpoint GraphQL data de ODMGR. Por defecto usa la variable de entorno "
+                            "ODMGR_DATA_URL o http://localhost:8000/graphql/data."},
+            {"param_name": "pivot_source_filter_field", "data_type": "string", "required": False, "group": "pivot_source",
+             "description": "Campo por el que filtrar los registros del dataset ODMGR (ej. 'fuente', 'activo')."},
+            {"param_name": "pivot_source_filter_value", "data_type": "string", "required": False, "group": "pivot_source",
+             "description": "Valor exacto del filtro sobre pivot_source_filter_field."},
+            # ── Grupo: Extracción de registros ─────────────────────────────────────
+            {"param_name": "record_selector",       "data_type": "string", "required": True,  "group": "extraction",
+             "description": "Selector CSS del elemento raíz de cada registro en la página "
+                            "(ej. 'article', 'tr.fila-dato', 'li[data-id]')."},
+            {"param_name": "field_attrs",           "data_type": "json",   "required": False, "group": "extraction",
+             "description": 'Extrae atributos del elemento raíz. JSON: {"campo": "nombre-atributo"} '
+                            '(ej. {"id": "data-id", "nombre": "data-name"}).'},
+            {"param_name": "field_selectors",       "data_type": "json",   "required": False, "group": "extraction",
+             "description": 'Extrae el texto del primer subelemento que coincida. JSON: {"campo": "selector-css"} '
+                            '(ej. {"precio": ".price span", "titulo": "h3"}).'},
+            {"param_name": "field_attr_selectors",  "data_type": "json",   "required": False, "group": "extraction",
+             "description": 'Extrae el atributo de un subelemento. JSON: {"campo": {"selector": "css", "attr": "atributo"}} '
+                            '(ej. {"url": {"selector": "a.detail", "attr": "href"}}).'},
+            {"param_name": "field_all_text",        "data_type": "json",   "required": False, "group": "extraction",
+             "description": 'Concatena el texto de TODOS los subelementos que coincidan con el selector. '
+                            'JSON: {"campo": "selector-css"} (ej. {"tags": "ul.tags li"}).'},
+            {"param_name": "field_all_separator",   "data_type": "string", "required": False, "group": "extraction",
+             "default_value": " | ",
+             "description": "Separador usado al concatenar valores de field_all_text. Por defecto ' | '."},
+            {"param_name": "required_field",        "data_type": "string", "required": False, "group": "extraction",
+             "description": "Si se especifica, descarta los registros en los que este campo sea nulo o vacío. "
+                            "Útil para filtrar artículos esqueleto/placeholder en páginas con lazy-loading."},
+            # ── Grupo: Paginación ───────────────────────────────────────────────────
+            {"param_name": "next_page_selector",  "data_type": "string",  "required": False, "group": "pagination",
+             "description": "Selector CSS del enlace a la página siguiente. Si no se especifica no hay paginación. "
+                            "(ej. 'a[rel=\"next\"]', 'a[aria-label=\"Página siguiente\"]')."},
+            {"param_name": "next_page_attr",      "data_type": "string",  "required": False, "group": "pagination",
+             "default_value": "href",
+             "description": "Atributo del enlace de paginación del que extraer la URL (por defecto 'href')."},
+            {"param_name": "max_pages",           "data_type": "integer", "required": False, "group": "pagination",
+             "default_value": 500,
+             "description": "Número máximo de páginas a recuperar por valor del pivot. "
+                            "Límite de seguridad para evitar bucles infinitos."},
+            {"param_name": "delay_between_pages", "data_type": "number",  "required": False, "group": "pagination",
+             "default_value": 1.5,
+             "description": "Segundos de espera entre páginas consecutivas del mismo pivot. "
+                            "Reduce la carga sobre el servidor origen."},
+            # ── Grupo: Comportamiento ───────────────────────────────────────────────
+            {"param_name": "delay_between_pivots","data_type": "number",  "required": False, "group": "behavior",
+             "default_value": 2.0,
+             "description": "Segundos de espera al pasar al siguiente valor del pivot."},
+            {"param_name": "stop_on_error",       "data_type": "boolean", "required": False, "group": "behavior",
+             "default_value": False,
+             "description": "Si es true, detiene la ejecución al primer error HTTP de un pivot. "
+                            "Si es false (defecto), registra el error y continúa con el siguiente."},
+            {"param_name": "headers",             "data_type": "json",    "required": False, "group": "behavior",
+             "description": "Cabeceras HTTP adicionales en formato JSON. Se fusionan con las cabeceras por defecto "
+                            "(User-Agent Chrome, Accept HTML, Accept-Language es-ES). "
+                            'Ej: {"Cookie": "session=abc", "Referer": "https://example.com"}.'},
+            {"param_name": "timeout",             "data_type": "integer", "required": False, "group": "behavior",
+             "default_value": 30,
+             "description": "Timeout HTTP en segundos para cada petición."},
         ],
     },
     {
@@ -226,6 +293,94 @@ FETCHER_DEFS = [
             {"param_name": "delay",            "data_type": "number",  "required": False, "default_value": 2},
             {"param_name": "timeout",          "data_type": "integer", "required": False, "default_value": 30},
             {"param_name": "headers",          "data_type": "json",    "required": False},
+        ],
+    },
+    {
+        "code": "JSON Time Series",
+        "class_path": "app.fetchers.json_timeseries.JsonTimeseriesFetcher",
+        "description": (
+            "Generic fetcher for APIs that return arrays of time series with metadata. "
+            "Flattens nested structure (series → metadata dimensions + data points) "
+            "into tabular records. Configurable for any stats API with this pattern."
+        ),
+        "params": [
+            # HTTP
+            {"param_name": "url",             "data_type": "string",  "required": True,
+             "group": "http", "description": "API endpoint URL"},
+            {"param_name": "method",          "data_type": "string",  "required": False, "default_value": "GET",
+             "group": "http"},
+            {"param_name": "query_params",    "data_type": "json",    "required": False,
+             "group": "http", "description": "Query string params as JSON object"},
+            {"param_name": "headers",         "data_type": "json",    "required": False,
+             "group": "http"},
+            {"param_name": "timeout",         "data_type": "integer", "required": False, "default_value": 120,
+             "group": "http"},
+            # Response structure
+            {"param_name": "root_path",       "data_type": "string",  "required": False,
+             "group": "structure", "description": "Dot-path to the root array in the response. Empty = response IS the array"},
+            {"param_name": "meta_container",  "data_type": "string",  "required": False, "default_value": "MetaData",
+             "group": "structure", "description": "Key of the metadata array in each series element"},
+            {"param_name": "meta_code_field", "data_type": "string",  "required": False, "default_value": "Codigo",
+             "group": "structure"},
+            {"param_name": "meta_name_field", "data_type": "string",  "required": False, "default_value": "Nombre",
+             "group": "structure"},
+            {"param_name": "meta_dim_path",   "data_type": "string",  "required": False, "default_value": "Variable.Codigo",
+             "group": "structure", "description": "Dot-path to the dimension name within each metadata item"},
+            {"param_name": "data_container",  "data_type": "string",  "required": False, "default_value": "Data",
+             "group": "structure", "description": "Key of the data-points array in each series element"},
+            {"param_name": "period_field",    "data_type": "string",  "required": False, "default_value": "Anyo",
+             "group": "structure"},
+            {"param_name": "subperiod_field", "data_type": "string",  "required": False, "default_value": "Periodo",
+             "group": "structure"},
+            {"param_name": "value_field",     "data_type": "string",  "required": False, "default_value": "Valor",
+             "group": "structure"},
+            {"param_name": "secret_field",    "data_type": "string",  "required": False, "default_value": "Secreto",
+             "group": "structure", "description": "Boolean field to skip suppressed data. Empty to disable"},
+            {"param_name": "serie_name_field","data_type": "string",  "required": False, "default_value": "Nombre",
+             "group": "structure"},
+            # Output
+            {"param_name": "flatten_mode",   "data_type": "string",  "required": False, "default_value": "long",
+             "group": "output", "description": "long: one row per (series × period). wide: one row per series"},
+            {"param_name": "batch_size",     "data_type": "integer", "required": False, "default_value": 500,
+             "group": "output"},
+        ],
+    },
+    {
+        "code": "XBRL ZIP",
+        "class_path": "app.fetchers.xbrl.XbrlFetcher",
+        "description": (
+            "Generic fetcher for ZIP archives containing XBRL documents (XML-based financial/accounting standard). "
+            "Extracts numeric elements with their period contexts into tabular records. "
+            "Suitable for any source publishing XBRL: Tribunal de Cuentas, CNMV, Banco de España, SEC, etc."
+        ),
+        "params": [
+            # HTTP
+            {"param_name": "url",            "data_type": "string",  "required": True,
+             "group": "http", "description": "URL of the ZIP file containing XBRL documents"},
+            {"param_name": "method",         "data_type": "string",  "required": False, "default_value": "GET",
+             "group": "http"},
+            {"param_name": "query_params",   "data_type": "json",    "required": False,
+             "group": "http", "description": "Query string params as JSON, e.g. {\"nif\":\"P1102900A\",\"ejercicio\":\"2023\"}"},
+            {"param_name": "headers",        "data_type": "json",    "required": False,
+             "group": "http"},
+            {"param_name": "timeout",        "data_type": "integer", "required": False, "default_value": 120,
+             "group": "http"},
+            # ZIP contents
+            {"param_name": "xml_pattern",    "data_type": "string",  "required": False,
+             "group": "zip", "description": "Glob pattern to filter XML files inside the ZIP. Empty = all .xml"},
+            {"param_name": "entry",          "data_type": "string",  "required": False,
+             "group": "zip", "description": "Exact filename of a single XML to process"},
+            {"param_name": "file_classifier","data_type": "json",    "required": False,
+             "group": "zip", "description": "JSON map: keyword → label for classifying XML files into 'estado_contable'"},
+            # Record enrichment
+            {"param_name": "context_fields", "data_type": "json",    "required": False,
+             "group": "output", "description": "JSON map of fixed fields added to every record, e.g. {\"nif_entidad\":\"P1102900A\"}"},
+            {"param_name": "account_prefix", "data_type": "string",  "required": False,
+             "group": "output", "description": "Comma-separated tag prefixes to include. Empty = all numeric elements"},
+            {"param_name": "exclude_tags",   "data_type": "string",  "required": False,
+             "group": "output", "description": "Comma-separated XBRL infrastructure tags to skip"},
+            {"param_name": "batch_size",     "data_type": "integer", "required": False, "default_value": 200,
+             "group": "output"},
         ],
     },
 ]
@@ -348,6 +503,27 @@ PUBLISHER_DEFS = [
         "nivel":    "PRIVADO",
         "pais":     "España",
         "portal_url": "https://www.fotocasa.es",
+    },
+    {
+        "acronimo": "SEPE",
+        "nombre":   "Servicio Público de Empleo Estatal",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://datos.sepe.es",
+    },
+    {
+        "acronimo": "TRIBUCON",
+        "nombre":   "Tribunal de Cuentas",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://www.rendiciondecuentas.es",
+    },
+    {
+        "acronimo": "MINHAC-EL",
+        "nombre":   "Ministerio de Hacienda — Entidades Locales",
+        "nivel":    "ESTATAL",
+        "pais":     "España",
+        "portal_url": "https://serviciostelematicosext.hacienda.gob.es",
     },
 ]
 
@@ -636,6 +812,235 @@ RESOURCE_DEFS = [
         },
     },
     {
+        "name":               "Oferta Inmobiliaria en Venta (Fotocasa)",
+        "fetcher_code":       "URL Loop HTML",
+        "publisher_acronimo": "FOTOCASA",
+        "target_table":       "fotocasa_inmuebles",
+        "schedule":           "0 3 * * 1",   # semanal, lunes 03:00
+        # Scraper de inmuebles en venta pivotando sobre URLs de agencia.
+        #
+        # ESTRATEGIA (dos pasos):
+        #   1. Ejecutar "Agencias Inmobiliarias (Fotocasa)" → rellena staging agencias_inmobiliarias
+        #      + agencias_provincias (campo url_busqueda por agencia × provincia).
+        #   2. Este recurso pivota sobre esas url_busqueda:
+        #        url_template = "{value}"   ← el value ya ES la URL completa
+        #        pivot_values = lista de url_busqueda desde staging agencias_provincias
+        #
+        # Cada url_busqueda es del tipo:
+        #   /es/inmobiliaria-{slug}/comprar/inmuebles/{provincia}/todas-las-zonas/l?clientId={id}
+        # Las páginas de agencia tienen SSR completo (15-30 inmuebles por página);
+        # las páginas de búsqueda provincial NO (solo 1 artículo SSR, resto lazy-loaded).
+        #
+        # PIVOT_VALUES: poblar a partir de ODMGR staging tras ejecutar el paso 1:
+        #   SELECT url_busqueda FROM staging.agencias_provincias WHERE url_busqueda IS NOT NULL
+        # Los valores por defecto son URLs de demo (IKESA Sevilla) para test/preview.
+        #
+        # Clave idempotente: property_id extraído del url_path (penúltimo segmento).
+        # Un mismo inmueble puede aparecer en varias agencias; el ETL deduplica por id.
+        #
+        # Campos extraídos:
+        #   url_path       → href de h3 > a  (ej. /es/comprar/vivienda/sevilla/.../186033299/d)
+        #   precio         → span en contenedor [class*=text-display-3]
+        #   titulo         → texto del h3
+        #   municipio      → p[class*=opacity-75]
+        #   caracteristicas→ ul[class*=text-body-1] li (habs, baños, m², extras)
+        #   agencia_url    → href logo agencia — contiene ?clientId=  (fuente del pivot)
+        #   agencia_nombre → alt del img del logo (ej. "Inmuebles IKESA")
+        "params": {
+            # url_template = "{value}" → el pivot_value es la URL completa de cada agencia×provincia.
+            "url_template":    "{value}",
+            "page_base_url":   "https://www.fotocasa.es",
+            # Pivot dinámico: lee url_busqueda del staging de agencias (paso previo).
+            # Requiere que "Agencias Inmobiliarias (Fotocasa)" se haya ejecutado antes.
+            # Si el staging está vacío o no existe, usar pivot_values como fallback de demo.
+            "pivot_source_odmgr_query": "agenciasInmobiliariasFotocasa",
+            "pivot_source_field":       "url_busqueda",
+            # Fallback / demo (2 agencias Sevilla) mientras no hay staging de agencias.
+            # Eliminar o vaciar una vez que el paso 1 haya corrido.
+            "pivot_values":    (
+                '["https://www.fotocasa.es/es/inmobiliaria-ikesa/comprar/inmuebles/sevilla-provincia/todas-las-zonas/l?clientId=9202760540246",'
+                ' "https://www.fotocasa.es/es/inmobiliaria-winning-properties/comprar/inmuebles/sevilla-provincia/todas-las-zonas/l?clientId=9202751942277"]'
+            ),
+            "pivot_field":           "agencia_provincia_url",
+            "record_selector":       "article",
+            "field_attr_selectors":  (
+                '{"url_path":        {"selector": "h3 a",                                        "attr": "href"},'
+                ' "agencia_url":     {"selector": "a[data-panot-component=\'link-box-raised\']", "attr": "href"},'
+                ' "agencia_nombre":  {"selector": "a[data-panot-component=\'link-box-raised\'] img", "attr": "alt"}}'
+            ),
+            "field_selectors":       (
+                '{"precio":    "[class*=\'text-display-3\'] span",'
+                ' "titulo":    "h3",'
+                ' "municipio": "p[class*=\'opacity-75\']"}'
+            ),
+            "field_all_text":        '{"caracteristicas": "ul[class*=\'text-body-1\'] li"}',
+            "next_page_selector":    'a[aria-label="Página siguiente"]',
+            "required_field":        "url_path",   # filtra artículos esqueleto sin datos reales
+            "delay_between_pages":   "2.0",
+            "delay_between_pivots":  "5.0",
+            "max_pages":             "500",
+            "timeout":               "30",
+        },
+    },
+    # ── Socioeconomía municipal ───────────────────────────────────────────────
+    {
+        "name":               "INE - Padrón Municipal (todos los municipios)",
+        "fetcher_code":       "JSON Time Series",
+        "publisher_acronimo": "INE",
+        "target_table":       "ine_padron_municipal",
+        "schedule":           "0 5 15 6 *",   # yearly, 15 Jun 05:00 (INE publica en mayo-junio)
+        # Tabla 2852: Población residente por municipio, sexo y año.
+        # Devuelve una serie por cada combinación (municipio × sexo).
+        # Con nult=10 obtenemos los últimos 10 años de todos los municipios de España.
+        # MetaData: [{Variable.Codigo: "SEX", Codigo: "T/H/M"}, {Variable.Codigo: "MUN", Codigo: "11020"}]
+        # Data: [{Anyo: 2023, Periodo: "1", Valor: 213219}]
+        "params": {
+            "url":             "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/2852",
+            "query_params":    '{"nult": "10", "det": "2"}',
+            "headers":         '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0; +https://github.com/PepeluiMoreno)"}',
+            "timeout":         "180",
+            # Estructura de respuesta INE
+            "meta_container":  "MetaData",
+            "meta_code_field": "Codigo",
+            "meta_name_field": "Nombre",
+            "meta_dim_path":   "Variable.Codigo",
+            "data_container":  "Data",
+            "period_field":    "Anyo",
+            "subperiod_field": "",
+            "value_field":     "Valor",
+            "secret_field":    "Secreto",
+            "serie_name_field": "Nombre",
+            "flatten_mode":    "long",
+            "batch_size":      "1000",
+        },
+    },
+    {
+        "name":               "INE - Atlas de Distribución de Renta (municipios)",
+        "fetcher_code":       "JSON Time Series",
+        "publisher_acronimo": "INE",
+        "target_table":       "ine_renta_municipal",
+        "schedule":           "0 5 1 11 *",   # yearly, 1 Nov 05:00 (INE publica en oct-nov)
+        # Tabla 30896: Renta neta media por persona y unidad de consumo, por municipio.
+        # Periodicidad anual. Cobertura: municipios ≥ 1000 hab. (incluye Jerez y grupo comparación).
+        # MetaData: [{Variable.Codigo: "MUN"}, {Variable.Codigo: "TRENTA"} (tipo de renta)]
+        "params": {
+            "url":             "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/30896",
+            "query_params":    '{"nult": "8", "det": "2"}',
+            "headers":         '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0)"}',
+            "timeout":         "180",
+            "meta_container":  "MetaData",
+            "meta_code_field": "Codigo",
+            "meta_name_field": "Nombre",
+            "meta_dim_path":   "Variable.Codigo",
+            "data_container":  "Data",
+            "period_field":    "Anyo",
+            "subperiod_field": "",
+            "value_field":     "Valor",
+            "secret_field":    "Secreto",
+            "serie_name_field": "Nombre",
+            "flatten_mode":    "long",
+            "batch_size":      "500",
+        },
+    },
+    {
+        "name":               "INE - Encuesta Ocupación Hotelera (municipios)",
+        "fetcher_code":       "JSON Time Series",
+        "publisher_acronimo": "INE",
+        "target_table":       "ine_eoh_municipal",
+        "schedule":           "0 6 25 * *",   # monthly, day 25 06:00 (INE publica ~día 23)
+        # Tabla 2066: Viajeros y pernoctaciones en establecimientos hoteleros por municipio.
+        # Periodicidad mensual. Útil para municipios turísticos como Jerez.
+        # MetaData: [{Variable.Codigo: "MUN"}, {Variable.Codigo: "TRESI"} (residencia viajero)]
+        "params": {
+            "url":             "https://servicios.ine.es/wstempus/js/ES/DATOS_TABLA/2066",
+            "query_params":    '{"nult": "24", "det": "2"}',
+            "headers":         '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0)"}',
+            "timeout":         "180",
+            "meta_container":  "MetaData",
+            "meta_code_field": "Codigo",
+            "meta_name_field": "Nombre",
+            "meta_dim_path":   "Variable.Codigo",
+            "data_container":  "Data",
+            "period_field":    "Anyo",
+            "subperiod_field": "Periodo",
+            "value_field":     "Valor",
+            "secret_field":    "Secreto",
+            "serie_name_field": "Nombre",
+            "flatten_mode":    "long",
+            "batch_size":      "500",
+        },
+    },
+    {
+        "name":               "SEPE - Paro Registrado por Municipio",
+        "fetcher_code":       "Compressed File",
+        "publisher_acronimo": "SEPE",
+        "target_table":       "sepe_paro_municipal",
+        "schedule":           "0 7 5 * *",   # monthly, day 5 07:00 (SEPE publica el mes anterior ~día 2-3)
+        # SEPE publica mensualmente un ZIP con CSV de paro por municipio.
+        # URL: https://datos.sepe.es/opendata/es/paro/municipios_en_paro_AAAAMM.zip
+        # El mes a descargar se parametriza manualmente en el Resource (is_external=True)
+        # o se actualiza vía script auxiliar que calcula AAAAMM = mes anterior.
+        # CSV: cod_municipio, nom_municipio, total_paro, hombres, mujeres,
+        #       sector_agricultura, sector_industria, sector_construccion,
+        #       sector_servicios, sector_sin_empleo_anterior
+        "params": {
+            "url":          {"value": "https://datos.sepe.es/opendata/es/paro/municipios_en_paro_202503.zip", "is_external": True},
+            "format":       "zip",
+            "inner_format": "csv",
+            "encoding":     "latin-1",
+            "delimiter":    ";",
+            "timeout":      "120",
+            "headers":      '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0)"}',
+        },
+    },
+    {
+        "name":               "Hacienda - Periodo Medio de Pago (Entidades Locales)",
+        "fetcher_code":       "File Download",
+        "publisher_acronimo": "MINHAC-EL",
+        "target_table":       "hacienda_pmp_el",
+        "schedule":           "0 7 20 * *",   # monthly, day 20 07:00 (Hacienda publica ~días 15-18)
+        # Ministerio de Hacienda publica mensualmente el PMP de todas las entidades locales.
+        # CSV con: entidad, tipo_entidad, periodo, pmp_proveedores,
+        #          operaciones_pagadas_euros, operaciones_pendientes_euros
+        # URL patrón: .../PMPEL_AAAAMM.csv (el mes se actualiza vía is_external)
+        "params": {
+            "url":      {"value": "https://serviciostelematicosext.hacienda.gob.es/SGFAL/CONPREL/pmp/PMPEL_202503.csv", "is_external": True},
+            "format":   "csv",
+            "encoding": "utf-8-sig",
+            "delimiter": ";",
+            "timeout":  "60",
+        },
+    },
+    {
+        "name":               "Cuenta General - Entidades Locales (XBRL)",
+        "fetcher_code":       "XBRL ZIP",
+        "publisher_acronimo": "TRIBUCON",
+        "target_table":       "cuenta_general_el",
+        "schedule":           "0 4 1 7 *",   # yearly, 1 Jul 04:00 (disponible ~mayo-junio del año t+1)
+        # Plataforma de Rendición de Cuentas de las Entidades Locales.
+        # Descarga el ZIP de Cuenta General de una entidad local por NIF y ejercicio.
+        # Contiene XMLs XBRL: balance de situación, liquidación presupuestaria,
+        # estado de tesorería (remanente), cuenta del resultado económico-patrimonial.
+        # La URL, NIF y ejercicio se parametrizan como is_external para poder
+        # ejecutar el mismo resource para distintas entidades o ejercicios.
+        "params": {
+            "url":            {"value": "https://www.rendiciondecuentas.es/ServiciosRest/rendicion/descarga/cuentas", "is_external": True},
+            "query_params":   {"value": '{"nif":"P1102900A","ejercicio":"2023","formato":"zip"}', "is_external": True},
+            "timeout":        "180",
+            # Clasificación de ficheros XML dentro del ZIP
+            "file_classifier": json.dumps({
+                "balance":      "balance",
+                "liquidacion":  "liquidacion",
+                "tesoreria":    "tesoreria",
+                "resultado":    "resultado_economico",
+                "deuda":        "deuda",
+            }),
+            # Contexto fijo añadido a todos los registros
+            "context_fields": {"value": '{"nif_entidad":"P1102900A","ejercicio":2023}', "is_external": True},
+            "batch_size":     "200",
+        },
+    },
+    {
         "name":               "Geonames - Entidades de Población (España)",
         "fetcher_code":       "Compressed File",
         "publisher_acronimo": None,
@@ -657,6 +1062,34 @@ RESOURCE_DEFS = [
             # ES.txt no tiene cabecera — definimos las columnas explícitamente
             "columns":      '["geonameid","name","asciiname","alternatenames","lat","lon","feature_class","feature_code","country","cc2","admin1","admin2","admin3","admin4","population","elevation","dem","timezone","modification"]',
         },
+    },
+]
+
+
+# ---------------------------------------------------------------------------
+# 4. APPLICATIONS (suscriptores que reciben webhooks al publicarse datasets)
+# ---------------------------------------------------------------------------
+
+APPLICATION_DEFS = [
+    {
+        "name":             "JerezBudgetAPI",
+        "description":      (
+            "API de análisis del rigor presupuestario del Ayuntamiento de Jerez de la Frontera. "
+            "Consume datasets socioeconómicos de INE, SEPE y Hacienda para alimentar "
+            "el dashboard de KPIs municipales y el módulo de benchmarking comparativo."
+        ),
+        "webhook_url":      "http://jerezbudget_api:8015/webhooks/odmgr",
+        "webhook_secret":   {"value": "ODMGR_WEBHOOK_SECRET", "is_external": True},
+        "consumption_mode": "webhook",
+        # Recursos a los que se suscribe (por nombre de resource)
+        "subscribe_to": [
+            "INE - Padrón Municipal (todos los municipios)",
+            "INE - Atlas de Distribución de Renta (municipios)",
+            "INE - Encuesta Ocupación Hotelera (municipios)",
+            "SEPE - Paro Registrado por Municipio",
+            "Hacienda - Periodo Medio de Pago (Entidades Locales)",
+            "Cuenta General - Entidades Locales (XBRL)",
+        ],
     },
 ]
 
@@ -686,10 +1119,11 @@ def _upsert_fetcher(db, defn: dict) -> Fetcher:
     ft.name = defn["code"]
     db.flush()
 
-    # Sync param definitions (add missing ones, don't delete existing)
-    existing_params = {p.param_name for p in (ft.params_def or [])}
+    # Sync param definitions (upsert: add missing, update description/group/default_value)
+    existing: dict = {p.param_name: p for p in (ft.params_def or [])}
     for pd in defn.get("params", []):
-        if pd["param_name"] not in existing_params:
+        fp = existing.get(pd["param_name"])
+        if fp is None:
             fp = FetcherParams(
                 id=uuid.uuid4(),
                 fetcher_id=ft.id,
@@ -697,8 +1131,15 @@ def _upsert_fetcher(db, defn: dict) -> Fetcher:
                 data_type=pd.get("data_type", "string"),
                 required=pd.get("required", False),
                 default_value=pd.get("default_value"),
+                description=pd.get("description"),
+                group=pd.get("group"),
             )
             db.add(fp)
+        else:
+            # Update mutable metadata fields
+            fp.description = pd.get("description", fp.description)
+            fp.group = pd.get("group", fp.group)
+            fp.default_value = pd.get("default_value", fp.default_value)
     return ft
 
 
@@ -759,6 +1200,47 @@ def _upsert_resource(db, defn: dict, fetchers: dict, publishers: dict) -> Resour
     return res
 
 
+def _upsert_application(db, defn: dict, resources_by_name: dict) -> Application:
+    """Create or update an Application and its resource subscriptions."""
+    app = db.query(Application).filter(Application.name == defn["name"]).first()
+    if not app:
+        app = Application(id=uuid.uuid4(), name=defn["name"])
+        db.add(app)
+
+    app.description = defn.get("description")
+    app.webhook_url = defn.get("webhook_url")
+    app.consumption_mode = defn.get("consumption_mode", "webhook")
+    app.active = True
+
+    secret_spec = defn.get("webhook_secret")
+    if isinstance(secret_spec, dict):
+        # is_external → use the env var name as placeholder (actual secret injected at runtime)
+        app.webhook_secret = secret_spec.get("value", "")
+    elif secret_spec:
+        app.webhook_secret = secret_spec
+
+    db.flush()
+
+    # Subscriptions
+    existing_subs = {s.resource_id: s for s in (app.subscriptions or [])}
+    for resource_name in defn.get("subscribe_to", []):
+        res = resources_by_name.get(resource_name)
+        if not res:
+            print(f"    ⚠ resource '{resource_name}' not found — skipping subscription")
+            continue
+        if res.id not in existing_subs:
+            sub = DatasetSubscription(
+                id=uuid.uuid4(),
+                application_id=app.id,
+                resource_id=res.id,
+                auto_upgrade="patch",
+            )
+            db.add(sub)
+            print(f"    + subscribed to '{resource_name}'")
+
+    return app
+
+
 # ---------------------------------------------------------------------------
 # MAIN
 # ---------------------------------------------------------------------------
@@ -784,9 +1266,16 @@ def seed():
             print(f"  ✓ {defn['acronimo']} — {defn['nombre']}")
 
         print("[seed] Syncing foundation resources...")
+        resources_by_name = {}
         for defn in RESOURCE_DEFS:
             res = _upsert_resource(db, defn, fetchers, publishers)
+            resources_by_name[defn["name"]] = res
             print(f"  ✓ {defn['name']} → {defn['target_table']}")
+
+        print("[seed] Syncing applications...")
+        for defn in APPLICATION_DEFS:
+            _upsert_application(db, defn, resources_by_name)
+            print(f"  ✓ {defn['name']}")
 
         db.commit()
         print("[seed] Done.")
