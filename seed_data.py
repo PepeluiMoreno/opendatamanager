@@ -509,7 +509,7 @@ PUBLISHER_DEFS = [
         "nombre":   "Servicio Público de Empleo Estatal",
         "nivel":    "ESTATAL",
         "pais":     "España",
-        "portal_url": "https://datos.sepe.es",
+        "portal_url": "https://sede.sepe.gob.es",
     },
     {
         "acronimo": "TRIBUCON",
@@ -972,25 +972,23 @@ RESOURCE_DEFS = [
     },
     {
         "name":               "SEPE - Paro Registrado por Municipio",
-        "fetcher_code":       "Compressed File",
+        "fetcher_code":       "File Download",
         "publisher_acronimo": "SEPE",
         "target_table":       "sepe_paro_municipal",
-        "schedule":           "0 7 5 * *",   # monthly, day 5 07:00 (SEPE publica el mes anterior ~día 2-3)
-        # SEPE publica mensualmente un ZIP con CSV de paro por municipio.
-        # URL: https://datos.sepe.es/opendata/es/paro/municipios_en_paro_AAAAMM.zip
-        # El mes a descargar se parametriza manualmente en el Resource (is_external=True)
-        # o se actualiza vía script auxiliar que calcula AAAAMM = mes anterior.
+        "schedule":           "0 7 10 1 *",  # anual, 1 enero 07:10 — SEPE publica CSV anual consolidado
+        # SEPE publica un CSV anual con paro registrado por municipio.
+        # URL patrón: https://sede.sepe.gob.es/es/portaltrabaja/resources/sede/datos_abiertos/datos/Paro_por_municipios_{YYYY}_csv.csv
+        # El año activo se parametriza en el Resource (is_external=True)
         # CSV: cod_municipio, nom_municipio, total_paro, hombres, mujeres,
         #       sector_agricultura, sector_industria, sector_construccion,
         #       sector_servicios, sector_sin_empleo_anterior
         "params": {
-            "url":          {"value": "https://datos.sepe.es/opendata/es/paro/municipios_en_paro_202503.zip", "is_external": True},
-            "format":       "zip",
-            "inner_format": "csv",
-            "encoding":     "latin-1",
-            "delimiter":    ";",
-            "timeout":      "120",
-            "headers":      '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0)"}',
+            "url":       {"value": "https://sede.sepe.gob.es/es/portaltrabaja/resources/sede/datos_abiertos/datos/Paro_por_municipios_2025_csv.csv", "is_external": True},
+            "format":    "csv",
+            "encoding":  "latin-1",
+            "delimiter": ";",
+            "timeout":   "120",
+            "headers":   '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0)"}',
         },
     },
     {
@@ -1012,34 +1010,28 @@ RESOURCE_DEFS = [
         },
     },
     {
-        "name":               "Cuenta General - Entidades Locales (XBRL)",
-        "fetcher_code":       "XBRL ZIP",
-        "publisher_acronimo": "TRIBUCON",
-        "target_table":       "cuenta_general_el",
-        "schedule":           "0 4 1 7 *",   # yearly, 1 Jul 04:00 (disponible ~mayo-junio del año t+1)
-        # Plataforma de Rendición de Cuentas de las Entidades Locales.
-        # Descarga el ZIP de Cuenta General de una entidad local por NIF y ejercicio.
-        # Contiene XMLs XBRL: balance de situación, liquidación presupuestaria,
-        # estado de tesorería (remanente), cuenta del resultado económico-patrimonial.
-        # La URL, NIF y ejercicio se parametrizan como is_external para poder
-        # ejecutar el mismo resource para distintas entidades o ejercicios.
+        "name":               "Hacienda - Deuda Viva de los Ayuntamientos",
+        "fetcher_code":       "File Download",
+        "publisher_acronimo": "MINHAC-EL",
+        "target_table":       "hacienda_deuda_viva_el",
+        "schedule":           "0 5 1 7 *",   # yearly, 1 Jul 05:00 (Hacienda publica ~junio del año t+1)
+        # Deuda viva consolidada de los ayuntamientos españoles publicada por Hacienda.
+        # XLSX con una fila por municipio: cod_ine, nombre, importe deuda viva diciembre.
+        # URL patrón: .../InformacionEELLs/{YYYY}/Deuda-viva-ayuntamientos-{YYYY}12.xlsx
+        # El año se parametriza como is_external=True.
         "params": {
-            "url":            {"value": "https://www.rendiciondecuentas.es/ServiciosRest/rendicion/descarga/cuentas", "is_external": True},
-            "query_params":   {"value": '{"nif":"P1102900A","ejercicio":"2023","formato":"zip"}', "is_external": True},
-            "timeout":        "180",
-            # Clasificación de ficheros XML dentro del ZIP
-            "file_classifier": json.dumps({
-                "balance":      "balance",
-                "liquidacion":  "liquidacion",
-                "tesoreria":    "tesoreria",
-                "resultado":    "resultado_economico",
-                "deuda":        "deuda",
-            }),
-            # Contexto fijo añadido a todos los registros
-            "context_fields": {"value": '{"nif_entidad":"P1102900A","ejercicio":2023}', "is_external": True},
-            "batch_size":     "200",
+            "url":      {"value": "https://www.hacienda.gob.es/CDI/Sist%20Financiacion%20y%20Deuda/InformacionEELLs/2023/Deuda-viva-ayuntamientos-202312.xlsx", "is_external": True},
+            "format":   "xlsx",
+            "timeout":  "120",
+            "headers":  '{"User-Agent": "Mozilla/5.0 (OpenDataManager/1.0)"}',
         },
     },
+    # Cuenta General XBRL (rendiciondecuentas.es) eliminado:
+    # el portal no expone API pública de descarga y requiere autenticación de la entidad.
+    # El único KPI que necesita la Cuenta General y no es derivable de CONPREL es el
+    # Remanente de Tesorería para Gastos Generales (RTGG). El resto de KPIs de
+    # sostenibilidad (resultado presupuestario, ahorro bruto, ingresos/gastos corrientes)
+    # se calculan directamente desde los datos CONPREL ya cargados en BD.
     {
         "name":               "Geonames - Entidades de Población (España)",
         "fetcher_code":       "Compressed File",
@@ -1075,20 +1067,22 @@ APPLICATION_DEFS = [
         "name":             "JerezBudgetAPI",
         "description":      (
             "API de análisis del rigor presupuestario del Ayuntamiento de Jerez de la Frontera. "
-            "Consume datasets socioeconómicos de INE, SEPE y Hacienda para alimentar "
-            "el dashboard de KPIs municipales y el módulo de benchmarking comparativo."
+            "Consulta datos socioeconómicos vía GraphQL de ODM para el dashboard comparativo. "
+            "Solo sincroniza localmente los datasets que necesita para JOINs SQL "
+            "(padrón municipal para €/hab, cuenta general para KPIs de sostenibilidad)."
         ),
         "webhook_url":      "http://jerezbudget_api:8015/webhooks/odmgr",
         "webhook_secret":   {"value": "ODMGR_WEBHOOK_SECRET", "is_external": True},
-        "consumption_mode": "webhook",
-        # Recursos a los que se suscribe (por nombre de resource)
+        # "both": recibe ping HMAC → puede decidir si descarga o solo invalida caché;
+        # para datos que solo necesita consultar usa /graphql/data de ODM directamente.
+        "consumption_mode": "both",
+        # Solo se suscribe para sincronización local a los dos recursos que necesita
+        # en BD propia para JOINs con budget_lines (per-cápita, sostenibilidad).
+        # El resto (renta, paro, EOH, PMP) se consultan en tiempo real vía GraphQL ODM.
         "subscribe_to": [
-            "INE - Padrón Municipal (todos los municipios)",
-            "INE - Atlas de Distribución de Renta (municipios)",
-            "INE - Encuesta Ocupación Hotelera (municipios)",
-            "SEPE - Paro Registrado por Municipio",
-            "Hacienda - Periodo Medio de Pago (Entidades Locales)",
-            "Cuenta General - Entidades Locales (XBRL)",
+            "INE - Padrón Municipal (todos los municipios)",    # → ine_padron_municipal local
+            "Hacienda - Deuda Viva de los Ayuntamientos",      # → cuenta_general_kpis (deuda_viva KPI)
+            # "Cuenta General - Entidades Locales (XBRL)",     # pendiente: URL autenticada rendiciondecuentas.es
         ],
     },
 ]

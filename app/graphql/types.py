@@ -25,6 +25,8 @@ class FetcherParamType:
     data_type: str = strawberry.field(name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
     enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
+    description: Optional[str] = None
+    group: Optional[str] = None
 
 
 @strawberry.type

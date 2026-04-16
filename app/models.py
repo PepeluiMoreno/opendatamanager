@@ -44,6 +44,7 @@ class FetcherParams(Base):
     default_value = Column(JSONB, nullable=True)
     enum_values = Column(JSONB, nullable=True)
     description = Column(Text, nullable=True)
+    group = Column(String(100), nullable=True)
 
     fetcher = relationship("Fetcher", back_populates="params_def")
 

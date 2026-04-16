@@ -328,8 +328,9 @@
                   <!-- Header row: always flex -->
                   <div :class="isFullWidthParam(param.dataType) ? 'flex items-center justify-between' : 'w-1/5 flex-shrink-0'">
                     <div>
-                      <label class="block text-xs text-gray-300 mb-1">{{ param.paramName }}</label>
+                      <label class="block text-xs text-gray-300 mb-0.5">{{ param.paramName }}</label>
                       <span class="text-xs text-gray-400">{{ param.dataType }}</span>
+                      <p v-if="param.description" class="text-xs text-gray-600 mt-0.5 leading-tight">{{ param.description }}</p>
                     </div>
                     <div class="flex-shrink-0 flex items-center gap-1.5" :class="!isFullWidthParam(param.dataType) ? 'hidden' : ''" title="Pedir valor al ejecutar">
                       <input type="checkbox" :id="`ext-${param.paramName}-top`"
@@ -424,55 +425,175 @@
               </div>
             </div>
 
-            <!-- Add Optional Parameters Dropdown -->
-            <div v-if="selectedFetcher && optionalParams.length > 0" class="mb-4">
+            <!-- Grouped optional parameters -->
+            <div v-if="paramGroups.length > 0" class="space-y-1.5 mb-3">
+              <div
+                v-for="group in paramGroups"
+                :key="group.name"
+                class="border rounded overflow-hidden transition-colors"
+                :class="isGroupEnabled(group.name) ? 'border-blue-700' : 'border-gray-700'"
+              >
+                <!-- Group header (acts as toggle) -->
+                <button
+                  type="button"
+                  @click="toggleGroupEnabled(group.name)"
+                  class="w-full flex items-center justify-between px-3 py-2 text-left transition-colors"
+                  :class="isGroupEnabled(group.name) ? 'bg-blue-950/40 hover:bg-blue-950/60' : 'bg-gray-800 hover:bg-gray-750'"
+                >
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="text-xs font-semibold truncate" :class="isGroupEnabled(group.name) ? 'text-blue-300' : 'text-gray-400'">
+                      {{ formatGroupName(group.name) }}
+                    </span>
+                    <span v-if="isGroupEnabled(group.name) && getGroupActiveCount(group.name) > 0"
+                      class="text-xs bg-blue-800/70 text-blue-200 rounded-full px-1.5 py-0 leading-5 flex-shrink-0">
+                      {{ getGroupActiveCount(group.name) }}/{{ group.params.length }}
+                    </span>
+                    <span v-else-if="!isGroupEnabled(group.name) && getGroupActiveCount(group.name) > 0"
+                      class="text-xs bg-yellow-800/50 text-yellow-300 rounded-full px-1.5 py-0 leading-5 flex-shrink-0">
+                      {{ getGroupActiveCount(group.name) }} set
+                    </span>
+                  </div>
+                  <!-- Toggle switch -->
+                  <div
+                    class="relative inline-flex h-4 w-7 items-center rounded-full flex-shrink-0 ml-2 transition-colors"
+                    :class="isGroupEnabled(group.name) ? 'bg-blue-600' : 'bg-gray-600'"
+                  >
+                    <span
+                      class="absolute inline-block h-3 w-3 rounded-full bg-white transition-transform"
+                      :class="isGroupEnabled(group.name) ? 'translate-x-3.5' : 'translate-x-0.5'"
+                    ></span>
+                  </div>
+                </button>
+
+                <!-- Group params (shown when enabled) -->
+                <div v-if="isGroupEnabled(group.name)" class="px-3 pb-3 pt-2 space-y-2 border-t border-blue-900/50">
+                  <div
+                    v-for="param in group.params"
+                    :key="param.paramName"
+                    class="border border-gray-700/60 rounded p-2 bg-gray-900/40"
+                    :class="isFullWidthParam(param.dataType) ? 'space-y-1.5' : 'flex gap-2 items-start'"
+                  >
+                    <!-- Label -->
+                    <div :class="isFullWidthParam(param.dataType) ? 'flex items-start justify-between' : 'w-1/5 flex-shrink-0 pt-0.5'">
+                      <div class="min-w-0">
+                        <label class="block text-xs font-medium text-gray-300">{{ param.paramName }}</label>
+                        <span class="text-[10px] text-gray-500">{{ param.dataType }}</span>
+                        <p v-if="param.description" class="text-[10px] text-gray-600 mt-0.5 leading-tight">{{ param.description }}</p>
+                      </div>
+                      <div v-if="isFullWidthParam(param.dataType)" class="flex items-center gap-1 flex-shrink-0 ml-2">
+                        <input type="checkbox" :id="`ext-grp-${param.paramName}-top`"
+                          :checked="form.params.find(p=>p.key===param.paramName)?.isExternal"
+                          @change="toggleParamExternal(param.paramName)"
+                          class="accent-yellow-400 cursor-pointer" title="Pedir valor al ejecutar" />
+                        <label :for="`ext-grp-${param.paramName}-top`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
+                      </div>
+                    </div>
+                    <!-- Input -->
+                    <div :class="isFullWidthParam(param.dataType) ? 'w-full' : 'flex-1 min-w-0'">
+                      <FilterMapEditor
+                        v-if="param.dataType === 'json_filter_map' && param.enumValues"
+                        :modelValue="getParamValue(param.paramName) || '{}'"
+                        :enumValues="param.enumValues"
+                        @update:modelValue="updateParamValue(param.paramName, $event)"
+                      />
+                      <div v-else-if="param.dataType === 'overpass_query'" class="flex items-center gap-2">
+                        <span class="text-xs text-gray-400 font-mono flex-1 truncate">{{ overpassSummary(param.paramName) }}</span>
+                        <button type="button" @click="openOverpassModal(param.paramName)"
+                          class="px-2 py-0.5 text-xs rounded border border-blue-700 text-blue-400 hover:bg-blue-900">
+                          Editar query
+                        </button>
+                      </div>
+                      <div v-else-if="param.dataType === 'bbox'" class="space-y-1">
+                        <div class="grid grid-cols-2 gap-1">
+                          <div><label class="text-xs text-gray-500">Min X (lon W)</label>
+                            <input type="number" step="any" :value="parseBbox(getParamValue(param.paramName))[0]"
+                              @input="updateBbox(param.paramName, 0, $event.target.value)" class="input w-full text-xs" placeholder="-6.4" /></div>
+                          <div><label class="text-xs text-gray-500">Min Y (lat S)</label>
+                            <input type="number" step="any" :value="parseBbox(getParamValue(param.paramName))[1]"
+                              @input="updateBbox(param.paramName, 1, $event.target.value)" class="input w-full text-xs" placeholder="36.9" /></div>
+                          <div><label class="text-xs text-gray-500">Max X (lon E)</label>
+                            <input type="number" step="any" :value="parseBbox(getParamValue(param.paramName))[2]"
+                              @input="updateBbox(param.paramName, 2, $event.target.value)" class="input w-full text-xs" placeholder="-5.3" /></div>
+                          <div><label class="text-xs text-gray-500">Max Y (lat N)</label>
+                            <input type="number" step="any" :value="parseBbox(getParamValue(param.paramName))[3]"
+                              @input="updateBbox(param.paramName, 3, $event.target.value)" class="input w-full text-xs" placeholder="37.9" /></div>
+                        </div>
+                        <p class="text-xs text-gray-600 font-mono">{{ getParamValue(param.paramName) || '—' }}</p>
+                      </div>
+                      <div v-else-if="param.dataType === 'enum' && param.enumValues" class="space-y-1.5">
+                        <EnumRadioGroup
+                          :modelValue="getParamValue(param.paramName)"
+                          :options="enumOpts(param.enumValues)"
+                          :clearable="true"
+                          @update:modelValue="updateParamValue(param.paramName, $event)"
+                        />
+                        <EnumMetaPreview :filters="selectedEnumMeta(param.paramName, param.enumValues, 'filters')" />
+                      </div>
+                      <input v-else
+                        :value="getParamValue(param.paramName)"
+                        type="text"
+                        :placeholder="param.defaultValue != null ? String(param.defaultValue) : `Enter ${param.paramName}...`"
+                        class="input w-full text-xs"
+                        @input="updateParamValue(param.paramName, $event.target.value)"
+                      />
+                    </div>
+                    <!-- Runtime checkbox (non-fullwidth) -->
+                    <div v-if="!isFullWidthParam(param.dataType)" class="flex-shrink-0 flex items-center gap-1 pt-0.5">
+                      <input type="checkbox" :id="`ext-grp-${param.paramName}`"
+                        :checked="form.params.find(p=>p.key===param.paramName)?.isExternal"
+                        @change="toggleParamExternal(param.paramName)"
+                        class="accent-yellow-400 cursor-pointer" title="Pedir valor al ejecutar" />
+                      <label :for="`ext-grp-${param.paramName}`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Ungrouped optional params (dropdown + list, for params without a group) -->
+            <div v-if="selectedFetcher && ungroupedOptionalParams.length > 0" class="mb-3">
               <select
                 v-model="selectedOptionalParam"
                 @change="addOptionalParameter"
                 class="w-full text-sm px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
               >
                 <option value="">+ Add optional parameter...</option>
-                <option
-                  v-for="param in availableOptionalParams"
-                  :key="param.paramName"
-                  :value="param.paramName"
-                >
+                <option v-for="param in availableUngroupedOptionalParams" :key="param.paramName" :value="param.paramName">
                   {{ param.paramName }} ({{ param.dataType }})
                 </option>
               </select>
             </div>
 
-            <!-- Optional Parameters (added by user) -->
-            <div v-if="addedOptionalParams.length > 0">
+            <!-- Added ungrouped optional params -->
+            <div v-if="addedUngroupedOptionalParams.length > 0">
               <h4 class="text-sm font-medium mb-2 text-blue-400">Optional Parameters</h4>
               <div class="space-y-1">
                 <div
-                  v-for="paramName in addedOptionalParams"
+                  v-for="paramName in addedUngroupedOptionalParams"
                   :key="`opt-${paramName}`"
                   class="border border-blue-600 rounded p-2 bg-blue-950 bg-opacity-20"
                   :class="isFullWidthParam(getParamType(paramName)) ? 'space-y-2' : 'flex gap-2 items-center'"
                 >
-                  <!-- Header row -->
                   <div :class="isFullWidthParam(getParamType(paramName)) ? 'flex items-center justify-between' : 'w-1/5 flex-shrink-0'">
                     <div>
-                      <label class="block text-xs text-gray-300 mb-1">{{ paramName }}</label>
+                      <label class="block text-xs text-gray-300 mb-0.5">{{ paramName }}</label>
                       <span class="text-xs text-gray-400">{{ getParamType(paramName) }}</span>
+                      <p v-if="getParamDescription(paramName)" class="text-[10px] text-gray-600 mt-0.5 leading-tight">{{ getParamDescription(paramName) }}</p>
                     </div>
                     <div v-if="isFullWidthParam(getParamType(paramName))" class="flex items-center gap-1">
                       <input type="checkbox" :id="`ext-opt-${paramName}-top`"
-                             :checked="form.params.find(p=>p.key===paramName)?.isExternal"
-                             @change="toggleParamExternal(paramName)"
-                             class="accent-yellow-400 cursor-pointer" title="Pedir valor al ejecutar" />
+                        :checked="form.params.find(p=>p.key===paramName)?.isExternal"
+                        @change="toggleParamExternal(paramName)"
+                        class="accent-yellow-400 cursor-pointer" title="Pedir valor al ejecutar" />
                       <label :for="`ext-opt-${paramName}-top`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
                       <button type="button" @click="removeOptionalParam(paramName)"
-                              class="text-red-400 hover:text-red-300 ml-1" title="Remove optional parameter">
+                        class="text-red-400 hover:text-red-300 ml-1" title="Remove optional parameter">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
                     </div>
                   </div>
-                  <!-- Input area -->
                   <div :class="isFullWidthParam(getParamType(paramName)) ? 'w-full' : 'flex-1 min-w-0'">
                     <FilterMapEditor
                       v-if="getParamType(paramName) === 'json_filter_map' && getParamEnumValues(paramName)"
@@ -481,44 +602,24 @@
                       @update:modelValue="updateParamValue(paramName, $event)"
                     />
                     <div v-else-if="getParamType(paramName) === 'overpass_query'" class="flex items-center gap-2">
-                      <span class="text-xs text-gray-400 font-mono flex-1 truncate">
-                        {{ overpassSummary(paramName) }}
-                      </span>
+                      <span class="text-xs text-gray-400 font-mono flex-1 truncate">{{ overpassSummary(paramName) }}</span>
                       <button type="button" @click="openOverpassModal(paramName)"
-                              class="px-2 py-0.5 text-xs rounded border border-blue-700 text-blue-400 hover:bg-blue-900">
-                        Editar query
-                      </button>
+                        class="px-2 py-0.5 text-xs rounded border border-blue-700 text-blue-400 hover:bg-blue-900">Editar query</button>
                     </div>
                     <div v-else-if="getParamType(paramName) === 'bbox'" class="space-y-1">
                       <div class="grid grid-cols-2 gap-1">
-                        <div>
-                          <label class="text-xs text-gray-500">Min X (lon W)</label>
-                          <input type="number" step="any"
-                            :value="parseBbox(getParamValue(paramName))[0]"
-                            @input="updateBbox(paramName, 0, $event.target.value)"
-                            class="input w-full text-xs" placeholder="-6.4" />
-                        </div>
-                        <div>
-                          <label class="text-xs text-gray-500">Min Y (lat S)</label>
-                          <input type="number" step="any"
-                            :value="parseBbox(getParamValue(paramName))[1]"
-                            @input="updateBbox(paramName, 1, $event.target.value)"
-                            class="input w-full text-xs" placeholder="36.9" />
-                        </div>
-                        <div>
-                          <label class="text-xs text-gray-500">Max X (lon E)</label>
-                          <input type="number" step="any"
-                            :value="parseBbox(getParamValue(paramName))[2]"
-                            @input="updateBbox(paramName, 2, $event.target.value)"
-                            class="input w-full text-xs" placeholder="-5.3" />
-                        </div>
-                        <div>
-                          <label class="text-xs text-gray-500">Max Y (lat N)</label>
-                          <input type="number" step="any"
-                            :value="parseBbox(getParamValue(paramName))[3]"
-                            @input="updateBbox(paramName, 3, $event.target.value)"
-                            class="input w-full text-xs" placeholder="37.9" />
-                        </div>
+                        <div><label class="text-xs text-gray-500">Min X (lon W)</label>
+                          <input type="number" step="any" :value="parseBbox(getParamValue(paramName))[0]"
+                            @input="updateBbox(paramName, 0, $event.target.value)" class="input w-full text-xs" placeholder="-6.4" /></div>
+                        <div><label class="text-xs text-gray-500">Min Y (lat S)</label>
+                          <input type="number" step="any" :value="parseBbox(getParamValue(paramName))[1]"
+                            @input="updateBbox(paramName, 1, $event.target.value)" class="input w-full text-xs" placeholder="36.9" /></div>
+                        <div><label class="text-xs text-gray-500">Max X (lon E)</label>
+                          <input type="number" step="any" :value="parseBbox(getParamValue(paramName))[2]"
+                            @input="updateBbox(paramName, 2, $event.target.value)" class="input w-full text-xs" placeholder="-5.3" /></div>
+                        <div><label class="text-xs text-gray-500">Max Y (lat N)</label>
+                          <input type="number" step="any" :value="parseBbox(getParamValue(paramName))[3]"
+                            @input="updateBbox(paramName, 3, $event.target.value)" class="input w-full text-xs" placeholder="37.9" /></div>
                       </div>
                       <p class="text-xs text-gray-600 font-mono">{{ getParamValue(paramName) || '—' }}</p>
                     </div>
@@ -529,12 +630,9 @@
                         :clearable="true"
                         @update:modelValue="updateParamValue(paramName, $event)"
                       />
-                      <EnumMetaPreview
-                        :filters="selectedEnumMeta(paramName, getParamEnumValues(paramName), 'filters')"
-                      />
+                      <EnumMetaPreview :filters="selectedEnumMeta(paramName, getParamEnumValues(paramName), 'filters')" />
                     </div>
-                    <input
-                      v-else
+                    <input v-else
                       :value="getParamValue(paramName)"
                       type="text"
                       :placeholder="getParamDefaultValue(paramName) || `Enter ${paramName}...`"
@@ -542,23 +640,14 @@
                       @input="updateParamValue(paramName, $event.target.value)"
                     />
                   </div>
-                  <!-- Runtime + remove (non-fullwidth) -->
                   <div v-if="!isFullWidthParam(getParamType(paramName))" class="flex-shrink-0 flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      :id="`ext-opt-${paramName}`"
+                    <input type="checkbox" :id="`ext-opt-${paramName}`"
                       :checked="form.params.find(p=>p.key===paramName)?.isExternal"
                       @change="toggleParamExternal(paramName)"
-                      class="accent-yellow-400 cursor-pointer"
-                      title="Pedir valor al ejecutar"
-                    />
+                      class="accent-yellow-400 cursor-pointer" title="Pedir valor al ejecutar" />
                     <label :for="`ext-opt-${paramName}`" class="text-xs text-gray-500 cursor-pointer select-none">runtime</label>
-                    <button
-                      type="button"
-                      @click="removeOptionalParam(paramName)"
-                      class="text-red-400 hover:text-red-300"
-                      title="Remove optional parameter"
-                    >
+                    <button type="button" @click="removeOptionalParam(paramName)"
+                      class="text-red-400 hover:text-red-300" title="Remove optional parameter">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
@@ -569,7 +658,7 @@
             </div>
 
               <!-- No parameters message -->
-              <div v-if="requiredParams.length === 0 && addedOptionalParams.length === 0" class="text-center py-4 text-gray-400 text-sm">
+              <div v-if="requiredParams.length === 0 && paramGroups.length === 0 && addedUngroupedOptionalParams.length === 0" class="text-center py-4 text-gray-400 text-sm">
                 <div v-if="!selectedFetcher">
                   Select a Fetcher to see available parameters
                 </div>
@@ -979,7 +1068,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Tooltip from '../components/Tooltip.vue'
 import FilterMapEditor from '../components/FilterMapEditor.vue'
 import EnumMetaPreview from '../components/EnumMetaPreview.vue'
@@ -1258,7 +1347,7 @@ const optionalParams = computed(() => {
   return selectedFetcher.value.paramsDef.filter(param => param.required !== true)
 })
 
-// Computed property for added optional parameters
+// Computed property for added optional parameters (legacy, kept for compatibility)
 const addedOptionalParams = computed(() => {
   const allRequired = requiredParams.value.map(p => p.paramName)
   return form.value.params
@@ -1266,11 +1355,107 @@ const addedOptionalParams = computed(() => {
     .filter(key => !allRequired.includes(key))
 })
 
+// ── Grouped params ────────────────────────────────────────────────────────────
+
+/** Optional params organised by their `group` field. */
+const paramGroups = computed(() => {
+  if (!selectedFetcher.value) return []
+  const grouped = {}
+  const order = []
+  for (const p of optionalParams.value) {
+    if (!p.group) continue
+    if (!grouped[p.group]) { grouped[p.group] = []; order.push(p.group) }
+    grouped[p.group].push(p)
+  }
+  return order.map(name => ({ name, params: grouped[name] }))
+})
+
+/** Optional params that have NO group (rendered via the old dropdown). */
+const ungroupedOptionalParams = computed(() => {
+  if (!selectedFetcher.value) return []
+  return optionalParams.value.filter(p => !p.group)
+})
+
+/** Ungrouped params currently in form (for the old optional list). */
+const addedUngroupedOptionalParams = computed(() => {
+  const allRequired = requiredParams.value.map(p => p.paramName)
+  const grouped = new Set(paramGroups.value.flatMap(g => g.params.map(p => p.paramName)))
+  return form.value.params
+    .map(p => p.key)
+    .filter(key => !allRequired.includes(key) && !grouped.has(key))
+})
+
+/** Available ungrouped optional params not yet in form. */
+const availableUngroupedOptionalParams = computed(() => {
+  const currentParamNames = form.value.params.map(p => p.key)
+  return ungroupedOptionalParams.value.filter(p => !currentParamNames.includes(p.paramName))
+})
+
 // Computed property for available optional parameters
 const availableOptionalParams = computed(() => {
   const currentParamNames = form.value.params.map(p => p.key)
   return optionalParams.value.filter(param => !currentParamNames.includes(param.paramName))
 })
+
+// ── Group toggle state ────────────────────────────────────────────────────────
+
+const expandedGroups = ref(new Set())
+
+function isGroupEnabled(groupName) {
+  return expandedGroups.value.has(groupName)
+}
+
+function getGroupActiveCount(groupName) {
+  const group = paramGroups.value.find(g => g.name === groupName)
+  if (!group) return 0
+  return group.params.filter(p => {
+    const fp = form.value.params.find(fp => fp.key === p.paramName)
+    return fp && fp.value != null && fp.value !== ''
+  }).length
+}
+
+function toggleGroupEnabled(groupName) {
+  const next = new Set(expandedGroups.value)
+  if (next.has(groupName)) {
+    // Disable: remove all group params from form
+    const group = paramGroups.value.find(g => g.name === groupName)
+    if (group) {
+      const names = new Set(group.params.map(p => p.paramName))
+      form.value.params = form.value.params.filter(p => !names.has(p.key))
+    }
+    next.delete(groupName)
+  } else {
+    next.add(groupName)
+  }
+  expandedGroups.value = next
+}
+
+const GROUP_LABELS = {
+  url: 'URL Template',
+  pivot_static: 'Static Pivot',
+  pivot_source: 'ODMGR Pivot Source',
+  extraction: 'Data Extraction',
+  pagination: 'Pagination',
+  behavior: 'Behavior',
+}
+
+function formatGroupName(name) {
+  return GROUP_LABELS[name] || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+/** Initialize expandedGroups based on which groups have active params (called when editing). */
+function initExpandedGroups() {
+  const activeParamKeys = new Set(
+    form.value.params.filter(p => p.value != null && p.value !== '').map(p => p.key)
+  )
+  const next = new Set()
+  for (const group of paramGroups.value) {
+    if (group.params.some(p => activeParamKeys.has(p.paramName))) {
+      next.add(group.name)
+    }
+  }
+  expandedGroups.value = next
+}
 
 // Computed property to filter resources based on search query and filters
 const filteredResources = computed(() => {
@@ -1409,6 +1594,13 @@ function getParamType(paramName) {
 function getParamEnumValues(paramName) {
   const param = optionalParams.value.find(p => p.paramName === paramName)
   return param ? param.enumValues : null
+}
+
+function getParamDescription(paramName) {
+  const req = requiredParams.value.find(p => p.paramName === paramName)
+  if (req) return req.description || null
+  const opt = optionalParams.value.find(p => p.paramName === paramName)
+  return opt ? (opt.description || null) : null
 }
 
 function getOverpassPresets(paramName) {
@@ -1557,6 +1749,8 @@ function editResource(resource) {
   }
   showEditModal.value = true
   loadDerivedConfigs(resource.id)
+  // Auto-expand groups that have active params (nextTick: paramGroups needs fetcherId to be set)
+  nextTick(() => initExpandedGroups())
 }
 
 function testResource() {
@@ -1743,6 +1937,7 @@ function closeModals() {
   showEditModal.value = false
   editingResource.value = null
   activeParamTab.value = 'parameters'
+  expandedGroups.value = new Set()
   derivedConfigs.value = []
   showAddDerivedForm.value = false
   editingDerivedId.value = null

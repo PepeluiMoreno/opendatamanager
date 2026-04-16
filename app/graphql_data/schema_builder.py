@@ -100,11 +100,11 @@ def _sanitize_field_name(name: str) -> str:
         result = result.replace(src, dst)
     # Reemplazar cualquier carácter no alfanumérico por _
     result = re.sub(r"[^a-zA-Z0-9]", "_", result)
-    # No puede empezar por dígito
+    # Colapsar múltiples _ consecutivos y quitar _ finales
+    result = re.sub(r"_+", "_", result).strip("_") or "_"
+    # No puede empezar por dígito (check AFTER strip to avoid stripping the added _)
     if result and result[0].isdigit():
         result = "_" + result
-    # Colapsar múltiples _ consecutivos
-    result = re.sub(r"_+", "_", result).strip("_") or "_"
     return result
 
 

@@ -51,6 +51,7 @@ Resume:
 import html as html_lib
 import json
 import logging
+import os
 import re
 import time
 from typing import Any, Dict, Generator, List, Optional
@@ -104,18 +105,78 @@ class UrlLoopHtmlFetcher(BaseFetcher):
     # ------------------------------------------------------------------
 
     def _get_pivot_values(self) -> List[str]:
+        # Opción 1: lista estática en el parámetro pivot_values
         raw = self.params.get("pivot_values", "")
-        if not raw:
-            raise ValueError("El parámetro 'pivot_values' es obligatorio")
-        if isinstance(raw, str):
-            s = raw.strip()
-            return json.loads(s) if s.startswith("[") else [v.strip() for v in s.split(",") if v.strip()]
-        return list(raw)
+        if raw:
+            if isinstance(raw, str):
+                s = raw.strip()
+                return json.loads(s) if s.startswith("[") else [v.strip() for v in s.split(",") if v.strip()]
+            return list(raw)
+
+        # Opción 2: dinámica — consulta el endpoint /graphql/data de ODMGR
+        source_query = self.params.get("pivot_source_odmgr_query", "")
+        source_field = self.params.get("pivot_source_field", "")
+        if source_query and source_field:
+            return self._fetch_pivot_from_odmgr(source_query, source_field)
+
+        raise ValueError(
+            "Proporciona 'pivot_values' (lista estática) o "
+            "'pivot_source_odmgr_query' + 'pivot_source_field' (dinámica desde ODMGR)"
+        )
+
+    def _fetch_pivot_from_odmgr(self, query_name: str, field: str) -> List[str]:
+        """
+        Consulta el endpoint /graphql/data de ODMGR para obtener los valores del pivot.
+
+        Parámetros relevantes del recurso:
+            pivot_source_odmgr_query  — nombre de la query GraphQL (camelCase del resource)
+            pivot_source_field        — campo a extraer como valor del pivot
+            pivot_source_odmgr_url    — URL del endpoint (default: ODMGR_DATA_URL o localhost)
+            pivot_source_filter_field — campo por el que filtrar (opcional)
+            pivot_source_filter_value — valor del filtro (opcional, string exacto)
+        """
+        base_url = (
+            self.params.get("pivot_source_odmgr_url")
+            or os.environ.get("ODMGR_DATA_URL", "http://localhost:8000/graphql/data")
+        )
+        filter_field = self.params.get("pivot_source_filter_field", "")
+        filter_value = self.params.get("pivot_source_filter_value", "")
+
+        limit, offset = 5000, 0
+        results: List[str] = []
+
+        while True:
+            filter_arg = f', {filter_field}: "{filter_value}"' if filter_field and filter_value else ""
+            gql = (
+                f"{{ {query_name}(limit: {limit}, offset: {offset}{filter_arg}) "
+                f"{{ total items {{ {field} }} }} }}"
+            )
+            resp = requests.post(base_url, json={"query": gql}, timeout=30)
+            resp.raise_for_status()
+            body = resp.json()
+            page = body["data"][query_name]
+            values = [item[field] for item in page["items"] if item.get(field)]
+            results.extend(values)
+            offset += limit
+            if offset >= page["total"]:
+                break
+
+        # Deduplicar manteniendo orden
+        seen: set = set()
+        unique = [v for v in results if not (v in seen or seen.add(v))]  # type: ignore[func-returns-value]
+        logger.info(
+            f"pivot_source_odmgr_query={query_name!r} field={field!r} "
+            f"→ {len(unique)} valores únicos (de {len(results)} totales)"
+        )
+        return unique
 
     def _build_url(self, template: str, value: str, page: int) -> str:
         return template.replace("{value}", value).replace("{page}", str(page))
 
     def _page_base(self) -> str:
+        explicit = self.params.get("page_base_url", "")
+        if explicit:
+            return explicit.rstrip("/")
         tmpl = self.params.get("url_template", "")
         p = urlparse(tmpl.replace("{value}", "x").replace("{page}", "1"))
         return f"{p.scheme}://{p.netloc}"
@@ -229,6 +290,15 @@ class UrlLoopHtmlFetcher(BaseFetcher):
 
                 elements = soup.select(record_selector)
                 records = [self._extract_record(el, pivot_value) for el in elements]
+
+                # Drop skeleton/placeholder records that lack required fields
+                required = self.params.get("required_field", "")
+                if required:
+                    before = len(records)
+                    records = [r for r in records if r.get(required)]
+                    if before != len(records):
+                        logger.debug(f"  filtrados {before - len(records)} registros sin '{required}'")
+
                 logger.info(f"  pág. {page_num}: {len(records)} registros")
 
                 if not records:

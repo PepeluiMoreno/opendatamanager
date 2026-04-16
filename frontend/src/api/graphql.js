@@ -191,6 +191,7 @@ export const QUERIES = {
           defaultValue
           enumValues
           description
+          group
         }
         resources {
           id

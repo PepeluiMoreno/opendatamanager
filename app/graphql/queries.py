@@ -40,7 +40,9 @@ def map_type_fetcher_param(p: FetcherParams) -> FetcherParamType:
         required=p.required,
         data_type=p.data_type,
         default_value=getattr(p, 'default_value', None),
-        enum_values=getattr(p, 'enum_values', None)
+        enum_values=getattr(p, 'enum_values', None),
+        description=getattr(p, 'description', None),
+        group=getattr(p, 'group', None),
     )
 
 
