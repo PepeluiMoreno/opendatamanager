@@ -50,6 +50,15 @@ class FetcherRegistry:
             "description": "Generic fetcher for ZIP archives containing XBRL documents (financial/accounting XML standard)",
             "name": "XBRL ZIP"
         },
+        "SCRIPT": {
+            "class_path": "app.fetchers.script.ScriptFetcher",
+            "description": (
+                "Fetcher genérico que delega la extracción en una función de un módulo Python externo. "
+                "El Resource configura script_module (módulo importable) y function_name (default: run). "
+                "La función recibe el resto de params como dict y devuelve list[dict]."
+            ),
+            "name": "Script",
+        },
     }
 
     @classmethod
