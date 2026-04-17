@@ -25,7 +25,7 @@ Contrato de la función del script:
 
 import importlib
 import logging
-from typing import Any, Generator, List
+from typing import Any, List
 
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 
@@ -148,12 +148,4 @@ class ScriptFetcher(BaseFetcher):
             normalized.append(norm)
         return normalized
 
-    def stream(self) -> Generator[List, None, None]:
-        """
-        Sobrescribe stream() para emitir en un único chunk.
-        Los scripts PDF suelen devolver todo en memoria de una vez;
-        si el volumen fuera muy grande se puede chunkar aquí.
-        """
-        records = self.execute()
-        if records:
-            yield records
+
