@@ -2,10 +2,17 @@
   <div class="p-6 flex flex-col h-full" ref="viewEl">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Resources</h1>
-      <button @click="showCreateModal = true" class="btn btn-primary text-sm">
-        + Nuevo recurso
-      </button>
+      <div class="flex gap-2">
+        <button @click="triggerImport" class="btn btn-secondary text-sm">
+          ↑ Importar
+        </button>
+        <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="onImportFile" />
+        <button @click="showCreateModal = true" class="btn btn-primary text-sm">
+          + Nuevo recurso
+        </button>
+      </div>
     </div>
+
 
     <div v-if="loading" class="text-gray-400 text-center py-8">
       Loading...
@@ -899,6 +906,76 @@
       </div>
     </div>
   </div>
+
+  <!-- ── Modal importar bundle ───────────────────────────────────────────── -->
+  <div v-if="showImportModal"
+       class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
+
+      <div class="px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+        <h2 class="text-lg font-semibold">Importar resources</h2>
+        <button @click="closeImportModal" class="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+
+        <!-- Previsualización antes de importar -->
+        <template v-if="!importDone.length">
+          <p class="text-sm text-gray-400 mb-3">
+            Se crearán los siguientes resources. Los que ya existan serán omitidos.
+          </p>
+          <div v-for="r in importPreview" :key="r.name"
+               class="bg-gray-750 border border-gray-600 rounded p-3 text-sm space-y-1">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-white">{{ r.name }}</span>
+              <span v-if="!r._fetcherId"
+                    class="text-xs bg-red-900 text-red-300 px-2 py-0.5 rounded">
+                fetcher '{{ r._fetcherName }}' no encontrado
+              </span>
+              <span v-else class="text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
+                {{ r._fetcherName }}
+              </span>
+            </div>
+            <div v-if="r.description" class="text-gray-400 text-xs">{{ r.description }}</div>
+            <div class="text-xs text-gray-500">
+              {{ (r.params ?? []).length }} params
+            </div>
+          </div>
+        </template>
+
+        <!-- Resultados tras importar -->
+        <template v-else>
+          <div v-for="r in importDone" :key="r.name"
+               class="flex items-center gap-3 text-sm py-1.5 border-b border-gray-700 last:border-0">
+            <span v-if="r.status === 'created'"  class="text-green-400">✅</span>
+            <span v-else-if="r.status === 'skipped'" class="text-yellow-400">⏭</span>
+            <span v-else class="text-red-400">❌</span>
+            <span class="flex-1 text-white">{{ r.name }}</span>
+            <span class="text-gray-400 text-xs">{{ r.detail }}</span>
+          </div>
+        </template>
+      </div>
+
+      <div class="px-6 py-4 border-t border-gray-700 flex justify-between items-center">
+        <span class="text-xs text-gray-500">
+          {{ importPreview.length }} resource{{ importPreview.length !== 1 ? 's' : '' }}
+        </span>
+        <div class="flex gap-2">
+          <button @click="closeImportModal" class="btn btn-secondary text-sm">
+            {{ importDone.length ? 'Cerrar' : 'Cancelar' }}
+          </button>
+          <button v-if="!importDone.length"
+                  @click="runImport"
+                  :disabled="importRunning || !importPreview.some(r => r._fetcherId)"
+                  class="btn btn-primary text-sm">
+            {{ importRunning ? 'Importando…' : 'Importar' }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </template>
 
 <script setup>
@@ -1028,6 +1105,86 @@ function clearFilters() {
 }
 
 const showCreateModal = ref(false)
+
+// ── Import bundle ─────────────────────────────────────────────────────────────
+const importFileInput  = ref(null)
+const showImportModal  = ref(false)
+const importPreview    = ref([])   // resources a crear tras parsear el JSON
+const importRunning    = ref(false)
+const importDone       = ref([])   // { name, status: 'created'|'skipped'|'error', detail }
+
+function triggerImport() {
+  importFileInput.value?.click()
+}
+
+async function onImportFile(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  event.target.value = ''
+
+  let bundle
+  try {
+    bundle = JSON.parse(await file.text())
+  } catch {
+    alert('El fichero no es JSON válido.')
+    return
+  }
+
+  const list = Array.isArray(bundle) ? bundle : bundle.resources ?? []
+  if (!list.length) { alert('El bundle no contiene resources.'); return }
+
+  // Resolver fetcherCode → fetcherId usando los fetchers ya cargados en memoria
+  const resolved = list.map(r => {
+    const fetcher = fetchers.value.find(
+      f => f.code === r.fetcherCode || f.id === r.fetcherId
+    )
+    return { ...r, _fetcherId: fetcher?.id ?? null, _fetcherName: fetcher?.code ?? r.fetcherCode }
+  })
+
+  importPreview.value  = resolved
+  importDone.value     = []
+  showImportModal.value = true
+}
+
+async function runImport() {
+  importRunning.value = true
+  importDone.value = []
+
+  for (const r of importPreview.value) {
+    // Omitir si ya existe un resource con ese nombre
+    const exists = resources.value.some(x => x.name === r.name)
+    if (exists) {
+      importDone.value.push({ name: r.name, status: 'skipped', detail: 'ya existe' })
+      continue
+    }
+    if (!r._fetcherId) {
+      importDone.value.push({ name: r.name, status: 'error', detail: `fetcher '${r._fetcherName}' no encontrado` })
+      continue
+    }
+    try {
+      await createResource({
+        name:        r.name,
+        description: r.description ?? null,
+        fetcherId:   r._fetcherId,
+        publisherId: r.publisherId ?? null,
+        params:      (r.params ?? []).map(p => ({ key: p.key, value: p.value })),
+        active:      r.active ?? true,
+      })
+      importDone.value.push({ name: r.name, status: 'created', detail: '' })
+    } catch(e) {
+      importDone.value.push({ name: r.name, status: 'error', detail: String(e) })
+    }
+  }
+
+  importRunning.value = false
+  if (importDone.value.some(r => r.status === 'created')) await loadData()
+}
+
+function closeImportModal() {
+  showImportModal.value = false
+  importPreview.value   = []
+  importDone.value      = []
+}
 const showEditModal = ref(false)
 const showDeleteModal  = ref(false)
 const hardDeleteFlag   = ref(false)
