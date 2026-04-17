@@ -160,11 +160,17 @@ class PdfPageFetcher(BaseFetcher):
         return fn
 
     def _script_params(self, pdf_dir: Path) -> dict:
-        """Params que se pasan al script: los del Resource más pdf_dir resuelto."""
+        """Params que se pasan al script: los del Resource más pdf_dir resuelto.
+        ejercicio se reincorpora explícitamente para que el script pueda anotarlo
+        en cada registro sin necesidad de inferirlo del nombre de directorio.
+        """
         return {
             k: v for k, v in self.params.items()
             if k not in _FETCHER_PARAMS
-        } | {"pdf_dir": str(pdf_dir)}
+        } | {
+            "pdf_dir":   str(pdf_dir),
+            "ejercicio": self.params.get("ejercicio"),
+        }
 
     # ── Pipeline BaseFetcher ──────────────────────────────────────────────────
 
