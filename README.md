@@ -1,48 +1,47 @@
 # OpenDataManager
 
-**OpenDataManager** es un **gestor automatizado de fuentes de datos abiertos**.
+**OpenDataManager (ODMGR)** es un backend metadata-driven para la ingesta, normalización y distribución de fuentes de datos abiertos heterogéneas. Expone una API GraphQL como interfaz de administración y orquesta un pipeline ETL completo con versionado semántico de datasets y notificación push a aplicaciones suscritas.
 
-Imagina que trabajas en una organización y necesitas datos de varios sitios web del gobierno: subvenciones del Ministerio de Hacienda, catastro de la Junta de Andalucía, estadísticas del INE... Cada uno tiene su propia API, su propio formato, su propia forma de paginarse. Mantener todo eso a mano es un infierno.
+## Arquitectura general
 
-Esta aplicación resuelve exactamente eso. Funciona en tres capas:
+El sistema se organiza en tres capas:
 
-**1. Configuración de fuentes ("Resources")**
-Defines de dónde quieres sacar datos: una URL de API REST, un portal CKAN, un feed RSS, un fichero CSV... Le dices cómo conectarse (qué parámetros usar, qué credenciales si las hay) y qué tipo de "conector" (fetcher) usar para cada tipo de fuente.
+**1. Capa de metadatos (`opendata` schema)**
+Toda la configuración del sistema reside en base de datos, no en ficheros de configuración. Cada fuente de datos (`Resource`) referencia un tipo de conector (`Fetcher`) identificado por su `class_path` y un conjunto de parámetros clave-valor (`ResourceParam`). Esto permite añadir, modificar o deshabilitar recursos en caliente sin redespliegue.
 
-**2. Pipeline de extracción automática**
-Cuando ejecutas un recurso, la app hace todo el trabajo sucio:
-- **Extrae** los datos de la fuente
-- **Normaliza** el formato (convierte todo a JSON estructurado)
-- **Versiona** el resultado — si los datos cambian respecto a la vez anterior, crea una nueva versión (`v1.0.0`, `v1.1.0`, `v2.0.0`...) según si cambiaron los registros, la estructura, o ambas cosas
-- **Guarda** el paquete de datos con su esquema, sus modelos Python generados automáticamente y sus metadatos
+**2. Pipeline ETL**
+La ejecución de un `Resource` atraviesa cuatro fases secuenciales:
 
-**3. Distribución a aplicaciones suscritas**
-Otros proyectos pueden suscribirse a cualquier fuente. Cuando hay datos nuevos, ODMGR dispara automáticamente un **webhook** hacia cada aplicación suscrita, avisando de que hay una nueva versión disponible. A partir de ahí, la aplicación puede obtener los datos de dos formas según su `consumption_mode`:
+- **Extract** — el `Fetcher` correspondiente descarga los datos de la fuente (REST, SOAP, CSV, XBRL, PDF, script externo, etc.) y los entrega como stream de registros.
+- **Stage** — los registros se escriben en `/data/staging/{resource_id}/{execution_id}.jsonl` como punto de control auditado.
+- **Load** — `DataLoader` lee el staging, ejecuta `normalize()` y hace upsert en `core.{target_table}`. El modo de carga (`replace` / `upsert`) es configurable por recurso.
+- **Notify** — `ApplicationNotifier` despacha webhooks HMAC-signed a todas las aplicaciones suscritas al recurso. El payload varía según el `consumption_mode` de cada aplicación:
+  - `webhook` — payload completo con metadatos del dataset y URL de descarga del JSONL.
+  - `graphql` — aviso ligero; la aplicación consulta `/graphql/data` para obtener exactamente los campos que necesita.
+  - `both` — recibe ambos: payload completo y referencia GraphQL.
 
-- **`webhook`** — el propio webhook lleva el payload completo: metadatos del dataset y URL de descarga directa del fichero JSONL. La app descarga el fichero y ejecuta su ETL.
-- **`graphql`** — el webhook es un aviso ligero ("hay datos nuevos en el recurso X"). La app consulta entonces `/graphql/data` para obtener exactamente lo que necesita.
-- **`both`** — recibe ambas cosas: payload completo + referencia GraphQL.
+**3. Capa de almacenamiento**
+- **Staging**: filesystem temporal (JSONL), uno por ejecución.
+- **Core schema**: tablas PostgreSQL normalizadas, listas para consumo analítico.
 
-El webhook y la API GraphQL **no son excluyentes**: el webhook actúa de *trigger* y GraphQL es el *transporte de datos*. Sin webhook, la app consumidora tendría que hacer polling ("¿hay algo nuevo?") o lanzar su ETL a ciegas por cron.
-
-Por ejemplo, **GSH** es una aplicación que consume datos de ODMGR vía red Docker: recibe el webhook cuando hay una ejecución completada y ejecuta su ETL consultando `/graphql/data`.
-
-En resumen: es un **hub centralizado de datos abiertos** que conecta fuentes heterogéneas, estandariza lo que sacan, lleva control de versiones como si fuera un git de datos, y avisa a quien lo necesite cuando hay novedades.
+El webhook actúa de *trigger* event-driven; sin él, las aplicaciones consumidoras deberían implementar polling o lanzar su ETL a ciegas por cron. Como referencia, **GSH** consume ODMGR vía red Docker `traefik_public`: recibe el webhook al completarse una ejecución y consulta `/graphql/data` para ejecutar su propio ETL.
 
 ---
 
-Backend metadata-driven para gestión de recursos de datos OpenData con ETL automatizado y sistema de suscripciones.
+## Stack tecnológico
 
-## 🎯 Objetivos
+| Capa | Tecnología |
+|---|---|
+| Backend | FastAPI + Strawberry (GraphQL) |
+| Frontend | Vue 3 + Vite |
+| Base de datos | PostgreSQL (schemas `opendata` / `core`) |
+| Migraciones | Alembic |
+| Contenedores | Docker Compose (multi-env overlay) |
+| Proxy / TLS | Traefik + nginx |
 
-1. **Gestionar recursos de datos** de portales oficiales mediante metadatos en BD
-2. **Generar API GraphQL** automática para administración del sistema
-3. **Refrescar core.models** de aplicaciones suscritas automáticamente
-4. **Orquestar ETL completo**: Extract (fetchers) → Stage (filesystem) → Load (core schema) → Notify (webhooks)
+---
 
-## 🏗️ Arquitectura
-
-### Arquitectura de Tres Capas
+## Arquitectura de capas
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -55,7 +54,7 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
 │  ┌──────────────────────────────────────────────────────┐  │
 │  │  opendata schema (metadata)                          │  │
 │  │  - Resource, ResourceParam                           │  │
-│  │  - Fetcher, FetcherParams                    │  │
+│  │  - Fetcher, FetcherParams                            │  │
 │  │  - Application, ResourceSubscription                 │  │
 │  │  - ResourceExecution, ApplicationNotification        │  │
 │  └──────────────────────────────────────────────────────┘  │
@@ -64,56 +63,51 @@ Backend metadata-driven para gestión de recursos de datos OpenData con ETL auto
 ┌────────────────────▼────────────────────────────────────────┐
 │                   Storage Layer                             │
 │  ┌─────────────────┐  ┌──────────────────────────────────┐ │
-│  │ Staging (files) │  │  core schema (processed data)    │ │
-│  │ - JSONL format  │  │  - Normalized tables             │ │
-│  │ - Temporal      │  │  - Ready for consumption         │ │
+│  │ Staging (JSONL) │  │  core schema (datos normalizados) │ │
+│  │ por ejecución   │  │  tablas listas para consumo       │ │
 │  └─────────────────┘  └──────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Componentes principales
 
-**Metadata Layer (opendata schema)**:
-- **Fetcher**: Tipos de fetchers disponibles (REST, SOAP, CSV, etc.) con su `class_path`
-- **FetcherParams**: Definición de parámetros requeridos/opcionales para cada Fetcher
-- **Resource**: Recursos de datos configurados con parámetros
-- **ResourceParam**: Parámetros key-value para cada Resource
-- **ResourceExecution**: Tracking de cada ejecución de fetch (audit trail)
-- **ResourceSubscription**: Relación M:N entre Resources y Applications
-- **Application**: Aplicaciones suscritas que reciben actualizaciones automáticas
-- **ApplicationNotification**: Log de notificaciones enviadas
+**Metadata Layer (`opendata` schema)**:
+- **Fetcher** — registro de tipos de conector disponibles con su `class_path` para carga dinámica.
+- **FetcherParams** — definición de parámetros requeridos/opcionales por tipo de fetcher.
+- **Resource** — fuente de datos configurada: fetcher asignado, publisher, tabla destino, modo de carga.
+- **ResourceParam** — parámetros clave-valor por resource (url, credenciales, rangos, etc.).
+- **ResourceExecution** — audit trail de cada ejecución: estado, registros procesados, ruta de staging.
+- **ResourceSubscription** — relación M:N entre Resources y Applications.
+- **Application** — aplicación suscriptora con su webhook URL, secret HMAC y `consumption_mode`.
+- **ApplicationNotification** — log de notificaciones emitidas con payload y código de respuesta HTTP.
 
 **Processing Layer**:
-- **API GraphQL**: Interfaz para gestionar y consultar todo el sistema
-- **FetcherManager**: Orquestador que ejecuta fetchers
-- **DataLoader**: Carga datos desde staging → core schema
-- **ApplicationNotifier**: Notifica aplicaciones suscritas vía webhooks (HMAC-signed)
+- **FetcherManager** — orquestador del pipeline; instancia el fetcher correcto via `FetcherFactory` y coordina las cuatro fases.
+- **DataLoader** — lee el staging JSONL y ejecuta el upsert hacia `core.{target_table}`.
+- **ApplicationNotifier** — despacha webhooks HMAC-signed con reintentos configurables.
 
-**Storage Layer**:
-- **Staging**: Filesystem temporal para raw data (JSONL)
-- **Core Schema**: PostgreSQL schema con datos procesados y normalizados
-
-### Pipeline de ejecución completo
+### Pipeline de ejecución
 
 ```
 1. EXTRACT
-   Resource → FetcherFactory → BaseFetcher → fetch() → parse()
+   Resource → FetcherFactory → BaseFetcher.stream() → chunks de registros
    ↓
 2. STAGE
-   Write to /data/staging/{resource_id}/{execution_id}.jsonl
+   /data/staging/{resource_id}/{execution_id}.jsonl
    ↓
 3. LOAD
-   DataLoader reads JSONL → normalize() → upsert to core.{table}
+   DataLoader → normalize() → upsert → core.{target_table}
    ↓
 4. NOTIFY
-   ApplicationNotifier:
-   - Send HMAC-signed webhooks to subscribed apps
-   - Payload varía según consumption_mode: JSONL URL (webhook), ping ligero (graphql), o ambos (both)
+   ApplicationNotifier → HMAC-signed POST → apps suscritas
+   Payload según consumption_mode: JSONL URL | ping GraphQL | ambos
 ```
 
-## 🚀 Despliegue con Docker
+---
 
-La aplicación corre en contenedores. Hay tres entornos: desarrollo local (`optiplex-790`), staging (`vps2.europalaica.org`) y producción (`vps1.europalaica.org`).
+## Despliegue con Docker
+
+Hay tres entornos: desarrollo local (`optiplex-790`), staging (`vps2.europalaica.org`) y producción (`vps1.europalaica.org`).
 
 ### Servicios por entorno
 
@@ -121,27 +115,27 @@ La aplicación corre en contenedores. Hay tres entornos: desarrollo local (`opti
 |---|---|---|
 | `app` (FastAPI + GraphQL) | bind mount + `--reload` | imagen construida |
 | `frontend` (Vue 3) | Vite dev server, hot reload | build estático |
-| `db` (PostgreSQL) | puerto expuesto al host | solo interno |
-| `nginx` | no arranca | proxy + entrada Traefik |
+| `db` (PostgreSQL) | puerto expuesto al host | solo red interna |
+| `nginx` | deshabilitado | proxy inverso + entrada Traefik |
 
 ### Red Docker
 
-Todos los entornos comparten la red externa `traefik_public`. La API (`odmgr_app`) es accesible desde otros proyectos Docker a través de esa red — no se expone ningún puerto al host en staging/prod.
+Todos los entornos se unen a la red externa `traefik_public`. La API (`odmgr_app`) es accesible desde otros proyectos Docker a través de esa red sin exponer puertos al host en staging/prod.
 
-Para que otro proyecto consuma la API, basta con que se una a `traefik_public` y use `http://odmgr_app:8000/graphql` como URL.
+Para que un proyecto externo consuma la API basta con que se una a `traefik_public` y use `http://odmgr_app:8000/graphql` como endpoint.
 
 ### Archivos Compose
 
 | Archivo | Uso |
 |---|---|
-| `docker-compose.yml` | Base común: servicios, red `traefik_public` |
-| `docker-compose.dev.yml` | Overlay dev: bind mounts, puertos al host, frontend Vite |
-| `docker-compose.staging.yml` | Overlay staging: añade nginx con labels Traefik |
-| `docker-compose.prod.yml` | Overlay producción: igual con subdominio de prod |
+| `docker-compose.yml` | Base común: servicios, volumes, red `traefik_public` |
+| `docker-compose.dev.yml` | Overlay dev: bind mounts, puertos al host, Vite |
+| `docker-compose.staging.yml` | Overlay staging: nginx + labels Traefik |
+| `docker-compose.prod.yml` | Overlay producción: subdominio de prod |
 
 ### Variables de entorno
 
-Copia `.env.example` como base. El archivo `.env` es cargado automáticamente en desarrollo.
+Copia `.env.example` como base. El archivo `.env` se carga automáticamente en desarrollo.
 
 | Variable | Descripción |
 |---|---|
@@ -151,17 +145,19 @@ Copia `.env.example` como base. El archivo `.env` es cargado automáticamente en
 | `POSTGRES_USER` | Usuario de la base de datos |
 | `POSTGRES_PASSWORD` | Contraseña de la base de datos |
 | `POSTGRES_DB` | Nombre de la base de datos |
-| `DATABASE_URL` | URL completa de conexión (usada por la app Python) |
+| `DATABASE_URL` | URL completa de conexión SQLAlchemy |
 
-### Desarrollo (optiplex-790)
+### Desarrollo
 
 ```sh
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
-Accesible en:
-- `http://optiplex-790:5173` — Frontend (Vite dev server, hot reload)
+Endpoints disponibles:
+
+- `http://optiplex-790:5173` — Frontend Vue 3 (Vite, hot reload)
 - `http://optiplex-790:5173/graphql` — GraphiQL UI (proxiado por Vite)
+- `http://optiplex-790:5173/docs` — Swagger UI
 - `http://optiplex-790:55432` — PostgreSQL directo
 
 ### Staging
@@ -179,32 +175,24 @@ docker compose --env-file .env.production -f docker-compose.yml -f docker-compos
 ### Parar servicios
 
 ```sh
-# Bajar sin borrar datos
+# Sin borrar datos
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 
-# Bajar y eliminar volumen de datos (destructivo)
+# Eliminando volumen de datos (destructivo)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
 ```
 
 ### Bootstrap de base de datos
 
-La inicialización no ocurre automáticamente al arrancar. Se ejecuta manualmente:
+La inicialización del schema no se ejecuta automáticamente al arrancar el contenedor. Se lanza manualmente:
 
 ```sh
 bash scripts/db-bootstrap.sh
 ```
 
-## 🎮 Uso
+---
 
-Endpoints disponibles en desarrollo:
-
-- `http://optiplex-790:5173` — Frontend Vue 3
-- `http://optiplex-790:5173/graphql` — GraphiQL UI
-- `http://optiplex-790:5173/docs` — Swagger UI (proxiado por Vite)
-
-En staging/prod, Traefik enruta el subdominio configurado hacia nginx, que sirve el frontend y hace proxy de `/graphql` hacia `app`.
-
-## 📝 Ejemplos GraphQL
+## API GraphQL — ejemplos
 
 ### Listar recursos activos
 
@@ -232,7 +220,7 @@ query {
 }
 ```
 
-### Crear nuevo recurso
+### Crear recurso
 
 ```graphql
 mutation {
@@ -266,7 +254,7 @@ mutation {
 }
 ```
 
-### Consultar ejecuciones de un recurso
+### Consultar ejecuciones
 
 ```graphql
 query {
@@ -282,9 +270,11 @@ query {
 }
 ```
 
-## 🔧 Agregar nuevo tipo de Fetcher
+---
 
-1. Crear clase heredando de `BaseFetcher`:
+## Añadir un nuevo tipo de Fetcher
+
+1. Crear clase heredando de `BaseFetcher` en `app/fetchers/`:
 
 ```python
 # app/fetchers/soap.py
@@ -303,46 +293,47 @@ class SOAPFetcher(BaseFetcher):
         return parsed
 ```
 
-2. Registrar en BD:
+2. Registrar en BD (o vía migración Alembic):
 
 ```sql
 INSERT INTO opendata.fetcher (id, code, class_path, description)
 VALUES (
   gen_random_uuid(),
-  'soap',
+  'SOAP',
   'app.fetchers.soap.SOAPFetcher',
   'Cliente SOAP para web services'
 );
 ```
 
-¡Ya está! El sistema lo cargará dinámicamente.
+`FetcherFactory` carga la clase dinámicamente por `class_path`; no requiere modificar código fuera del módulo del fetcher.
 
-## 📚 Estructura del Proyecto
+---
+
+## Estructura del proyecto
 
 ```
 opendatamanager/
 ├── app/
-│   ├── database.py          # Configuración SQLAlchemy
-│   ├── models.py             # Modelos de BD
-│   ├── core.py               # Función upsert genérica
+│   ├── database.py              # Configuración SQLAlchemy
+│   ├── models.py                # Modelos ORM (opendata schema)
+│   ├── core.py                  # Función upsert genérica
 │   ├── fetchers/
-│   │   ├── base.py           # BaseFetcher abstracto
-│   │   ├── rest.py           # RESTFetcher
-│   │   └── factory.py        # Factory dinámico
+│   │   ├── base.py              # BaseFetcher abstracto
+│   │   ├── factory.py           # Carga dinámica por class_path
+│   │   ├── registry.py          # Mapa code → metadata de fetchers
+│   │   └── *.py                 # Implementaciones (rest, csv, xbrl, pdf_table…)
 │   ├── manager/
-│   │   └── fetcher_manager.py # Orquestador
+│   │   └── fetcher_manager.py   # Orquestador del pipeline ETL
 │   ├── graphql_api/
-│   │   ├── schema.py         # Schema Strawberry
-│   │   ├── types.py          # Tipos GraphQL
-│   │   ├── queries.py        # Queries
-│   │   └── mutations.py      # Mutations
-│   ├── refresh/
-│   │   └── model_generator.py # Generador de modelos
-│   └── main.py               # Servidor FastAPI
+│   │   ├── schema.py            # Schema Strawberry
+│   │   ├── types.py             # Tipos GraphQL
+│   │   ├── queries.py
+│   │   └── mutations.py
+│   └── main.py                  # Servidor FastAPI
+├── alembic/                     # Migraciones y seeds
 ├── scripts/
-│   ├── refresh_cores.py      # Ejecutar todos los  resources
-│   └── refresh_app_models.py # Refrescar apps suscritas
-├── alembic/                  # Migraciones
+│   ├── db-bootstrap.sh          # Inicialización del schema
+│   └── refresh_cores.py         # Ejecución batch de recursos
 ├── requirements.txt
 └── README.md
 ```
