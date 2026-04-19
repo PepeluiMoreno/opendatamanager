@@ -50,24 +50,10 @@ class FetcherRegistry:
             "description": "Generic fetcher for ZIP archives containing XBRL documents (financial/accounting XML standard)",
             "name": "XBRL ZIP"
         },
-        "PDF_PAGE": {
-            "class_path": "app.fetchers.pdf_page.PdfPageFetcher",
-            "description": (
-                "Fetcher para páginas web que publican colecciones de PDFs por ejercicio. "
-                "Resuelve url_template y pdf_dir interpolando {ejercicio}, descubre y descarga "
-                "los PDFs, y delega el parseo en script_module. Soporta url_overrides para "
-                "excepciones al patrón de URL."
-            ),
-            "name": "PDF Page",
-        },
-        "SCRIPT": {
-            "class_path": "app.fetchers.script.ScriptFetcher",
-            "description": (
-                "Fetcher genérico que delega la extracción en una función de un módulo Python externo. "
-                "El Resource configura script_module (módulo importable) y function_name (default: run). "
-                "La función recibe el resto de params como dict y devuelve list[dict]."
-            ),
-            "name": "Script",
+        "PDF_TABLE": {
+            "class_path": "app.fetchers.pdf_table.PdfTableFetcher",
+            "description": "Fetcher for PDFs: iterates year/month/quarter range, downloads each PDF and extracts a table using pdfplumber",
+            "name": "PDF Table"
         },
     }
 
