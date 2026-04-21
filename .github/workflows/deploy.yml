@@ -11,7 +11,7 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     env:
-      APP_PREFIX: ODMGR
+      ODMGR_ENV_PRODUCTION: ${{ secrets.ODMGR_ENV_PRODUCTION }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,9 +39,12 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
+          envs: ODMGR_ENV_PRODUCTION
           script: |
             cd /opt/docker/apps/opendatamanager
             git pull
-            docker compose pull
-            docker compose up -d
-            docker compose ps
+            umask 077
+            printf '%s\n' "$ODMGR_ENV_PRODUCTION" > .env.production
+            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable
+            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps

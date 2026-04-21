@@ -6,12 +6,16 @@ services:
     depends_on:
       - db
     environment:
-      - OVERPASS_LOCAL_URL=${OVERPASS_LOCAL_URL}
-    volumes:
-      - .:/app
+      OVERPASS_LOCAL_URL: ${OVERPASS_LOCAL_URL}
+      DATABASE_URL: ${DATABASE_URL}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER:-postgres}
     networks:
       - internal
       - traefik_public
+    security_opt:
+      - no-new-privileges:true
     deploy:
       resources:
         limits:
@@ -69,6 +73,8 @@ services:
       - traefik_public
     depends_on:
       - app
+    security_opt:
+      - no-new-privileges:true
 
   db:
     image: postgres:15-alpine

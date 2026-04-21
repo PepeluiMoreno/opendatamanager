@@ -124,6 +124,16 @@ Todos los entornos se unen a la red externa `traefik_public`. La API (`odmgr_app
 
 Para que un proyecto externo consuma la API basta con que se una a `traefik_public` y use `http://odmgr_app:8000/graphql` como endpoint.
 
+### Integración desde aplicaciones cliente
+
+Las aplicaciones en la red `traefik_public` pueden crear recursos y suscripciones directamente llamando a la API de administración GraphQL de ODM:
+
+```
+http://odmgr_app:8000/graphql
+```
+
+No se requiere acceso directo a la base de datos ni volúmenes compartidos. Ver mutaciones `createResource` y `subscribeResource` en el schema GraphQL.
+
 ### Archivos Compose
 
 | Archivo | Uso |
@@ -171,6 +181,18 @@ docker compose --env-file .env.staging -f docker-compose.yml -f docker-compose.s
 ```sh
 docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
+
+Dominio configurado por defecto en producción:
+
+- `https://odmgr.pepelui.es`
+
+Buenas practicas recomendadas:
+
+- No commits de credenciales reales. Usa `.env.production.example` como plantilla y guarda el `.env.production` real fuera del repo.
+- En GitHub Actions, guarda el contenido completo del `.env.production` real en el secreto `ODMGR_ENV_PRODUCTION`.
+- El usuario SSH de despliegue debe ser dedicado y no `root`.
+- El backend ya corre como `appuser`; los Nginx de produccion usan imagen no-root y puertos internos no privilegiados.
+- En produccion no se monta `.:/app`; se despliega la imagen construida por Docker para evitar mezclar codigo del host con el contenedor.
 
 ### Parar servicios
 
