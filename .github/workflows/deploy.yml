@@ -7,15 +7,83 @@ on:
       - master
   workflow_dispatch:
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/opendatamanager
+
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    env:
-      ODMGR_ENV_PRODUCTION: ${{ secrets.ODMGR_ENV_PRODUCTION }}
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push app
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-app:latest
+            ${{ env.IMAGE_PREFIX }}-app:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-app:latest
+          cache-to: type=inline
+
+      - name: Build and push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          target: prod
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-frontend:latest
+          cache-to: type=inline
+
+      - name: Build and push osm-updater
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/osm-updater
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-osm-updater:latest
+            ${{ env.IMAGE_PREFIX }}-osm-updater:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-osm-updater:latest
+          cache-to: type=inline
+
+      - name: Build and push overpass
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker/overpass
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-overpass:latest
+            ${{ env.IMAGE_PREFIX }}-overpass:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-overpass:latest
+          cache-to: type=inline
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      ODMGR_ENV_PRODUCTION: ${{ secrets.ODMGR_ENV_PRODUCTION }}
+
+    steps:
       - name: Deploy to server (SSH)
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -25,9 +93,10 @@ jobs:
           envs: ODMGR_ENV_PRODUCTION
           script: |
             cd /opt/docker/apps/opendatamanager
-            git pull
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             umask 077
             printf '%s\n' "$ODMGR_ENV_PRODUCTION" > .env.production
-            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable
-            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml pull
+            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d
             docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps
+            docker image prune -f
