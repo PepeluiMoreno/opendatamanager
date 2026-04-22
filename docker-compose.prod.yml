@@ -1,4 +1,16 @@
 services:
+  app:
+    image: ghcr.io/pepeluimoreno/opendatamanager-app:latest
+
+  frontend:
+    image: ghcr.io/pepeluimoreno/opendatamanager-frontend:latest
+
+  osm-updater:
+    image: ghcr.io/pepeluimoreno/opendatamanager-osm-updater:latest
+
+  overpass:
+    image: ghcr.io/pepeluimoreno/opendatamanager-overpass:latest
+
   nginx:
     image: nginxinc/nginx-unprivileged:1.27-alpine
     container_name: ${APP_PREFIX}_nginx
