@@ -1,7 +1,7 @@
 # alembic/env.py
 import os
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 from alembic import context
 from dotenv import load_dotenv
 
@@ -35,8 +35,8 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        version_table_schema="opendata",  # tabla alembic_version en opendata
-        include_schemas=True,              # usar metadata.schema
+        version_table_schema="opendata",
+        include_schemas=True,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -51,6 +51,10 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        # Crear el schema antes de que Alembic intente crear alembic_version
+        connection.execute(text("CREATE SCHEMA IF NOT EXISTS opendata"))
+        connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
@@ -67,4 +71,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     run_migrations_online()
-
