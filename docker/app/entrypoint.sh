@@ -8,7 +8,7 @@ done
 echo "[entrypoint] PostgreSQL ready."
 
 echo "[entrypoint] Running migrations..."
-alembic upgrade head
+alembic upgrade heads
 
 echo "[entrypoint] Seeding initial data..."
 python seed_data.py
