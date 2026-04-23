@@ -20,8 +20,8 @@ try:
         k: {
             "label": v["label"],
             **({} if "pairs" not in v and "pairs_or" not in v
-               else {"pairs": list(v["pairs"])} if "pairs" in v
-               else {"pairs_or": list(v["pairs_or"])}),
+               else {"pairs": [list(p) for p in v["pairs"]]} if "pairs" in v
+               else {"pairs_or": [list(p) for p in v["pairs_or"]]}),
         }
         for k, v in _OSM_USE_PRESETS.items()
     }
