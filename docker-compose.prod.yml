@@ -27,7 +27,7 @@ services:
       - no-new-privileges:true
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik_public"
+      - "traefik.docker.network=traefik"
       - "traefik.http.routers.${APP_PREFIX}.rule=Host(`${APP_DOMAIN}`)"
       - "traefik.http.routers.${APP_PREFIX}.entrypoints=websecure"
       - "traefik.http.routers.${APP_PREFIX}.tls=true"
