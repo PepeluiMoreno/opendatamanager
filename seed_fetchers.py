@@ -14,20 +14,6 @@ from typing import Any, Dict, List
 
 from app.graphql.schema import schema
 
-try:
-    from app.fetchers.osm import OSM_USE_PRESETS as _OSM_USE_PRESETS
-    _OSM_PRESETS_UI = {
-        k: {
-            "label": v["label"],
-            **({} if "pairs" not in v and "pairs_or" not in v
-               else {"pairs": [list(p) for p in v["pairs"]]} if "pairs" in v
-               else {"pairs_or": [list(p) for p in v["pairs_or"]]}),
-        }
-        for k, v in _OSM_USE_PRESETS.items()
-    }
-except Exception:
-    _OSM_PRESETS_UI = None
-
 
 FETCHERS: List[Dict[str, Any]] = [
     {
@@ -137,91 +123,10 @@ FETCHERS: List[Dict[str, Any]] = [
     {
         "name": "OSM Overpass",
         "class_path": "app.fetchers.osm.OSMFetcher",
-        "description": "OpenStreetMap Overpass API — descarga elementos por tipo de uso y ámbito geográfico.",
+        "description": "OpenStreetMap Overpass API query",
         "params": [
-            {
-                "param_name": "use_types",
-                "data_type": "overpass_query",
-                "required": False,
-                "default_value": None,
-                "enum_values": _OSM_PRESETS_UI,
-                "group": "query",
-                "description": "Presets de tipo de uso OSM. Cada preset genera un bloque de condiciones UNION en la query Overpass.",
-            },
-            {
-                "param_name": "filters_pairs",
-                "data_type": "string",
-                "required": False,
-                "default_value": None,
-                "group": "query",
-                "description": "Filtros OSM manuales avanzados (JSON). Lista de pares [[key,val],...]. AND implícito. Tiene prioridad sobre use_types.",
-            },
-            {
-                "param_name": "demarcacion",
-                "data_type": "string",
-                "required": False,
-                "default_value": "España",
-                "group": "geo",
-                "description": "Ámbito geográfico: CC.AA., provincia, ciudad o isla española. Tiene prioridad sobre bbox y area_name.",
-            },
-            {
-                "param_name": "bbox",
-                "data_type": "string",
-                "required": False,
-                "default_value": "27.6,-18.2,43.8,4.3",
-                "group": "geo",
-                "description": "Bounding box manual formato Overpass: 'sur,oeste,norte,este'. Solo si no se especifica demarcacion.",
-            },
-            {
-                "param_name": "area_name",
-                "data_type": "string",
-                "required": False,
-                "default_value": None,
-                "group": "geo",
-                "description": "Nombre de área Overpass (alternativo a bbox/demarcacion).",
-            },
-            {
-                "param_name": "element_types",
-                "data_type": "string",
-                "required": False,
-                "default_value": "node,way",
-                "enum_values": ["node", "way", "relation"],
-                "group": "query",
-                "description": "Tipos de elementos OSM a consultar, separados por coma.",
-            },
-            {
-                "param_name": "out_format",
-                "data_type": "enum",
-                "required": False,
-                "default_value": "center",
-                "enum_values": ["center", "geom", "body", "skel"],
-                "group": "query",
-                "description": "Formato de geometría en la respuesta Overpass.",
-            },
-            {
-                "param_name": "timeout",
-                "data_type": "integer",
-                "required": False,
-                "default_value": 60,
-                "group": "http",
-                "description": "Timeout de la query Overpass en segundos.",
-            },
-            {
-                "param_name": "max_elements",
-                "data_type": "integer",
-                "required": False,
-                "default_value": 0,
-                "group": "behavior",
-                "description": "Límite máximo de elementos (0 = sin límite).",
-            },
-            {
-                "param_name": "overpass_url",
-                "data_type": "string",
-                "required": False,
-                "default_value": "https://overpass-api.de/api/interpreter",
-                "group": "http",
-                "description": "URL del servidor Overpass API.",
-            },
+            {"param_name": "query", "data_type": "overpass_query", "required": True, "group": "query"},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 120, "group": "http"},
         ],
     },
     {
