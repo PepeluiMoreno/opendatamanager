@@ -21,7 +21,7 @@ services:
       - app
       - frontend
     networks:
-      - default
+      - internal
       - traefik_public
     security_opt:
       - no-new-privileges:true
