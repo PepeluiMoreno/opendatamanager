@@ -1,49 +1,48 @@
 """
 Orquestador principal de seeding.
 
-Reconstruye el estado base de la BD ejecutando los seeds en orden de dependencia:
-    01. fetchers       — tipos de fetcher (sin FKs)
-    02. fetcher_params — parámetros de tipo (FK → fetcher)
-    03. resources      — recursos concretos y sus params (FK → fetcher)
+Reconstruye un estado de ejemplo de la BD.
+
+No es el camino de despliegue base. En despliegue solo debe ejecutarse
+`seed_fetchers.py`, que registra el catálogo inicial de fetchers vía API de
+administración. El resto de seeds representan datos de casos de uso.
 
 Uso:
-    # Con la URL del .env (Docker):
+    # Con la URL del .env (Docker/local):
     python -m scripts.seed_all
 
-    # Override local (fuera de Docker):
-    DATABASE_URL="postgresql+psycopg2://sipi:CHANGE_ME_IN_PRODUCTION@localhost:5433/odmgr" \\
-        python -m scripts.seed_all
-
-    # Solo un paso concreto:
-    python -m scripts.seeds.fetchers
-    python -m scripts.seeds.fetcher_params
-    python -m scripts.seeds.resources
+    # Solo catálogo base de fetchers:
+    python seed_fetchers.py
 """
 import sys
+from seed_fetchers import seed as seed_fetchers
 from scripts.seeds._db import get_session
-from scripts.seeds import fetchers, fetcher_params, resources
+from scripts.seeds import resources
 
 
 STEPS = [
-    ("01 — Fetchers",        fetchers.seed),
-    ("02 — Fetcher params",  fetcher_params.seed),
-    ("03 — Resources",       resources.seed),
+    ("01 — Fetchers base (API admin)", seed_fetchers),
+    ("02 — Resources de ejemplo", resources.seed),
 ]
 
 
 def main():
-    db = get_session()
     print("=== seed_all: iniciando ===")
     try:
         for label, fn in STEPS:
             print(f"\n[{label}]")
-            fn(db)
+            if fn is seed_fetchers:
+                fn()
+            else:
+                db = get_session()
+                try:
+                    fn(db)
+                finally:
+                    db.close()
         print("\n=== seed_all: completado ===")
     except Exception as exc:
         print(f"\nERROR en seeding: {exc}", file=sys.stderr)
         sys.exit(1)
-    finally:
-        db.close()
 
 
 if __name__ == "__main__":

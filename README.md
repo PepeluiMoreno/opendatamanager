@@ -12,7 +12,7 @@ Toda la configuración del sistema reside en base de datos, no en ficheros de co
 **2. Pipeline ETL**
 La ejecución de un `Resource` atraviesa cuatro fases secuenciales:
 
-- **Extract** — el `Fetcher` correspondiente descarga los datos de la fuente (REST, SOAP, CSV, XBRL, PDF, script externo, etc.) y los entrega como stream de registros.
+- **Extract** — el `Fetcher` correspondiente descarga los datos de la fuente (REST, SOAP, CSV, XBRL, PDF, crawling documental, etc.) y los entrega como stream de registros.
 - **Stage** — los registros se escriben en `/data/staging/{resource_id}/{execution_id}.jsonl` como punto de control auditado.
 - **Load** — `DataLoader` lee el staging, ejecuta `normalize()` y hace upsert en `core.{target_table}`. El modo de carga (`replace` / `upsert`) es configurable por recurso.
 - **Notify** — `ApplicationNotifier` despacha webhooks HMAC-signed a todas las aplicaciones suscritas al recurso. El payload varía según el `consumption_mode` de cada aplicación:
@@ -212,6 +212,16 @@ La inicialización del schema no se ejecuta automáticamente al arrancar el cont
 bash scripts/db-bootstrap.sh
 ```
 
+En despliegue, tras las migraciones, el contenedor sincroniza automáticamente el catálogo base de fetchers ejecutando:
+
+```sh
+python seed_fetchers.py
+```
+
+Ese es el único dato inicial que debe cargarse de forma automática. Publishers, resources, aplicaciones y demás datos de casos de uso deben tratarse fuera del bootstrap base.
+
+El catálogo base se limita a fetchers con implementación efectiva en `app/fetchers/`. Tipos legacy o incompletos como CKAN, agregadores geográficos genéricos o variantes retiradas no deben documentarse ni cargarse como soportados hasta que exista su clase real y mantenida.
+
 ---
 
 ## API GraphQL — ejemplos
@@ -225,7 +235,7 @@ query {
     name
     publisher
     targetTable
-    Fetcher {
+    fetcher {
       code
       classPath
       paramsDef {
@@ -250,10 +260,10 @@ mutation {
     name: "INE Población"
     publisher: "INE"
     targetTable: "poblacion"
-    FetcherId: "<uuid-del-rest-fetcher>"
+    fetcherId: "<uuid-del-rest-fetcher>"
     params: [
       {key: "url", value: "https://api.ine.es/poblacion"}
-      {key: "auth_token", value: "your-token-here"}
+      {key: "timeout", value: "30"}
     ]
     active: true
   }) {
@@ -271,7 +281,7 @@ mutation {
   executeResource(id: "<resource-uuid>") {
     success
     message
-    executionId
+    resourceId
   }
 }
 ```
@@ -291,6 +301,23 @@ query {
   }
 }
 ```
+
+---
+
+## Nota sobre fetchers documentales
+
+El escenario de portales con árboles de páginas y artefactos heterogéneos se resuelve ahora con una sola abstracción principal:
+
+- `Portal Documental` → `app.fetchers.document_portal.DocumentPortalFetcher`
+
+El parseo por formato se comparte entre:
+
+- `File Download`
+- `Compressed File`
+- `PDF_TABLE`
+- `Portal Documental`
+
+Para documentos especialmente problemáticos existe una vía de especialización acotada mediante `custom_parser`, limitada a la fase de parseo. Ya no se consideran caminos vigentes `PdfPageFetcher`, `ScriptFetcher` ni configuraciones basadas en `PDF_PAGE` o `SCRIPT`.
 
 ---
 
@@ -315,19 +342,40 @@ class SOAPFetcher(BaseFetcher):
         return parsed
 ```
 
-2. Registrar en BD (o vía migración Alembic):
+2. Registrar el fetcher en la API de administración GraphQL:
 
-```sql
-INSERT INTO opendata.fetcher (id, code, class_path, description)
-VALUES (
-  gen_random_uuid(),
-  'SOAP',
-  'app.fetchers.soap.SOAPFetcher',
-  'Cliente SOAP para web services'
-);
+```graphql
+mutation {
+  createFetcher(input: {
+    name: "Portal Documental"
+    classPath: "app.fetchers.document_portal.DocumentPortalFetcher"
+    description: "Crawler genérico para portales con árboles de páginas y artefactos descargables"
+  }) {
+    id
+    name
+  }
+}
 ```
 
-`FetcherFactory` carga la clase dinámicamente por `class_path`; no requiere modificar código fuera del módulo del fetcher.
+3. Registrar sus parámetros también por la API de administración:
+
+```graphql
+mutation {
+  createTypeFetcherParam(input: {
+    fetcherId: "<fetcher-id>"
+    paramName: "start_url"
+    required: true
+    dataType: "string"
+    description: "URL inicial del portal documental"
+    group: "navigation"
+  }) {
+    id
+    paramName
+  }
+}
+```
+
+`FetcherFactory` carga la clase dinámicamente por `class_path`; no requiere tocar seeds para dar de alta un fetcher nuevo.
 
 ---
 
@@ -342,8 +390,8 @@ opendatamanager/
 │   ├── fetchers/
 │   │   ├── base.py              # BaseFetcher abstracto
 │   │   ├── factory.py           # Carga dinámica por class_path
-│   │   ├── registry.py          # Mapa code → metadata de fetchers
-│   │   └── *.py                 # Implementaciones (rest, csv, xbrl, pdf_table…)
+│   │   ├── file_parsers.py      # Parsers compartidos por formato
+│   │   └── *.py                 # Implementaciones (rest, document_portal, xbrl, pdf_table…)
 │   ├── manager/
 │   │   └── fetcher_manager.py   # Orquestador del pipeline ETL
 │   ├── graphql_api/
@@ -353,6 +401,7 @@ opendatamanager/
 │   │   └── mutations.py
 │   └── main.py                  # Servidor FastAPI
 ├── alembic/                     # Migraciones y seeds
+├── seed_fetchers.py             # Catálogo inicial de fetchers via API admin
 ├── scripts/
 │   ├── db-bootstrap.sh          # Inicialización del schema
 │   └── refresh_cores.py         # Ejecución batch de recursos

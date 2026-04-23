@@ -8,6 +8,7 @@ Este directorio contiene los tests del proyecto OpenDataManager.
 tests/
 ├── core/               # Tests del core del sistema
 ├── fetchers/          # Tests de los fetchers
+│   ├── test_document_portal_fetcher.py
 │   └── test_rest_fetcher.py
 ├── integration/       # Tests de integración
 │   └── test_bdns_resource.py
@@ -18,9 +19,10 @@ tests/
 
 ## Instalación de dependencias
 
-Para ejecutar los tests, necesitas instalar pytest:
+Para ejecutar los tests, necesitas instalar las dependencias de desarrollo:
 
 ```bash
+pip install -r requirements-dev.txt
 pip install pytest pytest-cov
 ```
 
@@ -97,6 +99,13 @@ Tests unitarios para el `RestFetcher`:
 - ✅ Parsing de respuestas JSON
 - ✅ Validación de parámetros requeridos
 - ✅ Defaults (método GET, timeout 30s)
+
+### test_document_portal_fetcher.py
+
+Tests unitarios para `DocumentPortalFetcher` y la capa de parsers compartidos:
+- ✅ crawling básico de páginas y descubrimiento de ficheros
+- ✅ parseo por extensión reutilizando la capa común
+- ✅ escape hatch controlado con `custom_parser`
 
 ### test_bdns_resource.py
 

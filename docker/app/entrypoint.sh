@@ -10,8 +10,8 @@ echo "[entrypoint] PostgreSQL ready."
 echo "[entrypoint] Running migrations..."
 alembic upgrade heads
 
-echo "[entrypoint] Seeding initial data..."
-python seed_data.py
+echo "[entrypoint] Seeding fetcher catalog..."
+python seed_fetchers.py
 
 echo "[entrypoint] Starting application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

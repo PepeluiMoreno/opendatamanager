@@ -1,6 +1,10 @@
 """
 Seed 02 — Fetcher type params (type_fetcher_params table).
 
+LEGACY: este script ya no forma parte del bootstrap de despliegue. El catálogo
+base de fetchers y sus parámetros se sincroniza vía API administrativa en
+`seed_fetchers.py`.
+
 Defines the accepted parameters for each fetcher type.
 Safe to run multiple times (upsert by fetcher name + param_name).
 

@@ -1,5 +1,7 @@
 # Configuración para Entidades Religiosas RER con PaginatedHtmlFetcher
 
+Nota: este documento es una guía de caso de uso. No forma parte del catálogo inicial de despliegue. Si necesitas registrar o ajustar un fetcher, hazlo por la API de administración GraphQL, no con SQL directo.
+
 ## 🎯 RESUMEN DE LA SOLUCIÓN
 
 ### 1. Fetcher Recomendado
@@ -43,15 +45,18 @@ Ejecutar cuando tengas el entorno activo:
 python scripts/setup_paginated_fetcher.py
 ```
 
-O manualmente:
-```sql
-INSERT INTO opendata.fetcher (id, code, class_path, description)
-VALUES (
-  gen_random_uuid(),
-  'HTML_PAGINATED',
-  'app.fetchers.paginated_html.PaginatedHtmlFetcher',
-  'Buscadores HTML con paginación automática y selectores configurables'
-);
+O manualmente vía GraphQL:
+```graphql
+mutation {
+  createFetcher(input: {
+    name: "HTML Paginated"
+    classPath: "app.fetchers.paginated_html.PaginatedHtmlFetcher"
+    description: "Buscadores HTML con paginación automática y selectores configurables"
+  }) {
+    id
+    name
+  }
+}
 ```
 
 ### Paso 2: Configurar Resource
@@ -62,7 +67,7 @@ mutation {
     name: "Entidades Religiosas RER"
     publisher: "Ministerio Justicia"
     targetTable: "entidades_religiosas"
-    FetcherId: "ID_DEL_FETCHER_PAGINATED"
+    fetcherId: "ID_DEL_FETCHER_PAGINATED"
     active: true
     params: [
       {key: "url", value: "https://maper.mjusticia.gob.es/Maper/buscarRER.action"},

@@ -93,6 +93,8 @@ class CreateTypeFetcherParamInput:
     data_type: str = strawberry.field(name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
     enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
+    description: Optional[str] = None
+    group: Optional[str] = None
 
 
 @strawberry.input
@@ -103,6 +105,8 @@ class UpdateTypeFetcherParamInput:
     data_type: Optional[str] = strawberry.field(default=None, name="dataType")
     default_value: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="defaultValue")
     enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
+    description: Optional[str] = None
+    group: Optional[str] = None
 
 
 @strawberry.type
@@ -223,6 +227,5 @@ class ResourceType:
     schedule: Optional[str] = None
     fetcher: FetcherType
     params: List[ResourceParamType]
-
 
 

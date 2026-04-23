@@ -38,10 +38,10 @@ import json
 import logging
 import tarfile
 import zipfile
-
-from app.fetchers.file_download import FileDownloadFetcher, _normalize_col
-from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 from typing import Generator, List, Dict, Any
+
+from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
+from app.fetchers.file_parsers import infer_file_format, parse_structured_file
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,8 @@ _EXT_TO_FORMAT = {
     ".tsv":  "tsv",
     ".txt":  "tsv",   # Geonames usa .txt con tabuladores
     ".xlsx": "xlsx",
-    ".xls":  "xlsx",
+    ".xls":  "xls",
+    ".pdf":  "pdf",
 }
 
 # Modos de apertura de tarfile según formato
@@ -106,10 +107,8 @@ def _extract_gz(content: bytes) -> tuple[bytes, str]:
 
 def _infer_inner_format(entry_name: str) -> str:
     """Infiere el formato del fichero extraído a partir de su extensión."""
-    for ext, fmt in _EXT_TO_FORMAT.items():
-        if entry_name.lower().endswith(ext):
-            return fmt
-    return ""
+    inferred = infer_file_format(entry_name)
+    return inferred or ""
 
 
 class CompressedFileFetcher(BaseFetcher):
@@ -164,20 +163,12 @@ class CompressedFileFetcher(BaseFetcher):
             inner_fmt = _infer_inner_format(used_entry)
         if not inner_fmt:
             raise ValueError(
-                "No se pudo inferir 'inner_format'. Especifícalo como parámetro: csv | tsv | xlsx"
+                "No se pudo inferir 'inner_format'. Especifícalo como parámetro: pdf | xls | xlsx | csv | tsv"
             )
 
         logger.info(f"[CompressedFileFetcher] Parseando como '{inner_fmt}'")
 
-        # ── Delegar al parser de FileDownloadFetcher ──────────────────────────
-        helper = FileDownloadFetcher(self.params)
-        if inner_fmt == "xlsx":
-            records = helper._parse_xlsx(raw, self.params)
-        elif inner_fmt in ("csv", "tsv"):
-            delimiter = "\t" if inner_fmt == "tsv" else self.params.get("delimiter", "")
-            records = helper._parse_csv(raw, self.params, delimiter=delimiter)
-        else:
-            raise ValueError(f"inner_format '{inner_fmt}' no soportado. Valores: csv | tsv | xlsx")
+        records = parse_structured_file(raw, inner_fmt, self.params, source_name=used_entry or url)
 
         total = len(records)
         logger.info(f"[CompressedFileFetcher] {total} registros parseados")

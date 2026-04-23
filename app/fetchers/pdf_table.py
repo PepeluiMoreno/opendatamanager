@@ -25,68 +25,13 @@ Flujo:
     7. Yield en batches.
 """
 
-import io
-import re
 import logging
 from typing import Generator, List, Dict, Any
 
-import pdfplumber
-
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
+from app.fetchers.file_parsers import parse_pdf_table
 
 logger = logging.getLogger(__name__)
-
-# Mapa de caracteres acentuados → ASCII para normalizar nombres de columna
-_ACCENT_MAP = str.maketrans(
-    "áéíóúÁÉÍÓÚñÑüÜ",
-    "aeiouAEIOUnNuU",
-)
-
-
-def _normalize_col(name: str) -> str:
-    """Convierte un nombre de columna a snake_case ASCII limpio."""
-    name = str(name).translate(_ACCENT_MAP)
-    name = name.strip().lower()
-    name = re.sub(r"[\s\-/\\\.()]+", "_", name)
-    name = re.sub(r"[^\w]", "", name)
-    name = re.sub(r"_+", "_", name).strip("_")
-    return name or "col"
-
-
-def _extract_table(pdf_bytes: bytes, table_index: int, header_row: int) -> List[Dict[str, str]]:
-    """Extrae la tabla indicada de un PDF y devuelve lista de dicts."""
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        all_tables = []
-        for page in pdf.pages:
-            tables = page.extract_tables()
-            all_tables.extend(tables)
-
-        if not all_tables:
-            return []
-
-        if table_index >= len(all_tables):
-            logger.warning(
-                f"[PdfTableFetcher] table_index={table_index} fuera de rango "
-                f"({len(all_tables)} tablas encontradas). Usando tabla 0."
-            )
-            table = all_tables[0]
-        else:
-            table = all_tables[table_index]
-
-        if len(table) <= header_row:
-            return []
-
-        raw_headers = table[header_row]
-        columns = [_normalize_col(h or f"col_{i}") for i, h in enumerate(raw_headers)]
-
-        records = []
-        for row in table[header_row + 1:]:
-            if not any(cell for cell in row if cell):
-                continue  # saltar filas vacías
-            padded = list(row) + [""] * max(0, len(columns) - len(row))
-            records.append({col: str(padded[i] or "").strip() for i, col in enumerate(columns)})
-
-        return records
 
 
 class PdfTableFetcher(BaseFetcher):
@@ -138,7 +83,10 @@ class PdfTableFetcher(BaseFetcher):
                     logger.warning(f"[PdfTableFetcher] Error descargando {url}: {exc} — saltando")
                     continue
 
-                records = _extract_table(response.content, table_index, header_row)
+                records = parse_pdf_table(
+                    response.content,
+                    {"table_index": table_index, "header_row": header_row},
+                )
                 if not records:
                     logger.info(f"[PdfTableFetcher] Sin tabla en {url}")
                     continue

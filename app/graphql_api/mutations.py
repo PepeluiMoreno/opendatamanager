@@ -494,7 +494,9 @@ class Mutation:
                 required=input.required,
                 data_type=input.data_type,
                 default_value=input.default_value,
-                enum_values=input.enum_values
+                enum_values=input.enum_values,
+                description=input.description,
+                group=input.group,
             )
             db.add(param)
             db.commit()
@@ -525,6 +527,10 @@ class Mutation:
                 param.default_value = input.default_value
             if input.enum_values is not None:
                 param.enum_values = input.enum_values
+            if input.description is not None:
+                param.description = input.description
+            if input.group is not None:
+                param.group = input.group
 
             db.commit()
             db.refresh(param)
