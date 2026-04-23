@@ -103,6 +103,7 @@ class Mutation:
                 publisher=input.publisher,
                 publisher_id=input.publisher_id or None,
                 fetcher_id=input.fetcher_id,
+                target_table=input.target_table,
                 active=input.active,
                 schedule=input.schedule,
             )

@@ -1,28 +1,29 @@
 """
 Orquestador principal de seeding.
 
-Reconstruye un estado de ejemplo de la BD.
+Ejecuta en orden:
+  1. seed_fetchers  — catálogo de tipos de fetcher (API admin GraphQL)
+  2. seed_resources — publishers y resources fundacionales (API admin GraphQL)
 
-No es el camino de despliegue base. En despliegue solo debe ejecutarse
-`seed_fetchers.py`, que registra el catálogo inicial de fetchers vía API de
-administración. El resto de seeds representan datos de casos de uso.
+Ambos scripts son idempotentes (upsert por nombre/acrónimo).
 
 Uso:
-    # Con la URL del .env (Docker/local):
-    python -m scripts.seed_all
-
-    # Solo catálogo base de fetchers:
-    python seed_fetchers.py
+    python scripts/seed_all.py
+    # o desde el contenedor:
+    docker exec odmgr_app python scripts/seed_all.py
 """
 import sys
+import os
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from seed_fetchers import seed as seed_fetchers
-from scripts.seeds._db import get_session
-from scripts.seeds import resources
+from seed_resources import seed as seed_resources
 
 
 STEPS = [
-    ("01 — Fetchers base (API admin)", seed_fetchers),
-    ("02 — Resources de ejemplo", resources.seed),
+    ("01 — Fetchers base",                seed_fetchers),
+    ("02 — Publishers y Resources base",  seed_resources),
 ]
 
 
@@ -31,14 +32,7 @@ def main():
     try:
         for label, fn in STEPS:
             print(f"\n[{label}]")
-            if fn is seed_fetchers:
-                fn()
-            else:
-                db = get_session()
-                try:
-                    fn(db)
-                finally:
-                    db.close()
+            fn()
         print("\n=== seed_all: completado ===")
     except Exception as exc:
         print(f"\nERROR en seeding: {exc}", file=sys.stderr)
