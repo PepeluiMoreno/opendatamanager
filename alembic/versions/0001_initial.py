@@ -30,6 +30,7 @@ def upgrade() -> None:
         sa.Column('name', sa.String(50), nullable=False, unique=True),
         sa.Column('class_path', sa.String(255)),
         sa.Column('description', sa.Text),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
     )
 
@@ -64,6 +65,7 @@ def upgrade() -> None:
         sa.Column('provincia', sa.String(100), nullable=True),
         sa.Column('municipio', sa.String(200), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
     )
 
@@ -107,7 +109,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column('name', sa.String(100), nullable=False, unique=True),
         sa.Column('description', sa.Text),
-        sa.Column('models_path', sa.String(255), nullable=False),
+        sa.Column('models_path', sa.String(255), nullable=True),
         sa.Column('subscribed_resources', postgresql.JSONB, nullable=False,
                   server_default='[]'),
         sa.Column('active', sa.Boolean, default=True),
@@ -115,6 +117,7 @@ def upgrade() -> None:
         sa.Column('webhook_secret', sa.String(100)),
         sa.Column('consumption_mode', sa.String(20), nullable=False,
                   server_default='webhook'),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
     )
 
@@ -136,6 +139,7 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
         sa.Column('resource_id', postgresql.UUID(as_uuid=True),
                   sa.ForeignKey('opendata.resource.id'), nullable=False),
+        sa.Column('resource_name', sa.String(300), nullable=True),
         sa.Column('started_at', sa.DateTime, default=sa.func.now()),
         sa.Column('completed_at', sa.DateTime),
         sa.Column('status', sa.String(20)),
@@ -184,6 +188,7 @@ def upgrade() -> None:
         sa.Column('auto_upgrade', sa.String(20), default='patch'),
         sa.Column('current_version', sa.String(20)),
         sa.Column('notified_at', sa.DateTime),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
     )
 
@@ -229,6 +234,7 @@ def upgrade() -> None:
         sa.Column('enabled', sa.Boolean, nullable=False, server_default='true'),
         sa.Column('description', sa.Text, nullable=True),
         sa.Column('created_at', sa.DateTime, server_default=sa.text('now()')),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
     )
 
