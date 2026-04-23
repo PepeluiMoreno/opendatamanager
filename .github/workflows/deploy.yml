@@ -96,6 +96,7 @@ jobs:
           envs: ODMGR_ENV_PRODUCTION
           script: |
             cd /opt/docker/apps/opendatamanager
+            git pull
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             umask 077
             printf '%s\n' "$ODMGR_ENV_PRODUCTION" > .env.production
