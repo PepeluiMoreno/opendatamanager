@@ -16,14 +16,12 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      IMAGE_PREFIX: ghcr.io/pepeluimoreno/opendatamanager
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set image prefix (lowercase)
-        id: vars
-        run: echo "IMAGE_PREFIX=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/opendatamanager" >> $GITHUB_OUTPUT
 
       - name: Log in to ghcr.io
         uses: docker/login-action@v3
@@ -41,9 +39,9 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-app:latest
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-app:${{ github.sha }}
-          cache-from: type=registry,ref=${{ steps.vars.outputs.IMAGE_PREFIX }}-app:latest
+            ${{ env.IMAGE_PREFIX }}-app:latest
+            ${{ env.IMAGE_PREFIX }}-app:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-app:latest
           cache-to: type=inline
 
       - name: Build and push frontend
@@ -53,9 +51,9 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-frontend:latest
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-frontend:${{ github.sha }}
-          cache-from: type=registry,ref=${{ steps.vars.outputs.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.IMAGE_PREFIX }}-frontend:latest
+            ${{ env.IMAGE_PREFIX }}-frontend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-frontend:latest
           cache-to: type=inline
 
       - name: Build and push osm-updater
@@ -64,9 +62,9 @@ jobs:
           context: ./docker/osm-updater
           push: true
           tags: |
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-osm-updater:latest
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-osm-updater:${{ github.sha }}
-          cache-from: type=registry,ref=${{ steps.vars.outputs.IMAGE_PREFIX }}-osm-updater:latest
+            ${{ env.IMAGE_PREFIX }}-osm-updater:latest
+            ${{ env.IMAGE_PREFIX }}-osm-updater:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-osm-updater:latest
           cache-to: type=inline
 
       - name: Build and push overpass
@@ -75,9 +73,9 @@ jobs:
           context: ./docker/overpass
           push: true
           tags: |
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-overpass:latest
-            ${{ steps.vars.outputs.IMAGE_PREFIX }}-overpass:${{ github.sha }}
-          cache-from: type=registry,ref=${{ steps.vars.outputs.IMAGE_PREFIX }}-overpass:latest
+            ${{ env.IMAGE_PREFIX }}-overpass:latest
+            ${{ env.IMAGE_PREFIX }}-overpass:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-overpass:latest
           cache-to: type=inline
 
   deploy:
