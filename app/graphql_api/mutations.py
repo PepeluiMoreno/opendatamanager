@@ -8,8 +8,9 @@ from typing import Optional, List
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher, ApplicationNotification
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher, ApplicationNotification, Dataset
 from datetime import datetime
+import os
 
 # Global registry: execution_id (str) → Thread
 _running_threads: dict[str, threading.Thread] = {}
@@ -251,6 +252,16 @@ class Mutation:
 
             now = datetime.utcnow()
             if hard_delete:
+                datasets = db.query(Dataset).filter(Dataset.resource_id == resource.id).all()
+                for ds in datasets:
+                    try:
+                        if ds.data_path and os.path.exists(ds.data_path):
+                            os.remove(ds.data_path)
+                    except OSError:
+                        pass
+                db.query(Dataset).filter(
+                    Dataset.resource_id == resource.id
+                ).delete(synchronize_session=False)
                 db.query(ResourceExecution).filter(
                     ResourceExecution.resource_id == resource.id
                 ).delete(synchronize_session=False)

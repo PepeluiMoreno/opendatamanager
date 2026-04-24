@@ -922,15 +922,29 @@
     >
       <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700 shadow-2xl">
         <h2 class="text-xl font-bold mb-4">Delete Resource</h2>
-        <p class="mb-6">
+        <p class="mb-4">
           Are you sure you want to delete <strong class="text-purple-300">{{ resourceToDelete?.name }}</strong>?
           The resource and its execution history will be deleted.
         </p>
 
-        <label class="flex items-start gap-2 mb-6 cursor-pointer">
+        <label class="flex items-start gap-2 mb-4 cursor-pointer">
           <input type="checkbox" v-model="hardDeleteFlag" class="accent-red-500 mt-0.5" />
-          <span class="text-sm text-gray-300">Permanently delete</span>
+          <span class="text-sm text-gray-300">Permanently delete (removes execution records from database)</span>
         </label>
+
+        <div
+          v-if="hardDeleteFlag && deleteDatasetCount > 0"
+          class="mb-4 flex items-start gap-2 rounded-lg border border-orange-600 bg-orange-950 px-3 py-2 text-sm text-orange-300"
+        >
+          <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          </svg>
+          <span>
+            This will also delete <strong class="text-orange-200">{{ deleteDatasetCount }} dataset{{ deleteDatasetCount !== 1 ? 's' : '' }}</strong>
+            and their associated data files.
+          </span>
+        </div>
 
         <div class="flex justify-end gap-2">
           <button @click="showDeleteModal = false" class="btn btn-secondary">Cancel</button>
@@ -1086,6 +1100,7 @@ import {
   createResource,
   updateResource,
   deleteResource,
+  fetchDatasets,
   cloneResource,
   previewResourceData,
   executeResource,
@@ -1297,8 +1312,9 @@ function closeImportModal() {
   importDone.value      = []
 }
 const showEditModal = ref(false)
-const showDeleteModal  = ref(false)
-const hardDeleteFlag   = ref(false)
+const showDeleteModal    = ref(false)
+const hardDeleteFlag     = ref(false)
+const deleteDatasetCount = ref(0)
 const showPreviewModal = ref(false)
 const showExecuteModal = ref(false)
 const resourceToDelete = ref(null)
@@ -1873,10 +1889,15 @@ async function confirmExecute() {
   executeResource(executingResource.value.id, externalParams).catch(() => {})
 }
 
-function confirmDelete(resource) {
+async function confirmDelete(resource) {
   resourceToDelete.value = resource
   hardDeleteFlag.value = false
+  deleteDatasetCount.value = 0
   showDeleteModal.value = true
+  try {
+    const result = await fetchDatasets(resource.id)
+    deleteDatasetCount.value = result?.datasets?.length ?? 0
+  } catch {}
 }
 
 async function handleClone(resource) {
@@ -1896,6 +1917,7 @@ async function handleDelete() {
     showDeleteModal.value = false
     resourceToDelete.value = null
     hardDeleteFlag.value = false
+    deleteDatasetCount.value = 0
     await loadData()
   } catch (e) {
     error.value = 'Failed to delete resource: ' + e.message
