@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from collections import deque
 from pathlib import Path
@@ -52,6 +53,10 @@ class DocumentPortalFetcher(BaseFetcher):
             self.params.get("page_context_attr_selectors"),
             {},
         )
+        self._context_url_patterns = _parse_json_param(
+            self.params.get("page_context_url_patterns"),
+            {},
+        )
         self._allowed_extensions = {
             ext.lower().lstrip(".")
             for ext in _parse_json_param(
@@ -93,6 +98,10 @@ class DocumentPortalFetcher(BaseFetcher):
             attr = cfg.get("attr", "href")
             element = soup.select_one(selector)
             context[field] = element.get(attr) if element else None
+
+        for field, pattern in self._context_url_patterns.items():
+            m = re.search(pattern, page_url)
+            context[field] = m.group(1) if m and m.lastindex else (m.group(0) if m else None)
 
         context["_source_page_url"] = page_url
         context["_source_depth"] = depth

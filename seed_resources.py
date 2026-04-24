@@ -731,6 +731,7 @@ RESOURCES: List[Dict[str, Any]] = [
             "navigation_link_selector": "a[href]",
             "file_link_selector":     "a[href]",
             "page_context_selectors": '{"seccion": ".breadcrumb li:nth-last-child(3)", "subseccion": ".breadcrumb li:nth-last-child(2)"}',
+            "page_context_url_patterns": '{"ejercicio": "/(20\\\\d{2})/"}',
             "page_delay":             "1.0",
             "file_delay":             "2.0",
             "timeout":                "90",
