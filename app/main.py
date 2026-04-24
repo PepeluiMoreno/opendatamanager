@@ -357,7 +357,7 @@ async def get_execution_logs(
 
     if follow:
         async def event_stream():
-            last_pos = 0
+            last_pos = os.path.getsize(log_path) if os.path.exists(log_path) else 0
             max_seconds = 600
             waited = 0
             while waited < max_seconds:
