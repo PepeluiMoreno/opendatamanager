@@ -397,7 +397,8 @@ class Mutation:
         return ExecutionResult(
             success=True,
             message=f"Resource '{resource_name}' iniciado en background",
-            resource_id=resource_id
+            resource_id=resource_id,
+            execution_id=execution_id,
         )
 
     @strawberry.mutation
@@ -1216,7 +1217,7 @@ class Mutation:
                 raise ValueError(f"Parent resource not found: {parent_resource_id}")
 
             # Params to carry over from parent (excluding section-specific ones)
-            SKIP_KEYS = {"page_include_patterns", "allowed_extensions", "start_url", "start_urls"}
+            SKIP_KEYS = {"page_include_patterns", "allowed_extensions"}
             parent_params = [p for p in (parent.params or []) if p.key not in SKIP_KEYS]
 
             created_ids = []

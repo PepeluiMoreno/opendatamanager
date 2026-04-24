@@ -92,6 +92,8 @@
             </div>
           </div>
 
+          <div v-if="errorMsg" class="bg-red-900 border border-red-700 rounded p-3 text-red-200 text-sm mb-4">{{ errorMsg }}</div>
+
           <div class="flex justify-end gap-3 mt-6">
             <button @click="$emit('close')" class="btn btn-secondary">Cancel</button>
             <button
