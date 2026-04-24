@@ -57,6 +57,10 @@ class DocumentPortalFetcher(BaseFetcher):
             self.params.get("page_context_url_patterns"),
             {},
         )
+        self._context_url_overrides = _parse_json_param(
+            self.params.get("page_context_url_overrides"),
+            {},
+        )
         self._allowed_extensions = {
             ext.lower().lstrip(".")
             for ext in _parse_json_param(
@@ -102,6 +106,11 @@ class DocumentPortalFetcher(BaseFetcher):
         for field, pattern in self._context_url_patterns.items():
             m = re.search(pattern, page_url)
             context[field] = m.group(1) if m and m.lastindex else (m.group(0) if m else None)
+
+        for url_pattern, field_overrides in self._context_url_overrides.items():
+            if url_pattern and url_pattern in page_url:
+                context.update(field_overrides)
+                break
 
         context["_source_page_url"] = page_url
         context["_source_depth"] = depth
