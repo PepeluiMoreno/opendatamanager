@@ -46,7 +46,7 @@
               <span class="text-gray-600">|</span>
               <button @click="selectAll(false)" class="text-xs text-gray-400 hover:text-gray-300">Deselect all</button>
               <span class="text-gray-600">|</span>
-              <button @click="runDiscover" class="text-xs text-gray-400 hover:text-gray-300">Re-run</button>
+              <button @click="confirmRerun = true" class="text-xs text-gray-400 hover:text-yellow-400">Re-run</button>
             </div>
           </div>
 
@@ -110,6 +110,22 @@
       </div>
     </div>
   </div>
+
+  <!-- Re-run confirmation -->
+  <div v-if="confirmRerun"
+       class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60]">
+    <div class="bg-gray-800 rounded-lg p-6 w-full max-w-sm border border-yellow-700 shadow-2xl">
+      <h3 class="text-lg font-bold mb-2 text-yellow-300">Re-run discovery?</h3>
+      <p class="text-sm text-gray-300 mb-5">
+        Los descubrimientos actuales se descartarán y se ejecutará una nueva exploración del portal.
+        Los recursos hijo ya creados no se eliminan — tendrás que gestionarlos manualmente si el portal ha cambiado.
+      </p>
+      <div class="flex justify-end gap-3">
+        <button @click="confirmRerun = false" class="btn btn-secondary">Cancelar</button>
+        <button @click="confirmRerun = false; runDiscover()" class="btn bg-yellow-600 hover:bg-yellow-500 text-white">Re-run</button>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -127,6 +143,7 @@ const state = ref('idle')   // idle | running | done | error
 const sections = ref([])
 const errorMsg = ref('')
 const creating = ref(false)
+const confirmRerun = ref(false)
 
 const selectedCount = computed(() => sections.value.filter(s => s.selected).length)
 
