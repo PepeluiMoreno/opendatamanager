@@ -141,7 +141,8 @@ class DocumentPortalFetcher(BaseFetcher):
 
         if same_domain_only and urlparse(url).netloc and urlparse(url).netloc != root_netloc:
             return False
-        if include and not self._match_any(url, include):
+        # Start URLs always allowed — include patterns only filter child pages
+        if include and url not in self._start_urls() and not self._match_any(url, include):
             return False
         if exclude and self._match_any(url, exclude):
             return False
