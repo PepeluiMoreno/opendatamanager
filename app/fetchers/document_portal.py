@@ -188,8 +188,21 @@ class DocumentPortalFetcher(BaseFetcher):
 
     def _download_file(self, url: str, fmt: str) -> List[Dict[str, Any]]:
         timeout = int(self.params.get("timeout", 60))
-        response = self._request(self.session, "GET", url, headers=self._headers, timeout=timeout)
-        return parse_structured_file(response.content, fmt, self._options_for_format(fmt), source_name=url)
+        max_mb = int(self.params.get("max_file_mb", 50))
+        response = self._request(
+            self.session, "GET", url, headers=self._headers,
+            timeout=timeout, stream=True,
+        )
+        chunks = []
+        received = 0
+        for chunk in response.iter_content(chunk_size=65536):
+            if chunk:
+                chunks.append(chunk)
+                received += len(chunk)
+                if received > max_mb * 1024 * 1024:
+                    raise RuntimeError(f"Fichero demasiado grande (>{max_mb} MB): {url}")
+        content = b"".join(chunks)
+        return parse_structured_file(content, fmt, self._options_for_format(fmt), source_name=url)
 
     def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
         start_urls = self._start_urls()
@@ -218,7 +231,8 @@ class DocumentPortalFetcher(BaseFetcher):
             visited_pages.add(page_url)
             logger.info("[DocumentPortalFetcher] Crawling depth=%s %s", depth, page_url)
 
-            response = self._request(self.session, "GET", page_url, headers=self._headers)
+            crawl_timeout = int(self.params.get("crawl_timeout", 15))
+            response = self._request(self.session, "GET", page_url, headers=self._headers, timeout=crawl_timeout)
             soup = BeautifulSoup(response.text, "html.parser")
             page_context = self._extract_context(soup, page_url, depth, inherited)
 
