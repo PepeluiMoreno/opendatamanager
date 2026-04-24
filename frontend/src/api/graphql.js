@@ -904,6 +904,15 @@ export async function fetchDiscoverArtifact(resourceId) {
   } catch (e) { handleGraphQLError(e) }
 }
 
+export async function fetchDiscoverArtifactForExecution(executionId) {
+  try {
+    return await client.request(
+      `query DiscoverArtifactForExecution($executionId: ID!) { discoverArtifactForExecution(executionId: $executionId) }`,
+      { executionId }
+    )
+  } catch (e) { handleGraphQLError(e) }
+}
+
 export async function fetchResourceChildren(parentResourceId) {
   try {
     return await client.request(

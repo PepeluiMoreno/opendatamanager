@@ -114,7 +114,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { fetchDiscoverArtifact, createChildResources } from '../api/graphql'
+import { fetchDiscoverArtifact, fetchDiscoverArtifactForExecution, createChildResources } from '../api/graphql'
 
 const props = defineProps({
   resourceId: { type: String, required: true },
@@ -155,29 +155,32 @@ function loadArtifact(json) {
 
 async function runDiscover() {
   state.value = 'running'
+  sections.value = []
   errorMsg.value = ''
   try {
-    // Trigger a discover execution using existing executeResource with _discover_mode flag
     const { executeResource } = await import('../api/graphql')
     const res = await executeResource(props.resourceId, { _discover_mode: true })
     if (!res?.executeResource?.success) {
       throw new Error(res?.executeResource?.message || 'Failed to start discover')
     }
-    // Poll until the execution completes (discover is fast — no file downloads)
-    await pollUntilDone()
+    const execId = res.executeResource.executionId
+    await pollUntilDone(execId)
   } catch (e) {
     state.value = 'error'
     errorMsg.value = e.message || String(e)
   }
 }
 
-async function pollUntilDone() {
-  const MAX_POLLS = 120   // 2 min at 1s intervals
+async function pollUntilDone(execId) {
+  const MAX_POLLS = 150  // 5 min at 2s intervals
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise(r => setTimeout(r, 2000))
-    const res = await fetchDiscoverArtifact(props.resourceId)
-    if (res?.discoverArtifact) {
-      loadArtifact(res.discoverArtifact)
+    const res = execId
+      ? await fetchDiscoverArtifactForExecution(execId)
+      : await fetchDiscoverArtifact(props.resourceId)
+    const json = res?.discoverArtifactForExecution ?? res?.discoverArtifact
+    if (json) {
+      loadArtifact(json)
       return
     }
   }

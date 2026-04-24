@@ -602,6 +602,25 @@ class Query:
             db.close()
 
     @strawberry.field
+    def discover_artifact_for_execution(self, execution_id: strawberry.ID) -> Optional[str]:
+        """Returns the discover artifact for a specific execution once completed, or null if still running."""
+        import os
+        db = get_db()
+        try:
+            ex = db.query(ResourceExecution).filter(
+                ResourceExecution.id == execution_id,
+                ResourceExecution.status == "completed",
+                ResourceExecution.staging_path.isnot(None),
+            ).first()
+            if ex and ex.execution_params and ex.execution_params.get("_discover_mode"):
+                if ex.staging_path and os.path.exists(ex.staging_path):
+                    with open(ex.staging_path, "r", encoding="utf-8") as f:
+                        return f.read()
+            return None
+        finally:
+            db.close()
+
+    @strawberry.field
     def resource_children(self, parent_resource_id: strawberry.ID) -> List[ResourceType]:
         """Returns all child resources created from a discover run."""
         db = get_db()
