@@ -279,7 +279,7 @@ FETCHERS: List[Dict[str, Any]] = [
     },
     {
         "name": "Portal Documental",
-        "class_path": "app.fetchers.document_portal.DocumentPortalFetcher",
+        "class_path": "app.fetchers.legacy_data_portal.LegacyDataPortalFetcher",
         "description": "Crawler genérico para portales con árboles de páginas y artefactos descargables heterogéneos.",
         "params": [
             {"param_name": "start_url", "data_type": "string", "required": False, "group": "navigation"},

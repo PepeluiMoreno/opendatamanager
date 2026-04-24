@@ -357,5 +357,6 @@ class DiscoverSectionInput:
     page_include_patterns: Optional[str] = strawberry.field(default=None, name="pageIncludePatterns")
     extensions: Optional[List[str]] = None
     schedule: Optional[str] = None
+    start_url: Optional[str] = strawberry.field(default=None, name="startUrl")
 
 

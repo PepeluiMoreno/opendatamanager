@@ -1,5 +1,5 @@
 """
-DocumentPortalFetcher — crawler genérico para portales documentales.
+LegacyDataPortalFetcher — crawler genérico para portales documentales.
 
 Recorre un árbol de páginas HTML, descubre enlaces a ficheros descargables y
 parsea cada artefacto según su extensión mediante los parsers compartidos.
@@ -41,7 +41,7 @@ def _bool_param(value: Any, default: bool) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "si", "on"}
 
 
-class DocumentPortalFetcher(BaseFetcher):
+class LegacyDataPortalFetcher(BaseFetcher):
     def __init__(self, params: Dict[str, str]):
         super().__init__(params)
         self.session = requests.Session()
@@ -92,7 +92,7 @@ class DocumentPortalFetcher(BaseFetcher):
             return [str(url) for url in explicit]
         start_url = self.params.get("start_url") or self.params.get("url")
         if not start_url:
-            raise ValueError("DocumentPortalFetcher requiere 'start_url' o 'start_urls'")
+            raise ValueError("LegacyDataPortalFetcher requiere 'start_url' o 'start_urls'")
         return [start_url]
 
     def _extract_context(self, soup: BeautifulSoup, page_url: str, depth: int, inherited: Dict[str, Any]) -> Dict[str, Any]:
@@ -223,13 +223,28 @@ class DocumentPortalFetcher(BaseFetcher):
         prefix = re.sub(r'/\{year\}.*$', '', pattern)
         return [f"{origin}{prefix}"]
 
+    def _section_start_url(self, pattern: str, base_url: str) -> str:
+        """URL of the section root: base_url + path prefix up to (not including) first {year}."""
+        parsed = urlparse(base_url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        prefix = re.sub(r'/\{year\}.*$', '', pattern)
+        return f"{origin}{prefix}"
+
+    def _suggested_max_depth(self, pattern: str, base_url: str) -> int:
+        """Number of navigation steps from section_start_url to the leaf page."""
+        prefix = re.sub(r'/\{year\}.*$', '', pattern)
+        suffix = pattern[len(prefix):]
+        segments = [s for s in suffix.strip('/').split('/') if s]
+        return len(segments)  # each segment (including {year}) is one navigation step
+
     def discover(self) -> List[Dict[str, Any]]:
-        """Crawl without downloading files; return grouped section descriptors."""
+        """Crawl without downloading files; return grouped section descriptors.
+        No depth limit — descends until no more pages are reachable within allowed patterns."""
         start_urls = self._start_urls()
-        max_depth = int(self.params.get("max_depth", 3))
         navigation_attr = self.params.get("navigation_link_attr", "href")
         file_attr = self.params.get("file_link_attr", "href")
         page_delay = float(self.params.get("page_delay", 0))
+        crawl_timeout = int(self.params.get("crawl_timeout", 15))
 
         root_netloc = urlparse(start_urls[0]).netloc
         base_url = start_urls[0]
@@ -239,13 +254,12 @@ class DocumentPortalFetcher(BaseFetcher):
 
         while queue:
             page_url, depth = queue.popleft()
-            if page_url in visited_pages or depth > max_depth:
+            if page_url in visited_pages:
                 continue
             if not self._page_allowed(page_url, root_netloc):
                 continue
 
             visited_pages.add(page_url)
-            crawl_timeout = int(self.params.get("crawl_timeout", 15))
             logger.info("[discover] depth=%s %s", depth, page_url)
             try:
                 response = self._request(
@@ -266,12 +280,11 @@ class DocumentPortalFetcher(BaseFetcher):
             if allowed:
                 leaf_pages.append((page_url, depth, allowed))
 
-            if depth < max_depth:
-                for next_url, _ in self._resolve_links(
-                    soup, page_url, self._navigation_selector(), navigation_attr
-                ):
-                    if next_url not in visited_pages and self._page_allowed(next_url, root_netloc):
-                        queue.append((next_url, depth + 1))
+            for next_url, _ in self._resolve_links(
+                soup, page_url, self._navigation_selector(), navigation_attr
+            ):
+                if next_url not in visited_pages and self._page_allowed(next_url, root_netloc):
+                    queue.append((next_url, depth + 1))
 
             if page_delay > 0:
                 time.sleep(page_delay)
@@ -280,6 +293,7 @@ class DocumentPortalFetcher(BaseFetcher):
         for page_url, depth, files in leaf_pages:
             pattern = self._url_to_pattern(page_url)
             if pattern not in groups:
+                sec_url = self._section_start_url(pattern, base_url)
                 groups[pattern] = {
                     "url_pattern": pattern,
                     "depth": depth,
@@ -289,7 +303,9 @@ class DocumentPortalFetcher(BaseFetcher):
                     "extensions": [],
                     "sample_files": [],
                     "suggested_name": self._pattern_to_label(pattern),
-                    "suggested_page_include_patterns": self._pattern_to_include_patterns(pattern, base_url),
+                    "suggested_page_include_patterns": [sec_url],
+                    "section_start_url": sec_url,
+                    "suggested_max_depth": self._suggested_max_depth(pattern, base_url),
                 }
             g = groups[pattern]
             g["page_count"] += 1
@@ -332,7 +348,7 @@ class DocumentPortalFetcher(BaseFetcher):
                 continue
 
             visited_pages.add(page_url)
-            logger.info("[DocumentPortalFetcher] Crawling depth=%s %s", depth, page_url)
+            logger.info("[LegacyDataPortalFetcher] Crawling depth=%s %s", depth, page_url)
 
             crawl_timeout = int(self.params.get("crawl_timeout", 15))
             response = self._request(self.session, "GET", page_url, headers=self._headers, timeout=crawl_timeout)
@@ -360,7 +376,7 @@ class DocumentPortalFetcher(BaseFetcher):
 
                 buffer.extend(records)
                 logger.info(
-                    "[DocumentPortalFetcher] %s -> %s registros (%s)",
+                    "[LegacyDataPortalFetcher] %s -> %s registros (%s)",
                     file_url,
                     len(records),
                     fmt,

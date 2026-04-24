@@ -194,6 +194,7 @@ async function createResources() {
       targetTable: s.targetTable,
       pageIncludePatterns: JSON.stringify(s.suggested_page_include_patterns || []),
       extensions: s.extensions,
+      startUrl: s.section_start_url || null,
     }))
     const res = await createChildResources(props.resourceId, input)
     const created = res?.createChildResources || []

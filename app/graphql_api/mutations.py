@@ -1220,8 +1220,8 @@ class Mutation:
             if not parent:
                 raise ValueError(f"Parent resource not found: {parent_resource_id}")
 
-            # Params to carry over from parent (excluding section-specific ones)
-            SKIP_KEYS = {"page_include_patterns", "allowed_extensions"}
+            # Params to carry over from parent (section-specific ones are overridden below)
+            SKIP_KEYS = {"page_include_patterns", "allowed_extensions", "start_url", "start_urls"}
             parent_params = [p for p in (parent.params or []) if p.key not in SKIP_KEYS]
 
             created_ids = []
@@ -1248,6 +1248,12 @@ class Mutation:
                         is_external=pp.is_external,
                     ))
 
+                # Each child gets its own section-scoped start_url and include pattern
+                section_start = section.start_url or next(
+                    (p.value for p in (parent.params or []) if p.key == "start_url"), None
+                )
+                if section_start:
+                    db.add(ResourceParam(resource_id=child.id, key="start_url", value=section_start))
                 if section.page_include_patterns:
                     db.add(ResourceParam(resource_id=child.id, key="page_include_patterns", value=section.page_include_patterns))
                 if section.extensions:
