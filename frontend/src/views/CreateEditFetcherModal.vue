@@ -26,18 +26,6 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium mb-2">Class Path *</label>
-            <input
-              v-model="formData.classPath"
-              type="text"
-              required
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono text-sm"
-              placeholder="e.g., app.fetchers.rest.RestFetcher"
-            />
-            <p class="text-xs text-gray-400 mt-1">Python class path for dynamic import</p>
-          </div>
-
-          <div>
             <label class="block text-sm font-medium mb-2">Description</label>
             <textarea
               v-model="formData.description"
@@ -282,7 +270,6 @@ const emit = defineEmits(['close', 'saved'])
 // Form data
 const formData = ref({
   name: '',
-  classPath: '',
   description: ''
 })
 
@@ -342,7 +329,6 @@ watch(() => props.Fetcher, (newFetcher) => {
   if (newFetcher) {
     formData.value = {
       name: newFetcher.name || '',
-      classPath: newFetcher.classPath || '',
       description: newFetcher.description || ''
     }
 
@@ -366,10 +352,8 @@ watch(() => props.Fetcher, (newFetcher) => {
       parameters.value = []
     }
   } else {
-    // Reset form for new fetcher
     formData.value = {
       name: '',
-      classPath: '',
       description: ''
     }
     parameters.value = []
@@ -404,7 +388,6 @@ async function submitForm() {
 
     const input = {
       name: formData.value.name,
-      classPath: formData.value.classPath || null,
       description: formData.value.description || null
     }
 
