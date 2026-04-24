@@ -63,7 +63,10 @@
             :key="f.id"
             class="hover:bg-gray-750 transition-colors"
           >
-            <td class="px-4 py-3 font-medium text-white">{{ f.name || f.code }}</td>
+            <td class="px-4 py-3 font-medium text-white">
+              <span :title="f.classPath || ''" class="cursor-default">{{ f.name || f.code }}</span>
+              <span v-if="f.classPath" class="block text-xs text-gray-600 font-mono mt-0.5">{{ f.classPath }}</span>
+            </td>
             <td class="px-4 py-3 text-gray-400 hidden md:table-cell max-w-xs truncate" :title="f.description">
               {{ f.description || '—' }}
             </td>
