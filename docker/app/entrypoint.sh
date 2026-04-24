@@ -84,7 +84,13 @@ import os
 from sqlalchemy import create_engine, text
 engine = create_engine(os.environ["DATABASE_URL"])
 with engine.connect() as conn:
-    conn.execute(text("UPDATE opendata.alembic_version SET version_num = '0001_initial'"))
+    # Remove all stale revisions; keep or insert 0001_initial
+    conn.execute(text("DELETE FROM opendata.alembic_version WHERE version_num != '0001_initial'"))
+    conn.execute(text("""
+        INSERT INTO opendata.alembic_version (version_num)
+        VALUES ('0001_initial')
+        ON CONFLICT DO NOTHING
+    """))
     conn.execute(text("""
         ALTER TABLE opendata.resource
             ADD COLUMN IF NOT EXISTS parent_resource_id UUID
