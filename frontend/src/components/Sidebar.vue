@@ -125,6 +125,12 @@
           ></div>
         </div>
       </div>
+
+      <!-- Versión de la imagen -->
+      <div v-if="appVersion" class="mt-3 flex items-center justify-between text-xs text-gray-600">
+        <span>build</span>
+        <span class="font-mono">{{ appVersion }}</span>
+      </div>
     </div>
   </div>
 </template>
@@ -132,9 +138,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 
-const status  = ref('checking')
-const ramTotal = ref(0)   // MB
-const ramAvail = ref(0)   // MB
+const status     = ref('checking')
+const ramTotal   = ref(0)   // MB
+const ramAvail   = ref(0)   // MB
+const appVersion = ref('')
 let timer = null
 
 const ramTotalGb  = computed(() => (ramTotal.value / 1024).toFixed(1))
@@ -174,9 +181,21 @@ async function fetchSysInfo() {
   } catch {}
 }
 
+async function fetchVersion() {
+  try {
+    const res = await fetch('/api/version', { signal: AbortSignal.timeout(3000) })
+    if (res.ok) {
+      const d = await res.json()
+      const v = d.version ?? ''
+      appVersion.value = v.length > 7 ? v.slice(0, 7) : v
+    }
+  } catch {}
+}
+
 onMounted(() => {
   checkHealth()
   fetchSysInfo()
+  fetchVersion()
   timer = setInterval(() => { checkHealth(); fetchSysInfo() }, 15000)
 })
 

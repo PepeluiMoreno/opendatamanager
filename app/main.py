@@ -92,6 +92,11 @@ def health_check():
     return {"status": "healthy"}
 
 
+@app.get("/api/version")
+def app_version():
+    return {"version": os.environ.get("APP_VERSION", "dev")}
+
+
 @app.get("/api/graphql-data/registry")
 async def graphql_data_registry():
     """Lista todos los datasets expuestos en la API GraphQL dinámica (/graphql/data)."""

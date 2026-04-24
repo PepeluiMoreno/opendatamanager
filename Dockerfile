@@ -7,4 +7,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 COPY docker/app/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
+ARG BUILD_SHA=dev
+ENV APP_VERSION=${BUILD_SHA}
 ENTRYPOINT ["/entrypoint.sh"]
