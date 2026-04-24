@@ -90,6 +90,9 @@ class Resource(Base):
     enable_load = Column(Boolean, default=False)
     load_mode = Column(String(20), default="replace")
 
+    parent_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
+    auto_generated = Column(Boolean, default=False, nullable=False)
+
     created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
@@ -99,6 +102,7 @@ class Resource(Base):
     executions = relationship("ResourceExecution", back_populates="resource")
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
+    children = relationship("Resource", foreign_keys="Resource.parent_resource_id", backref="parent", lazy="dynamic")
 
 
 class ResourceParam(Base):

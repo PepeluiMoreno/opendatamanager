@@ -67,6 +67,7 @@ from app.graphql_api.types import (
     PublisherType,
     CreatePublisherInput,
     UpdatePublisherInput,
+    DiscoverSectionInput,
 )
 from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config, map_dataset_subscription, map_publisher
 from app.manager.fetcher_manager import FetcherManager
@@ -1197,5 +1198,69 @@ class Mutation:
         except Exception as e2:
             db.rollback()
             raise e2
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def create_child_resources(
+        self,
+        parent_resource_id: strawberry.ID,
+        sections: List[DiscoverSectionInput],
+    ) -> List[ResourceType]:
+        """Create child Resources from approved discover sections."""
+        import json
+        db = get_db()
+        try:
+            parent = db.query(Resource).filter(Resource.id == parent_resource_id).first()
+            if not parent:
+                raise ValueError(f"Parent resource not found: {parent_resource_id}")
+
+            # Params to carry over from parent (excluding section-specific ones)
+            SKIP_KEYS = {"page_include_patterns", "allowed_extensions", "start_url", "start_urls"}
+            parent_params = [p for p in (parent.params or []) if p.key not in SKIP_KEYS]
+
+            created_ids = []
+            for section in sections:
+                child = Resource(
+                    name=section.name,
+                    fetcher_id=parent.fetcher_id,
+                    publisher=parent.publisher,
+                    publisher_id=parent.publisher_id,
+                    target_table=section.target_table,
+                    active=False,
+                    schedule=section.schedule,
+                    parent_resource_id=parent_resource_id,
+                    auto_generated=True,
+                )
+                db.add(child)
+                db.flush()
+
+                for pp in parent_params:
+                    db.add(ResourceParam(
+                        resource_id=child.id,
+                        key=pp.key,
+                        value=pp.value,
+                        is_external=pp.is_external,
+                    ))
+
+                if section.page_include_patterns:
+                    db.add(ResourceParam(resource_id=child.id, key="page_include_patterns", value=section.page_include_patterns))
+                if section.extensions:
+                    db.add(ResourceParam(resource_id=child.id, key="allowed_extensions", value=json.dumps(section.extensions)))
+
+                created_ids.append(str(child.id))
+
+            db.commit()
+
+            result = []
+            for cid in created_ids:
+                child_obj = db.query(Resource).filter(Resource.id == cid).first()
+                if child_obj:
+                    result.append(map_resource(child_obj))
+            return result
+
+        except Exception as e:
+            db.rollback()
+            raise e
         finally:
             db.close()

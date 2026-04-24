@@ -143,6 +143,26 @@ class FetcherManager:
             if saved_state:
                 runtime_params["_resume_state"] = saved_state
 
+            # ── DISCOVER MODE ────────────────────────────────────────────────
+            discover_mode = runtime_params.get("_discover_mode", False)
+            if discover_mode and hasattr(fetcher, "discover"):
+                logger.log("[1/1] DISCOVER — Crawling sections without downloading files...")
+                sections = fetcher.discover()
+                artifact_path = os.path.join(staging_dir, f"discover_{execution.id}.json")
+                with open(artifact_path, "w", encoding="utf-8") as f:
+                    json.dump(sections, f, ensure_ascii=False, indent=2)
+                execution.staging_path = artifact_path
+                execution.total_records = len(sections)
+                execution.active_seconds = (execution.active_seconds or 0) + int(
+                    (datetime.utcnow() - period_start).total_seconds()
+                )
+                execution.status = "completed"
+                execution.completed_at = datetime.utcnow()
+                logger.log(f"DISCOVER COMPLETED — {len(sections)} sections → {artifact_path}")
+                session.commit()
+                logger.close()
+                return None
+
             logger.log("[1/5] EXTRACT+STAGE - Streaming data to staging file...")
             if is_resume:
                 hint = (

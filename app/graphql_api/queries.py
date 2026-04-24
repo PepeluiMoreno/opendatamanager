@@ -129,6 +129,12 @@ def map_publisher(p: Publisher) -> PublisherType:
 def map_resource(resource: Resource) -> ResourceType:
     """Convierte modelo Resource a tipo GraphQL"""
     pub_obj = getattr(resource, 'publisher_obj', None)
+    children_list = None
+    if getattr(resource, '_include_children', False):
+        try:
+            children_list = [map_resource(c) for c in resource.children.filter_by(deleted_at=None).all()]
+        except Exception:
+            children_list = []
     return ResourceType(
         id=str(resource.id),
         name=resource.name,
@@ -143,6 +149,9 @@ def map_resource(resource: Resource) -> ResourceType:
         params=[map_resource_param(p) for p in (resource.params or [])],
         created_at=getattr(resource, 'created_at', None),
         deleted_at=resource.deleted_at,
+        parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
+        auto_generated=getattr(resource, 'auto_generated', False) or False,
+        children=children_list,
     )
 
 
@@ -561,5 +570,48 @@ class Query:
         try:
             rows = db.query(ResourceExecution).filter(ResourceExecution.deleted_at != None).order_by(ResourceExecution.deleted_at.desc()).all()
             return [map_resource_execution(e) for e in rows]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def discover_artifact(self, resource_id: strawberry.ID) -> Optional[str]:
+        """Returns the latest discover artifact JSON for a resource, or null if none exists."""
+        import os
+        db = get_db()
+        try:
+            execs = (
+                db.query(ResourceExecution)
+                .filter(
+                    ResourceExecution.resource_id == resource_id,
+                    ResourceExecution.status == "completed",
+                    ResourceExecution.staging_path.isnot(None),
+                )
+                .order_by(ResourceExecution.completed_at.desc())
+                .all()
+            )
+            for ex in execs:
+                if ex.execution_params and ex.execution_params.get("_discover_mode"):
+                    if ex.staging_path and os.path.exists(ex.staging_path):
+                        with open(ex.staging_path, "r", encoding="utf-8") as f:
+                            return f.read()
+            return None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource_children(self, parent_resource_id: strawberry.ID) -> List[ResourceType]:
+        """Returns all child resources created from a discover run."""
+        db = get_db()
+        try:
+            rows = (
+                db.query(Resource)
+                .filter(
+                    Resource.parent_resource_id == parent_resource_id,
+                    Resource.deleted_at == None,
+                )
+                .order_by(Resource.name)
+                .all()
+            )
+            return [map_resource(r) for r in rows]
         finally:
             db.close()

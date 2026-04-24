@@ -204,6 +204,107 @@ class DocumentPortalFetcher(BaseFetcher):
         content = b"".join(chunks)
         return parse_structured_file(content, fmt, self._options_for_format(fmt), source_name=url)
 
+    def _url_to_pattern(self, url: str) -> str:
+        path = urlparse(url).path
+        path = re.sub(r'(?<=/)(19|20)\d{2}(?=/|$)', '{year}', path)
+        return path
+
+    def _pattern_to_label(self, pattern: str) -> str:
+        noise = {'infopublica', 'fileadmin', 'Documentos', 'Transparencia',
+                 'a-infopublica', 'a07-economica', 'economica'}
+        parts = [p for p in pattern.strip('/').split('/') if p and p not in noise]
+        return ' > '.join(parts) if parts else pattern
+
+    def _pattern_to_include_patterns(self, pattern: str, base_url: str) -> List[str]:
+        base_path = urlparse(base_url).path.rstrip('/')
+        pattern_path = pattern[len(base_path):] if pattern.startswith(base_path) else pattern
+        segments = [s for s in pattern_path.split('/') if s and s != '{year}']
+        return [f'/{s}/' for s in segments[:3]]
+
+    def discover(self) -> List[Dict[str, Any]]:
+        """Crawl without downloading files; return grouped section descriptors."""
+        start_urls = self._start_urls()
+        max_depth = int(self.params.get("max_depth", 3))
+        navigation_attr = self.params.get("navigation_link_attr", "href")
+        file_attr = self.params.get("file_link_attr", "href")
+        page_delay = float(self.params.get("page_delay", 0))
+
+        root_netloc = urlparse(start_urls[0]).netloc
+        base_url = start_urls[0]
+        queue: deque = deque((url, 0) for url in start_urls)
+        visited_pages: set = set()
+        leaf_pages: List[Tuple[str, int, List[Dict]]] = []
+
+        while queue:
+            page_url, depth = queue.popleft()
+            if page_url in visited_pages or depth > max_depth:
+                continue
+            if not self._page_allowed(page_url, root_netloc):
+                continue
+
+            visited_pages.add(page_url)
+            crawl_timeout = int(self.params.get("crawl_timeout", 15))
+            logger.info("[discover] depth=%s %s", depth, page_url)
+            try:
+                response = self._request(
+                    self.session, "GET", page_url,
+                    headers=self._headers, timeout=crawl_timeout,
+                )
+            except Exception as exc:
+                logger.warning("[discover] Error crawling %s: %s", page_url, exc)
+                continue
+
+            soup = BeautifulSoup(response.text, "html.parser")
+            file_links = self._resolve_links(soup, page_url, self._file_selector(), file_attr)
+            allowed = [
+                {"url": url, "format": self._resolve_format(url), "anchor": anchor}
+                for url, anchor in file_links
+                if self._file_allowed(url)
+            ]
+            if allowed:
+                leaf_pages.append((page_url, depth, allowed))
+
+            if depth < max_depth:
+                for next_url, _ in self._resolve_links(
+                    soup, page_url, self._navigation_selector(), navigation_attr
+                ):
+                    if next_url not in visited_pages and self._page_allowed(next_url, root_netloc):
+                        queue.append((next_url, depth + 1))
+
+            if page_delay > 0:
+                time.sleep(page_delay)
+
+        groups: Dict[str, Dict[str, Any]] = {}
+        for page_url, depth, files in leaf_pages:
+            pattern = self._url_to_pattern(page_url)
+            if pattern not in groups:
+                groups[pattern] = {
+                    "url_pattern": pattern,
+                    "depth": depth,
+                    "page_count": 0,
+                    "sample_pages": [],
+                    "total_file_count": 0,
+                    "extensions": [],
+                    "sample_files": [],
+                    "suggested_name": self._pattern_to_label(pattern),
+                    "suggested_page_include_patterns": self._pattern_to_include_patterns(pattern, base_url),
+                }
+            g = groups[pattern]
+            g["page_count"] += 1
+            if len(g["sample_pages"]) < 3:
+                g["sample_pages"].append(page_url)
+            g["total_file_count"] += len(files)
+            ext_set = set(g["extensions"])
+            for f in files:
+                ext_set.add(f["format"])
+                if len(g["sample_files"]) < 3:
+                    g["sample_files"].append(f)
+            g["extensions"] = sorted(ext_set)
+
+        result = sorted(groups.values(), key=lambda g: g["url_pattern"])
+        logger.info("[discover] %s sections in %s pages", len(result), len(visited_pages))
+        return result
+
     def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
         start_urls = self._start_urls()
         max_depth = int(self.params.get("max_depth", 0))
