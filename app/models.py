@@ -102,7 +102,7 @@ class Resource(Base):
     executions = relationship("ResourceExecution", back_populates="resource")
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
-    children = relationship("Resource", foreign_keys="Resource.parent_resource_id", backref="parent", lazy="dynamic")
+    children = relationship("Resource", foreign_keys=[parent_resource_id], lazy="dynamic")
 
 
 class ResourceParam(Base):
