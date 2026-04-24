@@ -1212,13 +1212,9 @@ const filterStatuses    = ref([])
 const availableTypes = computed(() =>
   [...new Set(resources.value.map(r => r.fetcher?.code).filter(Boolean))].sort()
 )
-// Publishers that actually appear in resources
-const availablePublishers = computed(() => {
-  const ids = new Set(resources.value.map(r => r.publisherId).filter(Boolean))
-  return publishers.value.filter(p => ids.has(p.id))
-})
+const availablePublishers = computed(() => publishers.value)
 const availableNiveles = computed(() =>
-  [...new Set(availablePublishers.value.map(p => p.nivel).filter(Boolean))].sort()
+  [...new Set(publishers.value.map(p => p.nivel).filter(Boolean))].sort()
 )
 
 function onAllStatuses() {
