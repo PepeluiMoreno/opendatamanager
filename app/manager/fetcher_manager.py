@@ -143,6 +143,8 @@ class FetcherManager:
             if saved_state:
                 runtime_params["_resume_state"] = saved_state
 
+            fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
+
             # ── DISCOVER MODE ────────────────────────────────────────────────
             discover_mode = runtime_params.get("_discover_mode", False)
             if discover_mode and hasattr(fetcher, "discover"):
@@ -172,7 +174,6 @@ class FetcherManager:
                     "saved state"
                 )
                 logger.log(f"  RESUME — continuing from {hint}, appending to existing staging file")
-            fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
 
             # On resume, append to existing staging and recover already-staged record count
             file_mode    = "a" if is_resume else "w"
