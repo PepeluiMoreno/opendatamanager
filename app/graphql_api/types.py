@@ -154,6 +154,7 @@ class ExecutionResult:
     success: bool
     message: str
     resource_id: Optional[str] = strawberry.field(default=None, name="resourceId")
+    execution_id: Optional[str] = strawberry.field(default=None, name="executionId")
     sample_data: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="sampleData")
 
 
