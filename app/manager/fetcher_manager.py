@@ -262,6 +262,16 @@ class FetcherManager:
             execution.completed_at = datetime.utcnow()
             logger.log(f"COMPLETED - {total_records} records in {execution.active_seconds}s active")
 
+            # Staging file no longer needed — dataset and load steps already consumed it
+            try:
+                if os.path.exists(staging_path):
+                    os.remove(staging_path)
+                staging_dir = os.path.dirname(staging_path)
+                if os.path.isdir(staging_dir) and not any(os.scandir(staging_dir)):
+                    os.rmdir(staging_dir)
+            except OSError:
+                pass
+
             # Rebuild the dynamic GraphQL data schema so new data is immediately queryable
             try:
                 from app.graphql_data import engine as data_engine
