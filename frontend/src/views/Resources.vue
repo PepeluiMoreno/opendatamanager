@@ -1026,8 +1026,10 @@
               </span>
             </div>
             <div v-if="r.description" class="text-gray-400 text-xs">{{ r.description }}</div>
-            <div class="text-xs text-gray-500 flex gap-3">
+            <div class="text-xs text-gray-500 flex gap-3 flex-wrap">
               <span>{{ (r.params ?? []).length }} params</span>
+              <span v-if="r._publisherName" class="text-blue-400">{{ r._publisherName }}</span>
+              <span v-else-if="r.publisher" class="text-yellow-500">publisher no resuelto: {{ r.publisher }}</span>
               <span v-if="r.targetTable ?? r.target_table">tabla: {{ r.targetTable ?? r.target_table }}</span>
               <span v-if="r.schedule">schedule: {{ r.schedule }}</span>
             </div>
@@ -1224,12 +1226,23 @@ async function onImportFile(event) {
   const list = Array.isArray(bundle) ? bundle : bundle.resources ?? []
   if (!list.length) { alert('El bundle no contiene resources.'); return }
 
-  // Resolver fetcherCode → fetcherId usando los fetchers ya cargados en memoria
+  // Resolver fetcherCode → fetcherId y publisher → publisherId en memoria
   const resolved = list.map(r => {
     const fetcher = fetchers.value.find(
       f => f.code === r.fetcherCode || f.id === r.fetcherId
     )
-    return { ...r, _fetcherId: fetcher?.id ?? null, _fetcherName: fetcher?.code ?? r.fetcherCode }
+    const pub = publishers.value.find(
+      p => p.id === r.publisherId ||
+           p.acronimo === r.publisherAcronimo ||
+           p.nombre?.toLowerCase() === r.publisher?.toLowerCase()
+    )
+    return {
+      ...r,
+      _fetcherId:    fetcher?.id ?? null,
+      _fetcherName:  fetcher?.code ?? r.fetcherCode,
+      _publisherId:  pub?.id ?? r.publisherId ?? null,
+      _publisherName: pub?.nombre ?? r.publisher ?? null,
+    }
   })
 
   importPreview.value  = resolved
@@ -1256,9 +1269,9 @@ async function runImport() {
       await createResource({
         name:        r.name,
         description: r.description ?? null,
-        publisher:   r.publisher ?? null,
+        publisher:   r._publisherName ?? r.publisher ?? null,
         fetcherId:   r._fetcherId,
-        publisherId: r.publisherId ?? null,
+        publisherId: r._publisherId ?? null,
         targetTable: r.targetTable ?? r.target_table ?? null,
         schedule:    r.schedule ?? null,
         params:      (r.params ?? []).map(p => ({
