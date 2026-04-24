@@ -11,6 +11,7 @@ import DataExplorer from '../views/DataExplorer.vue'
 import Publishers from '../views/Publishers.vue'
 import Subscriptions from '../views/Subscriptions.vue'
 import Trash from '../views/Trash.vue'
+import Discovering from '../views/Discovering.vue'
 
 const routes = [
   {
@@ -72,6 +73,11 @@ const routes = [
     path: '/trash',
     name: 'Trash',
     component: Trash,
+  },
+  {
+    path: '/discovering',
+    name: 'Discovering',
+    component: Discovering,
   },
 ]
 

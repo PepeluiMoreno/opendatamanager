@@ -30,6 +30,10 @@
         <span class="text-lg mr-3">⚡</span>Processes
       </router-link>
 
+      <router-link to="/discovering" class="nav-item" :class="{ 'active': $route.path === '/discovering' }">
+        <span class="text-lg mr-3">🔎</span>Discovering
+      </router-link>
+
       <router-link to="/explorer" class="nav-item" :class="{ 'active': $route.path === '/explorer' }">
         <span class="text-lg mr-3">🔍</span>Data Explorer
       </router-link>
