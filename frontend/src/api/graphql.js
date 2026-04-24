@@ -183,6 +183,7 @@ export const QUERIES = {
         code
         classPath
         description
+        createdAt
         paramsDef {
           id
           paramName

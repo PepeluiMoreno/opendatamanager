@@ -27,6 +27,7 @@ class Fetcher(Base):
     class_path = Column(String(255), nullable=True)
     description = Column(Text)
     deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=True)
 
     params_def = relationship("FetcherParams", back_populates="fetcher")
     resources = relationship("Resource", back_populates="fetcher")
