@@ -91,17 +91,23 @@ def _parse_excel(content: bytes, params: Dict[str, Any], fmt: str) -> List[Dict[
 
     skip_rows = int(params.get("skip_rows", 0))
     engine = "xlrd" if fmt == "xls" else "openpyxl"
+    fallback = "xlrd" if engine == "openpyxl" else "openpyxl"
 
-    df = pd.read_excel(
-        io.BytesIO(content),
-        sheet_name=sheet,
-        skiprows=skip_rows,
-        dtype=str,
-        engine=engine,
-    )
-    df.columns = [_normalize_col(c) for c in df.columns]
-    df = df.dropna(how="all").fillna("")
-    return df.to_dict(orient="records")
+    for eng in (engine, fallback):
+        try:
+            df = pd.read_excel(
+                io.BytesIO(content),
+                sheet_name=sheet,
+                skiprows=skip_rows,
+                dtype=str,
+                engine=eng,
+            )
+            df.columns = [_normalize_col(c) for c in df.columns]
+            df = df.dropna(how="all").fillna("")
+            return df.to_dict(orient="records")
+        except Exception:
+            if eng == fallback:
+                raise
 
 
 def _parse_csv_like(content: bytes, params: Dict[str, Any], delimiter: str = "") -> List[Dict[str, str]]:
