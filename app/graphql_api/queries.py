@@ -532,7 +532,10 @@ class Query:
     def deleted_resources(self) -> List[ResourceType]:
         db = get_db()
         try:
-            rows = db.query(Resource).filter(Resource.deleted_at != None).order_by(Resource.deleted_at.desc()).all()
+            rows = db.query(Resource).filter(
+                Resource.deleted_at != None,
+                Resource.auto_generated == False,
+            ).order_by(Resource.deleted_at.desc()).all()
             return [map_resource(r) for r in rows]
         finally:
             db.close()

@@ -147,7 +147,7 @@ function loadArtifact(json) {
   sections.value = raw.map(s => ({
     ...s,
     selected: true,
-    name: props.resourceName + ' — ' + s.suggested_name,
+    name: s.suggested_name,
     targetTable: nameToTable(s.suggested_name),
   }))
   state.value = 'done'

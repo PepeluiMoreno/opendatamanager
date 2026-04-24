@@ -211,7 +211,7 @@ function loadSections(json) {
   sections.value = raw.map(s => ({
     ...s,
     selected: true,
-    name: baseName + ' — ' + s.suggested_name,
+    name: s.suggested_name,
     targetTable: nameToTable(s.suggested_name),
   }))
   phase.value = 'done'

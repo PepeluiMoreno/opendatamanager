@@ -252,43 +252,43 @@ class Mutation:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
 
             now = datetime.utcnow()
+            children = db.query(Resource).filter(
+                Resource.parent_resource_id == resource.id,
+                Resource.auto_generated == True,
+            ).all()
             if hard_delete:
                 import shutil
-                rid = str(resource.id)
-                # datasets: borrar ficheros y registros
-                datasets = db.query(Dataset).filter(Dataset.resource_id == resource.id).all()
-                for ds in datasets:
-                    try:
-                        if ds.data_path and os.path.exists(ds.data_path):
-                            os.remove(ds.data_path)
-                    except OSError:
-                        pass
-                # dataset dirs: borrar directorio completo del resource en datasets/
-                dataset_dir = os.path.join("data", "datasets", rid)
-                try:
-                    if os.path.isdir(dataset_dir):
-                        shutil.rmtree(dataset_dir)
-                except OSError:
-                    pass
-                # staging: borrar directorio completo del resource en staging/
-                staging_dir = os.path.join("data", "staging", rid)
-                try:
-                    if os.path.isdir(staging_dir):
-                        shutil.rmtree(staging_dir)
-                except OSError:
-                    pass
-                db.query(Dataset).filter(
-                    Dataset.resource_id == resource.id
-                ).delete(synchronize_session=False)
-                db.query(ResourceExecution).filter(
-                    ResourceExecution.resource_id == resource.id
-                ).delete(synchronize_session=False)
-                db.delete(resource)
+                def _hard_delete_one(res):
+                    rid = str(res.id)
+                    datasets = db.query(Dataset).filter(Dataset.resource_id == res.id).all()
+                    for ds in datasets:
+                        try:
+                            if ds.data_path and os.path.exists(ds.data_path):
+                                os.remove(ds.data_path)
+                        except OSError:
+                            pass
+                    for d in ["datasets", "staging"]:
+                        p = os.path.join("data", d, rid)
+                        try:
+                            if os.path.isdir(p):
+                                shutil.rmtree(p)
+                        except OSError:
+                            pass
+                    db.query(Dataset).filter(Dataset.resource_id == res.id).delete(synchronize_session=False)
+                    db.query(ResourceExecution).filter(ResourceExecution.resource_id == res.id).delete(synchronize_session=False)
+                    db.delete(res)
+
+                for child in children:
+                    _hard_delete_one(child)
+                _hard_delete_one(resource)
             else:
+                all_ids = [resource.id] + [c.id for c in children]
                 db.query(ResourceExecution).filter(
-                    ResourceExecution.resource_id == resource.id,
+                    ResourceExecution.resource_id.in_(all_ids),
                     ResourceExecution.deleted_at == None,
                 ).update({"deleted_at": now}, synchronize_session=False)
+                for child in children:
+                    child.deleted_at = now
                 resource.deleted_at = now
 
             db.commit()
@@ -1130,6 +1130,10 @@ class Mutation:
             if not r:
                 raise ValueError(f"Resource '{id}' not found")
             r.deleted_at = None
+            db.query(Resource).filter(
+                Resource.parent_resource_id == r.id,
+                Resource.auto_generated == True,
+            ).update({"deleted_at": None}, synchronize_session=False)
             db.commit()
             return True
         except Exception as e:
