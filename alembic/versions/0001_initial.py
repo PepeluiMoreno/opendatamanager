@@ -4,10 +4,14 @@ Revision ID: 0001_initial
 Revises:
 Create Date: 2026-04-24
 
-Migración única que crea el esquema opendata al completo.
+Migración única que refleja el esquema opendata completo en cada momento.
 Los datos iniciales se cargan via seed_fetchers.py (entrypoint).
-En instalaciones existentes: aplicar ALTER TABLE manualmente para columnas
-nuevas y ejecutar `alembic stamp 0001_initial` para sincronizar.
+
+Para cualquier cambio de schema:
+  1. Modificar app/models.py
+  2. docker exec odmgr_app alembic revision --autogenerate -m "initial"
+  3. Reemplazar este fichero con el generado
+  4. En producción (una vez): aplicar el delta SQL + alembic stamp 0001_initial
 """
 from typing import Union, Sequence
 
