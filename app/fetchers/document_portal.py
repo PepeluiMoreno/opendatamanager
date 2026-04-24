@@ -61,6 +61,10 @@ class DocumentPortalFetcher(BaseFetcher):
             self.params.get("page_context_url_overrides"),
             {},
         )
+        self._context_url_year_offsets = _parse_json_param(
+            self.params.get("page_context_url_year_offsets"),
+            {},
+        )
         self._allowed_extensions = {
             ext.lower().lstrip(".")
             for ext in _parse_json_param(
@@ -110,6 +114,14 @@ class DocumentPortalFetcher(BaseFetcher):
         for url_pattern, field_overrides in self._context_url_overrides.items():
             if url_pattern and url_pattern in page_url:
                 context.update(field_overrides)
+                break
+
+        for url_pattern, offset in self._context_url_year_offsets.items():
+            if url_pattern and url_pattern in page_url:
+                for field in self._context_url_patterns:
+                    val = context.get(field)
+                    if val is not None and str(val).isdigit():
+                        context[field] = str(int(val) + offset)
                 break
 
         context["_source_page_url"] = page_url
