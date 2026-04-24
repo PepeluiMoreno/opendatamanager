@@ -217,10 +217,11 @@ class DocumentPortalFetcher(BaseFetcher):
         return ' > '.join(parts) if parts else pattern
 
     def _pattern_to_include_patterns(self, pattern: str, base_url: str) -> List[str]:
-        base_path = urlparse(base_url).path.rstrip('/')
-        pattern_path = pattern[len(base_path):] if pattern.startswith(base_path) else pattern
-        segments = [s for s in pattern_path.split('/') if s and s != '{year}']
-        return [f'/{s}/' for s in segments[:3]]
+        parsed = urlparse(base_url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+        # Drop {year} and everything after so the prefix matches the stable section root
+        prefix = re.sub(r'/\{year\}.*$', '', pattern)
+        return [f"{origin}{prefix}"]
 
     def discover(self) -> List[Dict[str, Any]]:
         """Crawl without downloading files; return grouped section descriptors."""
