@@ -103,7 +103,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { fetchResources, executeResource, fetchDiscoverArtifact, createChildResources } from '../api/graphql'
 
 const loadingResources = ref(true)
@@ -150,6 +150,12 @@ function appendLog(line) {
   })
 }
 
+watch(selectedResourceId, async (id) => {
+  if (!id || phase.value !== 'idle') return
+  const r = await fetchDiscoverArtifact(id)
+  if (r?.discoverArtifact) loadSections(r.discoverArtifact)
+})
+
 async function launchDiscover() {
   if (!selectedResourceId.value) return
   phase.value = 'running'
@@ -174,13 +180,9 @@ async function launchDiscover() {
 
 function startSSE(execId) {
   if (sseSource) sseSource.close()
-  sseSource = new EventSource(`/api/executions/${execId}/logs?since=0`)
-  sseSource.onmessage = (e) => {
-    appendLog(e.data)
-  }
-  sseSource.addEventListener('done', () => {
-    sseSource?.close(); sseSource = null
-  })
+  sseSource = new EventSource(`/api/executions/${execId}/logs?follow=true`)
+  sseSource.onmessage = (e) => { if (e.data) appendLog(e.data) }
+  sseSource.addEventListener('done', () => { sseSource?.close(); sseSource = null })
   sseSource.onerror = () => { sseSource?.close(); sseSource = null }
 }
 
