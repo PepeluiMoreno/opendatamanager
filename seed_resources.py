@@ -715,7 +715,7 @@ RESOURCES: List[Dict[str, Any]] = [
 
     # ── Jerez — Portal transparencia económica (XLSX/XLS/CSV) ─────────────────
     {
-        "name": "jerez_transparencia_economica_xlsx",
+        "name": "Jerez - Información económica del Portal de Transparencia ofrecida en xlsx",
         "fetcher_name": "Portal Documental",
         "publisher_acronimo": "AJFRA",
         "target_table": "jerez_transparencia_docs",
