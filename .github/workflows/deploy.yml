@@ -101,7 +101,6 @@ jobs:
             umask 077
             printf '%s\n' "$ODMGR_ENV_PRODUCTION" > .env.production
             docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker container prune -f
             docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
             docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps
             docker image prune -f
