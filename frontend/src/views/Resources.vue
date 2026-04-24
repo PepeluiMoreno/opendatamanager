@@ -1026,8 +1026,10 @@
               </span>
             </div>
             <div v-if="r.description" class="text-gray-400 text-xs">{{ r.description }}</div>
-            <div class="text-xs text-gray-500">
-              {{ (r.params ?? []).length }} params
+            <div class="text-xs text-gray-500 flex gap-3">
+              <span>{{ (r.params ?? []).length }} params</span>
+              <span v-if="r.targetTable ?? r.target_table">tabla: {{ r.targetTable ?? r.target_table }}</span>
+              <span v-if="r.schedule">schedule: {{ r.schedule }}</span>
             </div>
           </div>
         </template>
@@ -1254,9 +1256,16 @@ async function runImport() {
       await createResource({
         name:        r.name,
         description: r.description ?? null,
+        publisher:   r.publisher ?? null,
         fetcherId:   r._fetcherId,
         publisherId: r.publisherId ?? null,
-        params:      (r.params ?? []).map(p => ({ key: p.key, value: p.value })),
+        targetTable: r.targetTable ?? r.target_table ?? null,
+        schedule:    r.schedule ?? null,
+        params:      (r.params ?? []).map(p => ({
+          key:        p.key,
+          value:      String(p.value ?? ''),
+          isExternal: p.isExternal ?? p.is_external ?? false,
+        })),
         active:      r.active ?? true,
       })
       importDone.value.push({ name: r.name, status: 'created', detail: '' })
