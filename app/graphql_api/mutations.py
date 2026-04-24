@@ -1228,7 +1228,7 @@ class Mutation:
                     publisher=parent.publisher,
                     publisher_id=parent.publisher_id,
                     target_table=section.target_table,
-                    active=False,
+                    active=True,
                     schedule=section.schedule,
                     parent_resource_id=parent_resource_id,
                     auto_generated=True,
