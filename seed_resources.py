@@ -699,6 +699,36 @@ RESOURCES: List[Dict[str, Any]] = [
             "header_row":   "0",
         },
     },
+    # ── Jerez — Catálogo del Portal de Transparencia ─────────────────────────
+    # Recorre el portal y produce un catálogo de ficheros clasificados por
+    # section_id (economica.deuda.pmp, economica.presupuesto.ejecucion…) y
+    # atributos (ejercicio, trimestre). El catálogo alimenta a los
+    # PortalFileDataFetcher hijos que descargan y parsean cada sección.
+    {
+        "name": "Jerez - Catálogo del Portal de Transparencia",
+        "fetcher_name": "Portal Files Cataloguer",
+        "publisher_acronimo": "AJFRA",
+        "target_table": "jerez_catalog",
+        "active": True,
+        "schedule": None,
+        "params": {
+            "start_url":                    "https://transparencia.jerez.es/infopublica/economica",
+            "max_depth":                    "10",
+            "same_domain_only":             "true",
+            "page_include_patterns":        '["transparencia.jerez.es/infopublica/economica"]',
+            "page_exclude_patterns":        '["buscador", "novedades", "interes", "dchoinformacion", "#", "mailto:"]',
+            "allowed_extensions":           '["xlsx", "xls", "csv", "pdf"]',
+            "path_prefix_strip":            "/fileadmin/Documentos/Transparencia/a-infopublica/",
+            "segment_prefix_strip_pattern": r"^[a-z]\d*-",
+            "noise_segments":               '[]',
+            "attribute_patterns":           '{"ejercicio": "^(19|20)\\\\d{2}$", "trimestre": "^([1-4])o?T$"}',
+            "filename_attribute_patterns":  '{"mes": "[_-](0?[1-9]|1[0-2])(?=\\\\.)"}',
+            "page_delay":                   "0.5",
+            "crawl_timeout":                "15",
+            "batch_size":                   "500",
+        },
+    },
+
     # ── Jerez — Portal transparencia económica (XLSX/XLS/CSV) ─────────────────
     # CESEL eliminado: cubierto por el crawler Portal Documental
     {
