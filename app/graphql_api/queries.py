@@ -534,7 +534,7 @@ class Query:
         try:
             rows = db.query(Resource).filter(
                 Resource.deleted_at != None,
-                Resource.auto_generated == False,
+                Resource.auto_generated.isnot(True),
             ).order_by(Resource.deleted_at.desc()).all()
             return [map_resource(r) for r in rows]
         finally:

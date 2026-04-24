@@ -273,7 +273,10 @@ def upgrade() -> None:
         ALTER TABLE opendata.resource
             ADD COLUMN IF NOT EXISTS parent_resource_id UUID
                 REFERENCES opendata.resource(id) ON DELETE SET NULL,
-            ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN NOT NULL DEFAULT false
+            ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN DEFAULT false
+    """)
+    op.execute("""
+        UPDATE opendata.resource SET auto_generated = false WHERE auto_generated IS NULL
     """)
 
 
