@@ -699,21 +699,8 @@ RESOURCES: List[Dict[str, Any]] = [
             "header_row":   "0",
         },
     },
-    {
-        "name": "Jerez - Coste Efectivo de Servicios (CESEL)",
-        "fetcher_name": "PDF_TABLE",
-        "publisher_acronimo": "AJFRA",
-        "target_table": "jerez_cesel",
-        "schedule": "0 3 1 7 *",
-        "params": {
-            "url_template": f"{_BASE_JEREZ}/e-otrainfo/costeservicios/CESEL-{{year}}.xlsx",
-            "granularity":  "annual",
-            "year_from":    "2015",
-            "year_to":      {"value": "2021", "is_external": True},
-        },
-    },
-
     # ── Jerez — Portal transparencia económica (XLSX/XLS/CSV) ─────────────────
+    # CESEL eliminado: cubierto por el crawler Portal Documental
     {
         "name": "Jerez - Información económica del Portal de Transparencia ofrecida en xlsx",
         "fetcher_name": "Portal Documental",
