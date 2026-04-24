@@ -3,6 +3,7 @@
     <div class="p-6 border-b border-gray-700">
       <h1 class="text-xl font-bold text-blue-400">OpenDataManager</h1>
       <p class="text-xs text-gray-400 mt-1">Metadata-driven Backend</p>
+      <p v-if="appVersion" class="text-xs text-gray-600 mt-0.5 font-mono">build {{ appVersion }}</p>
     </div>
 
     <nav
@@ -126,11 +127,6 @@
         </div>
       </div>
 
-      <!-- Versión de la imagen -->
-      <div v-if="appVersion" class="mt-3 flex items-center justify-between text-xs text-gray-600">
-        <span>build</span>
-        <span class="font-mono">{{ appVersion }}</span>
-      </div>
     </div>
   </div>
 </template>
