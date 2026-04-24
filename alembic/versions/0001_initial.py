@@ -36,6 +36,7 @@ def upgrade() -> None:
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── fetcher ────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ def upgrade() -> None:
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── type_fetcher_params ────────────────────────────────────────────────
@@ -64,6 +66,7 @@ def upgrade() -> None:
         sa.Column('description', sa.Text(), nullable=True),
         sa.Column('group', sa.String(100), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── publisher ──────────────────────────────────────────────────────────
@@ -83,6 +86,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── resource ───────────────────────────────────────────────────────────
@@ -110,6 +114,7 @@ def upgrade() -> None:
             name='fk_resource_parent_resource_id', ondelete='SET NULL',
         ),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── resource_param ─────────────────────────────────────────────────────
@@ -122,6 +127,7 @@ def upgrade() -> None:
         sa.Column('value', sa.Text(), nullable=False),
         sa.Column('is_external', sa.Boolean(), nullable=False, server_default='false'),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── application ────────────────────────────────────────────────────────
@@ -138,6 +144,7 @@ def upgrade() -> None:
         sa.Column('consumption_mode', sa.String(20), nullable=False, server_default='webhook'),
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── field_metadata ─────────────────────────────────────────────────────
@@ -150,6 +157,7 @@ def upgrade() -> None:
         sa.Column('help_text', sa.Text(), nullable=True),
         sa.Column('placeholder', sa.String(255), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── resource_execution ─────────────────────────────────────────────────
@@ -171,6 +179,7 @@ def upgrade() -> None:
         sa.Column('error_message', sa.Text(), nullable=True),
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── dataset ────────────────────────────────────────────────────────────
@@ -191,6 +200,7 @@ def upgrade() -> None:
         sa.Column('checksum', sa.String(64), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── dataset_subscription ───────────────────────────────────────────────
@@ -207,6 +217,7 @@ def upgrade() -> None:
         sa.Column('notified_at', sa.DateTime(), nullable=True),
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── derived_dataset_config ─────────────────────────────────────────────
@@ -224,6 +235,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=True),
         sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── derived_dataset_entry ──────────────────────────────────────────────
@@ -237,6 +249,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(), nullable=True),
         sa.UniqueConstraint('config_id', 'key_value', name='uq_derived_entry_config_key'),
         schema='opendata',
+        if_not_exists=True,
     )
 
     # ── application_notification ───────────────────────────────────────────
@@ -252,7 +265,16 @@ def upgrade() -> None:
         sa.Column('response_body', sa.Text(), nullable=True),
         sa.Column('error_message', sa.Text(), nullable=True),
         schema='opendata',
+        if_not_exists=True,
     )
+
+    # Apply new columns to existing DBs (idempotent)
+    op.execute("""
+        ALTER TABLE opendata.resource
+            ADD COLUMN IF NOT EXISTS parent_resource_id UUID
+                REFERENCES opendata.resource(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN NOT NULL DEFAULT false
+    """)
 
 
 def downgrade() -> None:
