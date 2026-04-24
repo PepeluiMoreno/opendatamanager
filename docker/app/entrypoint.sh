@@ -9,47 +9,64 @@ echo "[entrypoint] PostgreSQL ready."
 
 echo "[entrypoint] Running migrations..."
 
-# Inspect current alembic state directly in the DB.
-# Returns: NO_TABLE (fresh DB), EMPTY (no rows), or the version_num string.
-CURRENT_VERSION=$(python - <<'PYEOF'
+# alembic_version is in schema 'opendata' (version_table_schema in alembic.ini).
+# Determine the DB state before letting alembic run, so we can fix stale revisions.
+DB_STATE=$(python - <<'PYEOF'
 import os
 from sqlalchemy import create_engine, text
 engine = create_engine(os.environ["DATABASE_URL"])
-try:
-    with engine.connect() as conn:
-        row = conn.execute(text("SELECT version_num FROM alembic_version LIMIT 1")).fetchone()
-        print(row[0] if row else "EMPTY")
-except Exception:
-    print("NO_TABLE")
+with engine.connect() as conn:
+    # Ensure opendata schema exists before querying
+    conn.execute(text("CREATE SCHEMA IF NOT EXISTS opendata"))
+    conn.commit()
+    try:
+        row = conn.execute(text(
+            "SELECT version_num FROM opendata.alembic_version LIMIT 1"
+        )).fetchone()
+        version = row[0] if row else None
+    except Exception:
+        version = None
+        # alembic_version missing — check if opendata tables exist
+        try:
+            conn.execute(text("SELECT 1 FROM opendata.resource LIMIT 1"))
+            print("NEEDS_STAMP")
+        except Exception:
+            print("FRESH")
+        import sys; sys.exit(0)
+
+    if version == "0001_initial":
+        print("OK")
+    elif version is None:
+        print("NEEDS_STAMP")
+    else:
+        print(version)
 PYEOF
 )
 
-echo "[entrypoint] Alembic version in DB: $CURRENT_VERSION"
+echo "[entrypoint] DB state: $DB_STATE"
 
-if [ "$CURRENT_VERSION" = "NO_TABLE" ] || [ "$CURRENT_VERSION" = "EMPTY" ]; then
-    # Fresh install — alembic upgrade heads will create the full schema from 0001_initial
-    echo "[entrypoint] Fresh DB — alembic upgrade heads will build the schema."
-
-elif [ "$CURRENT_VERSION" != "0001_initial" ]; then
-    # Existing DB pointing to a deleted revision (migration consolidation).
-    echo "[entrypoint] Stale revision '$CURRENT_VERSION' — re-stamping to 0001_initial..."
-
+case "$DB_STATE" in
+  FRESH)
+    echo "[entrypoint] Fresh DB — alembic upgrade heads will build the full schema."
+    ;;
+  OK)
+    echo "[entrypoint] Already at 0001_initial — no migration needed."
+    ;;
+  NEEDS_STAMP)
+    echo "[entrypoint] Tables exist but no alembic tracking — stamping..."
     python - <<'PYEOF'
 import os
 from sqlalchemy import create_engine, text
 engine = create_engine(os.environ["DATABASE_URL"])
 with engine.connect() as conn:
-    conn.execute(text("UPDATE alembic_version SET version_num = '0001_initial'"))
-    conn.commit()
-print("[entrypoint] Stamped to 0001_initial.")
-PYEOF
-
-    # Apply columns added in this consolidation round (idempotent)
-    python - <<'PYEOF'
-import os
-from sqlalchemy import create_engine, text
-engine = create_engine(os.environ["DATABASE_URL"])
-with engine.connect() as conn:
+    conn.execute(text("""
+        CREATE TABLE IF NOT EXISTS opendata.alembic_version (
+            version_num VARCHAR(32) NOT NULL,
+            CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+        )
+    """))
+    conn.execute(text("DELETE FROM opendata.alembic_version"))
+    conn.execute(text("INSERT INTO opendata.alembic_version (version_num) VALUES ('0001_initial')"))
     conn.execute(text("""
         ALTER TABLE opendata.resource
             ADD COLUMN IF NOT EXISTS parent_resource_id UUID
@@ -57,9 +74,28 @@ with engine.connect() as conn:
             ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN NOT NULL DEFAULT false
     """))
     conn.commit()
-print("[entrypoint] Schema columns ensured (parent_resource_id, auto_generated).")
+print("[entrypoint] Stamped + schema columns ensured.")
 PYEOF
-fi
+    ;;
+  *)
+    echo "[entrypoint] Stale revision '$DB_STATE' — re-stamping to 0001_initial..."
+    python - <<'PYEOF'
+import os
+from sqlalchemy import create_engine, text
+engine = create_engine(os.environ["DATABASE_URL"])
+with engine.connect() as conn:
+    conn.execute(text("UPDATE opendata.alembic_version SET version_num = '0001_initial'"))
+    conn.execute(text("""
+        ALTER TABLE opendata.resource
+            ADD COLUMN IF NOT EXISTS parent_resource_id UUID
+                REFERENCES opendata.resource(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS auto_generated BOOLEAN NOT NULL DEFAULT false
+    """))
+    conn.commit()
+print("[entrypoint] Stamped + schema columns ensured.")
+PYEOF
+    ;;
+esac
 
 alembic upgrade heads
 
