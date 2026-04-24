@@ -252,6 +252,9 @@ class Mutation:
 
             now = datetime.utcnow()
             if hard_delete:
+                import shutil
+                rid = str(resource.id)
+                # datasets: borrar ficheros y registros
                 datasets = db.query(Dataset).filter(Dataset.resource_id == resource.id).all()
                 for ds in datasets:
                     try:
@@ -259,6 +262,20 @@ class Mutation:
                             os.remove(ds.data_path)
                     except OSError:
                         pass
+                # dataset dirs: borrar directorio completo del resource en datasets/
+                dataset_dir = os.path.join("data", "datasets", rid)
+                try:
+                    if os.path.isdir(dataset_dir):
+                        shutil.rmtree(dataset_dir)
+                except OSError:
+                    pass
+                # staging: borrar directorio completo del resource en staging/
+                staging_dir = os.path.join("data", "staging", rid)
+                try:
+                    if os.path.isdir(staging_dir):
+                        shutil.rmtree(staging_dir)
+                except OSError:
+                    pass
                 db.query(Dataset).filter(
                     Dataset.resource_id == resource.id
                 ).delete(synchronize_session=False)

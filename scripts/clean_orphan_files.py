@@ -42,6 +42,8 @@ def _dir_size(path: str) -> int:
 
 
 def collect_orphans(db) -> dict:
+    from app.models import Resource
+    known_resource_ids = {str(r[0]) for r in db.query(Resource.id).all()}
     known_dataset_ids = {str(r[0]) for r in db.query(Dataset.id).all()}
     known_execution_ids = {str(r[0]) for r in db.query(ResourceExecution.id).all()}
 
@@ -61,11 +63,17 @@ def collect_orphans(db) -> dict:
                     size = _dir_size(ds_dir.path)
                     orphans["datasets"].append((ds_dir.path, size))
 
-    # ── data/staging/{resource_id}/{execution_id}.jsonl ────────────────────
+    # ── data/staging/{resource_id}/ ────────────────────────────────────────
+    # Directorio entero huérfano si el resource ya no existe
+    # Ficheros individuales huérfanos si la execution ya no existe
     staging_root = os.path.join(BASE_DIR, "data", "staging")
     if os.path.isdir(staging_root):
         for resource_dir in os.scandir(staging_root):
             if not resource_dir.is_dir():
+                continue
+            if resource_dir.name not in known_resource_ids:
+                size = _dir_size(resource_dir.path)
+                orphans["staging"].append((resource_dir.path, size))
                 continue
             for entry in os.scandir(resource_dir.path):
                 if entry.is_file() and entry.name.endswith(".jsonl"):
@@ -135,14 +143,10 @@ def main():
     print("\nBorrando...")
     deleted = 0
     errors = 0
-    for items, is_dir in [
-        (orphans["datasets"], True),
-        (orphans["staging"],  False),
-        (orphans["logs"],     False),
-    ]:
+    for category, items in orphans.items():
         for path, _ in items:
             try:
-                if is_dir:
+                if os.path.isdir(path):
                     shutil.rmtree(path)
                 else:
                     os.remove(path)
@@ -151,7 +155,7 @@ def main():
                 print(f"  ERROR al borrar {path}: {e}")
                 errors += 1
 
-    # Limpiar directorios de staging que hayan quedado vacíos
+    # Limpiar directorios de staging que hayan quedado vacíos tras borrar ficheros sueltos
     staging_root = os.path.join(BASE_DIR, "data", "staging")
     if os.path.isdir(staging_root):
         for resource_dir in os.scandir(staging_root):
