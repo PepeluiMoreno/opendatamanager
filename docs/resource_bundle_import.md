@@ -19,17 +19,18 @@ Cada aplicación cliente incluye un fichero `resources.json` en la raíz de su r
   {
     "name": "nombre-unico-del-resource",
     "description": "Descripción legible",
-    "fetcherCode": "Portal Documental",
+    "fetcherCode": "Web Tree",
     "active": true,
     "params": [
       { "key": "start_url", "value": "https://example.es/datos" },
-      { "key": "file_link_selector", "value": "a[href$='.xlsx'], a[href$='.pdf']" }
+      { "key": "crawl_mode", "value": "discover" },
+      { "key": "allowed_extensions", "value": "[\"pdf\",\"xlsx\",\"csv\"]" }
     ]
   }
 ]
 ```
 
-El campo `fetcherCode` es el código legible del fetcher (p.ej. `Portal Documental`, `File Download`, `API REST`). El UI lo resuelve a `fetcherId` usando los fetchers que ya tiene cargados en memoria.
+El campo `fetcherCode` es el código legible del fetcher (p.ej. `Web Tree`, `File Download`, `API REST`). El UI lo resuelve a `fetcherId` usando los fetchers que ya tiene cargados en memoria.
 
 ### 2. El usuario importa desde el UI de opendatamanager
 
@@ -63,7 +64,7 @@ El UI reutiliza la mutation GraphQL `createResource` que ya existe. No hay ning�
 [
   {
     "name":        "string (required, único en opendatamanager)",
-    "fetcherCode": "string (required, ej: Portal Documental, File Download, API REST)",
+    "fetcherCode": "string (required, ej: Web Tree, File Download, API REST)",
     "description": "string (optional)",
     "active":      "boolean (optional, default: true)",
     "publisherId": "uuid (optional, si el publisher ya existe en opendatamanager)",

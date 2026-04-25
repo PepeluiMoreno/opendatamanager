@@ -304,20 +304,29 @@ query {
 
 ---
 
-## Nota sobre fetchers documentales
+## Apificación de portales web clásicos
 
-El escenario de portales con árboles de páginas y artefactos heterogéneos se resuelve ahora con una sola abstracción principal:
+El escenario de portales con árboles de páginas y artefactos heterogéneos
+(XLSX/PDF/CSV) se resuelve con un único fetcher con dos modos de operación:
 
-- `Portal Documental` → `app.fetchers.document_portal.DocumentPortalFetcher`
+- `Web Tree` → `app.fetchers.web_tree_fetcher.WebTreeFetcher`
+  - `crawl_mode = discover`: recorre el árbol sin descargar y produce URLs hoja
+    para que `app/services/grouping_inferer.py` infiera agrupaciones (year, mes,
+    trimestre, fecha, DIR3, genérico) y persista una `ResourceCandidate` por
+    propuesta. La revisión y promoción se hace en `Discovering.vue`.
+  - `crawl_mode = stream`: descarga las URLs concretas de un Resource hijo
+    promovido y enriquece cada registro con las dimensiones detectadas
+    (ej. `year` como columna).
 
-El parseo por formato se comparte entre:
+El parseo por formato se comparte con `File Download`, `Compressed File` y
+`PDF_TABLE` mediante `app/fetchers/file_parsers.py`.
 
-- `File Download`
-- `Compressed File`
-- `PDF_TABLE`
-- `Portal Documental`
+Para documentos especialmente problemáticos existe una vía de especialización
+acotada mediante `custom_parser`, limitada a la fase de parseo. Ya no se
+consideran caminos vigentes `PdfPageFetcher`, `ScriptFetcher` ni configuraciones
+basadas en `PDF_PAGE` o `SCRIPT`.
 
-Para documentos especialmente problemáticos existe una vía de especialización acotada mediante `custom_parser`, limitada a la fase de parseo. Ya no se consideran caminos vigentes `PdfPageFetcher`, `ScriptFetcher` ni configuraciones basadas en `PDF_PAGE` o `SCRIPT`.
+Diseño completo: [`docs/web_tree_fetcher_design.md`](docs/web_tree_fetcher_design.md).
 
 ---
 
@@ -347,9 +356,9 @@ class SOAPFetcher(BaseFetcher):
 ```graphql
 mutation {
   createFetcher(input: {
-    name: "Portal Documental"
-    classPath: "app.fetchers.document_portal.DocumentPortalFetcher"
-    description: "Crawler genérico para portales con árboles de páginas y artefactos descargables"
+    name: "Web Tree"
+    classPath: "app.fetchers.web_tree_fetcher.WebTreeFetcher"
+    description: "Crawler de portales web clásicos con dos modos: discover (inferencia de agrupaciones) y stream (descarga enriquecida con dimensiones)"
   }) {
     id
     name
@@ -366,7 +375,7 @@ mutation {
     paramName: "start_url"
     required: true
     dataType: "string"
-    description: "URL inicial del portal documental"
+    description: "URL raíz del portal a crawlear"
     group: "navigation"
   }) {
     id
@@ -391,7 +400,7 @@ opendatamanager/
 │   │   ├── base.py              # BaseFetcher abstracto
 │   │   ├── factory.py           # Carga dinámica por class_path
 │   │   ├── file_parsers.py      # Parsers compartidos por formato
-│   │   └── *.py                 # Implementaciones (rest, document_portal, xbrl, pdf_table…)
+│   │   └── *.py                 # Implementaciones (rest, web_tree_fetcher, xbrl, pdf_table…)
 │   ├── manager/
 │   │   └── fetcher_manager.py   # Orquestador del pipeline ETL
 │   ├── graphql_api/

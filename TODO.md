@@ -2,82 +2,65 @@
 
 ## Despliegue y CI/CD
 
-- Migrar el despliegue de produccion a imagenes inmutables publicadas en `ghcr.io`, evitando `git pull` en el servidor.
-- Separar claramente `build` y `deploy`:
-  - CI construye y publica imagenes.
-  - Produccion solo hace `docker compose pull` y `docker compose up -d`.
-- Definir imagenes versionadas por tag y/o SHA de commit para facilitar rollback y trazabilidad.
-- Cambiar `docker-compose.prod.yml` para usar `image:` en backend/frontend en lugar de `build:`.
-- Mantener `.env.production` fuera del repo e inyectarlo solo como secreto en entorno de despliegue.
-- Reducir el codigo presente en produccion al minimo necesario:
-  - idealmente solo `compose`, `env` y volumenes persistentes.
-- Evaluar si conviene un repositorio/stack de despliegue separado del repositorio de aplicacion.
+> Mayoritariamente HECHO. `docker-compose.prod.yml` usa imágenes ghcr.io,
+> `.github/workflows/deploy.yml` construye y publica, `.env.production` está
+> fuera del repo (sólo `.env.production.example`).
 
-## Endurecimiento adicional
+Pendiente:
 
-- Revisar si el usuario de despliegue puede reducir permisos en host sin perder capacidad operativa.
-- Mantener contenedores sin root donde sea posible.
-- Documentar estrategia de rotacion de secretos y claves SSH.
+- Versionar imágenes por SHA de commit además de `:latest` para facilitar rollback.
+- Decidir si conviene un repositorio/stack de despliegue separado del repositorio de aplicación.
+
+## Endurecimiento — documentación
+
+- Documentar estrategia de rotación de secretos y claves SSH.
 - Documentar procedimiento de rollback de despliegue.
+- Revisar si el usuario de despliegue puede reducir permisos en host sin perder capacidad operativa.
 
-## Portal Documental — extensión futura: auto-generación de recursos (Opción B)
+## Apificación de portales web clásicos — `WebTreeFetcher` + `ResourceCandidate`
 
-### Contexto
+Diseño autoritativo: [`docs/web_tree_fetcher_design.md`](docs/web_tree_fetcher_design.md).
 
-El fetcher `Portal Documental` actualmente funciona como **recurso único con taxonomía**
-(Opción A): un solo recurso crawlea toda una sección del portal, descarga los ficheros
-y almacena `seccion`/`subseccion` como metadatos en la tabla destino. La taxonomía se
-consulta via el schema GraphQL de datos (`/graphql/data`).
+Sustituye **3 implementaciones solapadas en master** (LegacyDataPortalFetcher,
+PortalFilesCataloguer, flujo discover-secciones-children directos) por una única
+ruta basada en:
 
-### Qué aportaría la Opción B
+- Un fetcher único `WebTreeFetcher` con modos `discover` y `stream`.
+- Un servicio `GroupingInferer` que infiere agrupaciones por patrones de URL
+  (year, mes, trimestre, fecha completa, DIR3, genérico).
+- Una entidad `ResourceCandidate` con ciclo `discovered → reviewed → promoted | discarded | merged | split`.
+- `Discovering.vue` refactorizado: muestra candidatos en lugar de "secciones del JSON-artifact".
+- Resources hijos (auto_generated) que se programan con la UI de scheduling existente.
 
-Un modo de **descubrimiento** en el que el crawler recorre el portal, identifica los
-nodos hoja (páginas finales con ficheros descargables) y los agrupa por nivel de
-profundidad o patrón de URL. Cada grupo se convertiría en un `Resource` hijo
-independiente, heredando el fetcher y los params del padre pero con `start_url`
-acotado a esa sección. Cada hijo podría tener su propio `schedule`, pausarse o
-reejecutarse de forma autónoma.
+### Tareas
 
-### Decisión de diseño: el fetcher no crea recursos
+**Backend**
 
-El fetcher no debe ser responsable de crear entidades `Resource` — eso rompería
-la abstracción. La generación de recursos hijos la ejecutaría un paso de
-orquestación separado (el `ResourceManager` o un endpoint de la API de administración)
-a partir del resultado del discover, no el propio fetcher.
+- [ ] Migración Alembic: tabla `resource_candidate` (campos en el spec).
+- [ ] Modelo `ResourceCandidate` en `app/models.py`.
+- [ ] `app/fetchers/web_tree_fetcher.py` con modos `discover` (output puro, sin BD) y `stream`.
+- [ ] `app/services/grouping_inferer.py` con reconocedores year/mes/trimestre/fecha/DIR3/genérico.
+- [ ] `app/manager/fetcher_manager.py`: post-`discover`, invocar `GroupingInferer` y persistir candidatos.
+- [ ] `app/fetchers/fetchers_enum.py`: registrar `WEB_TREE`.
+- [ ] GraphQL: queries `resourceCandidates`, `resourceCandidate(id)`; mutations `promoteCandidate`, `discardCandidate`, `mergeCandidates`, `splitCandidate`.
+- [ ] Borrar: `legacy_data_portal.py`, `portal_files_cataloguer.py`, `_discover_mode` runtime, `discover_artifact*` queries, `create_child_resources` mutation.
 
-### Qué habría que crear
+**Frontend**
 
-- **Modo `discover` en `PortalDocumentalFetcher`**: en lugar de descargar ficheros,
-  devuelve la lista de nodos hoja descubiertos con su URL, profundidad, patrón y
-  muestra de extensiones encontradas. Se almacena como artefacto de la ejecución
-  (p.ej. en `staging_path`).
-- **Mutación GraphQL `discoverPortalResources(resourceId)`**: lee el artefacto de
-  discover más reciente de ese recurso, agrupa los nodos por patrón/profundidad y
-  llama a `createResource` por cada grupo, marcándolos con `parent_resource_id`.
-- **Campo `parent_resource_id` en `Resource`** + migración Alembic correspondiente.
-- **Vista en el frontend**: lista los recursos hijos de un recurso padre (pestana
-  "Secciones descubiertas") y permite aprobar/rechazar cada grupo antes de crear.
+- [ ] `frontend/src/api/graphql.js`: operaciones de candidatos.
+- [ ] `frontend/src/views/Discovering.vue`: refactor para listar y operar sobre candidatos.
+- [ ] `frontend/src/views/Resources.vue`: retirar `isDiscoverable()` y `DiscoverModal`.
+- [ ] Borrar: `frontend/src/views/DiscoverModal.vue`.
 
-### Qué habría que modificar
+**Documentación**
 
-- `ResourceExecution`: añadir campo `discover_artifact` o reutilizar `staging_path`
-  para almacenar el JSON de nodos descubiertos.
-- `seed_resources.py` / import bundle: los recursos generados automáticamente
-  necesitan un flag `auto_generated: true` para distinguirlos de los manuales.
-- Frontend `Resources.vue`: mostrar badge "auto" en recursos generados y enlace
-  al recurso padre.
-
-### Qué habría que eliminar
-
-- Una vez migrado a Opción B, el recurso único `jerez_transparencia_economica_xlsx`
-  (Opción A) se puede retirar o degradar a recurso padre de solo descubrimiento,
-  sin `target_table` propio.
-
----
+- [x] Diseño autoritativo en `docs/web_tree_fetcher_design.md`.
+- [x] README.md: Portal Documental → Web Tree.
+- [x] `docs/resource_bundle_import.md`: ejemplos con `Web Tree`.
 
 ## Propuesta de siguiente fase
 
-- Fase actual:
-  - desplegar con el flujo endurecido ya preparado.
-- Fase siguiente:
-  - migrar completamente a GHCR como mecanismo principal de entrega para las ultimas fases del proyecto.
+Tras cerrar la apificación con WebTree, evaluar la separación explícita de fases
+del pipeline (fetch / scrape / process / normalize / publish) y la introducción
+de un `CKANPublisher` como destino. Aplazado deliberadamente — no contamina la
+fase actual.
