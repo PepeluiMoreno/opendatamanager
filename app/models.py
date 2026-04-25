@@ -214,6 +214,7 @@ class Dataset(Base):
     record_count = Column(Integer)
     checksum = Column(String(64))
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
     resource = relationship("Resource", back_populates="datasets")
     execution = relationship("ResourceExecution")

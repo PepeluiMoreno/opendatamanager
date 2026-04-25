@@ -125,6 +125,7 @@ async def datasets_tree():
             datasets_for_res = (
                 session.query(Dataset)
                 .filter(Dataset.resource_id == res.id)
+                .filter(Dataset.deleted_at == None)
                 .order_by(Dataset.created_at.desc())
                 .all()
             )
@@ -173,34 +174,174 @@ async def datasets_tree():
         session.close()
 
 
+def _hard_delete_dataset_files(data_path: str) -> None:
+    """Borra el JSONL y schema.json del dataset si existen."""
+    if data_path and os.path.exists(data_path):
+        try:
+            os.remove(data_path)
+        except OSError:
+            pass
+        dataset_dir = os.path.dirname(data_path)
+        schema_path = os.path.join(dataset_dir, "schema.json")
+        if os.path.exists(schema_path):
+            try:
+                os.remove(schema_path)
+            except OSError:
+                pass
+
+
+def _rebuild_data_api() -> None:
+    db2 = SessionLocal()
+    try:
+        data_engine.rebuild(db2)
+    finally:
+        db2.close()
+
+
 @app.delete("/api/datasets/{dataset_id}")
-async def delete_dataset(dataset_id: str):
-    """Elimina un dataset: borra el registro en BD y el fichero JSONL asociado."""
+async def delete_dataset(dataset_id: str, hard: bool = False):
+    """Borra un dataset.
+    - hard=False (default): soft-delete (deleted_at = now), va a Trash, restaurable.
+    - hard=True: borra registro de BD + fichero JSONL irreversiblemente.
+    """
+    from datetime import datetime
     session = SessionLocal()
     try:
         dataset = session.query(Dataset).filter(Dataset.id == dataset_id).first()
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
         data_path = dataset.data_path
-        session.delete(dataset)
+        if hard:
+            session.delete(dataset)
+            session.commit()
+            _hard_delete_dataset_files(data_path)
+        else:
+            dataset.deleted_at = datetime.utcnow()
+            session.commit()
+        _rebuild_data_api()
+        return {"ok": True, "hard": hard}
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@app.post("/api/datasets/{dataset_id}/restore")
+async def restore_dataset(dataset_id: str):
+    """Restaura un dataset soft-borrado (deleted_at → null)."""
+    session = SessionLocal()
+    try:
+        dataset = session.query(Dataset).filter(Dataset.id == dataset_id).first()
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        if dataset.deleted_at is None:
+            return {"ok": True, "alreadyActive": True}
+        dataset.deleted_at = None
         session.commit()
-        if data_path and os.path.exists(data_path):
-            os.remove(data_path)
-            dataset_dir = os.path.dirname(data_path)
-            schema_path = os.path.join(dataset_dir, "schema.json")
-            if os.path.exists(schema_path):
-                os.remove(schema_path)
-        db2 = SessionLocal()
-        try:
-            data_engine.rebuild(db2)
-        finally:
-            db2.close()
+        _rebuild_data_api()
         return {"ok": True}
     except HTTPException:
         raise
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@app.get("/api/resources/{resource_id}/datasets/summary")
+async def resource_datasets_summary(resource_id: str):
+    """Resumen de los datasets activos (no borrados) de un recurso, para usar en
+    la modal de cascada-delete: cuántos hay, cuántos registros y cuánto pesan en disco."""
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Dataset)
+            .filter(Dataset.resource_id == resource_id)
+            .filter(Dataset.deleted_at == None)
+            .all()
+        )
+        total_bytes = 0
+        for ds in rows:
+            if ds.data_path and os.path.exists(ds.data_path):
+                try:
+                    total_bytes += os.path.getsize(ds.data_path)
+                except OSError:
+                    pass
+        return {
+            "count": len(rows),
+            "totalRecords": sum((ds.record_count or 0) for ds in rows),
+            "diskBytes": total_bytes,
+        }
+    finally:
+        session.close()
+
+
+@app.delete("/api/resources/{resource_id}/datasets")
+async def delete_resource_datasets(resource_id: str, hard: bool = False):
+    """Cascada: borra todos los datasets activos de un recurso.
+    - hard=False (default): soft-delete de cada uno.
+    - hard=True: borra registros + JSONLs.
+    El recurso y el historial de ResourceExecution permanecen intactos."""
+    from datetime import datetime
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Dataset)
+            .filter(Dataset.resource_id == resource_id)
+            .filter(Dataset.deleted_at == None)
+            .all()
+        )
+        affected = len(rows)
+        if hard:
+            paths = [ds.data_path for ds in rows]
+            for ds in rows:
+                session.delete(ds)
+            session.commit()
+            for p in paths:
+                _hard_delete_dataset_files(p)
+        else:
+            now = datetime.utcnow()
+            for ds in rows:
+                ds.deleted_at = now
+            session.commit()
+        _rebuild_data_api()
+        return {"ok": True, "hard": hard, "affected": affected}
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@app.get("/api/datasets/trash")
+async def datasets_trash():
+    """Lista todos los datasets soft-borrados, para la pestaña Trash."""
+    session = SessionLocal()
+    try:
+        rows = (
+            session.query(Dataset)
+            .filter(Dataset.deleted_at != None)
+            .order_by(Dataset.deleted_at.desc())
+            .all()
+        )
+        result = []
+        for ds in rows:
+            res = ds.resource
+            result.append({
+                "datasetId": str(ds.id),
+                "resourceId": str(ds.resource_id),
+                "resourceName": res.name if res else None,
+                "version": f"{ds.major_version}.{ds.minor_version}.{ds.patch_version}",
+                "label": ds.label,
+                "recordCount": ds.record_count,
+                "createdAt": ds.created_at.isoformat() if ds.created_at else None,
+                "deletedAt": ds.deleted_at.isoformat() if ds.deleted_at else None,
+            })
+        return result
     finally:
         session.close()
 

@@ -306,6 +306,7 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
     all_datasets = (
         db.query(Dataset)
         .filter(Dataset.data_path.isnot(None))
+        .filter(Dataset.deleted_at == None)
         .order_by(Dataset.created_at.desc())
         .all()
     )

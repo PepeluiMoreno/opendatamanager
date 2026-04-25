@@ -44,7 +44,7 @@
         <tbody>
           <tr
             v-for="item in currentItems"
-            :key="item.id"
+            :key="itemId(item)"
             class="border-b border-gray-800 hover:bg-gray-800/40"
           >
             <td class="py-3 pr-4 text-gray-200">{{ itemName(item) }}</td>
@@ -105,6 +105,7 @@ const tabs = [
   { key: 'publishers',   label: 'Publishers' },
   { key: 'fetchers',     label: 'Fetchers' },
   { key: 'executions',   label: 'Processes' },
+  { key: 'datasets',     label: 'Datasets' },
 ]
 
 const activeTab = ref('resources')
@@ -118,6 +119,7 @@ const data = ref({
   publishers: [],
   fetchers: [],
   executions: [],
+  datasets: [],
 })
 
 const currentItems = computed(() => data.value[activeTab.value] || [])
@@ -132,7 +134,12 @@ const counts = computed(() => {
 })
 
 function itemName(item) {
+  if (item.datasetId) return `${item.resourceName || '—'} · v${item.version}`
   return item.name || item.nombre || item.code || item.resourceName || item.description || item.id
+}
+
+function itemId(item) {
+  return item.datasetId || item.id
 }
 
 function formatDate(iso) {
@@ -140,16 +147,23 @@ function formatDate(iso) {
   return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+async function fetchDeletedDatasets() {
+  const resp = await fetch('/api/datasets/trash')
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  return await resp.json()
+}
+
 async function load() {
   try {
     loading.value = true
     error.value = null
-    const [res, apps, pubs, fetchers, execs] = await Promise.all([
+    const [res, apps, pubs, fetchers, execs, datasets] = await Promise.all([
       fetchDeletedResources(),
       fetchDeletedApplications(),
       fetchDeletedPublishers(),
       fetchDeletedFetchers(),
       fetchDeletedExecutions(),
+      fetchDeletedDatasets(),
     ])
     data.value = {
       resources:    res.deletedResources    || [],
@@ -157,6 +171,7 @@ async function load() {
       publishers:   pubs.deletedPublishers   || [],
       fetchers:     fetchers.deletedFetchers  || [],
       executions:   execs.deletedExecutions   || [],
+      datasets:     datasets || [],
     }
   } catch (e) {
     error.value = e.message
@@ -167,14 +182,19 @@ async function load() {
 
 async function restore(item) {
   try {
-    const fn = {
-      resources:    restoreResource,
-      applications: restoreApplication,
-      publishers:   restorePublisher,
-      fetchers:     restoreFetcher,
-      executions:   restoreExecution,
-    }[activeTab.value]
-    await fn(item.id)
+    if (activeTab.value === 'datasets') {
+      const resp = await fetch(`/api/datasets/${item.datasetId}/restore`, { method: 'POST' })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    } else {
+      const fn = {
+        resources:    restoreResource,
+        applications: restoreApplication,
+        publishers:   restorePublisher,
+        fetchers:     restoreFetcher,
+        executions:   restoreExecution,
+      }[activeTab.value]
+      await fn(item.id)
+    }
     await load()
   } catch (e) {
     error.value = e.message
@@ -187,14 +207,19 @@ function confirmHardDelete(item) {
 
 async function hardDelete() {
   try {
-    const fn = {
-      resources:    (id) => deleteResource(id, true),
-      applications: (id) => deleteApplication(id, true),
-      publishers:   (id) => deletePublisher(id, true),
-      fetchers:     (id) => deleteFetcher(id, true),
-      executions:   null,
-    }[activeTab.value]
-    if (fn) await fn(itemToDelete.value.id)
+    if (activeTab.value === 'datasets') {
+      const resp = await fetch(`/api/datasets/${itemToDelete.value.datasetId}?hard=true`, { method: 'DELETE' })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    } else {
+      const fn = {
+        resources:    (id) => deleteResource(id, true),
+        applications: (id) => deleteApplication(id, true),
+        publishers:   (id) => deletePublisher(id, true),
+        fetchers:     (id) => deleteFetcher(id, true),
+        executions:   null,
+      }[activeTab.value]
+      if (fn) await fn(itemToDelete.value.id)
+    }
     itemToDelete.value = null
     await load()
   } catch (e) {

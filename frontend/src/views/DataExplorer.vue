@@ -102,16 +102,25 @@
               <td class="px-4 py-3 text-gray-400 whitespace-nowrap">
                 {{ res.versions[0]?.createdAt ? formatDate(res.versions[0].createdAt) : '—' }}
               </td>
-              <!-- Resource-level params button -->
+              <!-- Resource-level actions -->
               <td class="px-4 py-3 text-center" @click.stop>
-                <button @click="openParams(res, null)"
-                  title="Ver parámetros del recurso"
-                  class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
-                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                  </svg>
-                </button>
+                <div class="flex items-center justify-center gap-1">
+                  <button @click="openParams(res, null)"
+                    title="Ver parámetros del recurso"
+                    class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                  </button>
+                  <button v-if="res.versions.length > 0" @click="confirmCascadeDelete(res)"
+                    title="Borrar todos los datasets del recurso"
+                    class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
               </td>
             </tr>
 
@@ -263,15 +272,23 @@
       </div>
     </div>
 
-    <!-- ── Delete confirm ── -->
-    <div v-if="toDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 w-96 shadow-2xl">
+    <!-- ── Delete single dataset confirm ── -->
+    <div v-if="toDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="toDelete = null">
+      <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 w-[440px] shadow-2xl">
         <h3 class="text-sm font-semibold text-white mb-2">Eliminar dataset</h3>
-        <p class="text-sm text-gray-300 mb-1 leading-relaxed">
+        <p class="text-sm text-gray-300 mb-3 leading-relaxed">
           ¿Eliminar <span class="text-white font-medium">{{ toDelete.resourceName }}</span>
           versión <span class="font-mono text-blue-300">v{{ toDelete.version }}</span>?
         </p>
-        <p class="text-xs text-gray-500 mb-5">Se borrarán el registro en base de datos y el fichero JSONL. <span class="text-red-400">No se puede deshacer.</span></p>
+        <label class="flex items-start gap-2 mb-5 cursor-pointer">
+          <input type="checkbox" v-model="toDeleteHard" class="accent-red-500 mt-0.5">
+          <span>
+            <span class="text-xs text-gray-300">Eliminar permanentemente</span>
+            <span class="block text-xs text-gray-500 mt-0.5">
+              Sin marcar, el dataset va a Trash y puede restaurarse. Marcado, se borra el registro y el JSONL irreversiblemente.
+            </span>
+          </span>
+        </label>
         <div class="flex gap-2 justify-end">
           <button @click="toDelete = null" class="text-xs px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600">Cancelar</button>
           <button @click="doDelete" :disabled="deleting" class="text-xs px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50">
@@ -279,6 +296,41 @@
           </button>
         </div>
         <p v-if="deleteError" class="text-xs text-red-400 mt-3">{{ deleteError }}</p>
+      </div>
+    </div>
+
+    <!-- ── Cascade delete confirm ── -->
+    <div v-if="cascadeDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="cascadeDelete = null">
+      <div class="bg-gray-800 border border-red-600/40 rounded-xl p-6 w-[520px] shadow-2xl">
+        <h3 class="text-sm font-semibold text-white mb-2">Borrar todos los datasets</h3>
+        <p class="text-sm text-gray-300 mb-3 leading-relaxed">
+          Se borrarán <span class="font-medium text-white">todos los datasets</span> de
+          <span class="text-white font-medium">"{{ cascadeDelete.resourceName }}"</span>.
+        </p>
+        <div v-if="cascadeSummary" class="bg-gray-900/60 rounded-lg p-3 mb-4 text-xs space-y-1.5">
+          <div class="flex justify-between"><span class="text-gray-500">Datasets:</span> <span class="text-gray-200 font-mono">{{ cascadeSummary.count }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Registros totales:</span> <span class="text-gray-200 font-mono">{{ cascadeSummary.totalRecords?.toLocaleString() ?? '—' }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Tamaño en disco:</span> <span class="text-gray-200 font-mono">{{ formatBytes(cascadeSummary.diskBytes) }}</span></div>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">
+          El recurso <span class="text-gray-300">"{{ cascadeDelete.resourceName }}"</span> y el historial de ejecuciones se conservan intactos. Solo se borran los datasets producidos.
+        </p>
+        <label class="flex items-start gap-2 mb-5 cursor-pointer">
+          <input type="checkbox" v-model="cascadeHard" class="accent-red-500 mt-0.5">
+          <span>
+            <span class="text-xs text-gray-300">Eliminar permanentemente</span>
+            <span class="block text-xs text-gray-500 mt-0.5">
+              Sin marcar, los datasets van a Trash y pueden restaurarse. Marcado, se borran de BD y disco irreversiblemente.
+            </span>
+          </span>
+        </label>
+        <div class="flex gap-2 justify-end">
+          <button @click="cascadeDelete = null" class="text-xs px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600">Cancelar</button>
+          <button @click="doCascadeDelete" :disabled="cascadeDeleting" class="text-xs px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50">
+            {{ cascadeDeleting ? 'Borrando…' : 'Borrar datasets' }}
+          </button>
+        </div>
+        <p v-if="cascadeError" class="text-xs text-red-400 mt-3">{{ cascadeError }}</p>
       </div>
     </div>
 
@@ -298,8 +350,15 @@ const expandedDataset = ref(null)
 const copiedId = ref(null)
 const paramsModal = ref(null)
 const toDelete = ref(null)
+const toDeleteHard = ref(false)
 const deleting = ref(false)
 const deleteError = ref('')
+
+const cascadeDelete = ref(null)
+const cascadeHard = ref(false)
+const cascadeSummary = ref(null)
+const cascadeDeleting = ref(false)
+const cascadeError = ref('')
 
 async function loadTree() {
   loading.value = true
@@ -386,6 +445,7 @@ function openParams(res, ver) {
 
 function confirmDelete(ver, resourceName) {
   toDelete.value = { ...ver, resourceName }
+  toDeleteHard.value = false
   deleteError.value = ''
 }
 
@@ -394,7 +454,8 @@ async function doDelete() {
   deleting.value = true
   deleteError.value = ''
   try {
-    const resp = await fetch(`/api/datasets/${toDelete.value.datasetId}`, { method: 'DELETE' })
+    const url = `/api/datasets/${toDelete.value.datasetId}?hard=${toDeleteHard.value}`
+    const resp = await fetch(url, { method: 'DELETE' })
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}))
       throw new Error(body.detail || `HTTP ${resp.status}`)
@@ -407,5 +468,44 @@ async function doDelete() {
   } finally {
     deleting.value = false
   }
+}
+
+async function confirmCascadeDelete(res) {
+  cascadeDelete.value = { resourceId: res.resourceId, resourceName: res.resourceName }
+  cascadeHard.value = false
+  cascadeError.value = ''
+  cascadeSummary.value = null
+  try {
+    const resp = await fetch(`/api/resources/${res.resourceId}/datasets/summary`)
+    if (resp.ok) cascadeSummary.value = await resp.json()
+  } catch (_) {}
+}
+
+async function doCascadeDelete() {
+  if (!cascadeDelete.value?.resourceId) return
+  cascadeDeleting.value = true
+  cascadeError.value = ''
+  try {
+    const url = `/api/resources/${cascadeDelete.value.resourceId}/datasets?hard=${cascadeHard.value}`
+    const resp = await fetch(url, { method: 'DELETE' })
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}))
+      throw new Error(body.detail || `HTTP ${resp.status}`)
+    }
+    cascadeDelete.value = null
+    await loadTree()
+  } catch (e) {
+    cascadeError.value = `Error: ${e.message}`
+  } finally {
+    cascadeDeleting.value = false
+  }
+}
+
+function formatBytes(bytes) {
+  if (bytes == null) return '—'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
 }
 </script>

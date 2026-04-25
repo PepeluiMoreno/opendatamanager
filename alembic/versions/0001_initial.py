@@ -199,6 +199,7 @@ def upgrade() -> None:
         sa.Column('record_count', sa.Integer(), nullable=True),
         sa.Column('checksum', sa.String(64), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('deleted_at', sa.DateTime(), nullable=True),
         schema='opendata',
         if_not_exists=True,
     )
