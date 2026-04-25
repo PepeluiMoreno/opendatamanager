@@ -113,6 +113,13 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
                   </button>
+                  <button v-if="latestQueryableVersion(res)" @click="openSandbox(latestQueryableVersion(res))"
+                    title="Abrir Sandbox GraphQL (última versión queryable)"
+                    class="p-1.5 rounded text-gray-400 hover:text-blue-300 hover:bg-blue-900/30 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                  </button>
                   <button v-if="res.versions.length > 0" @click="confirmCascadeDelete(res)"
                     title="Borrar todos los datasets del recurso"
                     class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
@@ -215,8 +222,8 @@
     </div>
 
     <!-- ── Params modal ── -->
-    <div v-if="paramsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="paramsModal = null">
-      <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl w-[820px] max-w-[92vw] max-h-[85vh] flex flex-col">
+    <div v-if="paramsModal" class="modal-overlay" @click.self="paramsModal = null">
+      <div class="modal-card">
         <!-- Header -->
         <div class="flex items-start justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
           <div>
@@ -425,6 +432,10 @@ function buildQuery(ver) {
 
 function openSandbox(ver) {
   window.open(`/graphql/data?query=${encodeURIComponent(buildQuery(ver))}`, '_blank')
+}
+
+function latestQueryableVersion(res) {
+  return (res.versions || []).find(v => v.queryName) || null
 }
 
 async function copyQuery(ver) {

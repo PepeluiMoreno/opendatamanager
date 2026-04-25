@@ -58,6 +58,19 @@ ruta basada en:
 - [x] README.md: Portal Documental → Web Tree.
 - [x] `docs/resource_bundle_import.md`: ejemplos con `Web Tree`.
 
+## UI — estandarización de modales
+
+Estándar definido en `frontend/src/assets/styles.css`: `.modal-overlay` (centrado),
+`.modal-card` (768px), `.modal-card-sm` (480px), `.modal-card-lg` (1024px). Todos
+con `max-w-92vw / max-h-85vh` para móvil. Aplicado a los modales nuevos
+(`Discovering` promote, `DataExplorer` params).
+
+Pendiente: sweep de los modales restantes en
+`PreviewResourceModal`, `PreviewDataModal`, `CreateEditFetcherModal`,
+`FetcherDetailModal`, `Fetchers.vue`, `Resources.vue`, `Applications.vue`,
+`Publishers.vue`, `Subscriptions.vue`, `Executions.vue`, `Trash.vue`,
+`ResourceTest.vue` para usar las clases comunes.
+
 ## Propuesta de siguiente fase
 
 Tras cerrar la apificación con WebTree, evaluar la separación explícita de fases

@@ -57,3 +57,22 @@ body {
 .card {
   @apply bg-gray-800 rounded-lg border border-gray-700 p-6;
 }
+
+/* Modal styles — uniformes para edición/consulta de un registro de datos.
+ *   .modal-overlay  ─ capa que centra el modal sobre el dashboard
+ *   .modal-card     ─ tamaño y estructura del cuerpo (768px ancho, 85vh alto)
+ *   .modal-card-sm  ─ variante estrecha (480px) para formularios cortos
+ *   .modal-card-lg  ─ variante ancha (1024px) para tablas/datos extensos
+ */
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4;
+}
+.modal-card {
+  @apply bg-gray-800 border border-gray-600 rounded-xl shadow-2xl flex flex-col w-[768px] max-w-[92vw] max-h-[85vh];
+}
+.modal-card-sm {
+  @apply bg-gray-800 border border-gray-600 rounded-xl shadow-2xl flex flex-col w-[480px] max-w-[92vw] max-h-[85vh];
+}
+.modal-card-lg {
+  @apply bg-gray-800 border border-gray-600 rounded-xl shadow-2xl flex flex-col w-[1024px] max-w-[92vw] max-h-[85vh];
+}

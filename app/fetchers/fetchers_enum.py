@@ -44,6 +44,12 @@ class FetchersEnum(Enum):
         "description": "Servicio SOAP/WSDL — usa zeep para invocar operaciones de forma genérica"
     }
 
+    WEB_TREE = {
+        "code": "Web Tree",
+        "class_path": "app.fetchers.web_tree_fetcher.WebTreeFetcher",
+        "description": "Crawler de portales web clásicos. Modos: discover (infiere agrupaciones de URLs hoja por dimensiones year/month/quarter/...) y stream (descarga las URLs de un Resource hijo promovido enriqueciendo con dimensiones)."
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # FILES = {
     #     "code": "FILES",

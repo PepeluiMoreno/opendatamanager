@@ -6,7 +6,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
 from app.models import (
-    Fetcher as FetcherModel, Resource, FetcherParams, ResourceParam, Application, FieldMetadata,
+    Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Application, FieldMetadata,
     ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification, AppConfig,
     DerivedDatasetConfig, DerivedDatasetEntry, Publisher
 )
@@ -24,6 +24,7 @@ from app.graphql_api.types import (
     AppConfigType,
     DerivedDatasetConfigType,
     PublisherType,
+    ResourceCandidateType,
 )
 
 
@@ -199,6 +200,29 @@ def map_resource_execution(re: ResourceExecution) -> ResourceExecutionType:
         pause_requested=bool(re.pause_requested),
         active_seconds=re.active_seconds,
         deleted_at=re.deleted_at,
+    )
+
+
+def map_resource_candidate(c: ResourceCandidate) -> ResourceCandidateType:
+    """Convierte modelo ResourceCandidate a tipo GraphQL"""
+    return ResourceCandidateType(
+        id=str(c.id),
+        execution_id=str(c.execution_id) if c.execution_id else None,
+        crawler_resource_id=str(c.crawler_resource_id),
+        path_template=c.path_template,
+        dimensions=c.dimensions or [],
+        matched_urls=c.matched_urls or [],
+        file_types=c.file_types or {},
+        suggested_name=c.suggested_name,
+        confidence=c.confidence,
+        status=c.status,
+        promoted_resource_id=str(c.promoted_resource_id) if c.promoted_resource_id else None,
+        merged_into_id=str(c.merged_into_id) if c.merged_into_id else None,
+        split_from_id=str(c.split_from_id) if c.split_from_id else None,
+        detected_at=c.detected_at,
+        reviewed_at=c.reviewed_at,
+        reviewed_by=c.reviewed_by,
+        deleted_at=c.deleted_at,
     )
 
 
@@ -577,46 +601,37 @@ class Query:
             db.close()
 
     @strawberry.field
-    def discover_artifact(self, resource_id: strawberry.ID) -> Optional[str]:
-        """Returns the latest discover artifact JSON for a resource, or null if none exists."""
-        import os
+    def resource_candidates(
+        self,
+        crawler_resource_id: Optional[strawberry.ID] = None,
+        execution_id: Optional[strawberry.ID] = None,
+        status: Optional[str] = None,
+    ) -> List[ResourceCandidateType]:
+        """Lista candidatos generados por el GroupingInferer tras un discover.
+        Filtros opcionales: crawler, ejecución, estado. Soft-deleted excluidos."""
         db = get_db()
         try:
-            execs = (
-                db.query(ResourceExecution)
-                .filter(
-                    ResourceExecution.resource_id == resource_id,
-                    ResourceExecution.status == "completed",
-                    ResourceExecution.staging_path.isnot(None),
-                )
-                .order_by(ResourceExecution.completed_at.desc())
-                .all()
-            )
-            for ex in execs:
-                if ex.execution_params and ex.execution_params.get("_discover_mode"):
-                    if ex.staging_path and os.path.exists(ex.staging_path):
-                        with open(ex.staging_path, "r", encoding="utf-8") as f:
-                            return f.read()
-            return None
+            q = db.query(ResourceCandidate).filter(ResourceCandidate.deleted_at.is_(None))
+            if crawler_resource_id:
+                q = q.filter(ResourceCandidate.crawler_resource_id == crawler_resource_id)
+            if execution_id:
+                q = q.filter(ResourceCandidate.execution_id == execution_id)
+            if status:
+                q = q.filter(ResourceCandidate.status == status)
+            rows = q.order_by(
+                ResourceCandidate.confidence.desc().nullslast(),
+                ResourceCandidate.detected_at.desc(),
+            ).all()
+            return [map_resource_candidate(c) for c in rows]
         finally:
             db.close()
 
     @strawberry.field
-    def discover_artifact_for_execution(self, execution_id: strawberry.ID) -> Optional[str]:
-        """Returns the discover artifact for a specific execution once completed, or null if still running."""
-        import os
+    def resource_candidate(self, id: strawberry.ID) -> Optional[ResourceCandidateType]:
         db = get_db()
         try:
-            ex = db.query(ResourceExecution).filter(
-                ResourceExecution.id == execution_id,
-                ResourceExecution.status == "completed",
-                ResourceExecution.staging_path.isnot(None),
-            ).first()
-            if ex and ex.execution_params and ex.execution_params.get("_discover_mode"):
-                if ex.staging_path and os.path.exists(ex.staging_path):
-                    with open(ex.staging_path, "r", encoding="utf-8") as f:
-                        return f.read()
-            return None
+            c = db.query(ResourceCandidate).filter(ResourceCandidate.id == id).first()
+            return map_resource_candidate(c) if c else None
         finally:
             db.close()
 

@@ -348,15 +348,35 @@ class ResourceType:
     children: Optional[List["ResourceType"]] = strawberry.field(default=None)
 
 
+@strawberry.type
+class ResourceCandidateType:
+    """Propuesta de agrupación inferida por el GroupingInferer."""
+    id: str
+    execution_id: Optional[str] = strawberry.field(default=None, name="executionId")
+    crawler_resource_id: str = strawberry.field(name="crawlerResourceId")
+    path_template: str = strawberry.field(name="pathTemplate")
+    dimensions: strawberry.scalars.JSON
+    matched_urls: strawberry.scalars.JSON = strawberry.field(name="matchedUrls")
+    file_types: strawberry.scalars.JSON = strawberry.field(name="fileTypes")
+    suggested_name: Optional[str] = strawberry.field(default=None, name="suggestedName")
+    confidence: Optional[float] = None
+    status: str
+    promoted_resource_id: Optional[str] = strawberry.field(default=None, name="promotedResourceId")
+    merged_into_id: Optional[str] = strawberry.field(default=None, name="mergedIntoId")
+    split_from_id: Optional[str] = strawberry.field(default=None, name="splitFromId")
+    detected_at: Optional[datetime] = strawberry.field(default=None, name="detectedAt")
+    reviewed_at: Optional[datetime] = strawberry.field(default=None, name="reviewedAt")
+    reviewed_by: Optional[str] = strawberry.field(default=None, name="reviewedBy")
+    deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
+
+
 @strawberry.input
-class DiscoverSectionInput:
-    """Section approved by user to become a child Resource"""
-    url_pattern: str = strawberry.field(name="urlPattern")
+class PromoteCandidateInput:
+    """Datos editables al promover una candidata a Resource hijo."""
     name: str
     target_table: str = strawberry.field(name="targetTable")
-    page_include_patterns: Optional[str] = strawberry.field(default=None, name="pageIncludePatterns")
-    extensions: Optional[List[str]] = None
     schedule: Optional[str] = None
-    start_url: Optional[str] = strawberry.field(default=None, name="startUrl")
+    enable_load: Optional[bool] = strawberry.field(default=False, name="enableLoad")
+    load_mode: Optional[str] = strawberry.field(default="upsert", name="loadMode")
 
 

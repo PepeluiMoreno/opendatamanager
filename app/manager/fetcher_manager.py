@@ -7,11 +7,12 @@ import logging
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.models import Resource, ResourceExecution, Dataset, DerivedDatasetConfig, DerivedDatasetEntry
+from app.models import Resource, ResourceCandidate, ResourceExecution, Dataset, DerivedDatasetConfig, DerivedDatasetEntry
 from app.fetchers.factory import FetcherFactory
 from app.builders.dataset_builder import DatasetBuilder
 from app.services.notification_service import NotificationService
 from app.services.data_loader_service import DataLoaderService
+from app.services import grouping_inferer
 
 LOG_DIR = "data/logs"
 
@@ -143,24 +144,72 @@ class FetcherManager:
             if saved_state:
                 runtime_params["_resume_state"] = saved_state
 
+            # ── MODO DEDUCIDO ────────────────────────────────────────────────
+            # parent_resource_id = NULL  →  crawler padre   →  modo discover
+            # parent_resource_id = set   →  hijo promovido  →  modo stream
+            is_child = resource.parent_resource_id is not None
+
+            if is_child:
+                # Cargar la candidata que originó este hijo y pasar matched_urls/dimensions
+                candidate = (
+                    session.query(ResourceCandidate)
+                    .filter(
+                        ResourceCandidate.promoted_resource_id == resource.id,
+                        ResourceCandidate.deleted_at.is_(None),
+                    )
+                    .order_by(ResourceCandidate.detected_at.desc())
+                    .first()
+                )
+                if not candidate:
+                    raise RuntimeError(
+                        f"Resource hijo '{resource.name}' sin ResourceCandidate asociado "
+                        f"(promoted_resource_id={resource.id})."
+                    )
+                runtime_params["_matched_urls"] = list(candidate.matched_urls or [])
+                runtime_params["_dimensions"] = list(candidate.dimensions or [])
+
             fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
 
-            # ── DISCOVER MODE ────────────────────────────────────────────────
-            discover_mode = runtime_params.get("_discover_mode", False)
-            if discover_mode and hasattr(fetcher, "discover"):
-                logger.log("[1/1] DISCOVER — Crawling sections without downloading files...")
-                sections = fetcher.discover()
+            # ── DISCOVER MODE (crawler padre con fetcher que soporta discover) ──
+            if not is_child and hasattr(fetcher, "discover"):
+                logger.log("[1/1] DISCOVER — Crawleando árbol sin descargar ficheros...")
+                leaf_urls = fetcher.discover()
+                logger.log(f"  {len(leaf_urls)} URLs hoja descubiertas. Inferiendo agrupaciones...")
+                proposals = grouping_inferer.infer(leaf_urls)
+                logger.log(f"  {len(proposals)} propuesta(s) de agrupación. Persistiendo candidatos...")
+
+                created_ids = []
+                for p in proposals:
+                    candidate = ResourceCandidate(
+                        execution_id=execution.id,
+                        crawler_resource_id=resource.id,
+                        path_template=p.path_template,
+                        dimensions=p.dimensions,
+                        matched_urls=p.matched_urls,
+                        file_types=p.file_types,
+                        suggested_name=p.suggested_name,
+                        confidence=p.confidence,
+                        status="discovered",
+                    )
+                    session.add(candidate)
+                    session.flush()
+                    created_ids.append(str(candidate.id))
+
+                # Mantener artifact para inspección (no es la fuente de verdad)
                 artifact_path = os.path.join(staging_dir, f"discover_{execution.id}.json")
                 with open(artifact_path, "w", encoding="utf-8") as f:
-                    json.dump(sections, f, ensure_ascii=False, indent=2)
+                    json.dump([p.to_dict() for p in proposals], f, ensure_ascii=False, indent=2)
                 execution.staging_path = artifact_path
-                execution.total_records = len(sections)
+                execution.total_records = len(proposals)
                 execution.active_seconds = (execution.active_seconds or 0) + int(
                     (datetime.utcnow() - period_start).total_seconds()
                 )
                 execution.status = "completed"
                 execution.completed_at = datetime.utcnow()
-                logger.log(f"DISCOVER COMPLETED — {len(sections)} sections → {artifact_path}")
+                logger.log(
+                    f"DISCOVER COMPLETED — {len(proposals)} candidato(s) creados; "
+                    f"{len(leaf_urls)} URLs analizadas"
+                )
                 session.commit()
                 logger.close()
                 return None

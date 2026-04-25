@@ -4,11 +4,11 @@ Mutations GraphQL para modificar datos.
 import strawberry
 import threading
 import ctypes
-from typing import Optional, List
+from typing import Optional, List, Dict
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher, ApplicationNotification, Dataset
+from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher, ApplicationNotification, Dataset
 from datetime import datetime
 import os
 
@@ -67,9 +67,14 @@ from app.graphql_api.types import (
     PublisherType,
     CreatePublisherInput,
     UpdatePublisherInput,
-    DiscoverSectionInput,
+    ResourceCandidateType,
+    PromoteCandidateInput,
 )
-from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param, map_derived_dataset_config, map_dataset_subscription, map_publisher
+from app.graphql_api.queries import (
+    map_application, map_resource, map_fetcher, map_type_fetcher_param,
+    map_derived_dataset_config, map_dataset_subscription, map_publisher,
+    map_resource_candidate,
+)
 from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
 
@@ -1207,69 +1212,166 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def create_child_resources(
+    def promote_candidate(
         self,
-        parent_resource_id: strawberry.ID,
-        sections: List[DiscoverSectionInput],
-    ) -> List[ResourceType]:
-        """Create child Resources from approved discover sections."""
-        import json
+        id: strawberry.ID,
+        input: PromoteCandidateInput,
+    ) -> ResourceType:
+        """Promueve una `ResourceCandidate` a Resource hijo (auto_generated).
+
+        El hijo hereda fetcher y `root_url` del crawler padre. `matched_urls` y
+        `dimensions` se leen de la fila ResourceCandidate en cada ejecución."""
+        from datetime import datetime as _dt
         db = get_db()
         try:
-            parent = db.query(Resource).filter(Resource.id == parent_resource_id).first()
+            candidate = db.query(ResourceCandidate).filter(ResourceCandidate.id == id).first()
+            if not candidate:
+                raise ValueError(f"Candidato no encontrado: {id}")
+            if candidate.status not in ("discovered", "reviewed"):
+                raise ValueError(f"Candidato en estado '{candidate.status}' no es promovible")
+
+            parent = db.query(Resource).filter(Resource.id == candidate.crawler_resource_id).first()
             if not parent:
-                raise ValueError(f"Parent resource not found: {parent_resource_id}")
+                raise ValueError(f"Crawler padre no encontrado: {candidate.crawler_resource_id}")
 
-            # Params to carry over from parent (section-specific ones are overridden below)
-            SKIP_KEYS = {"page_include_patterns", "allowed_extensions", "start_url", "start_urls"}
-            parent_params = [p for p in (parent.params or []) if p.key not in SKIP_KEYS]
+            child = Resource(
+                name=input.name,
+                fetcher_id=parent.fetcher_id,
+                publisher=parent.publisher,
+                publisher_id=parent.publisher_id,
+                target_table=input.target_table,
+                active=True,
+                schedule=input.schedule,
+                enable_load=bool(input.enable_load),
+                load_mode=input.load_mode or "upsert",
+                parent_resource_id=parent.id,
+                auto_generated=True,
+            )
+            db.add(child)
+            db.flush()
 
-            created_ids = []
-            for section in sections:
-                child = Resource(
-                    name=section.name,
-                    fetcher_id=parent.fetcher_id,
-                    publisher=parent.publisher,
-                    publisher_id=parent.publisher_id,
-                    target_table=section.target_table,
-                    active=True,
-                    schedule=section.schedule,
-                    parent_resource_id=parent_resource_id,
-                    auto_generated=True,
+            # El hijo hereda únicamente `root_url` del padre — todos los demás
+            # params son defaults internos del WebTreeFetcher.
+            root_url = next((p.value for p in (parent.params or []) if p.key == "root_url"), None)
+            if root_url:
+                db.add(ResourceParam(resource_id=child.id, key="root_url", value=root_url))
+
+            candidate.status = "promoted"
+            candidate.promoted_resource_id = child.id
+            candidate.reviewed_at = _dt.utcnow()
+            db.commit()
+
+            child_obj = db.query(Resource).filter(Resource.id == child.id).first()
+            return map_resource(child_obj)
+
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def discard_candidate(self, id: strawberry.ID, reviewer: Optional[str] = None) -> ResourceCandidateType:
+        """Marca una candidata como `discarded`."""
+        from datetime import datetime as _dt
+        db = get_db()
+        try:
+            c = db.query(ResourceCandidate).filter(ResourceCandidate.id == id).first()
+            if not c:
+                raise ValueError(f"Candidato no encontrado: {id}")
+            c.status = "discarded"
+            c.reviewed_at = _dt.utcnow()
+            if reviewer:
+                c.reviewed_by = reviewer
+            db.commit()
+            return map_resource_candidate(c)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def merge_candidates(
+        self,
+        source_ids: List[strawberry.ID],
+        target_id: strawberry.ID,
+    ) -> ResourceCandidateType:
+        """Funde varias candidatas en una. Las `source_ids` quedan en `merged` y
+        sus `matched_urls` se acumulan en la `target_id`."""
+        from datetime import datetime as _dt
+        db = get_db()
+        try:
+            target = db.query(ResourceCandidate).filter(ResourceCandidate.id == target_id).first()
+            if not target:
+                raise ValueError(f"Candidato target no encontrado: {target_id}")
+            merged_urls = list(target.matched_urls or [])
+            merged_ft: Dict = dict(target.file_types or {})
+            for sid in source_ids:
+                if str(sid) == str(target_id):
+                    continue
+                src = db.query(ResourceCandidate).filter(ResourceCandidate.id == sid).first()
+                if not src:
+                    continue
+                for u in (src.matched_urls or []):
+                    if u not in merged_urls:
+                        merged_urls.append(u)
+                for ft, n in (src.file_types or {}).items():
+                    merged_ft[ft] = merged_ft.get(ft, 0) + int(n)
+                src.status = "merged"
+                src.merged_into_id = target.id
+                src.reviewed_at = _dt.utcnow()
+            target.matched_urls = merged_urls
+            target.file_types = merged_ft
+            target.reviewed_at = _dt.utcnow()
+            db.commit()
+            return map_resource_candidate(target)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def split_candidate(
+        self,
+        id: strawberry.ID,
+        groups: strawberry.scalars.JSON,
+    ) -> List[ResourceCandidateType]:
+        """Parte una candidata en N candidatas hijas. `groups` es una lista de
+        `{name, urls}` — cada grupo nace como nueva candidata `discovered` con
+        `split_from_id` apuntando a la original. La original pasa a `split`."""
+        from datetime import datetime as _dt
+        db = get_db()
+        try:
+            src = db.query(ResourceCandidate).filter(ResourceCandidate.id == id).first()
+            if not src:
+                raise ValueError(f"Candidato no encontrado: {id}")
+            new_ids = []
+            for g in (groups or []):
+                urls = list(g.get("urls") or [])
+                if not urls:
+                    continue
+                child = ResourceCandidate(
+                    execution_id=src.execution_id,
+                    crawler_resource_id=src.crawler_resource_id,
+                    path_template=src.path_template,
+                    dimensions=src.dimensions or [],
+                    matched_urls=urls,
+                    file_types={},
+                    suggested_name=g.get("name") or src.suggested_name,
+                    confidence=src.confidence,
+                    status="discovered",
+                    split_from_id=src.id,
                 )
                 db.add(child)
                 db.flush()
-
-                for pp in parent_params:
-                    db.add(ResourceParam(
-                        resource_id=child.id,
-                        key=pp.key,
-                        value=pp.value,
-                        is_external=pp.is_external,
-                    ))
-
-                # Each child gets its own section-scoped start_url and include pattern
-                section_start = section.start_url or next(
-                    (p.value for p in (parent.params or []) if p.key == "start_url"), None
-                )
-                if section_start:
-                    db.add(ResourceParam(resource_id=child.id, key="start_url", value=section_start))
-                if section.page_include_patterns:
-                    db.add(ResourceParam(resource_id=child.id, key="page_include_patterns", value=section.page_include_patterns))
-                if section.extensions:
-                    db.add(ResourceParam(resource_id=child.id, key="allowed_extensions", value=json.dumps(section.extensions)))
-
-                created_ids.append(str(child.id))
-
+                new_ids.append(child.id)
+            src.status = "split"
+            src.reviewed_at = _dt.utcnow()
             db.commit()
-
-            result = []
-            for cid in created_ids:
-                child_obj = db.query(Resource).filter(Resource.id == cid).first()
-                if child_obj:
-                    result.append(map_resource(child_obj))
-            return result
-
+            result = db.query(ResourceCandidate).filter(ResourceCandidate.id.in_(new_ids)).all()
+            return [map_resource_candidate(c) for c in result]
         except Exception as e:
             db.rollback()
             raise e
