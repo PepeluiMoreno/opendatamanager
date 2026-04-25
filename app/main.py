@@ -103,6 +103,108 @@ async def graphql_data_registry():
     return data_engine.get_registry()
 
 
+@app.get("/api/datasets/tree")
+async def datasets_tree():
+    """Devuelve todos los datasets agrupados por resource, con versiones ordenadas desc."""
+    from app.models import Resource as ResourceModel
+    session = SessionLocal()
+    try:
+        registry_by_id = {e["datasetId"]: e for e in data_engine.get_registry() if "datasetId" in e}
+
+        resources = (
+            session.query(ResourceModel)
+            .filter(ResourceModel.deleted_at == None)
+            .order_by(ResourceModel.name)
+            .all()
+        )
+
+        from collections import OrderedDict
+
+        tree = []
+        for res in resources:
+            datasets_for_res = (
+                session.query(Dataset)
+                .filter(Dataset.resource_id == res.id)
+                .order_by(Dataset.created_at.desc())
+                .all()
+            )
+            if not datasets_for_res:
+                continue
+
+            resource_params = {p.key: p.value for p in res.params}
+
+            groups: OrderedDict = OrderedDict()
+            for ds in datasets_for_res:
+                groups.setdefault(ds.label, []).append(ds)
+
+            for label, ds_list in groups.items():
+                versions = []
+                for ds in ds_list:
+                    ds_id = str(ds.id)
+                    exec_params = ds.execution.execution_params if ds.execution else None
+                    versions.append({
+                        "datasetId": ds_id,
+                        "version": f"{ds.major_version}.{ds.minor_version}.{ds.patch_version}",
+                        "recordCount": ds.record_count,
+                        "createdAt": ds.created_at.isoformat() if ds.created_at else None,
+                        "executionParams": exec_params,
+                        "isLatest": ds_id in registry_by_id,
+                        "queryName": registry_by_id.get(ds_id, {}).get("queryName"),
+                        "fields": registry_by_id.get(ds_id, {}).get("fields", []),
+                    })
+
+                display_name = f"{res.name} · {label}" if label else res.name
+
+                tree.append({
+                    "nodeId": f"{res.id}::{label or ''}",
+                    "resourceId": str(res.id),
+                    "resourceName": res.name,
+                    "displayName": display_name,
+                    "label": label,
+                    "targetTable": res.target_table,
+                    "active": res.active,
+                    "resourceParams": resource_params,
+                    "versions": versions,
+                })
+
+        tree.sort(key=lambda n: n["displayName"].lower())
+        return tree
+    finally:
+        session.close()
+
+
+@app.delete("/api/datasets/{dataset_id}")
+async def delete_dataset(dataset_id: str):
+    """Elimina un dataset: borra el registro en BD y el fichero JSONL asociado."""
+    session = SessionLocal()
+    try:
+        dataset = session.query(Dataset).filter(Dataset.id == dataset_id).first()
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        data_path = dataset.data_path
+        session.delete(dataset)
+        session.commit()
+        if data_path and os.path.exists(data_path):
+            os.remove(data_path)
+            dataset_dir = os.path.dirname(data_path)
+            schema_path = os.path.join(dataset_dir, "schema.json")
+            if os.path.exists(schema_path):
+                os.remove(schema_path)
+        db2 = SessionLocal()
+        try:
+            data_engine.rebuild(db2)
+        finally:
+            db2.close()
+        return {"ok": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
 @app.get("/api/datasets/{dataset_id}/data.jsonl")
 async def download_dataset_data(dataset_id: str):
     session = SessionLocal()
