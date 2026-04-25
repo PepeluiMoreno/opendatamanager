@@ -154,12 +154,12 @@
                       title="Ver parámetros"
                       class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </button>
-                    <button v-if="ver.isLatest && ver.queryName" @click="openSandbox(ver)"
-                      title="Abrir en Sandbox"
+                    <button v-if="ver.queryName" @click="openSandbox(ver)"
+                      title="Abrir en Sandbox GraphQL"
                       class="p-1.5 rounded text-gray-400 hover:text-blue-300 hover:bg-blue-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -207,7 +207,7 @@
 
     <!-- ── Params modal ── -->
     <div v-if="paramsModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="paramsModal = null">
-      <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl w-[560px] max-h-[80vh] flex flex-col">
+      <div class="bg-gray-800 border border-gray-600 rounded-xl shadow-2xl w-[820px] max-w-[92vw] max-h-[85vh] flex flex-col">
         <!-- Header -->
         <div class="flex items-start justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
           <div>
