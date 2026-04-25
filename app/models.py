@@ -1,6 +1,6 @@
 from uuid import uuid4
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, DateTime, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, Float, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -119,6 +119,41 @@ class ResourceParam(Base):
     is_external = Column(Boolean, default=False, nullable=False)
 
     resource = relationship("Resource", back_populates="params")
+
+
+class ResourceCandidate(Base):
+    """Propuesta de agrupación inferida por el GroupingInferer a partir de las
+    URLs hoja descubiertas por un crawler `Web Tree`. Promover una candidata crea
+    un Resource hijo (auto_generated) cuyo fetcher en modo stream descarga las
+    `matched_urls` y enriquece cada registro con las `dimensions` detectadas."""
+    __tablename__ = "resource_candidate"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    execution_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_execution.id", ondelete="SET NULL"), nullable=True)
+    crawler_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
+
+    path_template = Column(Text, nullable=False)
+    dimensions = Column(JSONB, nullable=False, default=list)
+    matched_urls = Column(JSONB, nullable=False, default=list)
+    file_types = Column(JSONB, nullable=False, default=dict)
+
+    suggested_name = Column(Text, nullable=True)
+    confidence = Column(Float, nullable=True)
+
+    status = Column(String(20), nullable=False, default="discovered")
+    promoted_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
+    merged_into_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_candidate.id", ondelete="SET NULL"), nullable=True)
+    split_from_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_candidate.id", ondelete="SET NULL"), nullable=True)
+
+    detected_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    reviewed_at = Column(DateTime, nullable=True)
+    reviewed_by = Column(String(200), nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
+
+    crawler_resource = relationship("Resource", foreign_keys=[crawler_resource_id])
+    promoted_resource = relationship("Resource", foreign_keys=[promoted_resource_id])
+    execution = relationship("ResourceExecution")
 
 
 class Application(Base):
