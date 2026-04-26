@@ -18,6 +18,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    # Idempotente: si una migración previa rechazada (file-granular) creó la tabla
+    # con un esquema distinto, la tiramos antes de recrearla con el esquema actual.
+    # Seguro porque entre el merge descartado y este deploy no pudo haber datos
+    # útiles persistidos.
+    op.execute("DROP TABLE IF EXISTS opendata.resource_candidate CASCADE")
+
     op.create_table(
         'resource_candidate',
         sa.Column('id', UUID(as_uuid=True), primary_key=True),
