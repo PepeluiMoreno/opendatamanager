@@ -63,7 +63,7 @@
             <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Registros</th>
             <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Campos</th>
             <th class="text-left px-4 py-2.5 text-gray-400 font-medium">Generado</th>
-            <th class="w-24 px-4 py-2.5 text-gray-400 font-medium text-center">Acciones</th>
+            <th class="w-28 px-4 py-2.5 text-gray-400 font-medium text-center">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -113,9 +113,11 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
                   </button>
-                  <button v-if="latestQueryableVersion(res)" @click="openSandbox(latestQueryableVersion(res))"
-                    title="Abrir Sandbox GraphQL (última versión queryable)"
-                    class="p-1.5 rounded text-gray-400 hover:text-blue-300 hover:bg-blue-900/30 transition-colors">
+                  <!-- Sandbox en fila de resource: abre la versión latest queryable o el sandbox genérico -->
+                  <button @click="openSandbox(latestQueryableVersion(res) || res.versions[0], res)"
+                    :title="latestQueryableVersion(res) ? 'Abrir Sandbox GraphQL (última versión activa)' : 'Abrir Sandbox GraphQL'"
+                    class="p-1.5 rounded transition-colors"
+                    :class="latestQueryableVersion(res) ? 'text-gray-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-900/20'">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                     </svg>
@@ -151,6 +153,7 @@
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-gray-400">v{{ ver.version }}</span>
                     <span v-if="ver.isLatest" class="text-xs bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span>
+                    <span v-if="!ver.queryName" class="text-xs bg-yellow-900/40 text-yellow-600 border border-yellow-700/30 px-1.5 py-0.5 rounded" title="No está en el registry activo del engine de datos. Ejecuta el resource para reconstruir el schema.">sin registry</span>
                   </div>
                 </td>
                 <td class="px-4 py-2.5 text-right">
@@ -174,9 +177,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </button>
-                    <button v-if="ver.queryName" @click="openSandbox(ver)"
-                      title="Abrir en Sandbox GraphQL"
-                      class="p-1.5 rounded text-gray-400 hover:text-blue-300 hover:bg-blue-900/30 transition-colors">
+                    <!-- Sandbox: siempre visible, azul si queryName existe, amarillo si no -->
+                    <button @click="openSandbox(ver, res)"
+                      :title="ver.queryName ? 'Abrir en Sandbox GraphQL' : 'Abrir Sandbox GraphQL (dataset fuera del registry activo)'"
+                      class="p-1.5 rounded transition-colors"
+                      :class="ver.queryName ? 'text-gray-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-900/20'">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                       </svg>
@@ -211,6 +216,9 @@
                         { {{ ver.queryName }}(limit:20) { total items { {{ ver.fields.slice(0,4).join(' ') }}{{ ver.fields.length > 4 ? ' …' : '' }} } } }
                       </code>
                     </div>
+                    <div v-else class="pt-1">
+                      <p class="text-xs text-yellow-700 italic">Este dataset no está en el registry activo del engine de datos. Ejecuta el resource para reconstruir el schema GraphQL y hacerlo queryable.</p>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -224,7 +232,6 @@
     <!-- ── Params modal ── -->
     <div v-if="paramsModal" class="modal-overlay" @click.self="paramsModal = null">
       <div class="modal-card">
-        <!-- Header -->
         <div class="flex items-start justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
           <div>
             <h3 class="text-sm font-semibold text-white">{{ paramsModal.resourceName }}</h3>
@@ -242,8 +249,6 @@
         </div>
 
         <div class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
-
-          <!-- Execution params (only for version rows) -->
           <div v-if="paramsModal.version">
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
               Parámetros de ejecución
@@ -258,8 +263,6 @@
             </div>
             <p v-else class="text-xs text-gray-600 italic">Sin parámetros de ejecución — se usaron los valores estáticos del recurso.</p>
           </div>
-
-          <!-- Static resource params -->
           <div>
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
               Parámetros del recurso
@@ -274,7 +277,6 @@
             </div>
             <p v-else class="text-xs text-gray-600 italic">Sin parámetros configurados.</p>
           </div>
-
         </div>
       </div>
     </div>
@@ -425,13 +427,38 @@ function formatDate(iso) {
     + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 }
 
-function buildQuery(ver) {
-  const fields = (ver.fields || []).slice(0, 12).join('\n      ')
-  return `{\n  ${ver.queryName}(limit: 20) {\n    total\n    items {\n      ${fields}\n    }\n  }\n}`
+/**
+ * Construye una query GraphQL para el sandbox.
+ * Si ver.queryName existe la usa directamente.
+ * Si no, genera un nombre candidato a partir del nombre del resource
+ * para que el sandbox abra con algo útil aunque el dataset no esté
+ * en el registry activo del engine.
+ */
+function buildQuery(ver, res) {
+  // queryName real si existe
+  const qName = ver?.queryName || candidateQueryName(res)
+  const fields = (ver?.fields || []).slice(0, 12).join('\n      ')
+  const fieldsPart = fields
+    ? `total\n    items {\n      ${fields}\n    }`
+    : 'total\n    items { id }'
+  return `{\n  ${qName}(limit: 20) {\n    ${fieldsPart}\n  }\n}`
 }
 
-function openSandbox(ver) {
-  window.open(`/graphql/data?query=${encodeURIComponent(buildQuery(ver))}`, '_blank')
+/**
+ * Genera un queryName candidato a partir del nombre del resource,
+ * siguiendo la misma convención que el schema_builder del engine.
+ * Útil cuando el dataset no está en el registry activo.
+ */
+function candidateQueryName(res) {
+  if (!res?.resourceName) return 'datasets'
+  return res.resourceName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+(.)/g, (_, c) => c.toUpperCase())
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function openSandbox(ver, res) {
+  window.open(`/graphql/data?query=${encodeURIComponent(buildQuery(ver, res))}`, '_blank')
 }
 
 function latestQueryableVersion(res) {
@@ -439,7 +466,7 @@ function latestQueryableVersion(res) {
 }
 
 async function copyQuery(ver) {
-  await navigator.clipboard.writeText(buildQuery(ver))
+  await navigator.clipboard.writeText(buildQuery(ver, null))
   copiedId.value = ver.datasetId
   setTimeout(() => (copiedId.value = null), 2000)
 }
