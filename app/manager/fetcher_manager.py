@@ -12,7 +12,7 @@ from app.fetchers.factory import FetcherFactory
 from app.builders.dataset_builder import DatasetBuilder
 from app.services.notification_service import NotificationService
 from app.services.data_loader_service import DataLoaderService
-from app.services import grouping_inferer
+from app.services.grouping_inferer import get_inferer
 
 LOG_DIR = "data/logs"
 
@@ -25,7 +25,6 @@ class ExecutionLogger:
         os.makedirs(LOG_DIR, exist_ok=True)
         self.log_path = f"{LOG_DIR}/{execution_id}.log"
         self._file = open(self.log_path, "a", buffering=1)
-        # Attach a logging handler so fetcher logger.info/warning calls land here
         self._handler = logging.StreamHandler(self._file)
         self._handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
         self._handler.setLevel(logging.DEBUG)
@@ -53,39 +52,23 @@ class FetcherManager:
 
     @staticmethod
     def _make_serializable(obj):
-        """Convert non-serializable objects to JSON-serializable format"""
         from bs4 import BeautifulSoup, Tag
         from bs4.element import NavigableString
-
         if isinstance(obj, dict):
             return {k: FetcherManager._make_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [FetcherManager._make_serializable(item) for item in obj]
         elif isinstance(obj, (BeautifulSoup, Tag)):
-            # Convert BeautifulSoup/Tag to string
             return str(obj)
         elif isinstance(obj, NavigableString):
             return str(obj)
         elif isinstance(obj, (str, int, float, bool, type(None))):
             return obj
         else:
-            # For any other type, convert to string
             return str(obj)
 
     @staticmethod
     def run(session: Session, resource_id: str, execution_params: Optional[dict] = None, execution_id: Optional[str] = None) -> Optional[Dataset]:
-        """
-        Ejecuta pipeline: EXTRACT → STAGE (→ DATASET - TODO)
-
-        Args:
-            session: Sesión SQLAlchemy activa
-            resource_id: UUID del Resource a ejecutar
-            execution_params: Parámetros runtime que sobreescriben/amplían los ResourceParam estáticos
-
-        Returns:
-            None (Dataset creation pending implementation)
-        """
-        # Load resource
         resource = session.query(Resource).filter(Resource.id == resource_id).first()
 
         if not resource:
@@ -93,7 +76,6 @@ class FetcherManager:
 
         if not resource.active:
             print(f"Resource '{resource.name}' está desactivado, omitiendo...")
-            # Si ya se creó un registro de ejecución, marcarlo como abortado
             if execution_id:
                 stale = session.query(ResourceExecution).filter(
                     ResourceExecution.id == execution_id,
@@ -106,7 +88,6 @@ class FetcherManager:
                     session.commit()
             return None
 
-        # Use pre-created execution record if provided, otherwise create one now
         if execution_id:
             execution = session.query(ResourceExecution).filter(
                 ResourceExecution.id == execution_id
@@ -116,41 +97,34 @@ class FetcherManager:
         else:
             execution = ResourceExecution(
                 resource_id=resource_id,
-                resource_name=resource.name,  # snapshot histórico: no cambia si se renombra el resource
+                resource_name=resource.name,
                 status="running",
                 started_at=datetime.utcnow(),
                 execution_params=execution_params,
             )
             session.add(execution)
-            session.commit()  # Commit immediately so execution is visible as "running"
+            session.commit()
 
-        period_start = datetime.utcnow()  # defined before try so except can always reference it
+        period_start = datetime.utcnow()
         logger = ExecutionLogger(str(execution.id))
         try:
             logger.log(f"Ejecutando Resource: {resource.name} (publisher: {resource.publisher})")
 
-            # 1. EXTRACT + STAGE (streaming — one page written to disk at a time)
             staging_dir = f"data/staging/{resource_id}"
             os.makedirs(staging_dir, exist_ok=True)
             staging_path = os.path.join(staging_dir, f"{execution.id}.jsonl")
 
-            # Detect resume: execution_params may carry _resume_state saved at pause time
             saved_state = (execution.execution_params or {}).get("_resume_state")
-            is_resume   = bool(saved_state)
+            is_resume = bool(saved_state)
 
-            # Build runtime params for the fetcher, injecting resume info if needed
             runtime_params = dict(execution_params or {})
             runtime_params["_staging_path"] = staging_path
             if saved_state:
                 runtime_params["_resume_state"] = saved_state
 
-            # ── MODO DEDUCIDO ────────────────────────────────────────────────
-            # parent_resource_id = NULL  →  crawler padre   →  modo discover
-            # parent_resource_id = set   →  hijo promovido  →  modo stream
             is_child = resource.parent_resource_id is not None
 
             if is_child:
-                # Cargar la candidata que originó este hijo y pasar matched_urls/dimensions
                 candidate = (
                     session.query(ResourceCandidate)
                     .filter(
@@ -170,50 +144,71 @@ class FetcherManager:
 
             fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
 
-            # ── DISCOVER MODE (crawler padre con fetcher que soporta discover) ──
+            # ── DISCOVER MODE ────────────────────────────────────────────────
             if not is_child and hasattr(fetcher, "discover"):
                 logger.log("[1/1] DISCOVER — Crawleando árbol sin descargar ficheros...")
                 leaf_urls = fetcher.discover()
                 logger.log(f"  {len(leaf_urls)} URLs hoja descubiertas. Inferiendo agrupaciones...")
-                proposals = grouping_inferer.infer(leaf_urls)
-                logger.log(f"  {len(proposals)} propuesta(s) de agrupación. Persistiendo candidatos...")
+
+                # Elegir inferer según parámetro del resource (default: 'generic')
+                resource_params = {p.key: p.value for p in resource.params}
+                inferer_name = resource_params.get("grouping_inferer", "generic")
+                try:
+                    inferer = get_inferer(inferer_name)
+                except ValueError as e:
+                    logger.log(f"  WARN: {e} — usando 'generic'")
+                    inferer = get_inferer("generic")
+
+                logger.log(f"  Inferer seleccionado: '{inferer_name}' ({inferer.__class__.__name__})")
+                raw_proposals = inferer.infer(leaf_urls)
+                logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación. Persistiendo candidatos...")
 
                 created_ids = []
-                for p in proposals:
+                for p in raw_proposals:
+                    # raw_proposals puede ser dataclasses o dicts según el inferer
+                    if isinstance(p, dict):
+                        pd = p
+                    else:
+                        from dataclasses import asdict
+                        pd = asdict(p)
+
                     candidate = ResourceCandidate(
                         execution_id=execution.id,
                         crawler_resource_id=resource.id,
-                        path_template=p.path_template,
-                        dimensions=p.dimensions,
-                        matched_urls=p.matched_urls,
-                        file_types=p.file_types,
-                        suggested_name=p.suggested_name,
-                        confidence=p.confidence,
+                        path_template=pd.get("path_template"),
+                        dimensions=pd.get("dimensions"),
+                        matched_urls=pd.get("matched_urls"),
+                        file_types=pd.get("file_types"),
+                        suggested_name=pd.get("suggested_name"),
+                        confidence=pd.get("confidence"),
                         status="discovered",
                     )
                     session.add(candidate)
                     session.flush()
                     created_ids.append(str(candidate.id))
 
-                # Mantener artifact para inspección (no es la fuente de verdad)
                 artifact_path = os.path.join(staging_dir, f"discover_{execution.id}.json")
                 with open(artifact_path, "w", encoding="utf-8") as f:
-                    json.dump([p.to_dict() for p in proposals], f, ensure_ascii=False, indent=2)
+                    json.dump(
+                        [p if isinstance(p, dict) else p.to_dict() for p in raw_proposals],
+                        f, ensure_ascii=False, indent=2,
+                    )
                 execution.staging_path = artifact_path
-                execution.total_records = len(proposals)
+                execution.total_records = len(raw_proposals)
                 execution.active_seconds = (execution.active_seconds or 0) + int(
                     (datetime.utcnow() - period_start).total_seconds()
                 )
                 execution.status = "completed"
                 execution.completed_at = datetime.utcnow()
                 logger.log(
-                    f"DISCOVER COMPLETED — {len(proposals)} candidato(s) creados; "
+                    f"DISCOVER COMPLETED — {len(raw_proposals)} candidato(s) creados; "
                     f"{len(leaf_urls)} URLs analizadas"
                 )
                 session.commit()
                 logger.close()
                 return None
 
+            # ── STREAM MODE ──────────────────────────────────────────────────
             logger.log("[1/5] EXTRACT+STAGE - Streaming data to staging file...")
             if is_resume:
                 hint = (
@@ -224,8 +219,7 @@ class FetcherManager:
                 )
                 logger.log(f"  RESUME — continuing from {hint}, appending to existing staging file")
 
-            # On resume, append to existing staging and recover already-staged record count
-            file_mode    = "a" if is_resume else "w"
+            file_mode = "a" if is_resume else "w"
             total_records = int(execution.total_records or 0) if is_resume else 0
             paused = False
             _STAGING_EXCLUDE = {"raw_xml_content", "raw_html", "_raw"}
@@ -241,7 +235,6 @@ class FetcherManager:
                     session.commit()
                     logger.log(f"  Staged {total_records} records so far...")
 
-                    # Check cooperative pause signal
                     session.refresh(execution)
                     if execution.pause_requested:
                         paused = True
@@ -249,10 +242,7 @@ class FetcherManager:
                         break
 
             if paused:
-                # Accumulate active time for this period
                 execution.active_seconds = (execution.active_seconds or 0) + int((datetime.utcnow() - period_start).total_seconds())
-
-                # Persist resume state from fetcher so next resume continues from here
                 resume_state = getattr(fetcher, "current_state", {})
                 current_params = dict(execution.execution_params or {})
                 current_params["_resume_state"] = resume_state
@@ -276,7 +266,6 @@ class FetcherManager:
             session.commit()
             logger.log(f"  Done: {total_records} records → {staging_path}")
 
-            # 2. DATASET - Generate package
             logger.log("[2/5] DATASET - Building dataset...")
             dataset_builder = DatasetBuilder()
             dataset = dataset_builder.build(
@@ -287,7 +276,6 @@ class FetcherManager:
             session.add(dataset)
             logger.log(f"  Dataset created: {dataset.version_string}")
 
-            # 3. DERIVE - Extract side-product catalog datasets
             derived_configs = session.query(DerivedDatasetConfig).filter(
                 DerivedDatasetConfig.source_resource_id == resource_id,
                 DerivedDatasetConfig.enabled == True,
@@ -299,12 +287,10 @@ class FetcherManager:
             else:
                 logger.log("[3/5] DERIVE - Skipped (no configs enabled)")
 
-            # 4. LOAD (optional) - Upsert to core schema
             if resource.enable_load:
                 logger.log(f"[4/5] LOAD - Loading data to core.{resource.target_table}...")
                 data_loader = DataLoaderService()
                 try:
-                    # Read from staging file for LOAD (avoids keeping full list in RAM twice)
                     with open(staging_path, "r", encoding="utf-8") as f:
                         data_for_load = [json.loads(line) for line in f]
                     loaded_count = data_loader.load_data(
@@ -322,7 +308,6 @@ class FetcherManager:
             else:
                 logger.log("[4/5] LOAD - Skipped (enable_load=False)")
 
-            # 5. NOTIFY - Send webhooks
             logger.log("[5/5] NOTIFY - Sending notifications...")
             notification_service = NotificationService()
             notification_service.notify_subscribers(session, dataset)
@@ -332,20 +317,18 @@ class FetcherManager:
             execution.completed_at = datetime.utcnow()
             logger.log(f"COMPLETED - {total_records} records in {execution.active_seconds}s active")
 
-            # Staging file no longer needed — dataset and load steps already consumed it
             try:
                 if os.path.exists(staging_path):
                     os.remove(staging_path)
-                staging_dir = os.path.dirname(staging_path)
-                if os.path.isdir(staging_dir) and not any(os.scandir(staging_dir)):
-                    os.rmdir(staging_dir)
+                staging_dir_clean = os.path.dirname(staging_path)
+                if os.path.isdir(staging_dir_clean) and not any(os.scandir(staging_dir_clean)):
+                    os.rmdir(staging_dir_clean)
             except OSError:
                 pass
 
-            # Rebuild the dynamic GraphQL data schema so new data is immediately queryable
             try:
                 from app.graphql_data import engine as data_engine
-                session.flush()  # Ensure new dataset is visible to build_schema query (autoflush=False)
+                session.flush()
                 count = data_engine.rebuild(session)
                 logger.log(f"  GraphQL data schema rebuilt — {count} dataset(s) total in data API.")
             except Exception as rebuild_err:
@@ -367,12 +350,6 @@ class FetcherManager:
 
     @staticmethod
     def _derive_dataset(session: Session, config: DerivedDatasetConfig, staging_path: str, logger: ExecutionLogger) -> int:
-        """
-        Extracts derived catalog entries from the staging JSONL file using natural key upsert.
-
-        For each record, extracts key_field + extract_fields and upserts into derived_dataset_entry
-        keyed by (config_id, key_value).  Returns the number of distinct entries processed.
-        """
         from uuid import uuid4 as _uuid4
         from datetime import datetime as _dt
 
@@ -380,7 +357,6 @@ class FetcherManager:
         key_field = config.key_field
         extract_fields: list = config.extract_fields or []
 
-        # Group by key_field — last write wins (most recent record for same key)
         extracted: dict[str, dict] = {}
         with open(staging_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -401,7 +377,6 @@ class FetcherManager:
         logger.log(f"  [{target}] {len(extracted)} distinct '{key_field}' values found")
 
         if config.merge_strategy == "insert_only":
-            # Only insert new keys, never overwrite
             for key_val, entry_data in extracted.items():
                 existing = session.query(DerivedDatasetEntry).filter(
                     DerivedDatasetEntry.config_id == config.id,
@@ -416,7 +391,6 @@ class FetcherManager:
                         updated_at=_dt.utcnow(),
                     ))
         else:
-            # upsert: merge existing entries
             for key_val, entry_data in extracted.items():
                 existing = session.query(DerivedDatasetEntry).filter(
                     DerivedDatasetEntry.config_id == config.id,
@@ -443,76 +417,42 @@ class FetcherManager:
 
     @staticmethod
     def run_all(session: Session) -> None:
-        """
-        Ejecuta todos los Resources activos.
-
-        Args:
-            session: Sesión SQLAlchemy activa
-        """
         resources = session.query(Resource).filter(Resource.active == True).all()
-
         if not resources:
             print("No hay resources activos para ejecutar")
             return
-
         print(f"Ejecutando {len(resources)} resources activos...")
-
         for resource in resources:
             try:
                 FetcherManager.run(session, str(resource.id))
             except Exception as e:
                 print(f"Error en Resource '{resource.name}': {e}")
                 continue
-
         print("Ejecucion completada")
 
     @staticmethod
     def fetch_only(session: Session, resource_id: str, limit: int = 10, runtime_params: dict = None) -> list:
-        """
-        Extract data only (no staging, no dataset, no load)
-        
-        Args:
-            session: Sesión SQLAlchemy activa
-            resource_id: UUID del Resource a ejecutar
-            limit: Maximum number of records to return
-            
-        Returns:
-            List of extracted data records
-        """
-        # Load resource
         resource = session.query(Resource).filter(Resource.id == resource_id).first()
-
         if not resource:
             raise ValueError(f"Resource con id '{resource_id}' no encontrado")
-
         if not resource.active:
             print(f"Resource '{resource.name}' está desactivado, omitiendo...")
             return []
-
         print(f"Extracting data from: {resource.name} (limit: {limit})")
-
-        # Extract data only
         fetcher = FetcherFactory.create_from_resource(resource)
-        # Inject runtime overrides (external params defined at sandbox time)
         if runtime_params:
             for k, v in runtime_params.items():
                 if v not in (None, ""):
                     fetcher.params[k] = v
-        # Hint al fetcher para que corte temprano en modo preview
         fetcher.params["_preview_limit"] = limit
         data = fetcher.execute()
-
-        # Normalize data to list format
         if isinstance(data, dict):
             data_list = [data]
         elif isinstance(data, list):
             data_list = data
         else:
             raise ValueError(f"Unexpected data type from fetcher: {type(data)}")
-
-        # Make serializable and apply limit
         serializable_data = [FetcherManager._make_serializable(item) for item in data_list]
         limited_data = serializable_data[:limit]
-        
         print(f"  Extracted {len(limited_data)} records (limited from {len(data_list)})")
         return limited_data
