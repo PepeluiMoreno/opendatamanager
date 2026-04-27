@@ -145,6 +145,13 @@
             </td>
             <td class="py-1.5 px-3">
               <div class="flex justify-end gap-1">
+                <!-- Discover: solo visible en fetchers Web Tree -->
+                <button
+                  v-if="isWebTree(resource)"
+                  @click="launchDiscover(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-purple-800 hover:bg-purple-700 text-white"
+                  title="Lanzar Discovery — crawlea el árbol y genera candidatos"
+                >Discover</button>
                 <button
                   @click="openExecuteModal(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
@@ -1014,7 +1021,7 @@
     </div>
   </div>
 
-  <!-- ── Modal importar bundle ───────────────────────────────────────────── -->
+  <!-- ── Modal importar bundle ─────────────────────────────────────────────── -->
   <div v-if="showImportModal"
        class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
     <div class="bg-gray-800 border border-gray-700 rounded-lg w-full max-w-2xl max-h-[80vh] flex flex-col">
@@ -1091,6 +1098,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import Tooltip from '../components/Tooltip.vue'
 import FilterMapEditor from '../components/FilterMapEditor.vue'
 import EnumMetaPreview from '../components/EnumMetaPreview.vue'
@@ -1118,7 +1126,9 @@ import {
 } from '../api/graphql'
 import PreviewDataModal from './PreviewDataModal.vue'
 
-// ── Refs para medición de altura dinámica ─────────────────────────────────────
+const router = useRouter()
+
+// ── Refs para medición de altura dinámica ─────────────────────────────────────────────
 const viewEl    = ref(null)
 const filterEl  = ref(null)
 const paginEl   = ref(null)
@@ -1157,15 +1167,10 @@ const concurrencyLimits = computed(() => {
   const defPageSize = appConfig.value['default_page_size'] ?? 100
 
   return {
-    // Workers: bounded by global max_concurrent_processes and hardware
     workers:    { min: 1, max: Math.min(maxProc, cpu * 2), default: 1 },
-    // Concurrent HTTP requests: independent of process limit but bounded by CPU
     concReqs:   { min: 1, max: Math.min(50, cpu * 10), default: 5 },
-    // Rate limit: pure API concern, no hardware constraint
     rateLimit:  { min: 1, max: 200, default: 10 },
-    // Batch size: bounded by default_page_size setting and RAM
     batchSize:  { min: 1, max: Math.min(5000, Math.floor(ramMb / 5)), default: defPageSize },
-    // Retries: fixed sensible range
     retries:    { min: 0, max: 10, default: 3 },
     backoff:    { min: 1, max: 5,  default: 2, step: 0.1 },
     delay:      { min: 0, max: 30000, default: 0 },
@@ -1176,7 +1181,6 @@ const error = ref(null)
 const searchQuery = ref('')
 const currentPage = ref(1)
 
-// Filter state
 const selectedType      = ref('')
 const selectedPublisher = ref('')
 const selectedNivel     = ref('')
@@ -1214,12 +1218,11 @@ function clearFilters() {
 
 const showCreateModal = ref(false)
 
-// ── Import bundle ─────────────────────────────────────────────────────────────
 const importFileInput  = ref(null)
 const showImportModal  = ref(false)
-const importPreview    = ref([])   // resources a crear tras parsear el JSON
+const importPreview    = ref([])
 const importRunning    = ref(false)
-const importDone       = ref([])   // { name, status: 'created'|'skipped'|'error', detail }
+const importDone       = ref([])
 
 function triggerImport() {
   importFileInput.value?.click()
@@ -1229,88 +1232,38 @@ async function onImportFile(event) {
   const file = event.target.files?.[0]
   if (!file) return
   event.target.value = ''
-
   let bundle
-  try {
-    bundle = JSON.parse(await file.text())
-  } catch {
-    alert('El fichero no es JSON válido.')
-    return
-  }
-
+  try { bundle = JSON.parse(await file.text()) } catch { alert('El fichero no es JSON válido.'); return }
   const list = Array.isArray(bundle) ? bundle : bundle.resources ?? []
   if (!list.length) { alert('El bundle no contiene resources.'); return }
-
-  // Resolver fetcherCode → fetcherId y publisher → publisherId en memoria
   const resolved = list.map(r => {
-    const fetcher = fetchers.value.find(
-      f => f.code === r.fetcherCode || f.id === r.fetcherId
-    )
-    const pub = publishers.value.find(
-      p => p.id === r.publisherId ||
-           p.acronimo === r.publisherAcronimo ||
-           p.nombre?.toLowerCase() === r.publisher?.toLowerCase()
-    )
-    return {
-      ...r,
-      _fetcherId:    fetcher?.id ?? null,
-      _fetcherName:  fetcher?.code ?? r.fetcherCode,
-      _publisherId:  pub?.id ?? r.publisherId ?? null,
-      _publisherName: pub?.nombre ?? r.publisher ?? null,
-    }
+    const fetcher = fetchers.value.find(f => f.code === r.fetcherCode || f.id === r.fetcherId)
+    const pub = publishers.value.find(p => p.id === r.publisherId || p.acronimo === r.publisherAcronimo || p.nombre?.toLowerCase() === r.publisher?.toLowerCase())
+    return { ...r, _fetcherId: fetcher?.id ?? null, _fetcherName: fetcher?.code ?? r.fetcherCode, _publisherId: pub?.id ?? r.publisherId ?? null, _publisherName: pub?.nombre ?? r.publisher ?? null }
   })
-
-  importPreview.value  = resolved
-  importDone.value     = []
+  importPreview.value = resolved
+  importDone.value = []
   showImportModal.value = true
 }
 
 async function runImport() {
   importRunning.value = true
   importDone.value = []
-
   for (const r of importPreview.value) {
-    // Omitir si ya existe un resource con ese nombre
     const exists = resources.value.some(x => x.name === r.name)
-    if (exists) {
-      importDone.value.push({ name: r.name, status: 'skipped', detail: 'ya existe' })
-      continue
-    }
-    if (!r._fetcherId) {
-      importDone.value.push({ name: r.name, status: 'error', detail: `fetcher '${r._fetcherName}' no encontrado` })
-      continue
-    }
+    if (exists) { importDone.value.push({ name: r.name, status: 'skipped', detail: 'ya existe' }); continue }
+    if (!r._fetcherId) { importDone.value.push({ name: r.name, status: 'error', detail: `fetcher '${r._fetcherName}' no encontrado` }); continue }
     try {
-      await createResource({
-        name:        r.name,
-        description: r.description ?? null,
-        publisher:   r._publisherName ?? r.publisher ?? null,
-        fetcherId:   r._fetcherId,
-        publisherId: r._publisherId ?? null,
-        targetTable: r.targetTable ?? r.target_table ?? null,
-        schedule:    r.schedule ?? null,
-        params:      (r.params ?? []).map(p => ({
-          key:        p.key,
-          value:      String(p.value ?? ''),
-          isExternal: p.isExternal ?? p.is_external ?? false,
-        })),
-        active:      r.active ?? true,
-      })
+      await createResource({ name: r.name, description: r.description ?? null, publisher: r._publisherName ?? r.publisher ?? null, fetcherId: r._fetcherId, publisherId: r._publisherId ?? null, targetTable: r.targetTable ?? r.target_table ?? null, schedule: r.schedule ?? null, params: (r.params ?? []).map(p => ({ key: p.key, value: String(p.value ?? ''), isExternal: p.isExternal ?? p.is_external ?? false })), active: r.active ?? true })
       importDone.value.push({ name: r.name, status: 'created', detail: '' })
-    } catch(e) {
-      importDone.value.push({ name: r.name, status: 'error', detail: String(e) })
-    }
+    } catch(e) { importDone.value.push({ name: r.name, status: 'error', detail: String(e) }) }
   }
-
   importRunning.value = false
   if (importDone.value.some(r => r.status === 'created')) await loadData()
 }
 
-function closeImportModal() {
-  showImportModal.value = false
-  importPreview.value   = []
-  importDone.value      = []
-}
+function closeImportModal() { showImportModal.value = false; importPreview.value = []; importDone.value = [] }
+
 const showEditModal = ref(false)
 const showDeleteModal    = ref(false)
 const hardDeleteFlag     = ref(false)
@@ -1330,76 +1283,27 @@ const previewError = ref(null)
 const previewParams = ref({})
 
 const form = ref({
-  name: '',
-  description: '',
-  publisherId: null,
-  fetcherId: '',
-  params: [],
-  active: true,
-  schedule: null,
-  numWorkers: 1,
-  maxConcurrentRequests: null,
-  rateLimitPerSecond: null,
-  requestDelayMs: null,
-  retryAttempts: null,
-  retryBackoffFactor: null,
-  batchSize: null,
+  name: '', description: '', publisherId: null, fetcherId: '', params: [], active: true, schedule: null,
+  numWorkers: 1, maxConcurrentRequests: null, rateLimitPerSecond: null, requestDelayMs: null,
+  retryAttempts: null, retryBackoffFactor: null, batchSize: null,
 })
 
 const activeParamTab = ref('parameters')
-
-// Derived datasets state
 const derivedConfigs = ref([])
 const derivedConfigsLoading = ref(false)
-const newDerivedConfig = ref({
-  targetName: '',
-  keyField: '',
-  extractFieldsText: '',
-  mergeStrategy: 'upsert',
-  enabled: true,
-  description: '',
-})
+const newDerivedConfig = ref({ targetName: '', keyField: '', extractFieldsText: '', mergeStrategy: 'upsert', enabled: true, description: '' })
 const showAddDerivedForm = ref(false)
 const editingDerivedId = ref(null)
 const editingDerivedData = ref({})
 
-// Computed property for selected fetcher
-const selectedFetcher = computed(() => {
-  if (!fetchers.value || fetchers.value.length === 0) return null
-  return fetchers.value.find(type => type.id === form.value.fetcherId)
-})
+const selectedFetcher = computed(() => fetchers.value.find(type => type.id === form.value.fetcherId) || null)
+const requiredParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required === true) || [])
+const optionalParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required !== true) || [])
+const addedOptionalParams = computed(() => { const req = requiredParams.value.map(p => p.paramName); return form.value.params.map(p => p.key).filter(k => !req.includes(k)) })
 
-// Computed property for required parameters
-const requiredParams = computed(() => {
-  if (!selectedFetcher.value || !selectedFetcher.value.paramsDef) {
-    return []
-  }
-  return selectedFetcher.value.paramsDef.filter(param => param.required === true)
-})
-
-// Computed property for optional parameters
-const optionalParams = computed(() => {
-  if (!selectedFetcher.value || !selectedFetcher.value.paramsDef) {
-    return []
-  }
-  return selectedFetcher.value.paramsDef.filter(param => param.required !== true)
-})
-
-// Computed property for added optional parameters (legacy, kept for compatibility)
-const addedOptionalParams = computed(() => {
-  const allRequired = requiredParams.value.map(p => p.paramName)
-  return form.value.params
-    .map(p => p.key)
-    .filter(key => !allRequired.includes(key))
-})
-
-// ── Grouped params ────────────────────────────────────────────────────────────
-
-/** Optional params organised by their `group` field. */
 const paramGroups = computed(() => {
   if (!selectedFetcher.value) return []
-  const grouped = {}
-  const order = []
+  const grouped = {}; const order = []
   for (const p of optionalParams.value) {
     if (!p.group) continue
     if (!grouped[p.group]) { grouped[p.group] = []; order.push(p.group) }
@@ -1408,725 +1312,247 @@ const paramGroups = computed(() => {
   return order.map(name => ({ name, params: grouped[name] }))
 })
 
-/** Optional params that have NO group (rendered via the old dropdown). */
-const ungroupedOptionalParams = computed(() => {
-  if (!selectedFetcher.value) return []
-  return optionalParams.value.filter(p => !p.group)
-})
-
-/** Ungrouped params currently in form (for the old optional list). */
+const ungroupedOptionalParams = computed(() => selectedFetcher.value ? optionalParams.value.filter(p => !p.group) : [])
 const addedUngroupedOptionalParams = computed(() => {
-  const allRequired = requiredParams.value.map(p => p.paramName)
-  const grouped = new Set(paramGroups.value.flatMap(g => g.params.map(p => p.paramName)))
-  return form.value.params
-    .map(p => p.key)
-    .filter(key => !allRequired.includes(key) && !grouped.has(key))
+  const req = requiredParams.value.map(p => p.paramName)
+  const grp = new Set(paramGroups.value.flatMap(g => g.params.map(p => p.paramName)))
+  return form.value.params.map(p => p.key).filter(k => !req.includes(k) && !grp.has(k))
 })
-
-/** Available ungrouped optional params not yet in form. */
-const availableUngroupedOptionalParams = computed(() => {
-  const currentParamNames = form.value.params.map(p => p.key)
-  return ungroupedOptionalParams.value.filter(p => !currentParamNames.includes(p.paramName))
-})
-
-// Computed property for available optional parameters
-const availableOptionalParams = computed(() => {
-  const currentParamNames = form.value.params.map(p => p.key)
-  return optionalParams.value.filter(param => !currentParamNames.includes(param.paramName))
-})
-
-// ── Group toggle state ────────────────────────────────────────────────────────
+const availableUngroupedOptionalParams = computed(() => { const cur = form.value.params.map(p => p.key); return ungroupedOptionalParams.value.filter(p => !cur.includes(p.paramName)) })
+const availableOptionalParams = computed(() => { const cur = form.value.params.map(p => p.key); return optionalParams.value.filter(p => !cur.includes(p.paramName)) })
 
 const expandedGroups = ref(new Set())
-
-function isGroupEnabled(groupName) {
-  return expandedGroups.value.has(groupName)
+function isGroupEnabled(g) { return expandedGroups.value.has(g) }
+function getGroupActiveCount(g) {
+  const group = paramGroups.value.find(x => x.name === g); if (!group) return 0
+  return group.params.filter(p => { const fp = form.value.params.find(fp => fp.key === p.paramName); return fp && fp.value != null && fp.value !== '' }).length
 }
-
-function getGroupActiveCount(groupName) {
-  const group = paramGroups.value.find(g => g.name === groupName)
-  if (!group) return 0
-  return group.params.filter(p => {
-    const fp = form.value.params.find(fp => fp.key === p.paramName)
-    return fp && fp.value != null && fp.value !== ''
-  }).length
-}
-
-function toggleGroupEnabled(groupName) {
+function toggleGroupEnabled(g) {
   const next = new Set(expandedGroups.value)
-  if (next.has(groupName)) {
-    // Disable: remove all group params from form
-    const group = paramGroups.value.find(g => g.name === groupName)
-    if (group) {
-      const names = new Set(group.params.map(p => p.paramName))
-      form.value.params = form.value.params.filter(p => !names.has(p.key))
-    }
-    next.delete(groupName)
-  } else {
-    next.add(groupName)
-  }
+  if (next.has(g)) { const group = paramGroups.value.find(x => x.name === g); if (group) { const names = new Set(group.params.map(p => p.paramName)); form.value.params = form.value.params.filter(p => !names.has(p.key)) }; next.delete(g) } else { next.add(g) }
   expandedGroups.value = next
 }
-
-const GROUP_LABELS = {
-  url: 'URL Template',
-  pivot_static: 'Static Pivot',
-  pivot_source: 'ODMGR Pivot Source',
-  extraction: 'Data Extraction',
-  pagination: 'Pagination',
-  behavior: 'Behavior',
-}
-
-function formatGroupName(name) {
-  return GROUP_LABELS[name] || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
-
-/** Initialize expandedGroups based on which groups have active params (called when editing). */
+const GROUP_LABELS = { url: 'URL Template', pivot_static: 'Static Pivot', pivot_source: 'ODMGR Pivot Source', extraction: 'Data Extraction', pagination: 'Pagination', behavior: 'Behavior' }
+function formatGroupName(name) { return GROUP_LABELS[name] || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }
 function initExpandedGroups() {
-  const activeParamKeys = new Set(
-    form.value.params.filter(p => p.value != null && p.value !== '').map(p => p.key)
-  )
+  const active = new Set(form.value.params.filter(p => p.value != null && p.value !== '').map(p => p.key))
   const next = new Set()
-  for (const group of paramGroups.value) {
-    if (group.params.some(p => activeParamKeys.has(p.paramName))) {
-      next.add(group.name)
-    }
-  }
+  for (const g of paramGroups.value) { if (g.params.some(p => active.has(p.paramName))) next.add(g.name) }
   expandedGroups.value = next
 }
 
-// Computed property to filter resources based on search query and filters
 const filteredResources = computed(() => {
   const q = searchQuery.value.toLowerCase()
-  const list = resources.value.filter(r => {
-    const pubName = r.publisherObj?.nombre || r.publisher || ''
-    if (q && !r.name.toLowerCase().includes(q) && !pubName.toLowerCase().includes(q))
-      return false
-    if (selectedType.value && r.fetcher?.code !== selectedType.value)
-      return false
-    if (selectedPublisher.value && r.publisherId !== selectedPublisher.value)
-      return false
-    if (selectedNivel.value && r.publisherObj?.nivel !== selectedNivel.value)
-      return false
-    if (!filterAllStatuses.value && filterStatuses.value.length) {
-      const status = r.active ? 'active' : 'inactive'
-      if (!filterStatuses.value.includes(status)) return false
-    }
+  return resources.value.filter(r => {
+    const pub = r.publisherObj?.nombre || r.publisher || ''
+    if (q && !r.name.toLowerCase().includes(q) && !pub.toLowerCase().includes(q)) return false
+    if (selectedType.value && r.fetcher?.code !== selectedType.value) return false
+    if (selectedPublisher.value && r.publisherId !== selectedPublisher.value) return false
+    if (selectedNivel.value && r.publisherObj?.nivel !== selectedNivel.value) return false
+    if (!filterAllStatuses.value && filterStatuses.value.length) { if (!filterStatuses.value.includes(r.active ? 'active' : 'inactive')) return false }
     return true
-  })
-  return list.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  }).sort((a, b) => a.name.localeCompare(b.name, 'es'))
 })
 
 const totalPages = computed(() => Math.ceil(filteredResources.value.length / pageSize.value))
-
-const pagedResources = computed(() => {
-  const ps = pageSize.value
-  const start = (currentPage.value - 1) * ps
-  return filteredResources.value.slice(start, start + ps)
-})
-
+const pagedResources = computed(() => { const s = (currentPage.value - 1) * pageSize.value; return filteredResources.value.slice(s, s + pageSize.value) })
 watch([searchQuery, selectedType, selectedPublisher, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
 
 const selectedOptionalParam = ref('')
 
 async function loadData() {
   try {
-    loading.value = true
-    error.value = null
-    const [resourcesData, typesData, publishersData, resourceMetadata, paramMetadata, cfgData, infoData] = await Promise.all([
-      fetchResources(false),
-      fetchFetchers(),
-      fetchPublishers(),
-      fetchFieldMetadata('resource'),
-      fetchFieldMetadata('resource_param'),
-      fetchAppConfig(),
-      fetch('/api/system/info').then(r => r.json()).catch(() => null),
+    loading.value = true; error.value = null
+    const [rd, td, pd, rmd, pmd, cd, id] = await Promise.all([
+      fetchResources(false), fetchFetchers(), fetchPublishers(),
+      fetchFieldMetadata('resource'), fetchFieldMetadata('resource_param'),
+      fetchAppConfig(), fetch('/api/system/info').then(r => r.json()).catch(() => null),
     ])
-    resources.value = resourcesData.resources
-    fetchers.value = typesData.fetchers
-    publishers.value = publishersData?.publishers || []
-
-    // Organize metadata by field_name for easy lookup
-    const metaMap = {}
-    resourceMetadata.fieldMetadata.forEach(m => {
-      metaMap[m.fieldName] = m
-    })
-    paramMetadata.fieldMetadata.forEach(m => {
-      metaMap[m.fieldName] = m
-    })
-    fieldMetadata.value = metaMap
-
-    // Build key→value map from appConfig array
-    if (cfgData?.appConfig) {
-      const map = {}
-      cfgData.appConfig.forEach(c => { map[c.key] = c.value })
-      appConfig.value = map
-    }
-    if (infoData) sysInfo.value = infoData
-  } catch (e) {
-    error.value = 'Failed to load data: ' + e.message
-  } finally {
-    loading.value = false
-  }
+    resources.value = rd.resources; fetchers.value = td.fetchers; publishers.value = pd?.publishers || []
+    const m = {}; rmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); pmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); fieldMetadata.value = m
+    if (cd?.appConfig) { const map = {}; cd.appConfig.forEach(c => { map[c.key] = c.value }); appConfig.value = map }
+    if (id) sysInfo.value = id
+  } catch (e) { error.value = 'Failed to load data: ' + e.message } finally { loading.value = false }
 }
 
-// Helper to get tooltip text for a field
-function getTooltip(fieldName) {
-  return fieldMetadata.value[fieldName]?.helpText || ''
-}
-
-// Helper to get placeholder for a field
-function getPlaceholder(fieldName) {
-  return fieldMetadata.value[fieldName]?.placeholder || ''
-}
-
-// ── Helpers para enum con {value, label, group?} o string[] ─────────────────
-
-/**
- * Normaliza enum_values a [{value, label, ...rest}] independientemente de si
- * es string[], {value,label}[] o {value,label,group,filters,...}[].
- */
-function enumOpts(vals) {
-  if (!vals) return []
-  return vals.map(v => typeof v === 'string' ? { value: v, label: v } : v)
-}
-
-/**
- * Devuelve [{group, options[{value,label}]}] si los items tienen 'group',
- * o null si es una lista plana.
- */
-function enumGroups(vals) {
-  const opts = enumOpts(vals)
-  if (!opts.length || !opts[0].group) return null
-  const map = new Map()
-  for (const opt of opts) {
-    const g = opt.group || ''
-    if (!map.has(g)) map.set(g, [])
-    map.get(g).push(opt)
-  }
-  return Array.from(map.entries()).map(([group, options]) => ({ group, options }))
-}
-
-/**
- * Devuelve el campo extra de la opción seleccionada (p.ej. 'filters' del preset use_type).
- * Devuelve null si la opción no existe o no tiene ese campo.
- */
-function selectedEnumMeta(paramName, enumValues, field) {
-  const selected = getParamValue(paramName)
-  if (!selected || !enumValues) return null
-  const opt = enumOpts(enumValues).find(o => o.value === selected)
-  return opt?.[field] ?? null
-}
-
-// Helper functions for parameters
-function getParamValue(paramName) {
-  const param = form.value.params.find(p => p.key === paramName)
-  return param ? param.value : ''
-}
-
-function getParamType(paramName) {
-  const param = optionalParams.value.find(p => p.paramName === paramName)
-  return param ? param.dataType : 'string'
-}
-
-function getParamEnumValues(paramName) {
-  const param = optionalParams.value.find(p => p.paramName === paramName)
-  return param ? param.enumValues : null
-}
-
-function getParamDescription(paramName) {
-  const req = requiredParams.value.find(p => p.paramName === paramName)
-  if (req) return req.description || null
-  const opt = optionalParams.value.find(p => p.paramName === paramName)
-  return opt ? (opt.description || null) : null
-}
-
-function getOverpassPresets(paramName) {
-  const req = requiredParams.value.find(p => p.paramName === paramName)
-  if (req) return req.enumValues || {}
-  return getParamEnumValues(paramName) || {}
-}
-
-/** Tipos de param que necesitan layout de ancho completo (sin flex-row). */
-function isFullWidthParam(dataType) {
-  return dataType === 'json_filter_map' || dataType === 'overpass_query' || dataType === 'bbox'
-}
-
-/** BBox helpers: parsea "minx,miny,maxx,maxy" → [minx,miny,maxx,maxy] */
-function parseBbox(val) {
-  if (!val) return ['', '', '', '']
-  const parts = String(val).split(',').map(s => s.trim())
-  while (parts.length < 4) parts.push('')
-  return parts
-}
-
-function updateBbox(paramName, index, newVal) {
-  const current = parseBbox(getParamValue(paramName))
-  current[index] = newVal
-  // Solo serializar si los 4 valores están presentes
-  const joined = current.join(',')
-  updateParamValue(paramName, joined)
-}
-
-/** Modal Overpass: qué param está siendo editado (null = cerrada). */
+function getTooltip(f) { return fieldMetadata.value[f]?.helpText || '' }
+function getPlaceholder(f) { return fieldMetadata.value[f]?.placeholder || '' }
+function enumOpts(vals) { if (!vals) return []; return vals.map(v => typeof v === 'string' ? { value: v, label: v } : v) }
+function enumGroups(vals) { const opts = enumOpts(vals); if (!opts.length || !opts[0].group) return null; const map = new Map(); for (const o of opts) { const g = o.group||''; if (!map.has(g)) map.set(g,[]); map.get(g).push(o) }; return Array.from(map.entries()).map(([g,o]) => ({group:g,options:o})) }
+function selectedEnumMeta(pn, ev, f) { const sel = getParamValue(pn); if (!sel || !ev) return null; return enumOpts(ev).find(o => o.value===sel)?.[f] ?? null }
+function getParamValue(pn) { return form.value.params.find(p => p.key === pn)?.value || '' }
+function getParamType(pn) { return optionalParams.value.find(p => p.paramName === pn)?.dataType || 'string' }
+function getParamEnumValues(pn) { return optionalParams.value.find(p => p.paramName === pn)?.enumValues || null }
+function getParamDescription(pn) { return requiredParams.value.find(p => p.paramName===pn)?.description || optionalParams.value.find(p => p.paramName===pn)?.description || null }
+function getOverpassPresets(pn) { return requiredParams.value.find(p => p.paramName===pn)?.enumValues || getParamEnumValues(pn) || {} }
+function isFullWidthParam(dt) { return dt === 'json_filter_map' || dt === 'overpass_query' || dt === 'bbox' }
+function parseBbox(val) { if (!val) return ['','','','']; const p = String(val).split(',').map(s=>s.trim()); while(p.length<4) p.push(''); return p }
+function updateBbox(pn, i, v) { const c = parseBbox(getParamValue(pn)); c[i]=v; updateParamValue(pn, c.join(',')) }
 const overpassModalParam = ref(null)
-
-function openOverpassModal(paramName) {
-  overpassModalParam.value = paramName
-}
-function closeOverpassModal() {
-  overpassModalParam.value = null
-}
-
-/**
- * Muestra un resumen legible del valor almacenado en un param overpass_query.
- * El valor es un JSON array de bloques: [{preset, pairs, mode}].
- */
-function overpassSummary(paramName) {
-  const raw = getParamValue(paramName)
-  if (!raw) return 'sin condiciones'
-  try {
-    const blocks = JSON.parse(raw)
-    if (!Array.isArray(blocks) || !blocks.length) return 'sin condiciones'
-    const labels = blocks.map(b => b.preset || `(${b.pairs?.length || 0} pares)`)
-    return labels.join(' + ')
-  } catch {
-    return raw.slice(0, 60)
-  }
-}
-
-function getParamDefaultValue(paramName) {
-  // Check required params first
-  const requiredParam = requiredParams.value.find(p => p.paramName === paramName)
-  if (requiredParam && requiredParam.defaultValue) {
-    return requiredParam.defaultValue
-  }
-
-  // Then check optional params
-  const optionalParam = optionalParams.value.find(p => p.paramName === paramName)
-  if (optionalParam && optionalParam.defaultValue) {
-    return optionalParam.defaultValue
-  }
-
-  return null
-}
-
-function updateParamValue(paramName, value) {
-  const param = form.value.params.find(p => p.key === paramName)
-  if (param) {
-    param.value = value
-  } else {
-    form.value.params.push({ key: paramName, value, isExternal: false })
-  }
-}
-
-function toggleParamExternal(paramName) {
-  const param = form.value.params.find(p => p.key === paramName)
-  if (param) param.isExternal = !param.isExternal
-}
-
-function addOptionalParameter() {
-  if (!selectedOptionalParam.value) return
-
-  const paramName = selectedOptionalParam.value
-  const existingParam = form.value.params.find(p => p.key === paramName)
-
-  if (!existingParam) {
-    const defaultValue = getParamDefaultValue(paramName) || ''
-    form.value.params.push({ key: paramName, value: defaultValue, isExternal: false })
-  }
-
-  selectedOptionalParam.value = ''
-}
-
-function removeOptionalParam(paramName) {
-  const index = form.value.params.findIndex(p => p.key === paramName)
-  if (index !== -1) {
-    form.value.params.splice(index, 1)
-  }
-}
+function openOverpassModal(pn) { overpassModalParam.value = pn }
+function closeOverpassModal() { overpassModalParam.value = null }
+function overpassSummary(pn) { const r = getParamValue(pn); if (!r) return 'sin condiciones'; try { const b = JSON.parse(r); if (!Array.isArray(b)||!b.length) return 'sin condiciones'; return b.map(x=>x.preset||`(${x.pairs?.length||0} pares)`).join(' + ') } catch { return r.slice(0,60) } }
+function getParamDefaultValue(pn) { return requiredParams.value.find(p=>p.paramName===pn)?.defaultValue || optionalParams.value.find(p=>p.paramName===pn)?.defaultValue || null }
+function updateParamValue(pn, v) { const p = form.value.params.find(p=>p.key===pn); if (p) p.value=v; else form.value.params.push({key:pn,value:v,isExternal:false}) }
+function toggleParamExternal(pn) { const p = form.value.params.find(p=>p.key===pn); if (p) p.isExternal=!p.isExternal }
+function addOptionalParameter() { if (!selectedOptionalParam.value) return; const pn=selectedOptionalParam.value; if (!form.value.params.find(p=>p.key===pn)) form.value.params.push({key:pn,value:getParamDefaultValue(pn)||'',isExternal:false}); selectedOptionalParam.value='' }
+function removeOptionalParam(pn) { const i=form.value.params.findIndex(p=>p.key===pn); if (i!==-1) form.value.params.splice(i,1) }
 
 function editResource(resource) {
   editingResource.value = resource
-
-  // Helper to extract concurrency params
-  const getParam = (key, defaultValue = null) => {
-    const param = resource.params.find(p => p.key === key)
-    return param ? (defaultValue === null ? param.value : parseInt(param.value)) : defaultValue
-  }
-
-  // Extract concurrency parameters
-  const concurrencyKeys = [
-    'num_workers',
-    'max_concurrent_requests',
-    'rate_limit_per_second',
-    'request_delay_ms',
-    'retry_attempts',
-    'retry_backoff_factor',
-    'batch_size'
-  ]
-
-  // Filter out concurrency params from regular params
-  const regularParams = resource.params.filter(p => !concurrencyKeys.includes(p.key))
-
+  const getParam = (k, d=null) => { const p=resource.params.find(p=>p.key===k); return p?(d===null?p.value:parseInt(p.value)):d }
+  const ck = ['num_workers','max_concurrent_requests','rate_limit_per_second','request_delay_ms','retry_attempts','retry_backoff_factor','batch_size']
   form.value = {
-    name: resource.name,
-    description: resource.description || '',
-    publisherId: resource.publisherId || null,
-    fetcherId: resource.fetcher.id,
-    params: regularParams.map(p => ({ key: p.key, value: p.value, isExternal: p.isExternal || false })),
-    active: resource.active,
-    schedule: resource.schedule || null,
-    numWorkers: parseInt(getParam('num_workers', 1)),
-    maxConcurrentRequests: getParam('max_concurrent_requests') ? parseInt(getParam('max_concurrent_requests')) : null,
-    rateLimitPerSecond: getParam('rate_limit_per_second') ? parseInt(getParam('rate_limit_per_second')) : null,
-    requestDelayMs: getParam('request_delay_ms') ? parseInt(getParam('request_delay_ms')) : null,
-    retryAttempts: getParam('retry_attempts') ? parseInt(getParam('retry_attempts')) : null,
-    retryBackoffFactor: getParam('retry_backoff_factor') ? parseFloat(getParam('retry_backoff_factor')) : null,
-    batchSize: getParam('batch_size') ? parseInt(getParam('batch_size')) : null,
+    name: resource.name, description: resource.description||'', publisherId: resource.publisherId||null, fetcherId: resource.fetcher.id,
+    params: resource.params.filter(p=>!ck.includes(p.key)).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false})),
+    active: resource.active, schedule: resource.schedule||null,
+    numWorkers: parseInt(getParam('num_workers',1)),
+    maxConcurrentRequests: getParam('max_concurrent_requests')?parseInt(getParam('max_concurrent_requests')):null,
+    rateLimitPerSecond: getParam('rate_limit_per_second')?parseInt(getParam('rate_limit_per_second')):null,
+    requestDelayMs: getParam('request_delay_ms')?parseInt(getParam('request_delay_ms')):null,
+    retryAttempts: getParam('retry_attempts')?parseInt(getParam('retry_attempts')):null,
+    retryBackoffFactor: getParam('retry_backoff_factor')?parseFloat(getParam('retry_backoff_factor')):null,
+    batchSize: getParam('batch_size')?parseInt(getParam('batch_size')):null,
   }
   showEditModal.value = true
   loadDerivedConfigs(resource.id)
-  // Auto-expand groups that have active params (nextTick: paramGroups needs fetcherId to be set)
   nextTick(() => initExpandedGroups())
 }
 
-function testResource() {
-  if (editingResource.value) {
-    showPreviewData(editingResource.value)
-  }
-}
+function testResource() { if (editingResource.value) showPreviewData(editingResource.value) }
 
 async function showPreviewData(resource) {
-  previewResource.value = resource
-  previewData.value = null
-  previewError.value = null
-  // Initialise external param inputs with stored defaults
-  previewParams.value = Object.fromEntries(
-    (resource.params || []).filter(p => p.isExternal).map(p => [p.key, p.value || ''])
-  )
-  showPreviewModal.value = true
-  loadingPreview.value = true
-
+  previewResource.value = resource; previewData.value = null; previewError.value = null
+  previewParams.value = Object.fromEntries((resource.params||[]).filter(p=>p.isExternal).map(p=>[p.key,p.value||'']))
+  showPreviewModal.value = true; loadingPreview.value = true
   try {
-    const runtimeParams = Object.fromEntries(
-      Object.entries(previewParams.value).filter(([, v]) => v !== '')
-    )
-    const result = await previewResourceData(resource.id, 100, Object.keys(runtimeParams).length ? runtimeParams : null)
+    const rp = Object.fromEntries(Object.entries(previewParams.value).filter(([,v])=>v!==''))
+    const result = await previewResourceData(resource.id, 100, Object.keys(rp).length?rp:null)
     const raw = result.previewResourceData
-    if (raw?.error) {
-      previewError.value = raw.error
-    } else {
-      previewData.value = raw?.records ?? raw
-    }
-  } catch (e) {
-    previewError.value = e.message
-  } finally {
-    loadingPreview.value = false
-  }
+    if (raw?.error) previewError.value = raw.error; else previewData.value = raw?.records ?? raw
+  } catch (e) { previewError.value = e.message } finally { loadingPreview.value = false }
 }
 
 async function runPreviewWithParams() {
-  previewData.value = null
-  previewError.value = null
-  loadingPreview.value = true
+  previewData.value = null; previewError.value = null; loadingPreview.value = true
   try {
-    const runtimeParams = Object.fromEntries(
-      Object.entries(previewParams.value).filter(([, v]) => v !== '')
-    )
-    const result = await previewResourceData(previewResource.value.id, 100, Object.keys(runtimeParams).length ? runtimeParams : null)
+    const rp = Object.fromEntries(Object.entries(previewParams.value).filter(([,v])=>v!==''))
+    const result = await previewResourceData(previewResource.value.id, 100, Object.keys(rp).length?rp:null)
     const raw = result.previewResourceData
-    if (raw?.error) {
-      previewError.value = raw.error
-    } else {
-      previewData.value = raw?.records ?? raw
-    }
-  } catch (e) {
-    previewError.value = e.message
-  } finally {
-    loadingPreview.value = false
-  }
+    if (raw?.error) previewError.value = raw.error; else previewData.value = raw?.records ?? raw
+  } catch (e) { previewError.value = e.message } finally { loadingPreview.value = false }
 }
 
 function getRecordCount(data) {
   if (!data) return 0
-
-  // If it's an array, check if first element has a 'content' array
-  if (Array.isArray(data)) {
-    if (data.length > 0 && data[0].content && Array.isArray(data[0].content)) {
-      return data[0].content.length
-    }
-    return data.length
-  }
-
-  // If it's an object with a 'content' array property
-  if (typeof data === 'object' && data.content && Array.isArray(data.content)) {
-    return data.content.length
-  }
-
-  // Regular object
-  if (typeof data === 'object') return Object.keys(data).length > 0 ? 1 : 0
-
+  if (Array.isArray(data)) { if (data.length>0&&data[0].content&&Array.isArray(data[0].content)) return data[0].content.length; return data.length }
+  if (typeof data==='object'&&data.content&&Array.isArray(data.content)) return data.content.length
+  if (typeof data==='object') return Object.keys(data).length>0?1:0
   return 1
 }
 
 function openExecuteModal(resource) {
-  executingResource.value = resource
-  executeResult.value = null
-  // Pre-populate with stored default values so they appear in the execution label even if unchanged
+  executingResource.value = resource; executeResult.value = null
   const defaults = {}
-  for (const p of (resource.params || []).filter(p => p.isExternal)) {
-    if (p.value != null && p.value !== '') defaults[p.key] = p.value
-  }
-  executeParams.value = defaults
-  showExecuteModal.value = true
+  for (const p of (resource.params||[]).filter(p=>p.isExternal)) { if (p.value!=null&&p.value!=='') defaults[p.key]=p.value }
+  executeParams.value = defaults; showExecuteModal.value = true
 }
 
 async function confirmExecute() {
-  // Send all external params (pre-populated with defaults, overridable by user)
-  const externalParams = Object.keys(executeParams.value).length > 0 ? { ...executeParams.value } : null
+  const ep = Object.keys(executeParams.value).length>0?{...executeParams.value}:null
   showExecuteModal.value = false
-  executeResource(executingResource.value.id, externalParams).catch(() => {})
+  executeResource(executingResource.value.id, ep).catch(()=>{})
 }
 
 async function confirmDelete(resource) {
-  resourceToDelete.value = resource
-  hardDeleteFlag.value = false
-  deleteDatasetCount.value = 0
-  showDeleteModal.value = true
-  try {
-    const result = await fetchDatasets(resource.id)
-    deleteDatasetCount.value = result?.datasets?.length ?? 0
-  } catch {}
+  resourceToDelete.value = resource; hardDeleteFlag.value = false; deleteDatasetCount.value = 0; showDeleteModal.value = true
+  try { const r = await fetchDatasets(resource.id); deleteDatasetCount.value = r?.datasets?.length??0 } catch {}
 }
 
 async function handleClone(resource) {
-  try {
-    const result = await cloneResource(resource.id)
-    if (result?.cloneResource) {
-      await loadResources()
-    }
-  } catch (error) {
-    console.error('Error cloning resource:', error)
-  }
+  try { const r = await cloneResource(resource.id); if (r?.cloneResource) await loadResources() } catch (e) { console.error('Error cloning resource:', e) }
 }
 
 async function handleDelete() {
   try {
     await deleteResource(resourceToDelete.value.id, hardDeleteFlag.value)
-    showDeleteModal.value = false
-    resourceToDelete.value = null
-    hardDeleteFlag.value = false
-    deleteDatasetCount.value = 0
+    showDeleteModal.value = false; resourceToDelete.value = null; hardDeleteFlag.value = false; deleteDatasetCount.value = 0
     await loadData()
-  } catch (e) {
-    error.value = 'Failed to delete resource: ' + e.message
-  }
+  } catch (e) { error.value = 'Failed to delete resource: ' + e.message }
 }
 
 async function submitForm() {
   try {
     error.value = null
-
-    // Combine regular params with concurrency params
-    const allParams = [...form.value.params.filter(p => p.key && p.value).map(p => ({
-      key: p.key, value: p.value, isExternal: p.isExternal || false
-    }))]
-
-    // Add concurrency params if not default/null
-    const concurrencyParams = {
-      'num_workers': { value: form.value.numWorkers, default: 1 },
-      'max_concurrent_requests': { value: form.value.maxConcurrentRequests, default: null },
-      'rate_limit_per_second': { value: form.value.rateLimitPerSecond, default: null },
-      'request_delay_ms': { value: form.value.requestDelayMs, default: null },
-      'retry_attempts': { value: form.value.retryAttempts, default: null },
-      'retry_backoff_factor': { value: form.value.retryBackoffFactor, default: null },
-      'batch_size': { value: form.value.batchSize, default: null },
-    }
-
-    for (const [key, config] of Object.entries(concurrencyParams)) {
-      const value = config.value
-      const defaultValue = config.default
-
-      if (value !== null && value !== defaultValue) {
-        allParams.push({ key, value: String(value) })
-      }
-    }
-
-    const input = {
-      name: form.value.name,
-      description: form.value.description || null,
-      publisherId: form.value.publisherId || null,
-      fetcherId: form.value.fetcherId,
-      params: allParams,
-      active: form.value.active,
-      schedule: form.value.schedule || null,
-    }
-
-    if (showCreateModal.value) {
-      await createResource(input)
-    } else {
-      await updateResource(editingResource.value.id, input)
-    }
-
-    closeModals()
-    await loadData()
-  } catch (e) {
-    error.value = 'Failed to save resource: ' + e.message
-  }
+    const allParams = [...form.value.params.filter(p=>p.key&&p.value).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false}))]
+    const cp = { 'num_workers':{value:form.value.numWorkers,default:1},'max_concurrent_requests':{value:form.value.maxConcurrentRequests,default:null},'rate_limit_per_second':{value:form.value.rateLimitPerSecond,default:null},'request_delay_ms':{value:form.value.requestDelayMs,default:null},'retry_attempts':{value:form.value.retryAttempts,default:null},'retry_backoff_factor':{value:form.value.retryBackoffFactor,default:null},'batch_size':{value:form.value.batchSize,default:null} }
+    for (const [k,c] of Object.entries(cp)) { if (c.value!==null&&c.value!==c.default) allParams.push({key:k,value:String(c.value)}) }
+    const input = { name:form.value.name, description:form.value.description||null, publisherId:form.value.publisherId||null, fetcherId:form.value.fetcherId, params:allParams, active:form.value.active, schedule:form.value.schedule||null }
+    if (showCreateModal.value) await createResource(input); else await updateResource(editingResource.value.id, input)
+    closeModals(); await loadData()
+  } catch (e) { error.value = 'Failed to save resource: ' + e.message }
 }
 
 function closeModals() {
-  showCreateModal.value = false
-  showEditModal.value = false
-  editingResource.value = null
-  activeParamTab.value = 'parameters'
-  expandedGroups.value = new Set()
-  derivedConfigs.value = []
-  showAddDerivedForm.value = false
-  editingDerivedId.value = null
-  form.value = {
-    name: '',
-    description: '',
-    publisher: '',
-    fetcherId: '',
-    params: [],
-    active: true,
-    schedule: null,
-    numWorkers: 1,
-    maxConcurrentRequests: null,
-    rateLimitPerSecond: null,
-    requestDelayMs: null,
-    retryAttempts: null,
-    retryBackoffFactor: null,
-    batchSize: null,
-  }
+  showCreateModal.value=false; showEditModal.value=false; editingResource.value=null; activeParamTab.value='parameters'; expandedGroups.value=new Set(); derivedConfigs.value=[]; showAddDerivedForm.value=false; editingDerivedId.value=null
+  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
 }
 
-// ── Derived datasets ─────────────────────────────────────────────────────────
-
-async function loadDerivedConfigs(resourceId) {
-  derivedConfigsLoading.value = true
-  try {
-    const result = await fetchDerivedDatasetConfigs(resourceId)
-    derivedConfigs.value = result?.derivedDatasetConfigs || []
-  } catch (e) {
-    // silently ignore — not critical
-  } finally {
-    derivedConfigsLoading.value = false
-  }
-}
-
-function parseFields(text) {
-  return (text || '').split(',').map(s => s.trim()).filter(Boolean)
-}
-
-async function addDerived() {
-  const cfg = newDerivedConfig.value
-  if (!cfg.targetName || !cfg.keyField) return
-  try {
-    await createDerivedDatasetConfig({
-      sourceResourceId: editingResource.value.id,
-      targetName: cfg.targetName,
-      keyField: cfg.keyField,
-      extractFields: parseFields(cfg.extractFieldsText),
-      mergeStrategy: cfg.mergeStrategy,
-      enabled: cfg.enabled,
-      description: cfg.description || null,
-    })
-    newDerivedConfig.value = { targetName: '', keyField: '', extractFieldsText: '', mergeStrategy: 'upsert', enabled: true, description: '' }
-    showAddDerivedForm.value = false
-    await loadDerivedConfigs(editingResource.value.id)
-  } catch (e) {
-    error.value = 'Failed to add derived dataset: ' + e.message
-  }
-}
-
-async function deleteDerived(id) {
-  try {
-    await deleteDerivedDatasetConfig(id)
-    await loadDerivedConfigs(editingResource.value.id)
-  } catch (e) {
-    error.value = 'Failed to delete: ' + e.message
-  }
-}
-
-async function toggleDerived(cfg) {
-  try {
-    const result = await toggleDerivedDatasetConfig(cfg.id, !cfg.enabled)
-    const updated = result?.toggleDerivedDatasetConfig
-    if (updated) {
-      const idx = derivedConfigs.value.findIndex(c => c.id === cfg.id)
-      if (idx !== -1) derivedConfigs.value[idx] = { ...derivedConfigs.value[idx], ...updated }
-    }
-  } catch (e) {
-    error.value = 'Failed to toggle: ' + e.message
-  }
-}
-
-function startEditDerived(cfg) {
-  editingDerivedId.value = cfg.id
-  editingDerivedData.value = {
-    targetName: cfg.targetName,
-    keyField: cfg.keyField,
-    extractFieldsText: (cfg.extractFields || []).join(', '),
-    mergeStrategy: cfg.mergeStrategy,
-    enabled: cfg.enabled,
-    description: cfg.description || '',
-  }
-}
-
-async function saveEditDerived(id) {
-  const d = editingDerivedData.value
-  try {
-    await updateDerivedDatasetConfig(id, {
-      targetName: d.targetName,
-      keyField: d.keyField,
-      extractFields: parseFields(d.extractFieldsText),
-      mergeStrategy: d.mergeStrategy,
-      enabled: d.enabled,
-      description: d.description || null,
-    })
-    editingDerivedId.value = null
-    await loadDerivedConfigs(editingResource.value.id)
-  } catch (e) {
-    error.value = 'Failed to update: ' + e.message
-  }
-}
+async function loadDerivedConfigs(id) { derivedConfigsLoading.value=true; try { const r=await fetchDerivedDatasetConfigs(id); derivedConfigs.value=r?.derivedDatasetConfigs||[] } catch {} finally { derivedConfigsLoading.value=false } }
+function parseFields(t) { return (t||'').split(',').map(s=>s.trim()).filter(Boolean) }
+async function addDerived() { const c=newDerivedConfig.value; if (!c.targetName||!c.keyField) return; try { await createDerivedDatasetConfig({sourceResourceId:editingResource.value.id,targetName:c.targetName,keyField:c.keyField,extractFields:parseFields(c.extractFieldsText),mergeStrategy:c.mergeStrategy,enabled:c.enabled,description:c.description||null}); newDerivedConfig.value={targetName:'',keyField:'',extractFieldsText:'',mergeStrategy:'upsert',enabled:true,description:''}; showAddDerivedForm.value=false; await loadDerivedConfigs(editingResource.value.id) } catch(e) { error.value='Failed to add derived dataset: '+e.message } }
+async function deleteDerived(id) { try { await deleteDerivedDatasetConfig(id); await loadDerivedConfigs(editingResource.value.id) } catch(e) { error.value='Failed to delete: '+e.message } }
+async function toggleDerived(cfg) { try { const r=await toggleDerivedDatasetConfig(cfg.id,!cfg.enabled); const u=r?.toggleDerivedDatasetConfig; if(u){const i=derivedConfigs.value.findIndex(c=>c.id===cfg.id); if(i!==-1) derivedConfigs.value[i]={...derivedConfigs.value[i],...u}} } catch(e){error.value='Failed to toggle: '+e.message} }
+function startEditDerived(cfg) { editingDerivedId.value=cfg.id; editingDerivedData.value={targetName:cfg.targetName,keyField:cfg.keyField,extractFieldsText:(cfg.extractFields||[]).join(', '),mergeStrategy:cfg.mergeStrategy,enabled:cfg.enabled,description:cfg.description||''} }
+async function saveEditDerived(id) { const d=editingDerivedData.value; try { await updateDerivedDatasetConfig(id,{targetName:d.targetName,keyField:d.keyField,extractFields:parseFields(d.extractFieldsText),mergeStrategy:d.mergeStrategy,enabled:d.enabled,description:d.description||null}); editingDerivedId.value=null; await loadDerivedConfigs(editingResource.value.id) } catch(e){error.value='Failed to update: '+e.message} }
 
 const runningResourceIds = ref(new Set())
 let runningPollTimer = null
 
 async function pollRunning() {
+  try { const d=await fetchResourceExecutions(); runningResourceIds.value=new Set((d?.resourceExecutions??[]).filter(e=>e.status==='running').map(e=>e.resourceId)) } catch {}
+}
+
+// ── Web Tree helpers ───────────────────────────────────────────────────────────────
+
+/**
+ * Devuelve true si el resource usa el WebTreeFetcher (o los deprecated que absorbe).
+ * Se detecta por el código del fetcher o por el class_path.
+ */
+function isWebTree(resource) {
+  const code = resource.fetcher?.code?.toLowerCase() || ''
+  const path = resource.fetcher?.classPath?.toLowerCase() || ''
+  return code === 'web tree' ||
+    path.includes('web_tree_fetcher') ||
+    code === 'legacy data portal' ||
+    path.includes('legacy_data_portal') ||
+    code === 'portal files cataloguer' ||
+    path.includes('portal_files_cataloguer')
+}
+
+/**
+ * Lanza la ejecución del resource en modo discover y navega a /candidates.
+ * El FetcherManager detecta `crawl_mode: 'discover'` y persiste ResourceCandidates.
+ */
+async function launchDiscover(resource) {
   try {
-    const data = await fetchResourceExecutions()
-    const ids = new Set(
-      (data?.resourceExecutions ?? [])
-        .filter(e => e.status === 'running')
-        .map(e => e.resourceId)
-    )
-    runningResourceIds.value = ids
-  } catch {}
+    await executeResource(resource.id, { crawl_mode: 'discover' })
+  } catch (e) {
+    // La ejecución es asynchrona — errores de red se ignoran; el log de procesos los mostará
+    console.warn('[launchDiscover] error al lanzar:', e)
+  }
+  router.push('/candidates')
 }
 
 onMounted(() => {
-  loadData()
-  pollRunning()
+  loadData(); pollRunning()
   runningPollTimer = setInterval(pollRunning, 5000)
-
-  // Cálculo dinámico de filas por página
   _ro = new ResizeObserver(recalcPageSize)
-  // Observamos el filterEl cuando esté disponible (nextTick por si acaso)
-  setTimeout(() => {
-    if (filterEl.value) _ro.observe(filterEl.value)
-    recalcPageSize()
-  }, 100)
+  setTimeout(() => { if (filterEl.value) _ro.observe(filterEl.value); recalcPageSize() }, 100)
   window.addEventListener('resize', recalcPageSize)
 })
 
 onUnmounted(() => {
-  clearInterval(runningPollTimer)
-  _ro?.disconnect()
-  window.removeEventListener('resize', recalcPageSize)
+  clearInterval(runningPollTimer); _ro?.disconnect(); window.removeEventListener('resize', recalcPageSize)
 })
 </script>
