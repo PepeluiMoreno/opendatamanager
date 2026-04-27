@@ -1,0 +1,11 @@
+                <button
+                  v-if="isWebTree(resource)"
+                  @click="launchDiscover(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-purple-800 hover:bg-purple-700 text-white"
+                  title="Lanzar Discovery"
+                >Discover</button>
+                <button
+                  @click="openExecuteModal(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
+                  title="Ejecutar"
+                >Run</button>
