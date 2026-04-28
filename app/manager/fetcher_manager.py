@@ -257,13 +257,28 @@ class FetcherManager:
             paused = False
             _STAGING_EXCLUDE = {"raw_xml_content", "raw_html", "_raw"}
 
+            _PAUSE_CHECK_EVERY = 50  # records dentro de un chunk
             with open(staging_path, file_mode, encoding="utf-8") as f:
                 for chunk in fetcher.stream():
+                    written_in_chunk = 0
                     for record in chunk:
                         clean = {k: v for k, v in record.items() if k not in _STAGING_EXCLUDE}
                         serializable = FetcherManager._make_serializable(clean)
                         f.write(json.dumps(serializable, ensure_ascii=False) + "\n")
-                    total_records += len(chunk)
+                        written_in_chunk += 1
+                        if written_in_chunk % _PAUSE_CHECK_EVERY == 0:
+                            f.flush()
+                            session.refresh(execution)
+                            if execution.pause_requested:
+                                total_records += written_in_chunk
+                                execution.total_records = total_records
+                                session.commit()
+                                paused = True
+                                logger.log(f"  Pause requested — stopping mid-chunk at {total_records} records")
+                                break
+                    if paused:
+                        break
+                    total_records += written_in_chunk
                     execution.total_records = total_records
                     session.commit()
                     logger.log(f"  Staged {total_records} records so far...")

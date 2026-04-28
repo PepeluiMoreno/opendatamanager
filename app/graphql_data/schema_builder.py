@@ -63,8 +63,16 @@ def dataset_type_name(resource_name: str) -> str:
         name = name.replace(src, dst)
     # Dividir en palabras (incluye paréntesis y otros no alfanuméricos como separadores)
     words = re.split(r"[^a-zA-Z0-9]+", name)
-    # PascalCase de cada palabra (saltando las vacías)
-    return "".join(w.capitalize() for w in words if w)
+    # PascalCase de cada palabra; preserva acrónimos en mayúsculas (PLACSP, BDNS, DIR3)
+    out = []
+    for w in words:
+        if not w:
+            continue
+        if w.isupper() or (any(c.isupper() for c in w[1:]) and not w.islower()):
+            out.append(w)
+        else:
+            out.append(w[0].upper() + w[1:])
+    return "".join(out)
 
 
 def dataset_query_name(resource_name: str) -> str:

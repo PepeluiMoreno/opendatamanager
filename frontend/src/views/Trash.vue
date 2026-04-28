@@ -96,7 +96,7 @@ import {
   fetchDeletedResources, fetchDeletedApplications, fetchDeletedPublishers,
   fetchDeletedFetchers, fetchDeletedExecutions,
   restoreResource, restoreApplication, restorePublisher, restoreFetcher, restoreExecution,
-  deleteResource, deleteApplication, deletePublisher, deleteFetcher,
+  deleteResource, deleteApplication, deletePublisher, deleteFetcher, deleteExecution,
 } from '../api/graphql'
 
 const tabs = [
@@ -216,7 +216,7 @@ async function hardDelete() {
         applications: (id) => deleteApplication(id, true),
         publishers:   (id) => deletePublisher(id, true),
         fetchers:     (id) => deleteFetcher(id, true),
-        executions:   null,
+        executions:   (id) => deleteExecution(id, true),
       }[activeTab.value]
       if (fn) await fn(itemToDelete.value.id)
     }
