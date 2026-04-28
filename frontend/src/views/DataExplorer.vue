@@ -1,3 +1,9 @@
+<!--
+  DataExplorer: árbol de recursos → versiones de dataset.
+  CANÓNICO. NO añadir aquí botones/funciones de "Sandbox GraphQL", "Open in GraphiQL",
+  copy-query ni nada que abra /graphql/data. Si el sandbox vuelve a aparecer en este
+  archivo, es una regresión y debe eliminarse. Ver commit que documenta esta decisión.
+-->
 <template>
   <div class="flex flex-col h-full bg-gray-900 overflow-hidden">
 
@@ -102,14 +108,6 @@
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
                   </button>
-                  <button @click="openSandbox(latestQueryableVersion(res) || res.versions[0], res)"
-                    :title="latestQueryableVersion(res) ? 'Sandbox GraphQL (latest)' : 'Sandbox GraphQL'"
-                    class="p-1.5 rounded transition-colors"
-                    :class="latestQueryableVersion(res) ? 'text-gray-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-900/20'">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                    </svg>
-                  </button>
                   <button v-if="res.versions.length > 0" @click="confirmCascadeDelete(res)"
                     title="Borrar todos los datasets" class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -140,8 +138,6 @@
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-gray-400">v{{ ver.version }}</span>
                     <span v-if="ver.isLatest" class="text-xs bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span>
-                    <span v-if="!ver.queryName" class="text-xs bg-yellow-900/40 text-yellow-600 border border-yellow-700/30 px-1.5 py-0.5 rounded"
-                      title="No está en el registry activo. Ejecuta el resource para reconstruir el schema.">sin registry</span>
                   </div>
                 </td>
                 <td class="px-4 py-2.5 text-right">
@@ -164,14 +160,6 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </button>
-                    <button @click="openSandbox(ver, res)"
-                      :title="ver.queryName ? 'Abrir en Sandbox GraphQL' : 'Sandbox GraphQL (fuera de registry)'"
-                      class="p-1.5 rounded transition-colors"
-                      :class="ver.queryName ? 'text-gray-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-900/20'">
-                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
-                      </svg>
-                    </button>
                     <button @click="confirmDelete(ver, res.resourceName)" title="Eliminar dataset"
                       class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,18 +179,6 @@
                     <div class="flex flex-wrap gap-1.5">
                       <span v-for="field in ver.fields" :key="field"
                         class="bg-gray-700 text-gray-300 rounded px-2 py-0.5 font-mono text-xs">{{ field }}</span>
-                    </div>
-                    <div v-if="ver.queryName" class="flex items-center gap-2 pt-1">
-                      <button @click="copyQuery(ver)"
-                        class="text-xs text-gray-400 hover:text-white px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600">
-                        {{ copiedId === ver.datasetId ? '✓ Copiado' : 'Copiar query' }}
-                      </button>
-                      <code class="text-xs text-green-400 font-mono opacity-70 truncate">
-                        { {{ ver.queryName }}(limit:20) { total items { {{ ver.fields.slice(0,4).join(' ') }}{{ ver.fields.length > 4 ? ' …' : '' }} } } }
-                      </code>
-                    </div>
-                    <div v-else class="pt-1">
-                      <p class="text-xs text-yellow-700 italic">Dataset fuera del registry activo. Ejecuta el resource para reconstruir el schema GraphQL.</p>
                     </div>
                   </div>
                 </td>
@@ -328,7 +304,6 @@ const search = ref('')
 const filterMode = ref('')
 const expandedResources = ref(new Set())
 const expandedDataset = ref(null)
-const copiedId = ref(null)
 const paramsModal = ref(null)
 const toDelete = ref(null)
 const toDeleteHard = ref(false)
@@ -398,57 +373,6 @@ function formatDate(iso) {
   const d = new Date(iso)
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
     + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-}
-
-/**
- * Replica exactamente el algoritmo de dataset_query_name() del schema_builder.py:
- *   1. Normaliza acentos
- *   2. Split por [^a-zA-Z0-9]+
- *   3. capitalize() de cada palabra → PascalCase
- *   4. Baja la primera letra → camelCase
- */
-function datasetQueryName(resourceName) {
-  if (!resourceName) return 'datasets'
-  // 1. Normalizar acentos (mismas sustituciones que Python)
-  const accents = {
-    'á':'a','é':'e','í':'i','ó':'o','ú':'u',
-    'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U',
-    'ñ':'n','Ñ':'N','ü':'u','Ü':'U',
-  }
-  let name = resourceName
-  for (const [src, dst] of Object.entries(accents)) {
-    name = name.split(src).join(dst)
-  }
-  // 2. Split por no-alfanumérico
-  const words = name.split(/[^a-zA-Z0-9]+/).filter(Boolean)
-  // 3. PascalCase de cada palabra
-  const pascal = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')
-  if (!pascal) return 'datasets'
-  // 4. camelCase: baja primera letra
-  return pascal.charAt(0).toLowerCase() + pascal.slice(1)
-}
-
-function buildQuery(ver, res) {
-  const qName = ver?.queryName || datasetQueryName(res?.resourceName)
-  const fields = (ver?.fields || []).slice(0, 12).join('\n      ')
-  const fieldsPart = fields
-    ? `total\n    items {\n      ${fields}\n    }`
-    : 'total\n    items { id }'
-  return `{\n  ${qName}(limit: 20) {\n    ${fieldsPart}\n  }\n}`
-}
-
-function openSandbox(ver, res) {
-  window.open(`/graphql/data?query=${encodeURIComponent(buildQuery(ver, res))}`, '_blank')
-}
-
-function latestQueryableVersion(res) {
-  return (res.versions || []).find(v => v.queryName) || null
-}
-
-async function copyQuery(ver) {
-  await navigator.clipboard.writeText(buildQuery(ver, null))
-  copiedId.value = ver.datasetId
-  setTimeout(() => (copiedId.value = null), 2000)
 }
 
 function openParams(res, ver) {
