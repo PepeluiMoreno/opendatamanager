@@ -392,6 +392,7 @@ def build_schema(db) -> tuple[GraphQLSchema, list[dict]]:
 
         exec_params = getattr(dataset.execution, 'execution_params', None) if dataset.execution else None
         registry.append({
+            "datasetId": str(dataset.id),
             "queryName": query_name,
             "typeName": type_name,
             "resourceName": resource.name,
