@@ -741,6 +741,12 @@ class Mutation:
             if not ex:
                 raise ValueError(f"Execution '{id}' no encontrada")
             if hard_delete:
+                # Dataset.execution_id no tiene ondelete=SET NULL — nulificarlo aquí
+                # para que la FK no bloquee el delete cuando hay datasets producidos.
+                from app.models import Dataset
+                db.query(Dataset).filter(Dataset.execution_id == ex.id).update(
+                    {Dataset.execution_id: None}, synchronize_session=False
+                )
                 db.delete(ex)
             else:
                 ex.deleted_at = datetime.utcnow()

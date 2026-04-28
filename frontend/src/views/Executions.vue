@@ -387,6 +387,7 @@
         <input type="checkbox" v-model="hardDeleteFlag" class="accent-red-500 mt-0.5" />
         <span>Permanently delete</span>
       </label>
+      <p v-if="deleteError" class="text-xs text-red-400 mb-3 break-words">{{ deleteError }}</p>
       <div class="flex justify-end gap-2">
         <button @click="showDeleteModal = false" class="btn btn-secondary">Cancel</button>
         <button @click="handleDelete" class="btn btn-danger">Delete</button>
@@ -574,12 +575,22 @@ const hardDeleteFlag = ref(false)
 function confirmDelete(ex) {
   executionToDelete.value = ex
   hardDeleteFlag.value = false
+  deleteError.value = ''
   showDeleteModal.value = true
 }
 
+const deleteError = ref('')
+
 async function handleDelete() {
   if (!executionToDelete.value) return
-  await deleteExecution(executionToDelete.value.id, hardDeleteFlag.value)
+  deleteError.value = ''
+  try {
+    await deleteExecution(executionToDelete.value.id, hardDeleteFlag.value)
+  } catch (e) {
+    const msg = e?.response?.errors?.[0]?.message || e?.message || String(e)
+    deleteError.value = msg
+    return
+  }
   executions.value = executions.value.filter(e => e.id !== executionToDelete.value.id)
   if (openLog.value === executionToDelete.value.id) closeLog()
   showDeleteModal.value = false
