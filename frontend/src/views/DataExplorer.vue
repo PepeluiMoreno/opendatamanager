@@ -15,7 +15,6 @@
           Actualizar
         </button>
       </div>
-
       <div class="flex items-center gap-3 flex-wrap">
         <div class="relative flex-1 min-w-48">
           <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,24 +24,18 @@
             class="w-full bg-gray-700 border border-gray-600 rounded-md pl-8 pr-8 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"/>
           <button v-if="search" @click="search = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs leading-none">✕</button>
         </div>
-
         <div class="flex items-center gap-2">
           <button @click="expandAll" class="text-xs text-gray-400 hover:text-white px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600">Expandir todo</button>
           <button @click="collapseAll" class="text-xs text-gray-400 hover:text-white px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600">Colapsar todo</button>
         </div>
-
         <div class="flex items-center gap-2">
           <span class="text-xs text-gray-500">Mostrar:</span>
           <button @click="filterMode = filterMode === 'empty' ? '' : 'empty'"
             class="text-xs px-2.5 py-1 rounded-full border transition-colors"
-            :class="filterMode === 'empty' ? 'bg-amber-600/30 border-amber-500 text-amber-300' : 'border-gray-600 text-gray-400 hover:border-gray-400'">
-            Sin datos
-          </button>
+            :class="filterMode === 'empty' ? 'bg-amber-600/30 border-amber-500 text-amber-300' : 'border-gray-600 text-gray-400 hover:border-gray-400'">Sin datos</button>
           <button @click="filterMode = filterMode === 'data' ? '' : 'data'"
             class="text-xs px-2.5 py-1 rounded-full border transition-colors"
-            :class="filterMode === 'data' ? 'bg-green-600/30 border-green-500 text-green-300' : 'border-gray-600 text-gray-400 hover:border-gray-400'">
-            Con datos
-          </button>
+            :class="filterMode === 'data' ? 'bg-green-600/30 border-green-500 text-green-300' : 'border-gray-600 text-gray-400 hover:border-gray-400'">Con datos</button>
         </div>
       </div>
     </div>
@@ -54,7 +47,6 @@
       <div v-else-if="filteredTree.length === 0" class="flex items-center justify-center h-32 text-gray-500 text-sm">
         {{ tree.length === 0 ? 'No hay datasets. Ejecuta algún resource primero.' : 'Sin resultados.' }}
       </div>
-
       <table v-else class="w-full text-xs">
         <thead class="sticky top-0 bg-gray-800 z-10">
           <tr class="border-b border-gray-700">
@@ -68,14 +60,13 @@
         </thead>
         <tbody>
           <template v-for="res in filteredTree" :key="res.nodeId">
-
             <!-- Resource row -->
             <tr class="border-b border-gray-700/50 hover:bg-gray-800/40 cursor-pointer transition-colors"
                 :class="expandedResources.has(res.nodeId) ? 'bg-gray-800/30' : ''"
                 @click="toggleResource(res.nodeId)">
               <td class="px-4 py-3 text-center">
                 <svg class="w-3.5 h-3.5 text-gray-500 inline transition-transform duration-150"
-                  :class="expandedResources.has(res.resourceId) ? 'rotate-90' : ''"
+                  :class="expandedResources.has(res.nodeId) ? 'rotate-90' : ''"
                   fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
                 </svg>
@@ -102,20 +93,17 @@
               <td class="px-4 py-3 text-gray-400 whitespace-nowrap">
                 {{ res.versions[0]?.createdAt ? formatDate(res.versions[0].createdAt) : '—' }}
               </td>
-              <!-- Resource-level actions -->
               <td class="px-4 py-3 text-center" @click.stop>
                 <div class="flex items-center justify-center gap-1">
-                  <button @click="openParams(res, null)"
-                    title="Ver parámetros del recurso"
+                  <button @click="openParams(res, null)" title="Ver parámetros"
                     class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
                   </button>
-                  <!-- Sandbox en fila de resource: abre la versión latest queryable o el sandbox genérico -->
                   <button @click="openSandbox(latestQueryableVersion(res) || res.versions[0], res)"
-                    :title="latestQueryableVersion(res) ? 'Abrir Sandbox GraphQL (última versión activa)' : 'Abrir Sandbox GraphQL'"
+                    :title="latestQueryableVersion(res) ? 'Sandbox GraphQL (latest)' : 'Sandbox GraphQL'"
                     class="p-1.5 rounded transition-colors"
                     :class="latestQueryableVersion(res) ? 'text-gray-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-900/20'">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -123,8 +111,7 @@
                     </svg>
                   </button>
                   <button v-if="res.versions.length > 0" @click="confirmCascadeDelete(res)"
-                    title="Borrar todos los datasets del recurso"
-                    class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
+                    title="Borrar todos los datasets" class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                     </svg>
@@ -153,7 +140,8 @@
                   <div class="flex items-center gap-2">
                     <span class="font-mono text-gray-400">v{{ ver.version }}</span>
                     <span v-if="ver.isLatest" class="text-xs bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span>
-                    <span v-if="!ver.queryName" class="text-xs bg-yellow-900/40 text-yellow-600 border border-yellow-700/30 px-1.5 py-0.5 rounded" title="No está en el registry activo del engine de datos. Ejecuta el resource para reconstruir el schema.">sin registry</span>
+                    <span v-if="!ver.queryName" class="text-xs bg-yellow-900/40 text-yellow-600 border border-yellow-700/30 px-1.5 py-0.5 rounded"
+                      title="No está en el registry activo. Ejecuta el resource para reconstruir el schema.">sin registry</span>
                   </div>
                 </td>
                 <td class="px-4 py-2.5 text-right">
@@ -169,25 +157,22 @@
                 </td>
                 <td class="px-4 py-2.5 text-center" @click.stop>
                   <div class="flex items-center justify-center gap-1">
-                    <button @click="openParams(res, ver)"
-                      title="Ver parámetros"
+                    <button @click="openParams(res, ver)" title="Ver parámetros"
                       class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </button>
-                    <!-- Sandbox: siempre visible, azul si queryName existe, amarillo si no -->
                     <button @click="openSandbox(ver, res)"
-                      :title="ver.queryName ? 'Abrir en Sandbox GraphQL' : 'Abrir Sandbox GraphQL (dataset fuera del registry activo)'"
+                      :title="ver.queryName ? 'Abrir en Sandbox GraphQL' : 'Sandbox GraphQL (fuera de registry)'"
                       class="p-1.5 rounded transition-colors"
                       :class="ver.queryName ? 'text-gray-400 hover:text-blue-300 hover:bg-blue-900/30' : 'text-gray-600 hover:text-yellow-400 hover:bg-yellow-900/20'">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
                       </svg>
                     </button>
-                    <button @click="confirmDelete(ver, res.resourceName)"
-                      title="Eliminar dataset"
+                    <button @click="confirmDelete(ver, res.resourceName)" title="Eliminar dataset"
                       class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -217,13 +202,12 @@
                       </code>
                     </div>
                     <div v-else class="pt-1">
-                      <p class="text-xs text-yellow-700 italic">Este dataset no está en el registry activo del engine de datos. Ejecuta el resource para reconstruir el schema GraphQL y hacerlo queryable.</p>
+                      <p class="text-xs text-yellow-700 italic">Dataset fuera del registry activo. Ejecuta el resource para reconstruir el schema GraphQL.</p>
                     </div>
                   </div>
                 </td>
               </tr>
             </template>
-
           </template>
         </tbody>
       </table>
@@ -239,7 +223,7 @@
               Dataset v{{ paramsModal.version }}
               <span v-if="paramsModal.isLatest" class="ml-1.5 bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span>
             </p>
-            <p v-else class="text-xs text-gray-400 mt-0.5">Parámetros de configuración del recurso</p>
+            <p v-else class="text-xs text-gray-400 mt-0.5">Parámetros de configuración</p>
           </div>
           <button @click="paramsModal = null" class="text-gray-500 hover:text-gray-300 p-1">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -247,27 +231,20 @@
             </svg>
           </button>
         </div>
-
         <div class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
           <div v-if="paramsModal.version">
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
-              Parámetros de ejecución
-              <span class="normal-case text-gray-600 ml-1">(aplicados en esta ejecución concreta)</span>
-            </p>
-            <div v-if="paramsModal.executionParams && Object.keys(paramsModal.executionParams).length" class="space-y-1.5">
-              <div v-for="(v, k) in paramsModal.executionParams" :key="k"
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros de ejecución</p>
+            <div v-if="visibleExecutionParams(paramsModal.executionParams).length" class="space-y-1.5">
+              <div v-for="[k, v] in visibleExecutionParams(paramsModal.executionParams)" :key="k"
                 class="flex items-start gap-3 bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2">
                 <span class="font-mono text-blue-300 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
                 <span class="text-white text-xs break-all font-medium">{{ v }}</span>
               </div>
             </div>
-            <p v-else class="text-xs text-gray-600 italic">Sin parámetros de ejecución — se usaron los valores estáticos del recurso.</p>
+            <p v-else class="text-xs text-gray-600 italic">Sin parámetros de ejecución visibles.</p>
           </div>
           <div>
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">
-              Parámetros del recurso
-              <span class="normal-case text-gray-600 ml-1">(configuración estática)</span>
-            </p>
+            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros del recurso</p>
             <div v-if="paramsModal.resourceParams && Object.keys(paramsModal.resourceParams).length" class="space-y-1.5">
               <div v-for="k in Object.keys(paramsModal.resourceParams).sort()" :key="k"
                 class="flex items-start gap-3 bg-gray-700/50 rounded-lg px-3 py-2">
@@ -281,7 +258,7 @@
       </div>
     </div>
 
-    <!-- ── Delete single dataset confirm ── -->
+    <!-- ── Delete single dataset ── -->
     <div v-if="toDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="toDelete = null">
       <div class="bg-gray-800 border border-gray-600 rounded-xl p-6 w-[440px] shadow-2xl">
         <h3 class="text-sm font-semibold text-white mb-2">Eliminar dataset</h3>
@@ -293,14 +270,13 @@
           <input type="checkbox" v-model="toDeleteHard" class="accent-red-500 mt-0.5">
           <span>
             <span class="text-xs text-gray-300">Eliminar permanentemente</span>
-            <span class="block text-xs text-gray-500 mt-0.5">
-              Sin marcar, el dataset va a Trash y puede restaurarse. Marcado, se borra el registro y el JSONL irreversiblemente.
-            </span>
+            <span class="block text-xs text-gray-500 mt-0.5">Sin marcar → Trash (restaurable). Marcado → borra registro + JSONL irreversiblemente.</span>
           </span>
         </label>
         <div class="flex gap-2 justify-end">
           <button @click="toDelete = null" class="text-xs px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600">Cancelar</button>
-          <button @click="doDelete" :disabled="deleting" class="text-xs px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50">
+          <button @click="doDelete" :disabled="deleting"
+            class="text-xs px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
             {{ deleting ? 'Eliminando…' : 'Eliminar' }}
           </button>
         </div>
@@ -308,34 +284,30 @@
       </div>
     </div>
 
-    <!-- ── Cascade delete confirm ── -->
+    <!-- ── Cascade delete ── -->
     <div v-if="cascadeDelete" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60" @click.self="cascadeDelete = null">
       <div class="bg-gray-800 border border-red-600/40 rounded-xl p-6 w-[520px] shadow-2xl">
         <h3 class="text-sm font-semibold text-white mb-2">Borrar todos los datasets</h3>
-        <p class="text-sm text-gray-300 mb-3 leading-relaxed">
-          Se borrarán <span class="font-medium text-white">todos los datasets</span> de
-          <span class="text-white font-medium">"{{ cascadeDelete.resourceName }}"</span>.
+        <p class="text-sm text-gray-300 mb-3">
+          Todos los datasets de <span class="text-white font-medium">"«{{ cascadeDelete.resourceName }}»"</span> serán eliminados.
         </p>
         <div v-if="cascadeSummary" class="bg-gray-900/60 rounded-lg p-3 mb-4 text-xs space-y-1.5">
-          <div class="flex justify-between"><span class="text-gray-500">Datasets:</span> <span class="text-gray-200 font-mono">{{ cascadeSummary.count }}</span></div>
-          <div class="flex justify-between"><span class="text-gray-500">Registros totales:</span> <span class="text-gray-200 font-mono">{{ cascadeSummary.totalRecords?.toLocaleString() ?? '—' }}</span></div>
-          <div class="flex justify-between"><span class="text-gray-500">Tamaño en disco:</span> <span class="text-gray-200 font-mono">{{ formatBytes(cascadeSummary.diskBytes) }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Datasets:</span><span class="text-gray-200 font-mono">{{ cascadeSummary.count }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Registros:</span><span class="text-gray-200 font-mono">{{ cascadeSummary.totalRecords?.toLocaleString() ?? '—' }}</span></div>
+          <div class="flex justify-between"><span class="text-gray-500">Disco:</span><span class="text-gray-200 font-mono">{{ formatBytes(cascadeSummary.diskBytes) }}</span></div>
         </div>
-        <p class="text-xs text-gray-500 mb-4">
-          El recurso <span class="text-gray-300">"{{ cascadeDelete.resourceName }}"</span> y el historial de ejecuciones se conservan intactos. Solo se borran los datasets producidos.
-        </p>
+        <p class="text-xs text-gray-500 mb-4">El resource y el historial de ejecuciones se conservan.</p>
         <label class="flex items-start gap-2 mb-5 cursor-pointer">
           <input type="checkbox" v-model="cascadeHard" class="accent-red-500 mt-0.5">
           <span>
             <span class="text-xs text-gray-300">Eliminar permanentemente</span>
-            <span class="block text-xs text-gray-500 mt-0.5">
-              Sin marcar, los datasets van a Trash y pueden restaurarse. Marcado, se borran de BD y disco irreversiblemente.
-            </span>
+            <span class="block text-xs text-gray-500 mt-0.5">Sin marcar → Trash. Marcado → borra BD + disco irreversiblemente.</span>
           </span>
         </label>
         <div class="flex gap-2 justify-end">
           <button @click="cascadeDelete = null" class="text-xs px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600">Cancelar</button>
-          <button @click="doCascadeDelete" :disabled="cascadeDeleting" class="text-xs px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50">
+          <button @click="doCascadeDelete" :disabled="cascadeDeleting"
+            class="text-xs px-4 py-2 rounded-lg bg-red-700 text-white hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed">
             {{ cascadeDeleting ? 'Borrando…' : 'Borrar datasets' }}
           </button>
         </div>
@@ -362,16 +334,27 @@ const toDelete = ref(null)
 const toDeleteHard = ref(false)
 const deleting = ref(false)
 const deleteError = ref('')
-
 const cascadeDelete = ref(null)
 const cascadeHard = ref(false)
 const cascadeSummary = ref(null)
 const cascadeDeleting = ref(false)
 const cascadeError = ref('')
 
+// Claves internas que no se muestran en el modal de ejecución params
+const INTERNAL_KEYS = new Set([
+  '_resume_state', '_matched_urls', '_dimensions',
+  '_staging_path', '_preview_limit', '_discover_mode', '_dataset_type',
+])
+
+function visibleExecutionParams(params) {
+  if (!params) return []
+  return Object.entries(params).filter(
+    ([k]) => !INTERNAL_KEYS.has(k) && !k.startsWith('_')
+  )
+}
+
 async function loadTree() {
-  loading.value = true
-  error.value = null
+  loading.value = true; error.value = null
   try {
     const resp = await fetch('/api/datasets/tree')
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
@@ -407,19 +390,9 @@ function toggleResource(id) {
   s.has(id) ? s.delete(id) : s.add(id)
   expandedResources.value = s
 }
-
-function expandAll() {
-  expandedResources.value = new Set(filteredTree.value.map(r => r.nodeId))
-}
-
-function collapseAll() {
-  expandedResources.value = new Set()
-  expandedDataset.value = null
-}
-
-function toggleDataset(id) {
-  expandedDataset.value = expandedDataset.value === id ? null : id
-}
+function expandAll() { expandedResources.value = new Set(filteredTree.value.map(r => r.nodeId)) }
+function collapseAll() { expandedResources.value = new Set(); expandedDataset.value = null }
+function toggleDataset(id) { expandedDataset.value = expandedDataset.value === id ? null : id }
 
 function formatDate(iso) {
   const d = new Date(iso)
@@ -428,33 +401,40 @@ function formatDate(iso) {
 }
 
 /**
- * Construye una query GraphQL para el sandbox.
- * Si ver.queryName existe la usa directamente.
- * Si no, genera un nombre candidato a partir del nombre del resource
- * para que el sandbox abra con algo útil aunque el dataset no esté
- * en el registry activo del engine.
+ * Replica exactamente el algoritmo de dataset_query_name() del schema_builder.py:
+ *   1. Normaliza acentos
+ *   2. Split por [^a-zA-Z0-9]+
+ *   3. capitalize() de cada palabra → PascalCase
+ *   4. Baja la primera letra → camelCase
  */
+function datasetQueryName(resourceName) {
+  if (!resourceName) return 'datasets'
+  // 1. Normalizar acentos (mismas sustituciones que Python)
+  const accents = {
+    'á':'a','é':'e','í':'i','ó':'o','ú':'u',
+    'Á':'A','É':'E','Í':'I','Ó':'O','Ú':'U',
+    'ñ':'n','Ñ':'N','ü':'u','Ü':'U',
+  }
+  let name = resourceName
+  for (const [src, dst] of Object.entries(accents)) {
+    name = name.split(src).join(dst)
+  }
+  // 2. Split por no-alfanumérico
+  const words = name.split(/[^a-zA-Z0-9]+/).filter(Boolean)
+  // 3. PascalCase de cada palabra
+  const pascal = words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')
+  if (!pascal) return 'datasets'
+  // 4. camelCase: baja primera letra
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1)
+}
+
 function buildQuery(ver, res) {
-  // queryName real si existe
-  const qName = ver?.queryName || candidateQueryName(res)
+  const qName = ver?.queryName || datasetQueryName(res?.resourceName)
   const fields = (ver?.fields || []).slice(0, 12).join('\n      ')
   const fieldsPart = fields
     ? `total\n    items {\n      ${fields}\n    }`
     : 'total\n    items { id }'
   return `{\n  ${qName}(limit: 20) {\n    ${fieldsPart}\n  }\n}`
-}
-
-/**
- * Genera un queryName candidato a partir del nombre del resource,
- * siguiendo la misma convención que el schema_builder del engine.
- * Útil cuando el dataset no está en el registry activo.
- */
-function candidateQueryName(res) {
-  if (!res?.resourceName) return 'datasets'
-  return res.resourceName
-    .toLowerCase()
-    .replace(/[^a-z0-9]+(.)/g, (_, c) => c.toUpperCase())
-    .replace(/[^a-z0-9]/g, '')
 }
 
 function openSandbox(ver, res) {
@@ -489,16 +469,20 @@ function confirmDelete(ver, resourceName) {
 
 async function doDelete() {
   if (!toDelete.value?.datasetId) return
+  // Capturar valores antes de cualquier operación asíncrona
+  const datasetId = toDelete.value.datasetId
+  const hard = toDeleteHard.value
   deleting.value = true
   deleteError.value = ''
   try {
-    const url = `/api/datasets/${toDelete.value.datasetId}?hard=${toDeleteHard.value}`
+    // Pasar hard como string explícito que FastAPI entiende como bool
+    const url = `/api/datasets/${datasetId}?hard=${hard ? 'true' : 'false'}`
     const resp = await fetch(url, { method: 'DELETE' })
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}))
       throw new Error(body.detail || `HTTP ${resp.status}`)
     }
-    if (expandedDataset.value === toDelete.value.datasetId) expandedDataset.value = null
+    if (expandedDataset.value === datasetId) expandedDataset.value = null
     toDelete.value = null
     await loadTree()
   } catch (e) {
@@ -521,10 +505,12 @@ async function confirmCascadeDelete(res) {
 
 async function doCascadeDelete() {
   if (!cascadeDelete.value?.resourceId) return
+  const resourceId = cascadeDelete.value.resourceId
+  const hard = cascadeHard.value
   cascadeDeleting.value = true
   cascadeError.value = ''
   try {
-    const url = `/api/resources/${cascadeDelete.value.resourceId}/datasets?hard=${cascadeHard.value}`
+    const url = `/api/resources/${resourceId}/datasets?hard=${hard ? 'true' : 'false'}`
     const resp = await fetch(url, { method: 'DELETE' })
     if (!resp.ok) {
       const body = await resp.json().catch(() => ({}))

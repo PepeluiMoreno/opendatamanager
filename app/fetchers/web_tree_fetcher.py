@@ -25,9 +25,9 @@ from __future__ import annotations
 import logging
 import re
 import time
-from collections import deque
+from collections import deque, defaultdict
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterable, List, Tuple
+from typing import Any, Dict, Generator, List, Tuple
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -57,6 +57,61 @@ _DEFAULTS: Dict[str, Any] = {
 _FILENAME_YEAR_RE = re.compile(r"(?<![0-9])(?:19|20)\d{2}(?![0-9])")
 
 
+def _build_profile_stats(leaves: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Genera un histograma ligero de las URLs hoja descubiertas.
+
+    Devuelve un dict JSON-serializable con:
+      - segments: frecuencia de cada token por nivel de path (level_0, level_1, ...)
+      - file_extensions: conteo por extensión
+      - depth_distribution: conteo por profundidad de crawling
+      - total_files: número total de ficheros hoja
+
+    Es una función pura: no toca BD ni red.
+    """
+    segments: Dict[str, Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    extensions: Dict[str, int] = defaultdict(int)
+    depths: Dict[str, int] = defaultdict(int)
+
+    for leaf in leaves:
+        url = leaf.get("url", "")
+        depth = leaf.get("depth", 0)
+        ext = leaf.get("file_type") or ""
+
+        # Extensión
+        if ext:
+            extensions[ext.lower()] += 1
+
+        # Profundidad
+        depths[str(depth)] += 1
+
+        # Segmentos de path (excluimos el último = nombre de fichero)
+        parsed = urlparse(url)
+        path_parts = [p for p in parsed.path.split("/") if p]
+        for i, part in enumerate(path_parts[:-1]):  # excluir filename
+            level_key = f"level_{i}"
+            segments[level_key][part] += 1
+
+    # Calcular el nivel dominante de profundidad
+    dominant_depth = None
+    if depths:
+        dominant_depth = max(depths.items(), key=lambda x: x[1])[0]
+
+    # Top 10 por nivel de segmento
+    top_segments = {
+        level: dict(sorted(counts.items(), key=lambda x: -x[1])[:10])
+        for level, counts in segments.items()
+    }
+
+    return {
+        "total_files": len(leaves),
+        "file_extensions": dict(sorted(extensions.items(), key=lambda x: -x[1])),
+        "depth_distribution": dict(sorted(depths.items(), key=lambda x: int(x[0]))),
+        "dominant_depth": dominant_depth,
+        "segments": top_segments,
+    }
+
+
 class WebTreeFetcher(BaseFetcher):
     """Crawler de portales web. Modos: `discover` (padre) y `stream` (hijo)."""
 
@@ -72,10 +127,12 @@ class WebTreeFetcher(BaseFetcher):
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "es-ES,es;q=0.8",
         }
+        # Expuesto tras discover() para que el FetcherManager lo persista
+        self.profile_stats: Dict[str, Any] = {}
 
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
     # Helpers
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
 
     def _opt(self, key: str) -> Any:
         if key in self.params and self.params[key] not in (None, ""):
@@ -91,7 +148,6 @@ class WebTreeFetcher(BaseFetcher):
     def _allowed_extensions(self) -> set:
         raw = self._opt("allowed_extensions")
         if isinstance(raw, str):
-            # Acepta "pdf,xlsx,xls" o JSON array
             stripped = raw.strip()
             if stripped.startswith("["):
                 import json
@@ -132,14 +188,17 @@ class WebTreeFetcher(BaseFetcher):
             links.append((absolute, anchor))
         return links
 
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
     # DISCOVER mode (padre)
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
 
     def discover(self) -> List[Dict[str, Any]]:
-        """Recorre el árbol BFS y devuelve la lista de URLs hoja (ficheros).
-        No descarga los ficheros. No toca BD. Output puro — el FetcherManager
-        pasa esta lista al GroupingInferer."""
+        """
+        Recorre el árbol BFS y devuelve la lista de URLs hoja (ficheros).
+        También calcula y almacena `self.profile_stats` con el histograma
+        de segmentos, extensiones y profundidad.
+        No descarga ficheros. No toca BD.
+        """
         root_url = self._root_url()
         max_depth = int(self._opt("max_depth"))
         page_delay = float(self._opt("page_delay"))
@@ -182,7 +241,6 @@ class WebTreeFetcher(BaseFetcher):
 
             soup = BeautifulSoup(response.text, "html.parser")
 
-            # Recoger ficheros descargables encontrados en esta página
             for file_url, anchor in self._extract_links(soup, page_url, file_selector):
                 if file_url in visited_files:
                     continue
@@ -197,7 +255,6 @@ class WebTreeFetcher(BaseFetcher):
                     "anchor_text": anchor,
                 })
 
-            # Encolar enlaces de navegación si queda profundidad
             if depth < max_depth:
                 for next_url, _ in self._extract_links(soup, page_url, nav_selector):
                     if next_url in visited_pages:
@@ -216,18 +273,21 @@ class WebTreeFetcher(BaseFetcher):
             if page_delay > 0:
                 time.sleep(page_delay)
 
+        # Calcular y almacenar histograma (función pura)
+        self.profile_stats = _build_profile_stats(leaves)
         logger.info(
-            "[WebTree.discover] %s ficheros hoja en %s páginas",
+            "[WebTree.discover] %s ficheros hoja en %s páginas | stats: %s ext, depth dominante %s",
             len(leaves), len(visited_pages),
+            list(self.profile_stats.get("file_extensions", {}).keys()),
+            self.profile_stats.get("dominant_depth"),
         )
         return leaves
 
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
     # STREAM mode (hijo promovido)
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
 
     def _extract_dim_values(self, url: str, dimensions: List[Dict[str, Any]]) -> Dict[str, str]:
-        """Para cada dimensión declarada, extrae su valor del URL concreto."""
         parsed = urlparse(url)
         segs = [s for s in parsed.path.split("/") if s]
         if not segs:
@@ -270,8 +330,6 @@ class WebTreeFetcher(BaseFetcher):
         return parse_structured_file(content, fmt, {}, source_name=url)
 
     def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
-        """Modo hijo: descarga las `_matched_urls` inyectadas por el manager y
-        enriquece cada registro con las `_dimensions` detectadas."""
         matched_urls = self.params.get("_matched_urls")
         if not matched_urls:
             raise RuntimeError(
@@ -317,9 +375,9 @@ class WebTreeFetcher(BaseFetcher):
         if buffer:
             yield buffer
 
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
     # BaseFetcher contract
-    # ─────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
 
     def fetch(self) -> RawData:
         records: List[Dict[str, Any]] = []

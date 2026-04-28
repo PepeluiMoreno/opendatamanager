@@ -16,10 +16,32 @@ from app.services.grouping_inferer import get_inferer
 
 LOG_DIR = "data/logs"
 
+# Claves internas que no deben mostrarse en el título de ejecución
+_INTERNAL_PARAM_KEYS = frozenset({
+    "_resume_state", "_matched_urls", "_dimensions",
+    "_staging_path", "_preview_limit", "_discover_mode",
+    "_dataset_type",
+})
+
+
+def _execution_label(params: Optional[dict]) -> Optional[str]:
+    """
+    Genera un label legible a partir de los execution_params,
+    excluyendo las claves internas (que contienen objetos o listas grandes).
+    """
+    if not params:
+        return None
+    visible = {
+        k: v for k, v in params.items()
+        if k not in _INTERNAL_PARAM_KEYS and not str(k).startswith("_")
+    }
+    if not visible:
+        return None
+    return ", ".join(f"{k}={v}" for k, v in visible.items())
+
 
 class ExecutionLogger:
-    """Writes timestamped log lines to a per-execution file and stdout.
-    Also captures Python logging records from the 'app.fetchers' hierarchy."""
+    """Writes timestamped log lines to a per-execution file and stdout."""
 
     def __init__(self, execution_id: str):
         os.makedirs(LOG_DIR, exist_ok=True)
@@ -83,7 +105,7 @@ class FetcherManager:
                 ).first()
                 if stale:
                     stale.status = "failed"
-                    stale.completed_at = __import__("datetime").datetime.utcnow()
+                    stale.completed_at = datetime.utcnow()
                     stale.error_message = "Resource desactivado al lanzar la ejecución"
                     session.commit()
             return None
@@ -136,8 +158,7 @@ class FetcherManager:
                 )
                 if not candidate:
                     raise RuntimeError(
-                        f"Resource hijo '{resource.name}' sin ResourceCandidate asociado "
-                        f"(promoted_resource_id={resource.id})."
+                        f"Resource hijo '{resource.name}' sin ResourceCandidate asociado."
                     )
                 runtime_params["_matched_urls"] = list(candidate.matched_urls or [])
                 runtime_params["_dimensions"] = list(candidate.dimensions or [])
@@ -150,7 +171,15 @@ class FetcherManager:
                 leaf_urls = fetcher.discover()
                 logger.log(f"  {len(leaf_urls)} URLs hoja descubiertas. Inferiendo agrupaciones...")
 
-                # Elegir inferer según parámetro del resource (default: 'generic')
+                # Profile stats generados por el fetcher (función pura)
+                profile_stats = getattr(fetcher, "profile_stats", {})
+                if profile_stats:
+                    logger.log(
+                        f"  Stats: {profile_stats.get('total_files')} ficheros | "
+                        f"ext: {list(profile_stats.get('file_extensions', {}).keys())} | "
+                        f"profundidad dominante: {profile_stats.get('dominant_depth')}"
+                    )
+
                 resource_params = {p.key: p.value for p in resource.params}
                 inferer_name = resource_params.get("grouping_inferer", "generic")
                 try:
@@ -159,19 +188,13 @@ class FetcherManager:
                     logger.log(f"  WARN: {e} — usando 'generic'")
                     inferer = get_inferer("generic")
 
-                logger.log(f"  Inferer seleccionado: '{inferer_name}' ({inferer.__class__.__name__})")
+                logger.log(f"  Inferer: '{inferer_name}' ({inferer.__class__.__name__})")
                 raw_proposals = inferer.infer(leaf_urls)
-                logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación. Persistiendo candidatos...")
+                logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación.")
 
                 created_ids = []
                 for p in raw_proposals:
-                    # raw_proposals puede ser dataclasses o dicts según el inferer
-                    if isinstance(p, dict):
-                        pd = p
-                    else:
-                        from dataclasses import asdict
-                        pd = asdict(p)
-
+                    pd = p if isinstance(p, dict) else p.to_dict()
                     candidate = ResourceCandidate(
                         execution_id=execution.id,
                         crawler_resource_id=resource.id,
@@ -187,12 +210,22 @@ class FetcherManager:
                     session.flush()
                     created_ids.append(str(candidate.id))
 
+                # Persistir artefacto: propuestas + profile_stats
+                artifact = {
+                    "proposals": [p if isinstance(p, dict) else p.to_dict() for p in raw_proposals],
+                    "profile_stats": profile_stats,
+                }
                 artifact_path = os.path.join(staging_dir, f"discover_{execution.id}.json")
                 with open(artifact_path, "w", encoding="utf-8") as f:
-                    json.dump(
-                        [p if isinstance(p, dict) else p.to_dict() for p in raw_proposals],
-                        f, ensure_ascii=False, indent=2,
-                    )
+                    json.dump(artifact, f, ensure_ascii=False, indent=2)
+
+                # Guardar profile_stats en execution_params (sin los campos internos grandes)
+                safe_params = {
+                    k: v for k, v in (execution_params or {}).items()
+                    if k not in _INTERNAL_PARAM_KEYS
+                }
+                safe_params["_profile_stats"] = profile_stats
+                execution.execution_params = safe_params
                 execution.staging_path = artifact_path
                 execution.total_records = len(raw_proposals)
                 execution.active_seconds = (execution.active_seconds or 0) + int(
@@ -201,8 +234,8 @@ class FetcherManager:
                 execution.status = "completed"
                 execution.completed_at = datetime.utcnow()
                 logger.log(
-                    f"DISCOVER COMPLETED — {len(raw_proposals)} candidato(s) creados; "
-                    f"{len(leaf_urls)} URLs analizadas"
+                    f"DISCOVER COMPLETED — {len(raw_proposals)} candidato(s) | "
+                    f"{len(leaf_urls)} URLs | stats guardados"
                 )
                 session.commit()
                 logger.close()
@@ -217,7 +250,7 @@ class FetcherManager:
                     f"page {saved_state['page']}" if "page" in saved_state else
                     "saved state"
                 )
-                logger.log(f"  RESUME — continuing from {hint}, appending to existing staging file")
+                logger.log(f"  RESUME — continuing from {hint}")
 
             file_mode = "a" if is_resume else "w"
             total_records = int(execution.total_records or 0) if is_resume else 0
@@ -244,20 +277,15 @@ class FetcherManager:
             if paused:
                 execution.active_seconds = (execution.active_seconds or 0) + int((datetime.utcnow() - period_start).total_seconds())
                 resume_state = getattr(fetcher, "current_state", {})
-                current_params = dict(execution.execution_params or {})
+                current_params = {
+                    k: v for k, v in (execution.execution_params or {}).items()
+                    if k not in _INTERNAL_PARAM_KEYS
+                }
                 current_params["_resume_state"] = resume_state
                 execution.execution_params = current_params
                 execution.status = "paused"
                 execution.completed_at = datetime.utcnow()
-                if resume_state.get("pivot_index") is not None:
-                    next_hint = f" (next: pivot {resume_state['pivot_index']})"
-                elif resume_state.get("pages_fetched") is not None:
-                    next_hint = f" (next: page {resume_state['pages_fetched'] + 1})"
-                elif resume_state.get("page") is not None:
-                    next_hint = f" (next: page {resume_state['page']})"
-                else:
-                    next_hint = ""
-                logger.log(f"PAUSED — {total_records} records staged{next_hint}. Resume to continue.")
+                logger.log(f"PAUSED — {total_records} records staged.")
                 session.commit()
                 logger.close()
                 return None
@@ -269,9 +297,7 @@ class FetcherManager:
             logger.log("[2/5] DATASET - Building dataset...")
             dataset_builder = DatasetBuilder()
             dataset = dataset_builder.build(
-                session=session,
-                resource=resource,
-                execution=execution,
+                session=session, resource=resource, execution=execution,
             )
             session.add(dataset)
             logger.log(f"  Dataset created: {dataset.version_string}")
@@ -285,7 +311,7 @@ class FetcherManager:
                 for cfg in derived_configs:
                     FetcherManager._derive_dataset(session, cfg, staging_path, logger)
             else:
-                logger.log("[3/5] DERIVE - Skipped (no configs enabled)")
+                logger.log("[3/5] DERIVE - Skipped")
 
             if resource.enable_load:
                 logger.log(f"[4/5] LOAD - Loading data to core.{resource.target_table}...")
@@ -294,8 +320,7 @@ class FetcherManager:
                     with open(staging_path, "r", encoding="utf-8") as f:
                         data_for_load = [json.loads(line) for line in f]
                     loaded_count = data_loader.load_data(
-                        session=session,
-                        dataset=dataset,
+                        session=session, dataset=dataset,
                         normalized_data=data_for_load,
                         load_mode=resource.load_mode or "upsert",
                         table_name=f"core.{resource.target_table}",
@@ -306,7 +331,7 @@ class FetcherManager:
                     execution.error_message = f"Load failed: {str(e)}"
                     logger.log(f"  WARNING: Load failed: {e}")
             else:
-                logger.log("[4/5] LOAD - Skipped (enable_load=False)")
+                logger.log("[4/5] LOAD - Skipped")
 
             logger.log("[5/5] NOTIFY - Sending notifications...")
             notification_service = NotificationService()
@@ -330,9 +355,9 @@ class FetcherManager:
                 from app.graphql_data import engine as data_engine
                 session.flush()
                 count = data_engine.rebuild(session)
-                logger.log(f"  GraphQL data schema rebuilt — {count} dataset(s) total in data API.")
+                logger.log(f"  GraphQL data schema rebuilt — {count} dataset(s).")
             except Exception as rebuild_err:
-                logger.log(f"  WARNING: GraphQL data schema rebuild failed: {rebuild_err}")
+                logger.log(f"  WARNING: GraphQL rebuild failed: {rebuild_err}")
 
         except Exception as e:
             execution.active_seconds = (execution.active_seconds or 0) + int((datetime.utcnow() - period_start).total_seconds())
@@ -356,8 +381,8 @@ class FetcherManager:
         target = config.target_name
         key_field = config.key_field
         extract_fields: list = config.extract_fields or []
-
         extracted: dict[str, dict] = {}
+
         with open(staging_path, "r", encoding="utf-8") as f:
             for line in f:
                 record = json.loads(line)
@@ -371,10 +396,10 @@ class FetcherManager:
                 extracted[str(key_val)] = entry
 
         if not extracted:
-            logger.log(f"  [{target}] No records with key_field '{key_field}' found — skipping")
+            logger.log(f"  [{target}] No records with key_field '{key_field}' — skipping")
             return 0
 
-        logger.log(f"  [{target}] {len(extracted)} distinct '{key_field}' values found")
+        logger.log(f"  [{target}] {len(extracted)} distinct '{key_field}' values")
 
         if config.merge_strategy == "insert_only":
             for key_val, entry_data in extracted.items():
@@ -383,13 +408,7 @@ class FetcherManager:
                     DerivedDatasetEntry.key_value == key_val,
                 ).first()
                 if not existing:
-                    session.add(DerivedDatasetEntry(
-                        id=_uuid4(),
-                        config_id=config.id,
-                        key_value=key_val,
-                        data=entry_data,
-                        updated_at=_dt.utcnow(),
-                    ))
+                    session.add(DerivedDatasetEntry(id=_uuid4(), config_id=config.id, key_value=key_val, data=entry_data, updated_at=_dt.utcnow()))
         else:
             for key_val, entry_data in extracted.items():
                 existing = session.query(DerivedDatasetEntry).filter(
@@ -397,38 +416,26 @@ class FetcherManager:
                     DerivedDatasetEntry.key_value == key_val,
                 ).first()
                 if existing:
-                    existing.data = entry_data
-                    existing.updated_at = _dt.utcnow()
+                    existing.data = entry_data; existing.updated_at = _dt.utcnow()
                 else:
-                    session.add(DerivedDatasetEntry(
-                        id=_uuid4(),
-                        config_id=config.id,
-                        key_value=key_val,
-                        data=entry_data,
-                        updated_at=_dt.utcnow(),
-                    ))
+                    session.add(DerivedDatasetEntry(id=_uuid4(), config_id=config.id, key_value=key_val, data=entry_data, updated_at=_dt.utcnow()))
 
         session.flush()
-        total = session.query(DerivedDatasetEntry).filter(
-            DerivedDatasetEntry.config_id == config.id
-        ).count()
-        logger.log(f"  [{target}] Done — {len(extracted)} processed, {total} total entries in catalog")
+        total = session.query(DerivedDatasetEntry).filter(DerivedDatasetEntry.config_id == config.id).count()
+        logger.log(f"  [{target}] Done — {len(extracted)} processed, {total} total entries")
         return len(extracted)
 
     @staticmethod
     def run_all(session: Session) -> None:
         resources = session.query(Resource).filter(Resource.active == True).all()
         if not resources:
-            print("No hay resources activos para ejecutar")
+            print("No hay resources activos")
             return
-        print(f"Ejecutando {len(resources)} resources activos...")
         for resource in resources:
             try:
                 FetcherManager.run(session, str(resource.id))
             except Exception as e:
-                print(f"Error en Resource '{resource.name}': {e}")
-                continue
-        print("Ejecucion completada")
+                print(f"Error en '{resource.name}': {e}")
 
     @staticmethod
     def fetch_only(session: Session, resource_id: str, limit: int = 10, runtime_params: dict = None) -> list:
@@ -436,9 +443,7 @@ class FetcherManager:
         if not resource:
             raise ValueError(f"Resource con id '{resource_id}' no encontrado")
         if not resource.active:
-            print(f"Resource '{resource.name}' está desactivado, omitiendo...")
             return []
-        print(f"Extracting data from: {resource.name} (limit: {limit})")
         fetcher = FetcherFactory.create_from_resource(resource)
         if runtime_params:
             for k, v in runtime_params.items():
@@ -451,8 +456,6 @@ class FetcherManager:
         elif isinstance(data, list):
             data_list = data
         else:
-            raise ValueError(f"Unexpected data type from fetcher: {type(data)}")
+            raise ValueError(f"Unexpected data type: {type(data)}")
         serializable_data = [FetcherManager._make_serializable(item) for item in data_list]
-        limited_data = serializable_data[:limit]
-        print(f"  Extracted {len(limited_data)} records (limited from {len(data_list)})")
-        return limited_data
+        return serializable_data[:limit]
