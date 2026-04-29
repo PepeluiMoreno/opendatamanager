@@ -12,7 +12,7 @@ from app.fetchers.factory import FetcherFactory
 from app.builders.dataset_builder import DatasetBuilder
 from app.services.notification_service import NotificationService
 from app.services.data_loader_service import DataLoaderService
-from app.services.grouping_inferer import get_inferer
+from app.services.grouping import infer
 
 LOG_DIR = "data/logs"
 
@@ -180,16 +180,11 @@ class FetcherManager:
                         f"profundidad dominante: {profile_stats.get('dominant_depth')}"
                     )
 
+                # path_root es opcional: si se pasa, sobreescribe el prefijo común
+                # autodetectado. Útil cuando un crawler mezcla sub-portales.
                 resource_params = {p.key: p.value for p in resource.params}
-                inferer_name = resource_params.get("grouping_inferer", "generic")
-                try:
-                    inferer = get_inferer(inferer_name)
-                except ValueError as e:
-                    logger.log(f"  WARN: {e} — usando 'generic'")
-                    inferer = get_inferer("generic")
-
-                logger.log(f"  Inferer: '{inferer_name}' ({inferer.__class__.__name__})")
-                raw_proposals = inferer.infer(leaf_urls)
+                path_root = resource_params.get("path_root") or None
+                raw_proposals = infer(leaf_urls, path_root=path_root)
                 logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación.")
 
                 created_ids = []

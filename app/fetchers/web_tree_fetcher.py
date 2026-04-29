@@ -8,7 +8,7 @@ Dos modos de operación, deducidos por el FetcherManager según
 - `discover` (recurso padre): recorre el árbol BFS sin descargar ficheros,
   emite la lista de URLs hoja con metadatos. Output puro — sin BD, sin red más
   allá de las páginas HTML. El FetcherManager pasa el resultado a
-  `app.services.grouping_inferer.infer()` y persiste cada propuesta como
+  `app.services.grouping.infer()` y persiste cada propuesta como
   `ResourceCandidate`.
 
 - `stream` (recurso hijo, auto-generado al promover una candidata): descarga
