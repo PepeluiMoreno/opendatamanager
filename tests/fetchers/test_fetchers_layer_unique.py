@@ -7,7 +7,7 @@ huérfano app/builders/fetchers/, evitando que vuelvan a divergir.
 """
 from pathlib import Path
 
-APP_DIR = Path(__file__).resolve().parents[1] / "app"
+APP_DIR = Path(__file__).resolve().parents[2] / "app"
 
 
 def test_unico_fetchers_enum():
