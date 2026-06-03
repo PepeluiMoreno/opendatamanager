@@ -111,6 +111,22 @@ async def graphql_data_registry():
     return data_engine.get_registry()
 
 
+@app.get("/api/datasets/health")
+async def datasets_health():
+    """Salud/frescura por recurso (PÚBLICO, solo lectura).
+
+    Para que un consumidor (p. ej. SIPI) pueda confiar en los datos: último
+    éxito, antigüedad del dato, tasa de fallo y si está vencido respecto a su
+    programación. No expone secretos ni rutas internas.
+    """
+    from app.services.health_service import resource_health
+    session = SessionLocal()
+    try:
+        return resource_health(session)
+    finally:
+        session.close()
+
+
 @app.get("/api/datasets/tree")
 async def datasets_tree():
     """Devuelve todos los datasets agrupados por resource, con versiones ordenadas desc."""
@@ -515,8 +531,10 @@ async def system_concurrency():
 async def resource_stats():
     """Per-resource extraction statistics: records extracted, trends, run history."""
     from sqlalchemy import func
+    from app.services.health_service import resource_health
     db = SessionLocal()
     try:
+        health_map = {h["resource_id"]: h for h in resource_health(db)}
         resources = db.query(Resource).order_by(Resource.name).all()
         result = []
         for res in resources:
@@ -568,6 +586,12 @@ async def resource_stats():
                 # External params used in the last visible execution
                 "last_execution_params": last.execution_params if last else None,
                 "bounding_field": bounding_field,
+                # Salud/frescura (ver app/services/health_service.py)
+                "last_success_at": (health_map.get(str(res.id)) or {}).get("last_success_at"),
+                "data_age_seconds": (health_map.get(str(res.id)) or {}).get("data_age_seconds"),
+                "success_rate": (health_map.get(str(res.id)) or {}).get("success_rate"),
+                "is_overdue": (health_map.get(str(res.id)) or {}).get("is_overdue"),
+                "latest_version": (health_map.get(str(res.id)) or {}).get("latest_version"),
             })
         return result
     finally:
