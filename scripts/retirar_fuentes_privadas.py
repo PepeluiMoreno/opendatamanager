@@ -11,11 +11,7 @@ consumidora (zona confidencial).
 
 Este script hace SOFT-DELETE (reversible: marca deleted_at, conserva historial) de
 los resources y publishers indicados, vía la API admin autenticada. Es
-conservador:
-  - DRY-RUN por defecto. Hay que pasar --confirm.
-  - Lo inequívocamente privado va en CONFIRMADAS.
-  - Lo dudoso (decisión pendiente del operador) va en REVISAR y NO se toca salvo
-    que se pase además --incluir-revisar.
+conservador: DRY-RUN por defecto; hay que pasar --confirm para ejecutar.
 
 Requisitos:
   ODM_BASE_URL     (por defecto https://odmgr.pepelui.es)
@@ -24,7 +20,6 @@ Requisitos:
 Uso:
   python scripts/retirar_fuentes_privadas.py                      # dry-run
   ODM_ADMIN_TOKEN=xxx python scripts/retirar_fuentes_privadas.py --confirm
-  ODM_ADMIN_TOKEN=xxx python scripts/retirar_fuentes_privadas.py --confirm --incluir-revisar
 """
 import argparse
 import os
