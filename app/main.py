@@ -104,6 +104,10 @@ app.include_router(data_router, prefix="/graphql/data", tags=["GraphQL Data API"
 from app.auth_router import router as auth_router  # noqa: E402
 app.include_router(auth_router)
 
+# Gestión de usuarios y roles (requiere usuarios.gestionar)
+from app.usuarios_router import router as usuarios_router  # noqa: E402
+app.include_router(usuarios_router)
+
 
 @app.get("/")
 def root():
