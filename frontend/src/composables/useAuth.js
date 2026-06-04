@@ -29,8 +29,15 @@ async function cargarSesion() {
 // Sesión caducada o permiso denegado en alguna llamada → re-sincronizar perfil.
 onAuthError(() => { cargarSesion() })
 
-// Carga inicial al arrancar la app.
-cargarSesion()
+// Carga inicial al arrancar la app (promesa exportada para las guardas de ruta).
+const sesionLista = cargarSesion()
+
+// Comprobación de permiso utilizable fuera de componentes (router).
+function puedePermiso(code) {
+  return permisos.value.has(code)
+}
+
+export { sesionLista, puedePermiso }
 
 export function useAuth() {
   async function login(username, password) {

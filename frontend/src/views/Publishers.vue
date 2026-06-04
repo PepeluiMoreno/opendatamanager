@@ -6,7 +6,7 @@
         <h1 class="text-2xl font-bold text-white">Publishers</h1>
         <p class="text-gray-400 text-sm mt-1">Organisations and portals publishing open data</p>
       </div>
-      <button @click="openCreate" class="btn btn-primary flex items-center gap-2">
+      <button v-if="puede('publishers.gestionar')" @click="openCreate" class="btn btn-primary flex items-center gap-2">
         <span class="text-lg leading-none">+</span> New publisher
       </button>
     </div>
@@ -60,11 +60,11 @@
               <td class="py-3 px-4 text-gray-400">{{ resourceCount(p.id) }}</td>
               <td class="py-3 px-4">
                 <div class="flex gap-2 justify-end">
-                  <button @click="openEdit(p)"
+                  <button v-if="puede('publishers.gestionar')" @click="openEdit(p)"
                           class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 rounded hover:bg-blue-900/30">
                     Edit
                   </button>
-                  <button @click="confirmDelete(p)"
+                  <button v-if="puede('publishers.gestionar')" @click="confirmDelete(p)"
                           :disabled="resourceCount(p.id) > 0"
                           :title="resourceCount(p.id) > 0 ? 'Has associated resources' : 'Delete'"
                           class="text-red-400 hover:text-red-300 text-xs px-2 py-1 rounded hover:bg-red-900/30 disabled:opacity-30 disabled:cursor-not-allowed">
@@ -266,7 +266,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { fetchPublishers, createPublisher, updatePublisher, deletePublisher, fetchResources } from '../api/graphql.js'
+import { fetchPublishers, createPublisher, updatePublisher, deletePublisher, fetchResources, errorLegible } from '../api/graphql.js'
+import { useAuth } from '../composables/useAuth'
+
+const { puede } = useAuth()
 
 const NIVELES = [
   { value: 'ESTATAL',       label: 'National (AGE)' },
@@ -542,7 +545,7 @@ async function save() {
     closeModal()
     await load()
   } catch (e) {
-    formError.value = e.message || 'Error saving publisher'
+    formError.value = errorLegible(e)
   } finally {
     saving.value = false
   }
@@ -561,7 +564,7 @@ async function handleDelete() {
     publisherToDelete.value = null
     await load()
   } catch (e) {
-    alert(e.message || 'Error deleting publisher')
+    alert(errorLegible(e))
   }
 }
 

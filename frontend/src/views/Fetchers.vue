@@ -2,7 +2,7 @@
   <div class="p-8">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold">Fetchers</h1>
-      <button @click="showCreateModal = true" class="btn btn-primary">Add Fetcher</button>
+      <button v-if="puede('fetchers.gestionar')" @click="showCreateModal = true" class="btn btn-primary">Add Fetcher</button>
     </div>
 
     <!-- Filters -->
@@ -83,6 +83,7 @@
             <td class="px-4 py-3">
               <div class="flex justify-end gap-2">
                 <button
+                  v-if=\"puede('fetchers.gestionar')\"
                   @click="editFetcher(f)"
                   class="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
                   title="Edit"
@@ -93,6 +94,7 @@
                   </svg>
                 </button>
                 <button
+                  v-if=\"puede('fetchers.gestionar')\"
                   @click="deleteFetcher(f)"
                   :disabled="f.resources?.length > 0"
                   class="p-1.5 rounded transition-colors"
@@ -171,6 +173,9 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { fetchFetchers, deleteFetcher as deleteFetcherAPI } from '../api/graphql'
+import { useAuth } from '../composables/useAuth'
+
+const { puede } = useAuth()
 import CreateEditFetcherModal from './CreateEditFetcherModal.vue'
 import { onMounted } from 'vue'
 

@@ -140,7 +140,7 @@
 
               <!-- Pause button (running, not yet requested) -->
               <button
-                v-else-if="ex.status === 'running'"
+                v-else-if="ex.status === 'running' && puede('ejecuciones.parar')"
                 @click="doPause(ex)"
                 class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-yellow-800 text-yellow-500 hover:bg-yellow-950 hover:border-yellow-600 hover:text-yellow-300 transition-colors"
                 title="Pause at next page boundary"
@@ -166,7 +166,7 @@
 
               <!-- Resume button (paused, not yet requested) -->
               <button
-                v-else-if="ex.status === 'paused'"
+                v-else-if="ex.status === 'paused' && puede('ejecuciones.lanzar')"
                 @click="doResume(ex)"
                 class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-green-800 text-green-500 hover:bg-green-950 hover:border-green-600 hover:text-green-300 transition-colors"
                 title="Resume execution"
@@ -179,7 +179,7 @@
 
               <!-- Kill button (running or paused) -->
               <button
-                v-if="ex.status === 'running' || ex.status === 'paused'"
+                v-if="ex.status === 'running' || ex.status === 'paused' && puede('ejecuciones.parar')"
                 @click="confirmAbort(ex)"
                 class="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded border border-red-900 text-red-500 hover:bg-red-950 hover:border-red-600 hover:text-red-300 transition-colors"
                 title="Kill process"
@@ -192,7 +192,7 @@
 
               <!-- Delete button (non-running, non-paused) -->
               <button
-                v-if="ex.status !== 'running' && ex.status !== 'paused'"
+                v-if="ex.status !== 'running' && ex.status !== 'paused' && puede('ejecuciones.parar')"
                 @click="confirmDelete(ex)"
                 class="flex items-center gap-1 px-2 py-1.5 text-xs rounded border border-gray-700 text-gray-500 hover:border-red-700 hover:text-red-400 transition-colors"
                 title="Remove from list"
@@ -399,6 +399,9 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'
+import { useAuth } from '../composables/useAuth'
+
+const { puede } = useAuth()
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const executions = ref([])

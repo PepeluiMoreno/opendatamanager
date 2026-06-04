@@ -3,11 +3,11 @@
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Resources</h1>
       <div class="flex gap-2">
-        <button @click="triggerImport" class="btn btn-secondary text-sm">
+        <button v-if="puede('recursos.crear')" @click="triggerImport" class="btn btn-secondary text-sm">
           ↑ Importar
         </button>
         <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="onImportFile" />
-        <button @click="showCreateModal = true" class="btn btn-primary text-sm">
+        <button v-if="puede('recursos.crear')" @click="showCreateModal = true" class="btn btn-primary text-sm">
           + Nuevo recurso
         </button>
       </div>
@@ -147,30 +147,35 @@
               <div class="flex justify-end gap-1">
                 <!-- Discover: solo visible en fetchers Web Tree -->
                 <button
-                  v-if="isWebTree(resource)"
+                  v-if="isWebTree(resource) && puede('ejecuciones.lanzar')"
                   @click="launchDiscover(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-purple-800 hover:bg-purple-700 text-white"
                   title="Lanzar Discovery — crawlea el árbol y genera candidatos"
                 >Discover</button>
                 <button
+                  v-if="puede('ejecuciones.lanzar')"
                   @click="openExecuteModal(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
                   title="Ejecutar"
                 >Run</button>
                 <button
+                  v-if="puede('recursos.testar')"
                   @click="showPreviewData(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
                 >Test</button>
                 <button
+                  v-if="puede('recursos.editar')"
                   @click="editResource(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
                 >Edit</button>
                 <button
+                  v-if="puede('recursos.crear')"
                   @click="handleClone(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
                   title="Clonar"
                 >Clone</button>
                 <button
+                  v-if="puede('recursos.borrar')"
                   @click="confirmDelete(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-red-900/60 hover:bg-red-800 text-red-300"
                 >
@@ -1099,6 +1104,9 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+
+const { puede } = useAuth()
 import Tooltip from '../components/Tooltip.vue'
 import FilterMapEditor from '../components/FilterMapEditor.vue'
 import EnumMetaPreview from '../components/EnumMetaPreview.vue'

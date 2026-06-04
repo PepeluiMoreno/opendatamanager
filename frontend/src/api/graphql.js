@@ -11,6 +11,14 @@ export function onAuthError(fn) {
   authErrorHandler = fn
 }
 
+// Extrae un mensaje humano de un error de graphql-request (sin volcar el JSON).
+export function errorLegible(e) {
+  const g = e?.response?.errors?.[0]?.message
+  if (g) return g
+  const m = String(e?.message || e || 'Error desconocido')
+  return m.split(':')[0].slice(0, 200)
+}
+
 export const client = new GraphQLClient(endpoint, {
   headers: { 'Content-Type': 'application/json' },
   credentials: 'same-origin',
