@@ -2,7 +2,8 @@
 Queries GraphQL para consultar datos.
 """
 import strawberry
-from app.rbac import requiere
+from app.rbac import requiere, puede, redactar_recurso, redactar_ejecucion
+from strawberry.types import Info
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
@@ -345,7 +346,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def resources(self, active_only: bool = False) -> List[ResourceType]:
+    def resources(self, info: Info, active_only: bool = False) -> List[ResourceType]:
         """Lista todas las fuentes de datos"""
         db = get_db()
         try:
@@ -353,27 +354,38 @@ class Query:
             if active_only:
                 query = query.filter(Resource.active == True)
             resources = query.order_by(Resource.created_at.desc()).all()
-            return [map_resource(r) for r in resources]
+            out = [map_resource(r) for r in resources]
+            if not puede(info, "recursos.ver_sensible"):
+                for rt in out:
+                    redactar_recurso(rt)
+            return out
         finally:
             db.close()
 
     @strawberry.field
-    def resource(self, id: str) -> Optional[ResourceType]:
+    def resource(self, info: Info, id: str) -> Optional[ResourceType]:
         """Obtiene un Resource por ID"""
         db = get_db()
         try:
             resource = db.query(Resource).filter(Resource.id == id, Resource.deleted_at == None).first()
-            return map_resource(resource) if resource else None
+            rt = map_resource(resource) if resource else None
+            if rt is not None and not puede(info, "recursos.ver_sensible"):
+                redactar_recurso(rt)
+            return rt
         finally:
             db.close()
 
     @strawberry.field
-    def resources_by_project(self, project: str) -> List[ResourceType]:
+    def resources_by_project(self, info: Info, project: str) -> List[ResourceType]:
         """Lista recursos por proyecto"""
         db = get_db()
         try:
             resources = db.query(Resource).filter(Resource.project == project).all()
-            return [map_resource(r) for r in resources]
+            out = [map_resource(r) for r in resources]
+            if not puede(info, "recursos.ver_sensible"):
+                for rt in out:
+                    redactar_recurso(rt)
+            return out
         finally:
             db.close()
 
@@ -427,7 +439,7 @@ class Query:
         return await asyncio.to_thread(_fetch)
 
     @strawberry.field
-    def resource_executions(self, resource_id: Optional[str] = None) -> List[ResourceExecutionType]:
+    def resource_executions(self, info: Info, resource_id: Optional[str] = None) -> List[ResourceExecutionType]:
         """Lista ejecuciones de Resources, opcionalmente filtrado por resource_id"""
         db = get_db()
         try:
@@ -435,17 +447,24 @@ class Query:
             if resource_id:
                 query = query.filter(ResourceExecution.resource_id == resource_id)
             executions = query.order_by(ResourceExecution.started_at.desc()).all()
-            return [map_resource_execution(re) for re in executions]
+            out = [map_resource_execution(re) for re in executions]
+            if not puede(info, "recursos.ver_sensible"):
+                for et in out:
+                    redactar_ejecucion(et)
+            return out
         finally:
             db.close()
 
     @strawberry.field
-    def resource_execution(self, id: str) -> Optional[ResourceExecutionType]:
+    def resource_execution(self, info: Info, id: str) -> Optional[ResourceExecutionType]:
         """Obtiene una ejecución específica por ID"""
         db = get_db()
         try:
             execution = db.query(ResourceExecution).filter(ResourceExecution.id == id).first()
-            return map_resource_execution(execution) if execution else None
+            et = map_resource_execution(execution) if execution else None
+            if et is not None and not puede(info, "recursos.ver_sensible"):
+                redactar_ejecucion(et)
+            return et
         finally:
             db.close()
 
