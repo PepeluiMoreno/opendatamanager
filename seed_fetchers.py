@@ -42,6 +42,22 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "PLACSP - Licitaciones (CODICE)",
+        "class_path": "app.fetchers.placsp_atom.PlacspAtomFetcher",
+        "description": "Licitaciones del sector público vía sindicación ATOM de PLACSP (XML CODICE embebido). Recorre el feed por rel=next hacia atrás en el tiempo.",
+        "params": [
+            {"param_name": "atom_url", "data_type": "string", "required": True, "group": "fuente",
+             "hint": "URL del índice de sindicación (p. ej. sindicación 643, licitaciones sin menores).",
+             "help_md": "Datos abiertos de PLACSP. El feed es paginado por `rel=next` (más reciente primero) y lleva el CODICE embebido en cada entry."},
+            {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 5, "group": "comportamiento",
+             "hint": "Páginas a recorrer (cada una ~250 licitaciones). 0 = sin límite (backfill, lento)."},
+            {"param_name": "delay", "data_type": "integer", "required": False, "default_value": 2, "group": "comportamiento",
+             "hint": "Segundos de cortesía entre páginas."},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 180, "group": "comportamiento",
+             "hint": "Timeout por página en segundos (el feed es lento: ~100 s por página)."}
+        ],
+    },
+    {
         "name": "Feeds ATOM/RSS",
         "class_path": "app.fetchers.atom.AtomFetcher",
         "description": "ATOM/RSS feed reader",
