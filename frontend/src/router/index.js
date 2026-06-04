@@ -11,6 +11,7 @@ import DataExplorer from '../views/DataExplorer.vue'
 import Publishers from '../views/Publishers.vue'
 import Subscriptions from '../views/Subscriptions.vue'
 import Trash from '../views/Trash.vue'
+import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
 
 const routes = [
@@ -27,6 +28,7 @@ const routes = [
   { path: '/subscriptions',  name: 'Subscriptions', component: Subscriptions },
   { path: '/trash',          name: 'Trash',         component: Trash },
   { path: '/candidates',     name: 'Candidates',    component: Candidates },
+  { path: '/usuarios',       name: 'Usuarios',      component: Usuarios },
 ]
 
 const router = createRouter({ history: createWebHistory(), routes })

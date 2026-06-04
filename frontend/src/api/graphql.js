@@ -2,47 +2,18 @@ import { GraphQLClient } from 'graphql-request'
 
 const endpoint = '/graphql'
 
-// ── Token de administración ──────────────────────────────────────────────
-// El backend protege la API de administración con `Authorization: Bearer
-// <ODM_ADMIN_TOKEN>` (fail-closed). El token se guarda en localStorage y se
-// adjunta dinámicamente a cada petición. Ante un 401/403 se pide una vez.
-const ADMIN_TOKEN_KEY = 'odm_admin_token'
-
-export function getAdminToken() {
-  try { return localStorage.getItem(ADMIN_TOKEN_KEY) || '' } catch { return '' }
-}
-
-export function setAdminToken(token) {
-  try {
-    if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token)
-    else localStorage.removeItem(ADMIN_TOKEN_KEY)
-  } catch { /* almacenamiento no disponible */ }
-  applyAdminToken()
-}
-
-export function clearAdminToken() {
-  setAdminToken('')
-}
-
-// Manejador que se dispara ante un 401/403 (lo registra el sistema de auth
-// para mandar al usuario al login). Sin prompt(): UX vía formulario.
+// ── Autorización ─────────────────────────────────────────────────────────
+// La autenticación va por sesión en cookie httpOnly (mismo origen): el
+// navegador la adjunta solo. El backend aplica RBAC por operación; ante un
+// 401/403 se notifica al sistema de auth (sesión caducada o sin permiso).
 let authErrorHandler = null
 export function onAuthError(fn) {
   authErrorHandler = fn
 }
 
-// Fija (o limpia) la cabecera Authorization en el cliente. graphql-request@6
-// evalúa las cabeceras-función una sola vez al construir el cliente, por eso
-// la aplicamos de forma imperativa al cargar y cada vez que cambia el token.
-function applyAdminToken() {
-  const token = getAdminToken()
-  if (token) client.setHeader('Authorization', `Bearer ${token}`)
-  else client.setHeaders({ 'Content-Type': 'application/json' })
-}
-
-
 export const client = new GraphQLClient(endpoint, {
   headers: { 'Content-Type': 'application/json' },
+  credentials: 'same-origin',
   responseMiddleware: (res) => {
     const status = res?.response?.status
     if ((status === 401 || status === 403) && typeof authErrorHandler === 'function') {
@@ -50,9 +21,6 @@ export const client = new GraphQLClient(endpoint, {
     }
   },
 })
-
-// Aplica el token guardado al arrancar.
-applyAdminToken()
 
 // Helper to handle errors with better messages
 function handleGraphQLError(error) {

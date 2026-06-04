@@ -1,45 +1,67 @@
-import { ref } from 'vue'
-import { gql } from 'graphql-request'
-import { client, getAdminToken, setAdminToken, clearAdminToken, onAuthError } from '../api/graphql'
+import { ref, computed } from 'vue'
+import { onAuthError } from '../api/graphql'
 
-// Estado de autenticación reactivo y compartido por toda la app.
-// El modelo es mono-admin: el "token de acceso" (ODM_ADMIN_TOKEN) ES la clave.
-// No hay JWT ni usuarios; el token se guarda y se adjunta como Bearer.
-const isAuthenticated = ref(!!getAdminToken())
+// Estado de sesión compartido (singleton de módulo). Modelo invitado-primero:
+// la app carga sin credenciales con los permisos públicos; iniciar sesión
+// amplía permisos según los roles del usuario (RBAC en el servidor).
+const usuario = ref(null)          // username, o null si invitado
+const roles = ref([])
+const permisos = ref(new Set())
+const inicializado = ref(false)
+const mostrarLogin = ref(false)
 
-// Si cualquier petición devuelve 401/403, cerramos sesión y volvemos al login.
-onAuthError(() => {
-  clearAdminToken()
-  isAuthenticated.value = false
-})
+async function cargarSesion() {
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'same-origin' })
+    const d = await r.json()
+    usuario.value = d.invitado ? null : d.username
+    roles.value = d.roles || []
+    permisos.value = new Set(d.permisos || [])
+  } catch {
+    usuario.value = null
+    roles.value = []
+    permisos.value = new Set()
+  } finally {
+    inicializado.value = true
+  }
+}
+
+// Sesión caducada o permiso denegado en alguna llamada → re-sincronizar perfil.
+onAuthError(() => { cargarSesion() })
+
+// Carga inicial al arrancar la app.
+cargarSesion()
 
 export function useAuth() {
-  // Valida la clave contra la API protegida y, si es correcta, autentica.
-  async function login(token) {
-    const clean = (token || '').trim()
-    if (!clean) throw new Error('Introduce la clave de administración.')
-    setAdminToken(clean)
+  async function login(username, password) {
+    const r = await fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: (username || '').trim(), password }),
+    })
+    if (r.status === 401) throw new Error('Usuario o contraseña incorrectos.')
+    if (!r.ok) throw new Error('No se pudo iniciar sesión (¿servidor disponible?).')
+    const d = await r.json()
+    usuario.value = d.username
+    roles.value = d.roles || []
+    permisos.value = new Set(d.permisos || [])
+    mostrarLogin.value = false
+    return true
+  }
+
+  async function logout() {
     try {
-      // Petición mínima a la API de administración: 200 = clave válida.
-      await client.request(gql`{ __typename }`)
-      isAuthenticated.value = true
-      return true
-    } catch (err) {
-      // 401/403 ya habrá limpiado el token vía onAuthError.
-      const status = err?.response?.status
-      if (status === 401 || status === 403) {
-        throw new Error('Clave incorrecta.')
-      }
-      // Otro error (red, servidor): conservamos el token, informamos.
-      isAuthenticated.value = !!getAdminToken()
-      throw new Error('No se pudo verificar la clave (¿servidor disponible?).')
-    }
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+    } catch { /* sin red: el estado local se resetea igualmente */ }
+    await cargarSesion()
   }
 
-  function logout() {
-    clearAdminToken()
-    isAuthenticated.value = false
+  function puede(code) {
+    return permisos.value.has(code)
   }
 
-  return { isAuthenticated, login, logout }
+  const esInvitado = computed(() => !usuario.value)
+
+  return { usuario, roles, permisos, esInvitado, inicializado, mostrarLogin, login, logout, puede, cargarSesion }
 }
