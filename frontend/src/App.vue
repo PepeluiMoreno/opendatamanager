@@ -1,6 +1,6 @@
 <template>
   <!-- Mobile/tablet: stacked layout with slide-over sidebar -->
-  <div class="flex h-screen bg-gray-900 overflow-hidden">
+  <div v-if="isAuthenticated" class="flex h-screen bg-gray-900 overflow-hidden">
     <BackendStatus />
 
     <!-- Mobile overlay -->
@@ -41,13 +41,19 @@
       </div>
     </div>
   </div>
+
+  <!-- Sin sesión: pantalla de acceso -->
+  <Login v-else />
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import BackendStatus from './components/BackendStatus.vue'
+import Login from './components/Login.vue'
+import { useAuth } from './composables/useAuth'
 
+const { isAuthenticated } = useAuth()
 const sidebarOpen = ref(false)
 </script>
 

@@ -20,6 +20,17 @@ export function setAdminToken(token) {
   applyAdminToken()
 }
 
+export function clearAdminToken() {
+  setAdminToken('')
+}
+
+// Manejador que se dispara ante un 401/403 (lo registra el sistema de auth
+// para mandar al usuario al login). Sin prompt(): UX vía formulario.
+let authErrorHandler = null
+export function onAuthError(fn) {
+  authErrorHandler = fn
+}
+
 // Fija (o limpia) la cabecera Authorization en el cliente. graphql-request@6
 // evalúa las cabeceras-función una sola vez al construir el cliente, por eso
 // la aplicamos de forma imperativa al cargar y cada vez que cambia el token.
@@ -34,16 +45,8 @@ export const client = new GraphQLClient(endpoint, {
   headers: { 'Content-Type': 'application/json' },
   responseMiddleware: (res) => {
     const status = res?.response?.status
-    if ((status === 401 || status === 403) && typeof window !== 'undefined') {
-      const t = window.prompt(
-        'Operación de administración protegida.\n' +
-        'Introduce el token de administración (ODM_ADMIN_TOKEN):',
-        getAdminToken()
-      )
-      if (t !== null) {
-        setAdminToken(t.trim())
-        window.alert('Token guardado. Repite la operación.')
-      }
+    if ((status === 401 || status === 403) && typeof authErrorHandler === 'function') {
+      authErrorHandler()
     }
   },
 })

@@ -33,6 +33,15 @@
     </nav>
 
     <div class="p-4 border-t border-gray-700 space-y-3">
+      <button
+        @click="logout"
+        class="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Cerrar sesión
+      </button>
       <div v-if="status === 'offline'" class="flex items-center gap-2 bg-red-900 border border-red-600 text-red-200 rounded-lg px-3 py-2 text-xs font-medium animate-pulse">
         <svg class="w-4 h-4 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -69,8 +78,11 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import NavItem from './NavItem.vue'
+import { useAuth } from '../composables/useAuth'
 
 defineEmits(['close'])
+
+const { logout } = useAuth()
 
 const status = ref('checking')
 const ramTotal = ref(0)
