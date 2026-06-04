@@ -1,0 +1,207 @@
+"""
+Import/export de artefactos de ODM como manifiestos JSON declarativos.
+
+Un manifiesto empaqueta lo necesario para levantar recursos: publisher + recursos
+(fetcher por su `code`, schedule, params). Permite que quien construye una app
+aporte fuentes y otras se beneficien.
+
+REGLA DE SEGURIDAD INNEGOCIABLE: un manifiesto solo puede REFERENCIAR un fetcher
+ya registrado (por `code`). Nunca acepta `class_path`, `fetcher_id`,
+`publisher_id` ni `id`: importar no es ejecutar código arbitrario.
+
+Política de gobernanza (opcional, soft-dependency): si el paquete de gobernanza
+está disponible, se clasifica el origen y se exige que la clase esté admitida
+(`ODM_ALLOWED_SOURCE_CLASSES`). Si no, el import funciona igual (rama independiente).
+"""
+from typing import Any, Dict, List, Optional
+
+MANIFEST_VERSION = 1
+
+# Campos prohibidos en un recurso del manifiesto (evitan inyección de código/ids).
+_FORBIDDEN_RESOURCE_KEYS = ("class_path", "fetcher_id", "publisher_id", "id")
+
+# Soft-dependency con gobernanza: si existe, se aplica política de clases.
+try:  # pragma: no cover - depende de si la rama de gobernanza está presente
+    from app.governance.source_classification import admite as _admite, clasificar as _clasificar
+except Exception:  # noqa: BLE001
+    _admite = None
+    _clasificar = None
+
+
+def validate_manifest(manifest: Dict[str, Any], known_fetcher_codes) -> List[str]:
+    """Valida un manifiesto. Devuelve lista de errores (vacía si es válido).
+
+    Función pura: no toca BD. `known_fetcher_codes` es el conjunto de `code` de
+    fetchers registrados.
+    """
+    errors: List[str] = []
+    known = set(known_fetcher_codes or [])
+
+    if not isinstance(manifest, dict):
+        return ["El manifiesto debe ser un objeto JSON."]
+
+    if manifest.get("odm_manifest_version") != MANIFEST_VERSION:
+        errors.append(f"odm_manifest_version debe ser {MANIFEST_VERSION}.")
+
+    pub = manifest.get("publisher")
+    if not isinstance(pub, dict) or not pub.get("acronimo"):
+        errors.append("Falta 'publisher.acronimo'.")
+
+    resources = manifest.get("resources")
+    if not isinstance(resources, list) or not resources:
+        errors.append("'resources' debe ser una lista no vacía.")
+        return errors
+
+    for i, r in enumerate(resources):
+        pref = f"resources[{i}]"
+        if not isinstance(r, dict):
+            errors.append(f"{pref}: debe ser un objeto.")
+            continue
+        if not r.get("name"):
+            errors.append(f"{pref}: falta 'name'.")
+        fcode = r.get("fetcher")
+        if not fcode:
+            errors.append(f"{pref}: falta 'fetcher' (code).")
+        elif known and fcode not in known:
+            errors.append(f"{pref}: fetcher '{fcode}' no está registrado.")
+        for forbidden in _FORBIDDEN_RESOURCE_KEYS:
+            if forbidden in r:
+                errors.append(f"{pref}: campo prohibido '{forbidden}' (no se inyecta código ni ids).")
+        params = r.get("params", [])
+        if params is not None and not isinstance(params, list):
+            errors.append(f"{pref}: 'params' debe ser una lista.")
+        else:
+            for j, p in enumerate(params or []):
+                if not isinstance(p, dict) or "key" not in p or "value" not in p:
+                    errors.append(f"{pref}.params[{j}]: cada param necesita 'key' y 'value'.")
+    return errors
+
+
+def build_manifest(publisher, resources_with_fetchers) -> Dict[str, Any]:
+    """Construye un manifiesto desde objetos del modelo (export). Función pura.
+
+    `publisher`: objeto Publisher (o None).
+    `resources_with_fetchers`: lista de (resource, fetcher, params_list).
+    """
+    res_out = []
+    for resource, fetcher, params in resources_with_fetchers:
+        res_out.append({
+            "name": resource.name,
+            "fetcher": fetcher.code if fetcher else None,
+            "schedule": resource.schedule,
+            "active": bool(resource.active),
+            "params": [
+                {"key": p.key, "value": p.value, "is_external": bool(getattr(p, "is_external", False))}
+                for p in (params or [])
+            ],
+        })
+    pub_out = None
+    if publisher is not None:
+        pub_out = {
+            "acronimo": publisher.acronimo,
+            "nombre": publisher.nombre,
+            "nivel": publisher.nivel,
+            "pais": getattr(publisher, "pais", None),
+            "portal_url": getattr(publisher, "portal_url", None),
+        }
+    return {
+        "odm_manifest_version": MANIFEST_VERSION,
+        "publisher": pub_out,
+        "resources": res_out,
+    }
+
+
+def _policy_error(publisher_nivel: Optional[str], fetcher_code: Optional[str], clase_declarada: Optional[str]) -> Optional[str]:
+    """Si la gobernanza está presente, devuelve un error si la clase no se admite."""
+    if _admite is None:
+        return None
+    clase = clase_declarada
+    if clase is None and _clasificar is not None:
+        clase = _clasificar(publisher_nivel, fetcher_code)
+    if not _admite(clase):
+        return f"clase de origen '{clase}' no admitida por la política de la instancia."
+    return None
+
+
+def import_manifest(session, manifest: Dict[str, Any]) -> Dict[str, Any]:
+    """Importa un manifiesto (upsert idempotente). Devuelve un resumen.
+
+    - Publisher: upsert por `acronimo`.
+    - Resource: upsert por (publisher, name). Fetcher SOLO por `code` (rechaza
+      desconocido). Params: se reemplazan por los del manifiesto.
+    - Política de gobernanza aplicada si está disponible.
+    """
+    from uuid import uuid4
+    from app.models import Publisher, Resource, ResourceParam, Fetcher
+
+    known_codes = {f.code for f in session.query(Fetcher).all()}
+    errors = validate_manifest(manifest, known_codes)
+    if errors:
+        return {"ok": False, "errors": errors, "created": 0, "updated": 0}
+
+    pub_data = manifest["publisher"]
+    publisher = (
+        session.query(Publisher).filter(Publisher.acronimo == pub_data["acronimo"]).first()
+    )
+    if publisher is None:
+        publisher = Publisher(
+            id=uuid4(),
+            acronimo=pub_data["acronimo"],
+            nombre=pub_data.get("nombre") or pub_data["acronimo"],
+            nivel=pub_data.get("nivel") or "ESTATAL",
+            pais=pub_data.get("pais") or "España",
+            portal_url=pub_data.get("portal_url"),
+        )
+        session.add(publisher)
+        session.flush()
+
+    created = updated = 0
+    skipped: List[str] = []
+    for r in manifest["resources"]:
+        fetcher = session.query(Fetcher).filter(Fetcher.code == r["fetcher"]).first()
+        if fetcher is None:
+            skipped.append(f"{r.get('name')}: fetcher '{r.get('fetcher')}' no registrado")
+            continue
+
+        perr = _policy_error(publisher.nivel, r["fetcher"], r.get("clase_fuente"))
+        if perr:
+            skipped.append(f"{r.get('name')}: {perr}")
+            continue
+
+        resource = (
+            session.query(Resource)
+            .filter(Resource.publisher_id == publisher.id, Resource.name == r["name"])
+            .first()
+        )
+        if resource is None:
+            resource = Resource(
+                id=uuid4(),
+                name=r["name"],
+                publisher=publisher.nombre,
+                publisher_id=publisher.id,
+                fetcher_id=fetcher.id,
+                active=bool(r.get("active", True)),
+                schedule=r.get("schedule"),
+            )
+            session.add(resource)
+            session.flush()
+            created += 1
+        else:
+            resource.fetcher_id = fetcher.id
+            resource.active = bool(r.get("active", resource.active))
+            resource.schedule = r.get("schedule", resource.schedule)
+            # Reemplazar params existentes
+            session.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).delete()
+            updated += 1
+
+        for p in (r.get("params") or []):
+            session.add(ResourceParam(
+                id=uuid4(),
+                resource_id=resource.id,
+                key=p["key"],
+                value=p["value"],
+                is_external=bool(p.get("is_external", False)),
+            ))
+
+    session.commit()
+    return {"ok": True, "created": created, "updated": updated, "skipped": skipped, "errors": []}
