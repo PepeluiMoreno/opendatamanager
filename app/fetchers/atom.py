@@ -103,6 +103,60 @@ def _parse_feed_entries(root: ET.Element) -> List[Dict[str, Any]]:
     return []
 
 
+def _entry_elements(root: ET.Element) -> List[ET.Element]:
+    """Devuelve los elementos entry/item del feed (cualquier formato)."""
+    ns = "{http://www.w3.org/2005/Atom}"
+    els = root.findall(f"{ns}entry") or root.findall("entry")
+    if not els:
+        ch = root.find("channel")
+        if ch is not None:
+            els = ch.findall("item")
+    if not els:
+        for tag in ("entry", "item"):
+            els = root.findall(f".//{tag}")
+            if els:
+                break
+    return els
+
+
+def _first_by_path(el: ET.Element, path: str):
+    """Resuelve una ruta de nombres locales (p. ej. 'ProcurementProject/Name'),
+    descendiendo al primer hijo que casa en cada nivel. Sintaxis 'tag@attr' para
+    leer un atributo. Robusto al namespace (compara por nombre local)."""
+    cur = el
+    parts = path.split("/")
+    for i, part in enumerate(parts):
+        attr = None
+        if "@" in part:
+            part, attr = part.split("@", 1)
+        encontrado = None
+        for d in cur.iter():
+            if d is not cur and _tag_local(d.tag) == part:
+                encontrado = d
+                break
+        if encontrado is None:
+            return None
+        cur = encontrado
+        if i == len(parts) - 1:
+            if attr:
+                return cur.get(attr)
+            return (cur.text or "").strip() or None
+    return None
+
+
+def _extract_flat(el: ET.Element, field_map: Dict[str, str]) -> Dict[str, Any]:
+    """Aplana un elemento a un registro según el mapa {campo_salida: ruta}."""
+    return {salida: _first_by_path(el, ruta) for salida, ruta in field_map.items()}
+
+
+def _next_link(root: ET.Element) -> Optional[str]:
+    ns = "{http://www.w3.org/2005/Atom}"
+    for link in root.findall(f"{ns}link") or root.findall("link"):
+        if link.get("rel") == "next":
+            return link.get("href")
+    return None
+
+
 class AtomFetcher(BaseFetcher):
 
     def fetch(self) -> RawData:
@@ -128,14 +182,48 @@ class AtomFetcher(BaseFetcher):
 
         effective_page_size = min(page_size, preview_limit) if preview_limit else page_size
 
+        # Mapa de aplanado opcional: {campo_salida: ruta_local}. Si no se define,
+        # cada entry se devuelve como dict anidado genérico (comportamiento previo).
+        field_map = self.params.get("field_map")
+        if isinstance(field_map, str):
+            field_map = json.loads(field_map) if field_map.strip() else None
+
+        # Modo de paginación: 'query' (offset por query-params, por defecto) o
+        # 'rel_next' (sigue <link rel="next">, típico de sindicaciones).
+        pagination = (self.params.get("pagination", "query") or "query").lower()
+        delay = float(self.params.get("delay", 0))
+
+        def _entradas(root):
+            if field_map:
+                return [_extract_flat(e, field_map) for e in _entry_elements(root)]
+            return _parse_feed_entries(root)
+
         all_records: List[Dict[str, Any]] = []
-        start = 0
         page = 0
-
-        logger.info(f"Iniciando fetch ATOM: {url}")
-
+        logger.info(f"Iniciando fetch ATOM: {url} (paginación={pagination})")
         session = requests.Session()
 
+        if pagination == "rel_next":
+            import time
+            next_url: Optional[str] = url
+            while next_url:
+                response = self._request(session, method, next_url, headers=headers, timeout=timeout)
+                response.raise_for_status()
+                root = ET.fromstring(response.text)
+                batch = _entradas(root)
+                all_records.extend(batch)
+                logger.info(f"  página {page} — {len(batch)} entradas (total: {len(all_records)})")
+                page += 1
+                if preview_limit and len(all_records) >= preview_limit:
+                    break
+                if max_pages and page >= max_pages:
+                    break
+                next_url = _next_link(root)
+                if next_url and delay:
+                    time.sleep(delay)
+            return all_records[:preview_limit] if preview_limit else all_records
+
+        start = 0
         while True:
             query = {
                 **fixed_params,
@@ -154,7 +242,7 @@ class AtomFetcher(BaseFetcher):
             except ET.ParseError as e:
                 raise ValueError(f"No se pudo parsear el XML del feed: {e}\nRespuesta: {response.text[:200]}")
 
-            entries = _parse_feed_entries(root)
+            entries = _entradas(root)
             batch_count = len(entries)
             all_records.extend(entries)
 
