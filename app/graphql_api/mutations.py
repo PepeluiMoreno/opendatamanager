@@ -139,6 +139,21 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
+    def import_manifest(self, manifest: strawberry.scalars.JSON) -> strawberry.scalars.JSON:
+        """Importa un manifiesto JSON de recursos (idempotente).
+
+        Solo referencia fetchers ya registrados por su `code`; nunca acepta
+        class_path ni ids (no inyecta código). Aplica la política de gobernanza si
+        está disponible. Queda protegida por la autenticación de /graphql.
+        """
+        from app.services.manifests import import_manifest as _import_manifest
+        db = get_db()
+        try:
+            return _import_manifest(db, manifest)
+        finally:
+            db.close()
+
+    @strawberry.mutation
     def update_resource(self, id: str, input: UpdateResourceInput) -> ResourceType:
         """Actualiza una fuente de datos existente"""
         db = get_db()

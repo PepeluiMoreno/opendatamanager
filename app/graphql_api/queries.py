@@ -298,6 +298,29 @@ def map_application_notification(notif: ApplicationNotification) -> ApplicationN
 @strawberry.type
 class Query:
     @strawberry.field
+    def resource_manifest(self, id: str) -> strawberry.scalars.JSON:
+        """Exporta un recurso como manifiesto JSON importable.
+
+        Queda protegida por la autenticación de /graphql.
+        """
+        from app.services.manifests import build_manifest
+        from app.models import Resource as ResourceM, ResourceParam as ResourceParamM, Fetcher as FetcherM, Publisher as PublisherM
+        db = get_db()
+        try:
+            resource = db.query(ResourceM).filter(ResourceM.id == id, ResourceM.deleted_at == None).first()
+            if not resource:
+                return {"error": f"Resource '{id}' no encontrado"}
+            fetcher = db.query(FetcherM).filter(FetcherM.id == resource.fetcher_id).first()
+            publisher = (
+                db.query(PublisherM).filter(PublisherM.id == resource.publisher_id).first()
+                if resource.publisher_id else None
+            )
+            params = db.query(ResourceParamM).filter(ResourceParamM.resource_id == resource.id).all()
+            return build_manifest(publisher, [(resource, fetcher, params)])
+        finally:
+            db.close()
+
+    @strawberry.field
     def fetchers(self) -> List[FetcherType]:
         """Lista todos los fetchers disponibles"""
         db = get_db()

@@ -1,0 +1,22 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "INE",
+    "nombre": "Instituto Nacional de Estadística",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.ine.es"
+  },
+  "resources": [
+    {
+      "name": "España - Comunidades Autónomas (INE)",
+      "fetcher": "API REST",
+      "schedule": "0 4 1 1 *",
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "params": [
+        { "key": "url", "value": "https://servicios.ine.es/wstempus/js/ES/...", "is_external": false }
+      ]
+    }
+  ]
+}
