@@ -22,18 +22,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('type_fetcher_params',
-                  sa.Column('hint', sa.String(length=255), nullable=True),
-                  schema='opendata')
-    op.add_column('type_fetcher_params',
-                  sa.Column('help_md', sa.Text(), nullable=True),
-                  schema='opendata')
-    op.add_column('type_fetcher_params',
-                  sa.Column('visible_when', JSONB(), nullable=True),
-                  schema='opendata')
+    # Idempotente: el entrypoint re-aplica todas las migraciones en cada arranque
+    # (borra alembic_version), así que debe tolerar columnas ya existentes.
+    op.execute("ALTER TABLE opendata.type_fetcher_params ADD COLUMN IF NOT EXISTS hint VARCHAR(255)")
+    op.execute("ALTER TABLE opendata.type_fetcher_params ADD COLUMN IF NOT EXISTS help_md TEXT")
+    op.execute("ALTER TABLE opendata.type_fetcher_params ADD COLUMN IF NOT EXISTS visible_when JSONB")
 
 
 def downgrade() -> None:
-    op.drop_column('type_fetcher_params', 'visible_when', schema='opendata')
-    op.drop_column('type_fetcher_params', 'help_md', schema='opendata')
-    op.drop_column('type_fetcher_params', 'hint', schema='opendata')
+    op.execute("ALTER TABLE opendata.type_fetcher_params DROP COLUMN IF EXISTS visible_when")
+    op.execute("ALTER TABLE opendata.type_fetcher_params DROP COLUMN IF EXISTS help_md")
+    op.execute("ALTER TABLE opendata.type_fetcher_params DROP COLUMN IF EXISTS hint")
