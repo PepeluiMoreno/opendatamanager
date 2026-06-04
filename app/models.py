@@ -341,3 +341,82 @@ class ApplicationNotification(Base):
 
     application = relationship("Application")
     dataset = relationship("Dataset")
+
+
+# ─────────────────────────────────────────────────────────────────────────
+# RBAC: usuarios, roles, funcionalidades (catálogo de transacciones) y sesiones
+# ─────────────────────────────────────────────────────────────────────────
+from sqlalchemy import Table  # noqa: E402
+
+usuario_rol = Table(
+    "usuario_rol", Base.metadata,
+    Column("usuario_id", UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="CASCADE"), primary_key=True),
+    Column("rol_id", UUID(as_uuid=True), ForeignKey("opendata.rol.id", ondelete="CASCADE"), primary_key=True),
+    schema="opendata",
+)
+
+rol_funcionalidad = Table(
+    "rol_funcionalidad", Base.metadata,
+    Column("rol_id", UUID(as_uuid=True), ForeignKey("opendata.rol.id", ondelete="CASCADE"), primary_key=True),
+    Column("funcionalidad_id", UUID(as_uuid=True), ForeignKey("opendata.funcionalidad.id", ondelete="CASCADE"), primary_key=True),
+    schema="opendata",
+)
+
+
+class Usuario(Base):
+    __tablename__ = "usuario"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    username = Column(String(80), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login_at = Column(DateTime, nullable=True)
+
+    roles = relationship("Rol", secondary=usuario_rol, back_populates="usuarios")
+
+
+class Rol(Base):
+    __tablename__ = "rol"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    code = Column(String(50), unique=True, nullable=False)
+    nombre = Column(String(120), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    is_system = Column(Boolean, default=False, nullable=False)  # roles base no borrables
+
+    usuarios = relationship("Usuario", secondary=usuario_rol, back_populates="roles")
+    funcionalidades = relationship("Funcionalidad", secondary=rol_funcionalidad, back_populates="roles")
+
+
+class Funcionalidad(Base):
+    """Catálogo de transacciones/permisos (p. ej. 'recursos.crear')."""
+    __tablename__ = "funcionalidad"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    code = Column(String(80), unique=True, nullable=False)
+    nombre = Column(String(160), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    modulo = Column(String(80), nullable=True)
+    es_lectura = Column(Boolean, default=False, nullable=False)  # accesible a invitado si True
+
+    roles = relationship("Rol", secondary=rol_funcionalidad, back_populates="funcionalidades")
+
+
+class Sesion(Base):
+    """Sesión opaca en BD (cookie httpOnly). Revocable borrando la fila."""
+    __tablename__ = "sesion"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="CASCADE"), nullable=False)
+    token_hash = Column(String(64), unique=True, nullable=False, index=True)  # sha256 del token
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    last_seen_at = Column(DateTime, nullable=True)
+
+    usuario = relationship("Usuario")
