@@ -59,6 +59,23 @@ class BaseFetcher(ABC):
                 effective_timeout = base_timeout * (1 + attempt)
                 caller = http if http else requests
                 response = caller.request(method, url, timeout=effective_timeout, **kwargs)
+                # Cortesía: 429 (Too Many Requests) y 503 (Service Unavailable) no
+                # son fallos definitivos. Respetamos Retry-After si lo envía el
+                # servidor; si no, backoff exponencial. Así no maltratamos portales
+                # frágiles ni abortamos por un límite de tasa transitorio.
+                if response.status_code in (429, 503):
+                    if attempt >= self._max_retries:
+                        raise RuntimeError(
+                            f"Agotados {self._max_retries} reintentos en {url}: "
+                            f"HTTP {response.status_code}"
+                        )
+                    wait = self._retry_after_seconds(response, attempt)
+                    logger.warning(
+                        f"[CORTESÍA {attempt + 1}/{self._max_retries}] {url} — "
+                        f"HTTP {response.status_code}, esperando {wait:.0f}s"
+                    )
+                    time.sleep(wait)
+                    continue
                 response.raise_for_status()
                 return response
             except (requests.exceptions.Timeout,
@@ -76,6 +93,26 @@ class BaseFetcher(ABC):
                 if isinstance(exc, requests.exceptions.ConnectionError) and http is not None:
                     http = requests.Session()
                 time.sleep(wait)
+
+    def _retry_after_seconds(self, response: requests.Response, attempt: int) -> float:
+        """Segundos a esperar tras 429/503: respeta Retry-After (segundos o fecha
+        HTTP) y, en su defecto, aplica backoff exponencial."""
+        from email.utils import parsedate_to_datetime
+        from datetime import datetime, timezone
+
+        ra = response.headers.get("Retry-After")
+        if ra:
+            try:
+                return max(0.0, float(ra))
+            except ValueError:
+                try:
+                    when = parsedate_to_datetime(ra)
+                    if when.tzinfo is None:
+                        when = when.replace(tzinfo=timezone.utc)
+                    return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+                except Exception:
+                    pass
+        return float(self._retry_backoff ** (attempt + 1))
 
     @abstractmethod
     def fetch(self) -> RawData:

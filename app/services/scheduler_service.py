@@ -1,3 +1,6 @@
+import os
+import threading
+import time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy.orm import Session
@@ -7,6 +10,30 @@ from app.manager.fetcher_manager import FetcherManager
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Cortesía por publisher: intervalo mínimo (segundos) entre arranques de
+# recursos que comparten el mismo publisher, para no martillear un portal
+# público cuando varios cron coinciden. Configurable por entorno.
+_PUBLISHER_MIN_INTERVAL_S = float(os.environ.get("ODM_PUBLISHER_MIN_INTERVAL_S", "30"))
+_publisher_last_start: dict[str, float] = {}
+_publisher_lock = threading.Lock()
+
+
+def _await_publisher_slot(publisher: str | None) -> None:
+    """Espera, si hace falta, hasta respetar el intervalo mínimo del publisher."""
+    if not publisher or _PUBLISHER_MIN_INTERVAL_S <= 0:
+        return
+    with _publisher_lock:
+        now = time.monotonic()
+        last = _publisher_last_start.get(publisher)
+        wait = 0.0 if last is None else (last + _PUBLISHER_MIN_INTERVAL_S) - now
+        # Reservamos el slot ya (marca el arranque previsto) para que arranques
+        # concurrentes del mismo publisher se serialicen correctamente.
+        _publisher_last_start[publisher] = max(now, (last or 0) + _PUBLISHER_MIN_INTERVAL_S)
+    if wait > 0:
+        logger.info(f"Cortesía publisher '{publisher}': esperando {wait:.0f}s")
+        time.sleep(wait)
+
 
 class SchedulerService:
     def __init__(self):
@@ -55,6 +82,10 @@ class SchedulerService:
         logger.info(f"Executing scheduled job for resource {resource_id}")
         session = SessionLocal()
         try:
+            # Cortesía por publisher antes de arrancar (solo en ejecución programada).
+            resource = session.query(Resource).filter(Resource.id == resource_id).first()
+            if resource is not None:
+                _await_publisher_slot(resource.publisher)
             FetcherManager.run(session, resource_id)
         except Exception as e:
             logger.error(f"Error executing scheduled job for resource {resource_id}: {e}")
