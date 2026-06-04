@@ -72,6 +72,11 @@ class PaginatedRestFetcher(BaseFetcher):
             "bounding_field", "bounding_value", "page_start",
         }
         for key, value in self.params.items():
+            # Los params internos/de control (prefijo "_": _staging_path,
+            # _resume_state, _discover_mode, _preview_limit…) NUNCA se reenvían a
+            # la fuente externa; colarlos rompe APIs estrictas (p. ej. CKAN -> 400).
+            if key.startswith("_"):
+                continue
             if key not in _control_keys and value not in (None, ""):
                 fixed_params.setdefault(key, str(value))
 
