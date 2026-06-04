@@ -19,13 +19,14 @@
       <NavItem to="/resources" :active="$route.path.startsWith('/resources')">🔌 Resources</NavItem>
       <NavItem to="/fetchers" :active="$route.path.startsWith('/fetchers')">🔧 Fetchers</NavItem>
       <NavItem to="/processes" :active="$route.path === '/processes'">⚡ Processes</NavItem>
-      <NavItem to="/candidates" :active="$route.path === '/candidates'">🗂️ Candidatos</NavItem>
+      <NavItem v-if="puede('recursos.crear')" to="/candidates" :active="$route.path === '/candidates'">🗂️ Candidatos</NavItem>
       <NavItem to="/explorer" :active="$route.path === '/explorer'">🔍 Data Explorer</NavItem>
-      <NavItem to="/applications" :active="$route.path === '/applications'">📦 Applications</NavItem>
-      <NavItem to="/subscriptions" :active="$route.path === '/subscriptions'">🔗 Subscriptions</NavItem>
-      <NavItem to="/schedule" :active="$route.path === '/schedule'">🕐 Schedule</NavItem>
-      <NavItem to="/settings" :active="$route.path === '/settings'">⚙️ Settings</NavItem>
-      <NavItem to="/trash" :active="$route.path === '/trash'">🗑️ Trash</NavItem>
+      <NavItem v-if="puede('aplicaciones.gestionar')" to="/applications" :active="$route.path === '/applications'">📦 Applications</NavItem>
+      <NavItem v-if="puede('aplicaciones.gestionar')" to="/subscriptions" :active="$route.path === '/subscriptions'">🔗 Subscriptions</NavItem>
+      <NavItem v-if="puede('programacion.gestionar')" to="/schedule" :active="$route.path === '/schedule'">🕐 Schedule</NavItem>
+      <NavItem v-if="puede('settings.gestionar')" to="/settings" :active="$route.path === '/settings'">⚙️ Settings</NavItem>
+      <NavItem v-if="puede('recursos.borrar')" to="/trash" :active="$route.path === '/trash'">🗑️ Trash</NavItem>
+      <NavItem v-if="puede('usuarios.gestionar')" to="/usuarios" :active="$route.path === '/usuarios'">👥 Usuarios</NavItem>
 
       <div v-if="status !== 'online'" class="absolute inset-0 flex items-center justify-center">
         <p class="text-xs text-gray-500 text-center px-4">Navigation unavailable<br>while backend is {{ status }}</p>
@@ -34,14 +35,24 @@
 
     <div class="p-4 border-t border-gray-700 space-y-3">
       <button
-        @click="logout"
-        class="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
+        v-if="esInvitado"
+        @click="mostrarLogin = true"
+        class="w-full flex items-center justify-center gap-2 text-xs text-white bg-blue-600 hover:bg-blue-500 rounded-lg px-3 py-2 transition-colors"
       >
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-        </svg>
-        Cerrar sesión
+        Iniciar sesión
       </button>
+      <div v-else class="space-y-2">
+        <p class="text-xs text-gray-400 text-center truncate">👤 {{ usuario }}</p>
+        <button
+          @click="logout"
+          class="w-full flex items-center justify-center gap-2 text-xs text-gray-400 hover:text-white bg-gray-700/50 hover:bg-gray-700 rounded-lg px-3 py-2 transition-colors"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+          </svg>
+          Cerrar sesión
+        </button>
+      </div>
       <div v-if="status === 'offline'" class="flex items-center gap-2 bg-red-900 border border-red-600 text-red-200 rounded-lg px-3 py-2 text-xs font-medium animate-pulse">
         <svg class="w-4 h-4 flex-shrink-0 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
@@ -82,7 +93,7 @@ import { useAuth } from '../composables/useAuth'
 
 defineEmits(['close'])
 
-const { logout } = useAuth()
+const { logout, puede, esInvitado, usuario, mostrarLogin } = useAuth()
 
 const status = ref('checking')
 const ramTotal = ref(0)

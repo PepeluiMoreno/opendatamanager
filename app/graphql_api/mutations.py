@@ -2,6 +2,7 @@
 Mutations GraphQL para modificar datos.
 """
 import strawberry
+from app.rbac import requiere
 import threading
 import ctypes
 from typing import Optional, List, Dict
@@ -90,7 +91,7 @@ def get_db():
 
 @strawberry.type
 class Mutation:
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def create_resource(self, input: CreateResourceInput) -> ResourceType:
         """Crea una nueva fuente de datos"""
         db = get_db()
@@ -138,7 +139,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def import_manifest(self, manifest: strawberry.scalars.JSON) -> strawberry.scalars.JSON:
         """Importa un manifiesto JSON de recursos (idempotente).
 
@@ -153,7 +154,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
     def update_resource(self, id: str, input: UpdateResourceInput) -> ResourceType:
         """Actualiza una fuente de datos existente"""
         db = get_db()
@@ -212,7 +213,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def clone_resource(self, id: str, name: Optional[str] = None) -> ResourceType:
         """Clona un Resource existente copiando todos sus parámetros.
 
@@ -257,7 +258,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.borrar")])
     def delete_resource(self, id: str, hard_delete: bool = False) -> bool:
         """Elimina una fuente de datos.
 
@@ -319,7 +320,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.lanzar")])
     def execute_resource(self, id: str, params: Optional[strawberry.scalars.JSON] = None) -> ExecutionResult:
         """Ejecuta un Resource para actualizar sus datos.
 
@@ -421,7 +422,7 @@ class Mutation:
             execution_id=execution_id,
         )
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.lanzar")])
     def execute_all_resources(self) -> ExecutionResult:
         """Ejecuta todos los Sources activos en background"""
         def _run_all():
@@ -436,7 +437,7 @@ class Mutation:
         threading.Thread(target=_run_all, daemon=True).start()
         return ExecutionResult(success=True, message="Todos los resources activos iniciados en background")
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def create_fetcher(self, input: CreateFetcherInput) -> FetcherType:
         """Crea un nuevo tipo de fetcher"""
         db = get_db()
@@ -462,7 +463,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def update_fetcher(self, id: str, input: UpdateFetcherInput) -> FetcherType:
         """Actualiza un tipo de fetcher existente"""
         db = get_db()
@@ -497,7 +498,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def delete_fetcher(self, id: str, hard_delete: bool = False) -> bool:
         """Soft-delete (or hard-delete) de un Fetcher"""
         db = get_db()
@@ -528,7 +529,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def create_type_fetcher_param(self, input: CreateTypeFetcherParamInput) -> FetcherParamType:
         """Crea un parámetro para un fetcher"""
         db = get_db()
@@ -562,7 +563,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def update_type_fetcher_param(self, id: str, input: UpdateTypeFetcherParamInput) -> FetcherParamType:
         """Actualiza un parámetro de fetcher"""
         db = get_db()
@@ -601,7 +602,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def delete_type_fetcher_param(self, id: str) -> bool:
         """Elimina un parámetro de fetcher"""
         db = get_db()
@@ -619,7 +620,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("settings.gestionar")])
     def set_config(self, input: SetConfigInput) -> AppConfigType:
         """Upsert a single application setting."""
         db = get_db()
@@ -640,7 +641,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.parar")])
     def abort_execution(self, id: str) -> ExecutionResult:
         """Mata el thread de una ejecución running y la marca como aborted."""
         with _registry_lock:
@@ -679,7 +680,7 @@ class Mutation:
             return ExecutionResult(success=True, message="Execution aborted", resource_id=id)
         return ExecutionResult(success=False, message="Could not kill thread", resource_id=id)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.parar")])
     def pause_execution(self, id: str) -> ExecutionResult:
         """Señal cooperativa de pausa: el fetcher terminará la página actual y quedará en estado 'paused'."""
         db = get_db()
@@ -699,7 +700,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.lanzar")])
     def resume_execution(self, id: str) -> ExecutionResult:
         """Reanuda una ejecución pausada lanzando un nuevo thread desde donde se dejó."""
         db = get_db()
@@ -756,7 +757,7 @@ class Mutation:
             _running_threads[execution_id] = t
         return ExecutionResult(success=True, message="Execution resumed", resource_id=resource_id)
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.parar")])
     def delete_execution(self, id: str, hard_delete: bool = False) -> bool:
         """Soft-delete (o hard-delete) de una ejecución"""
         db = get_db()
@@ -782,7 +783,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def create_application(self, input: CreateApplicationInput) -> ApplicationType:                
         """Crea una nueva Application"""
         db = get_db()
@@ -806,7 +807,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def update_application(self, id: str, input: UpdateApplicationInput) -> ApplicationType :           
         """Actualiza una Application existente"""
         db = get_db()
@@ -838,7 +839,7 @@ class Mutation:
         finally:
             db.close()      
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def delete_application(self, id: str, hard_delete: bool = False) -> bool:
         """Soft-delete (or hard-delete) de una Application"""
         db = get_db()
@@ -861,7 +862,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def activate_application(self, id: str, active: bool) -> ApplicationType:          
         """Activa o desactiva una Application"""
         db = get_db()
@@ -880,7 +881,7 @@ class Mutation:
         finally:
             db.close()      
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def set_application_webhook(self, id: str, webhook_url: str, webhook_secret: str) -> ApplicationType:          
         """Configura el webhook de una Application"""
         db = get_db()
@@ -900,7 +901,7 @@ class Mutation:
         finally:
             db.close()      
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def remove_application_webhook(self, id: str) -> ApplicationType:
         """Elimina el webhook de una Application"""
         db = get_db()
@@ -922,7 +923,7 @@ class Mutation:
 
     # ── DerivedDatasetConfig CRUD ─────────────────────────────────────────────
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("programacion.gestionar")])
     def create_derived_dataset_config(self, input: CreateDerivedDatasetConfigInput) -> DerivedDatasetConfigType:
         """Crea una nueva configuración de dataset derivado"""
         db = get_db()
@@ -950,7 +951,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("programacion.gestionar")])
     def update_derived_dataset_config(self, id: str, input: UpdateDerivedDatasetConfigInput) -> DerivedDatasetConfigType:
         """Actualiza una configuración de dataset derivado"""
         db = get_db()
@@ -981,7 +982,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("programacion.gestionar")])
     def delete_derived_dataset_config(self, id: str, hard_delete: bool = False) -> bool:
         """Soft-delete (or hard-delete) de una configuración de dataset derivado"""
         db = get_db()
@@ -1001,7 +1002,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("programacion.gestionar")])
     def toggle_derived_dataset_config(self, id: str, enabled: bool) -> DerivedDatasetConfigType:
         """Activa o desactiva una configuración de dataset derivado"""
         db = get_db()
@@ -1021,7 +1022,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def subscribe_resource(
         self,
         application_id: str,
@@ -1059,7 +1060,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def unsubscribe_resource(self, id: str) -> bool:
         """Elimina una suscripción por su id."""
         db = get_db()
@@ -1076,7 +1077,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("publishers.gestionar")])
     def create_publisher(self, input: CreatePublisherInput) -> PublisherType:
         """Crea un nuevo Publisher"""
         db = get_db()
@@ -1104,7 +1105,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("publishers.gestionar")])
     def update_publisher(self, id: str, input: UpdatePublisherInput) -> PublisherType:
         """Actualiza un Publisher existente"""
         db = get_db()
@@ -1125,7 +1126,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("publishers.gestionar")])
     def delete_publisher(self, id: str, hard_delete: bool = False) -> bool:
         """Soft-delete (or hard-delete) de un Publisher"""
         db = get_db()
@@ -1157,7 +1158,7 @@ class Mutation:
 
     # ── Restore (undo soft-delete) ─────────────────────────────────────────────
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.borrar")])
     def restore_resource(self, id: str) -> bool:
         db = get_db()
         try:
@@ -1177,7 +1178,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def restore_application(self, id: str) -> bool:
         db = get_db()
         try:
@@ -1193,7 +1194,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("publishers.gestionar")])
     def restore_publisher(self, id: str) -> bool:
         db = get_db()
         try:
@@ -1209,7 +1210,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def restore_fetcher(self, id: str) -> bool:
         db = get_db()
         try:
@@ -1225,7 +1226,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("ejecuciones.lanzar")])
     def restore_execution(self, id: str) -> bool:
         db = get_db()
         try:
@@ -1241,7 +1242,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def promote_candidate(
         self,
         id: strawberry.ID,
@@ -1300,7 +1301,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def discard_candidate(self, id: strawberry.ID, reviewer: Optional[str] = None) -> ResourceCandidateType:
         """Marca una candidata como `discarded`."""
         from datetime import datetime as _dt
@@ -1321,7 +1322,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def merge_candidates(
         self,
         source_ids: List[strawberry.ID],
@@ -1362,7 +1363,7 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def split_candidate(
         self,
         id: strawberry.ID,
