@@ -29,6 +29,9 @@ class FetcherParamType:
     enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
     description: Optional[str] = None
     group: Optional[str] = None
+    hint: Optional[str] = None
+    help_md: Optional[str] = strawberry.field(default=None, name="helpMd")
+    visible_when: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="visibleWhen")
 
 
 @strawberry.type
@@ -103,6 +106,9 @@ class CreateTypeFetcherParamInput:
     enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
     description: Optional[str] = None
     group: Optional[str] = None
+    hint: Optional[str] = None
+    help_md: Optional[str] = strawberry.field(default=None, name="helpMd")
+    visible_when: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="visibleWhen")
 
 
 @strawberry.input
@@ -115,6 +121,9 @@ class UpdateTypeFetcherParamInput:
     enum_values: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="enumValues")
     description: Optional[str] = None
     group: Optional[str] = None
+    hint: Optional[str] = None
+    help_md: Optional[str] = strawberry.field(default=None, name="helpMd")
+    visible_when: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="visibleWhen")
 
 
 @strawberry.type

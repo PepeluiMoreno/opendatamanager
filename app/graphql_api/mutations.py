@@ -533,6 +533,9 @@ class Mutation:
                 enum_values=input.enum_values,
                 description=input.description,
                 group=input.group,
+                hint=input.hint,
+                help_md=input.help_md,
+                visible_when=input.visible_when,
             )
             db.add(param)
             db.commit()
@@ -567,6 +570,12 @@ class Mutation:
                 param.description = input.description
             if input.group is not None:
                 param.group = input.group
+            if input.hint is not None:
+                param.hint = input.hint
+            if input.help_md is not None:
+                param.help_md = input.help_md
+            if input.visible_when is not None:
+                param.visible_when = input.visible_when
 
             db.commit()
             db.refresh(param)

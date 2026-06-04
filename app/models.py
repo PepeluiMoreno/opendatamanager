@@ -46,6 +46,9 @@ class FetcherParams(Base):
     enum_values = Column(JSONB, nullable=True)
     description = Column(Text, nullable=True)
     group = Column(String(100), nullable=True)
+    hint = Column(String(255), nullable=True)          # microcopy inline (1 línea)
+    help_md = Column(Text, nullable=True)              # ayuda extensa (modal, markdown)
+    visible_when = Column(JSONB, nullable=True)        # condición {"param":..,"in":[..]}
 
     fetcher = relationship("Fetcher", back_populates="params_def")
 
