@@ -2,6 +2,7 @@
 Queries GraphQL para consultar datos.
 """
 import strawberry
+from app.rbac import requiere
 from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
@@ -408,7 +409,7 @@ class Query:
         finally:
             db.close()
 
-    @strawberry.field
+    @strawberry.field(permission_classes=[requiere("recursos.testar")])
     async def preview_resource_data(self, id: str, limit: int = 10, params: Optional[strawberry.scalars.JSON] = None) -> strawberry.scalars.JSON:
         """Obtiene una vista previa de los datos de un Resource sin guardarlos"""
         import asyncio

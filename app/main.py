@@ -13,7 +13,7 @@ from app.security import require_admin
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from strawberry.fastapi import GraphQLRouter
 from app.graphql.schema import schema
-from app.database import SessionLocal
+from app.database import SessionLocal, get_db
 from app.models import Dataset, Resource, ResourceExecution
 from app.services.scheduler_service import SchedulerService
 from app.manager.fetcher_manager import LOG_DIR
@@ -75,10 +75,27 @@ app.add_middleware(
 )
 
 # Configurar router GraphQL (gestión — Strawberry)
-# Protegido por token de administración a nivel HTTP: bloquea también la
-# introspección, ya que rechaza el POST antes de resolver el esquema.
-graphql_app = GraphQLRouter(schema)
-app.include_router(graphql_app, prefix="/graphql", dependencies=[Depends(require_admin)])
+# Autorización RBAC por operación: el contexto resuelve usuario y permisos
+# efectivos; las mutaciones exigen su funcionalidad (fail-closed) y las
+# consultas quedan abiertas al invitado (lectura). ODM_ADMIN_TOKEN como
+# break-glass otorga todos los permisos.
+from starlette.requests import Request as _Request  # noqa: E402
+from app.auth import current_user_from_request, effective_permissions  # noqa: E402
+
+
+async def get_graphql_context(request: _Request, db=Depends(get_db)):
+    usuario = current_user_from_request(db, request)
+    permisos = effective_permissions(db, usuario)
+    auth = request.headers.get("authorization", "")
+    expected = os.environ.get("ODM_ADMIN_TOKEN", "")
+    if expected and auth.lower().startswith("bearer ") and auth[7:].strip() == expected:
+        from app.models import Funcionalidad
+        permisos = {f.code for f in db.query(Funcionalidad).all()}
+    return {"request": request, "db": db, "usuario": usuario, "permisos": permisos}
+
+
+graphql_app = GraphQLRouter(schema, context_getter=get_graphql_context)
+app.include_router(graphql_app, prefix="/graphql")
 
 # Configurar router GraphQL de datos (dinámico — graphql-core)
 app.include_router(data_router, prefix="/graphql/data", tags=["GraphQL Data API"])
