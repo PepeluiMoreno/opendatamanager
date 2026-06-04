@@ -83,6 +83,10 @@ app.include_router(graphql_app, prefix="/graphql", dependencies=[Depends(require
 # Configurar router GraphQL de datos (dinámico — graphql-core)
 app.include_router(data_router, prefix="/graphql/data", tags=["GraphQL Data API"])
 
+# Autenticación de usuarios (sesión opaca en cookie httpOnly) — RBAC
+from app.auth_router import router as auth_router  # noqa: E402
+app.include_router(auth_router)
+
 
 @app.get("/")
 def root():
