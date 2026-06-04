@@ -97,8 +97,71 @@ FETCHERS: List[Dict[str, Any]] = [
         "class_path": "app.fetchers.searchloop_html.SearchLoopHtmlFetcher",
         "description": "HTML scraper that pivots over <select> option values",
         "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "navigation"},
-            {"param_name": "levels", "data_type": "json", "required": True, "group": "navigation"},
+            # ── Descubrimiento ──────────────────────────────────────────
+            {"param_name": "url", "data_type": "string", "required": True, "group": "descubrimiento",
+             "hint": "URL de la página con el formulario de búsqueda",
+             "help_md": "Página HTML que contiene el `<select>` sobre cuyas opciones se itera. Se descarga primero para abrir sesión y descubrir los valores."},
+            {"param_name": "search_field_name", "data_type": "string", "required": False, "group": "descubrimiento",
+             "hint": "name/id del <select> a pivotar",
+             "help_md": "Nombre (`name`) o `id` del desplegable cuyas opciones se recorren una a una. Ej.: `filtro.codigosComunidad`."},
+            {"param_name": "search_field_values", "data_type": "string", "required": False, "group": "descubrimiento",
+             "hint": "valores fijos separados por coma (opcional)",
+             "help_md": "Si se indica, **no** se autodescubren las opciones del select: se usan estos valores (separados por coma)."},
+
+            # ── Envío de la búsqueda ────────────────────────────────────
+            {"param_name": "search_mode", "data_type": "string", "required": False, "default_value": "GET_simple", "group": "envio_busqueda",
+             "hint": "Cómo se envía la búsqueda",
+             "help_md": "Preset que fija método, codificación y convenciones del envío. Elige según cómo funcione el buscador del portal.",
+             "enum_values": [
+                 {"value": "GET_simple", "label": "GET simple", "help": "El buscador devuelve resultados por querystring (GET)."},
+                 {"value": "POST_formulario", "label": "POST formulario", "help": "Envío POST urlencoded de un formulario clásico."},
+                 {"value": "POST_struts", "label": "POST Struts2", "help": "Portales Struts2: POST multipart con sesión, arrastre de inputs hidden y campo compañero `__multiselect_`. Aviso: si el portal renderiza los resultados con JavaScript (struts2-jquery), no es accesible por HTTP puro."},
+             ]},
+            {"param_name": "search_action_url", "data_type": "string", "required": False, "group": "envio_busqueda",
+             "hint": "URL de la acción de búsqueda (si difiere de url)",
+             "help_md": "Endpoint al que se envía la búsqueda cuando es distinto de la página del formulario. Si se deja vacío, se intenta descubrir del atributo `action` del `<form>`.",
+             "visible_when": {"param": "search_mode", "in": ["POST_formulario", "POST_struts"]}},
+            {"param_name": "enctype", "data_type": "string", "required": False, "group": "envio_busqueda",
+             "hint": "Codificación del POST",
+             "help_md": "`urlencoded` (por defecto) o `multipart` (form-data). Struts2 suele requerir multipart.",
+             "enum_values": [
+                 {"value": "urlencoded", "label": "urlencoded", "help": "application/x-www-form-urlencoded."},
+                 {"value": "multipart", "label": "multipart", "help": "multipart/form-data."},
+             ],
+             "visible_when": {"param": "search_mode", "in": ["POST_formulario", "POST_struts"]}},
+            {"param_name": "multiselect_companion", "data_type": "boolean", "required": False, "group": "envio_busqueda",
+             "hint": "Añadir campo compañero __multiselect_ (Struts2)",
+             "help_md": "Convención de Struts2: por cada multiselect enviado se añade `__multiselect_<campo>=` vacío.",
+             "visible_when": {"param": "search_mode", "in": ["POST_struts"]}},
+            {"param_name": "carry_hidden_fields", "data_type": "boolean", "required": False, "group": "envio_busqueda",
+             "hint": "Reenviar los <input hidden> del formulario",
+             "help_md": "Parsea la página del formulario y reenvía todos sus inputs ocultos (tokens/estado). Necesario en muchos portales con estado.",
+             "visible_when": {"param": "search_mode", "in": ["POST_formulario", "POST_struts"]}},
+            {"param_name": "extra_params", "data_type": "json", "required": False, "group": "envio_busqueda",
+             "hint": "Campos fijos adicionales {clave: valor}",
+             "help_md": "Campos obligatorios o fijos que el formulario exige, como objeto JSON."},
+
+            # ── Extracción de resultados ────────────────────────────────
+            {"param_name": "rows_selector", "data_type": "string", "required": False, "default_value": "table tr", "group": "extraccion",
+             "hint": "Selector CSS de las filas de resultados",
+             "help_md": "Selector CSS que localiza cada fila de la tabla de resultados. Por defecto `table tr`."},
+            {"param_name": "has_header", "data_type": "boolean", "required": False, "default_value": True, "group": "extraccion",
+             "hint": "La primera fila es cabecera",
+             "help_md": "Marca si la primera fila contiene los nombres de columna."},
+            {"param_name": "levels", "data_type": "json", "required": False, "group": "extraccion",
+             "hint": "Scraping recursivo por niveles (modo avanzado)",
+             "help_md": "Alternativa al modo formulario: lista de niveles con selectores de campos y enlaces a subpáginas para scraping jerárquico."},
+
+            # ── Paginación ──────────────────────────────────────────────
+            {"param_name": "next_page_selector", "data_type": "string", "required": False, "group": "paginacion",
+             "hint": "Selector CSS del enlace 'siguiente'",
+             "help_md": "Selector del enlace de paginación; si está vacío, se asume una sola página."},
+            {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 50, "group": "paginacion",
+             "hint": "Máximo de páginas por búsqueda",
+             "help_md": "Tope de seguridad de páginas a recorrer por cada valor del select."},
+            {"param_name": "delay_between_pages", "data_type": "number", "required": False, "default_value": 0.5, "group": "paginacion",
+             "hint": "Pausa entre páginas (s)",
+             "help_md": "Cortesía: segundos de espera entre peticiones de paginación."},
         ],
     },
     {
@@ -368,6 +431,12 @@ def _param_payload(param: Dict[str, Any]) -> Dict[str, Any]:
         payload["description"] = param.get("description")
     if param.get("group") is not None:
         payload["group"] = param.get("group")
+    if param.get("hint") is not None:
+        payload["hint"] = param.get("hint")
+    if param.get("help_md") is not None:
+        payload["helpMd"] = param.get("help_md")
+    if param.get("visible_when") is not None:
+        payload["visibleWhen"] = param.get("visible_when")
     return payload
 
 

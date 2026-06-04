@@ -60,6 +60,11 @@ class SearchLoopHtmlFetcher(BaseFetcher):
     def __init__(self, params):
         super().__init__(params)
         self.session = requests.Session()
+        # Estado del formulario (cacheado): hidden inputs y acción descubierta.
+        self._form_state_loaded = False
+        self._form_hidden: Dict[str, str] = {}
+        self._discovered_action: Optional[str] = None
+        self._form_soup: Optional[BeautifulSoup] = None
 
     # ------------------------------------------------------------------
     # HTTP helpers
@@ -81,15 +86,48 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         return {**defaults, **headers}
 
     def _fetch(self, url: str, method: str = "GET",
-               data: Optional[Dict] = None, params: Optional[Dict] = None) -> BeautifulSoup:
+               data: Optional[Dict] = None, params: Optional[Dict] = None,
+               files: Optional[Dict] = None) -> BeautifulSoup:
         """Descarga una URL y devuelve BeautifulSoup. Usa _request() del BaseFetcher
-        (reintentos con backoff, nueva sesión en ConnectionError)."""
+        (reintentos con backoff, nueva sesión en ConnectionError).
+
+        Si se pasa `files`, requests envía multipart/form-data (necesario para
+        portales tipo Struts2 que exigen ese enctype)."""
         hdrs = self._get_headers()
-        resp = self._request(
-            self.session, method.upper(), url,
-            data=data, params=params, headers=hdrs,
-        )
+        kwargs: Dict[str, Any] = {"headers": hdrs}
+        if files is not None:
+            kwargs["files"] = files
+        else:
+            kwargs["data"] = data
+            kwargs["params"] = params
+        resp = self._request(self.session, method.upper(), url, **kwargs)
         return BeautifulSoup(resp.text, "html.parser")
+
+    def _ensure_form_state(self) -> None:
+        """Carga (una vez) la página del formulario: cachea sus inputs hidden y la
+        acción del <form> que contiene el campo de búsqueda. Establece sesión."""
+        if self._form_state_loaded:
+            return
+        url = self.params["url"]
+        soup = self._fetch(url)
+        hidden: Dict[str, str] = {}
+        for inp in soup.find_all("input", {"type": "hidden"}):
+            name = inp.get("name")
+            if name:
+                hidden[name] = inp.get("value", "") or ""
+        self._form_hidden = hidden
+        # Acción del form que envuelve el campo de búsqueda (o el primer form).
+        action = None
+        field_name = self.params.get("search_field_name")
+        el = soup.find(attrs={"name": field_name}) if field_name else None
+        form = el.find_parent("form") if el else None
+        if form is None:
+            form = soup.find("form")
+        if form and form.get("action"):
+            action = urljoin(url, form["action"])
+        self._discovered_action = action
+        self._form_soup = soup
+        self._form_state_loaded = True
 
     # ------------------------------------------------------------------
     # Auto-discovery de valores del <select>
@@ -99,7 +137,8 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         url = self.params["url"]
         field_name = self.params["search_field_name"]
         logger.info(f"Descubriendo valores del select '{field_name}' en {url}")
-        soup = self._fetch(url)
+        self._ensure_form_state()
+        soup = self._form_soup
         select = (
             soup.find("select", {"name": field_name}) or
             soup.find("select", {"id": field_name})
@@ -313,27 +352,43 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             record.update(self._apply_level_config(soup, level_cfg))
             return [record]
 
-        # ── Modo A: formulario con paginación (comportamiento original) ─
+        # ── Modo A: formulario con paginación ───────────────────────────
+        # Soporta GET simple, POST de formulario y POST tipo Struts2
+        # (acción de búsqueda distinta, multipart, campo __multiselect_ y
+        # arrastre de inputs hidden), según search_mode / params.
         url = self.params["url"]
-        method = self.params.get("method", "GET").upper()
         search_field_name = self.params["search_field_name"]
         next_selector = self.params.get("next_page_selector", "")
         max_pages = int(self.params.get("max_pages", 50))
         delay = float(self.params.get("delay_between_pages", 0.5))
 
+        method, enctype, use_multiselect, carry_hidden = self._resolve_search_mode()
+        # Acción de búsqueda: explícita > descubierta del <form> > misma url.
+        if carry_hidden or self.params.get("search_action_url") in (None, ""):
+            self._ensure_form_state()
+        search_url = (
+            self.params.get("search_action_url")
+            or self._discovered_action
+            or url
+        )
+
         extra = _parse_json_param(self.params.get("extra_params", {}))
-        form_data = {search_field_name: search_value, **extra}
-        current_url = url
+        base_fields: Dict[str, Any] = {}
+        if carry_hidden:
+            base_fields.update(self._form_hidden)
+        base_fields.update(extra)
+        base_fields[search_field_name] = search_value
+        if use_multiselect:
+            # Convención Struts2: campo compañero vacío por cada multiselect.
+            base_fields[f"__multiselect_{search_field_name}"] = ""
+
+        form_data = dict(base_fields)
+        current_url = search_url
         all_records: List[Dict] = []
         page = 0
 
         while page < max_pages:
-            soup = self._fetch(
-                current_url,
-                method,
-                data=form_data if method == "POST" else None,
-                params=form_data if method == "GET" else None,
-            )
+            soup = self._send_search(current_url, method, enctype, form_data)
             records = self._extract_table(soup)
             all_records.extend(records)
             page += 1
@@ -343,12 +398,42 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             next_link = soup.select_one(next_selector)
             if not next_link or not next_link.get("href"):
                 break
-            current_url = urljoin(url, next_link["href"])
+            current_url = urljoin(search_url, next_link["href"])
             form_data = {}
             if delay > 0:
                 time.sleep(delay)
 
         return all_records
+
+    def _resolve_search_mode(self):
+        """Resuelve (method, enctype, use_multiselect, carry_hidden) a partir de
+        search_mode y/o params explícitos. Los params explícitos siempre ganan."""
+        mode = (self.params.get("search_mode") or "").strip()
+        method = self.params.get("method")
+        enctype = self.params.get("enctype")
+        multiselect = self.params.get("multiselect_companion")
+        carry_hidden = self.params.get("carry_hidden_fields")
+
+        if mode == "POST_struts":
+            method = method or "POST"
+            enctype = enctype or "multipart"
+            multiselect = True if multiselect is None else multiselect
+            carry_hidden = True if carry_hidden is None else carry_hidden
+        elif mode == "POST_formulario":
+            method = method or "POST"
+
+        method = (method or "GET").upper()
+        enctype = (enctype or "urlencoded").lower()
+        return method, enctype, _as_bool(multiselect), _as_bool(carry_hidden)
+
+    def _send_search(self, url: str, method: str, enctype: str, fields: Dict[str, Any]) -> BeautifulSoup:
+        """Envía la búsqueda según método y enctype."""
+        if method == "POST" and enctype == "multipart":
+            files = {k: (None, str(v)) for k, v in fields.items()}
+            return self._fetch(url, "POST", files=files)
+        if method == "POST":
+            return self._fetch(url, "POST", data=fields)
+        return self._fetch(url, "GET", params=fields)
 
     # ------------------------------------------------------------------
     # Interfaz BaseFetcher
@@ -429,3 +514,12 @@ def _parse_json_param(value: Any) -> Any:
     if isinstance(value, str):
         return json.loads(value) if value.strip() else {}
     return value or {}
+
+
+def _as_bool(value: Any) -> bool:
+    """Interpreta un param como booleano (acepta bool, 'true'/'1'/'yes', etc.)."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in ("true", "1", "yes", "si", "sí", "on")

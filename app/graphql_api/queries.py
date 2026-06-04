@@ -48,6 +48,9 @@ def map_type_fetcher_param(p: FetcherParams) -> FetcherParamType:
         enum_values=getattr(p, 'enum_values', None),
         description=getattr(p, 'description', None),
         group=getattr(p, 'group', None),
+        hint=getattr(p, 'hint', None),
+        help_md=getattr(p, 'help_md', None),
+        visible_when=getattr(p, 'visible_when', None),
     )
 
 

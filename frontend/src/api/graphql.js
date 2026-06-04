@@ -231,6 +231,9 @@ export const QUERIES = {
           enumValues
           description
           group
+          hint
+          helpMd
+          visibleWhen
         }
         resources {
           id

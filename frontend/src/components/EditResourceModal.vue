@@ -131,58 +131,6 @@ const props = defineProps({
 
 defineEmits(['close'])
 
-// Field metadata for common parameters
-const fieldMetadata = {
-  'url': {
-    label: 'URL',
-    description: 'The base URL for the resource or API endpoint'
-  },
-  'timeout': {
-    label: 'Timeout',
-    description: 'Request timeout in seconds'
-  },
-  'headers': {
-    label: 'Headers',
-    description: 'HTTP headers in JSON format'
-  },
-  'method': {
-    label: 'HTTP Method',
-    description: 'HTTP method (GET, POST, PUT, DELETE)'
-  },
-  'max_retries': {
-    label: 'Max Retries',
-    description: 'Maximum number of retry attempts for failed requests'
-  },
-  'delay_between_requests': {
-    label: 'Delay Between Requests',
-    description: 'Delay in seconds between consecutive requests'
-  },
-  'page_size': {
-    label: 'Page Size',
-    description: 'Number of records to fetch per page'
-  },
-  'max_pages': {
-    label: 'Max Pages',
-    description: 'Maximum number of pages to fetch'
-  },
-  'rows_selector': {
-    label: 'Rows Selector',
-    description: 'CSS selector for extracting data rows from HTML'
-  },
-  'pagination_type': {
-    label: 'Pagination Type',
-    description: 'Type of pagination: "links" or "form"'
-  },
-  'has_header': {
-    label: 'Has Header',
-    description: 'Whether the first row contains column headers'
-  },
-  'clean_html': {
-    label: 'Clean HTML',
-    description: 'Whether to clean HTML formatting from extracted text'
-  }
-}
-
 // Computed properties
 const requiredParams = computed(() => {
   return props.Fetcher.paramsDef?.filter(p => p.required) || []
@@ -192,7 +140,9 @@ const optionalParams = computed(() => {
   return props.Fetcher.paramsDef?.filter(p => !p.required) || []
 })
 
+// Ayuda dirigida por el esquema del fetcher (hint/description), no hardcodeada.
 function getFieldHelp(paramName) {
-  return fieldMetadata[paramName]?.description
+  const p = props.Fetcher.paramsDef?.find(d => d.paramName === paramName)
+  return p?.hint || p?.description || null
 }
 </script>
