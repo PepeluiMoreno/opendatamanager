@@ -2,9 +2,45 @@ import { GraphQLClient } from 'graphql-request'
 
 const endpoint = '/graphql'
 
+// ── Token de administración ──────────────────────────────────────────────
+// El backend protege la API de administración con `Authorization: Bearer
+// <ODM_ADMIN_TOKEN>` (fail-closed). El token se guarda en localStorage y se
+// adjunta dinámicamente a cada petición. Ante un 401/403 se pide una vez.
+const ADMIN_TOKEN_KEY = 'odm_admin_token'
+
+export function getAdminToken() {
+  try { return localStorage.getItem(ADMIN_TOKEN_KEY) || '' } catch { return '' }
+}
+
+export function setAdminToken(token) {
+  try {
+    if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token)
+    else localStorage.removeItem(ADMIN_TOKEN_KEY)
+  } catch { /* almacenamiento no disponible */ }
+}
+
+function buildHeaders() {
+  const headers = { 'Content-Type': 'application/json' }
+  const token = getAdminToken()
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  return headers
+}
+
 export const client = new GraphQLClient(endpoint, {
-  headers: {
-    'Content-Type': 'application/json',
+  headers: buildHeaders,
+  responseMiddleware: (res) => {
+    const status = res?.response?.status
+    if ((status === 401 || status === 403) && typeof window !== 'undefined') {
+      const t = window.prompt(
+        'Operación de administración protegida.\n' +
+        'Introduce el token de administración (ODM_ADMIN_TOKEN):',
+        getAdminToken()
+      )
+      if (t !== null) {
+        setAdminToken(t.trim())
+        window.alert('Token guardado. Repite la operación.')
+      }
+    }
   },
 })
 
