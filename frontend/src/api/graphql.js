@@ -17,17 +17,21 @@ export function setAdminToken(token) {
     if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token)
     else localStorage.removeItem(ADMIN_TOKEN_KEY)
   } catch { /* almacenamiento no disponible */ }
+  applyAdminToken()
 }
 
-function buildHeaders() {
-  const headers = { 'Content-Type': 'application/json' }
+// Fija (o limpia) la cabecera Authorization en el cliente. graphql-request@6
+// evalúa las cabeceras-función una sola vez al construir el cliente, por eso
+// la aplicamos de forma imperativa al cargar y cada vez que cambia el token.
+function applyAdminToken() {
   const token = getAdminToken()
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  return headers
+  if (token) client.setHeader('Authorization', `Bearer ${token}`)
+  else client.setHeaders({ 'Content-Type': 'application/json' })
 }
+
 
 export const client = new GraphQLClient(endpoint, {
-  headers: buildHeaders,
+  headers: { 'Content-Type': 'application/json' },
   responseMiddleware: (res) => {
     const status = res?.response?.status
     if ((status === 401 || status === 403) && typeof window !== 'undefined') {
@@ -43,6 +47,9 @@ export const client = new GraphQLClient(endpoint, {
     }
   },
 })
+
+// Aplica el token guardado al arrancar.
+applyAdminToken()
 
 // Helper to handle errors with better messages
 function handleGraphQLError(error) {
