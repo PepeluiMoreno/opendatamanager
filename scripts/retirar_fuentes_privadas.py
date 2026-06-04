@@ -32,24 +32,19 @@ import sys
 
 import requests
 
-# Privado inequívoco (publisher nivel PRIVADO): retirar.
+# Fuentes a retirar de ODM: privadas (no públicas ni de derecho público).
+# - Fotocasa (nivel PRIVADO): portal inmobiliario privado.
+# - CEE (Conferencia Episcopal Española): entidad privada. Se retira por el
+#   criterio estricto; la jerarquía eclesiástica y la taxonomía de entidades
+#   religiosas pasan al dominio de SIPI (o se toman del público RER - Min. Justicia,
+#   que permanece en ODM). No producía dataset en vivo.
 CONFIRMADAS = {
     "resources": [
         "Agencias Inmobiliarias (Fotocasa)",
         "Oferta Inmobiliaria en Venta (Fotocasa)",
-    ],
-    "publishers_acronimo": ["FOTOCASA"],
-}
-
-# Decisión pendiente del operador. La Conferencia Episcopal Española es una entidad
-# privada (no es organismo público ni dependiente de uno), así que por el criterio
-# estricto saldría; pero su directorio es la entrada de la fusión CEE×OSM de SIPI.
-# Hoy NO produce dataset en vivo. No se toca salvo --incluir-revisar.
-REVISAR = {
-    "resources": [
         "Diócesis y Entidades Religiosas (CEE)",
     ],
-    "publishers_acronimo": ["CEE"],
+    "publishers_acronimo": ["FOTOCASA", "CEE"],
 }
 
 
@@ -70,7 +65,6 @@ def _gql(base_url, token, query, variables=None):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--confirm", action="store_true", help="Ejecuta el soft-delete de verdad.")
-    ap.add_argument("--incluir-revisar", action="store_true", help="Incluye también las fuentes en REVISAR (p. ej. CEE).")
     args = ap.parse_args()
 
     base_url = os.environ.get("ODM_BASE_URL", "https://odmgr.pepelui.es")
@@ -83,9 +77,6 @@ def main() -> int:
         "resources": list(CONFIRMADAS["resources"]),
         "publishers_acronimo": list(CONFIRMADAS["publishers_acronimo"]),
     }
-    if args.incluir_revisar:
-        targets["resources"] += REVISAR["resources"]
-        targets["publishers_acronimo"] += REVISAR["publishers_acronimo"]
 
     res_by_name = {r["name"]: r["id"] for r in _gql(base_url, token, "{ resources { id name } }")["resources"]}
     pub_by_acr = {p["acronimo"]: p["id"] for p in _gql(base_url, token, "{ publishers { id acronimo } }")["publishers"]}
@@ -100,8 +91,6 @@ def main() -> int:
     print("Publishers a retirar (soft-delete):")
     for a, pid in plan_pub:
         print(f"  - {a}  -> {pid or 'NO ENCONTRADO'}")
-    if not args.incluir_revisar:
-        print(f"\n(REVISAR no incluido: {REVISAR['resources']} — usa --incluir-revisar)")
 
     if not args.confirm:
         print("\nDRY-RUN. Repite con --confirm para ejecutar el soft-delete.")
