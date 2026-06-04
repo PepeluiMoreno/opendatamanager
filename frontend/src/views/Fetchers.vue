@@ -83,7 +83,7 @@
             <td class="px-4 py-3">
               <div class="flex justify-end gap-2">
                 <button
-                  v-if=\"puede('fetchers.gestionar')\"
+                  v-if="puede('fetchers.gestionar')"
                   @click="editFetcher(f)"
                   class="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
                   title="Edit"
@@ -94,7 +94,7 @@
                   </svg>
                 </button>
                 <button
-                  v-if=\"puede('fetchers.gestionar')\"
+                  v-if="puede('fetchers.gestionar')"
                   @click="deleteFetcher(f)"
                   :disabled="f.resources?.length > 0"
                   class="p-1.5 rounded transition-colors"
