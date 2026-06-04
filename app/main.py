@@ -7,8 +7,9 @@ Ejecutar con:
 import os
 import asyncio
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from app.security import require_admin
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from strawberry.fastapi import GraphQLRouter
 from app.graphql.schema import schema
@@ -60,17 +61,24 @@ async def shutdown_event():
     scheduler_service.shutdown()
 
 # Configurar CORS
+# Orígenes permitidos configurables por entorno (CSV). Por defecto, el frontend
+# admin en desarrollo. Wildcard "*" es incompatible con allow_credentials=True y
+# además dejaba el origen sin controlar.
+_cors_env = os.environ.get("ODM_CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
+_cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # Configurar router GraphQL (gestión — Strawberry)
+# Protegido por token de administración a nivel HTTP: bloquea también la
+# introspección, ya que rechaza el POST antes de resolver el esquema.
 graphql_app = GraphQLRouter(schema)
-app.include_router(graphql_app, prefix="/graphql")
+app.include_router(graphql_app, prefix="/graphql", dependencies=[Depends(require_admin)])
 
 # Configurar router GraphQL de datos (dinámico — graphql-core)
 app.include_router(data_router, prefix="/graphql/data", tags=["GraphQL Data API"])
@@ -101,6 +109,22 @@ def app_version():
 async def graphql_data_registry():
     """Lista todos los datasets expuestos en la API GraphQL dinámica (/graphql/data)."""
     return data_engine.get_registry()
+
+
+@app.get("/api/datasets/health")
+async def datasets_health():
+    """Salud/frescura por recurso (PÚBLICO, solo lectura).
+
+    Para que un consumidor (p. ej. SIPI) pueda confiar en los datos: último
+    éxito, antigüedad del dato, tasa de fallo y si está vencido respecto a su
+    programación. No expone secretos ni rutas internas.
+    """
+    from app.services.health_service import resource_health
+    session = SessionLocal()
+    try:
+        return resource_health(session)
+    finally:
+        session.close()
 
 
 @app.get("/api/datasets/tree")
@@ -198,7 +222,7 @@ def _rebuild_data_api() -> None:
         db2.close()
 
 
-@app.delete("/api/datasets/{dataset_id}")
+@app.delete("/api/datasets/{dataset_id}", dependencies=[Depends(require_admin)])
 async def delete_dataset(dataset_id: str, hard: bool = False):
     """Borra un dataset.
     - hard=False (default): soft-delete (deleted_at = now), va a Trash, restaurable.
@@ -229,7 +253,7 @@ async def delete_dataset(dataset_id: str, hard: bool = False):
         session.close()
 
 
-@app.post("/api/datasets/{dataset_id}/restore")
+@app.post("/api/datasets/{dataset_id}/restore", dependencies=[Depends(require_admin)])
 async def restore_dataset(dataset_id: str):
     """Restaura un dataset soft-borrado (deleted_at → null)."""
     session = SessionLocal()
@@ -280,7 +304,7 @@ async def resource_datasets_summary(resource_id: str):
         session.close()
 
 
-@app.delete("/api/resources/{resource_id}/datasets")
+@app.delete("/api/resources/{resource_id}/datasets", dependencies=[Depends(require_admin)])
 async def delete_resource_datasets(resource_id: str, hard: bool = False):
     """Cascada: borra todos los datasets activos de un recurso.
     - hard=False (default): soft-delete de cada uno.
@@ -507,8 +531,10 @@ async def system_concurrency():
 async def resource_stats():
     """Per-resource extraction statistics: records extracted, trends, run history."""
     from sqlalchemy import func
+    from app.services.health_service import resource_health
     db = SessionLocal()
     try:
+        health_map = {h["resource_id"]: h for h in resource_health(db)}
         resources = db.query(Resource).order_by(Resource.name).all()
         result = []
         for res in resources:
@@ -560,6 +586,12 @@ async def resource_stats():
                 # External params used in the last visible execution
                 "last_execution_params": last.execution_params if last else None,
                 "bounding_field": bounding_field,
+                # Salud/frescura (ver app/services/health_service.py)
+                "last_success_at": (health_map.get(str(res.id)) or {}).get("last_success_at"),
+                "data_age_seconds": (health_map.get(str(res.id)) or {}).get("data_age_seconds"),
+                "success_rate": (health_map.get(str(res.id)) or {}).get("success_rate"),
+                "is_overdue": (health_map.get(str(res.id)) or {}).get("is_overdue"),
+                "latest_version": (health_map.get(str(res.id)) or {}).get("latest_version"),
             })
         return result
     finally:
