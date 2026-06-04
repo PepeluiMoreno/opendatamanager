@@ -5,6 +5,7 @@ Ejecutar con:
     uvicorn app.main:app --reload --host 0.0.0.0 --port 8040
 """
 import os
+import json
 import asyncio
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Query, Depends
@@ -391,6 +392,47 @@ async def datasets_trash():
                 "deletedAt": ds.deleted_at.isoformat() if ds.deleted_at else None,
             })
         return result
+    finally:
+        session.close()
+
+
+@app.get("/api/datasets/{dataset_id}/records")
+async def dataset_records(dataset_id: str, limit: int = 50, offset: int = 0):
+    """Registros del dataset como JSON paginado (para el visor del Data Explorer).
+    Lee el JSONL en streaming: solo parsea la ventana pedida."""
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+    session = SessionLocal()
+    try:
+        dataset = session.query(Dataset).filter(Dataset.id == dataset_id).first()
+        if not dataset:
+            raise HTTPException(status_code=404, detail="Dataset not found")
+        if not os.path.exists(dataset.data_path):
+            raise HTTPException(status_code=404, detail="Data file not found")
+        records, invalid = [], 0
+        with open(dataset.data_path, "r", encoding="utf-8") as f:
+            for i, line in enumerate(f):
+                if i < offset:
+                    continue
+                if len(records) >= limit:
+                    break
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    records.append(json.loads(line))
+                except ValueError:
+                    invalid += 1
+        return {
+            "dataset_id": str(dataset.id),
+            "version": f"{dataset.major_version}.{dataset.minor_version}.{dataset.patch_version}",
+            "record_count": dataset.record_count,
+            "offset": offset,
+            "limit": limit,
+            "returned": len(records),
+            "invalid_lines": invalid,
+            "records": records,
+        }
     finally:
         session.close()
 

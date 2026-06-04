@@ -153,6 +153,10 @@
                 </td>
                 <td class="px-4 py-2.5 text-center" @click.stop>
                   <div class="flex items-center justify-center gap-1">
+                    <button v-if="ver.recordCount" @click="openJsonViewer(res, ver)" title="Ver JSON"
+                      class="p-1.5 rounded text-gray-500 hover:text-green-300 hover:bg-green-900/30 transition-colors font-mono text-xs leading-none">
+                      {&hairsp;}
+                    </button>
                     <button @click="openParams(res, ver)" title="Ver parámetros"
                       class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,7 +164,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                       </svg>
                     </button>
-                    <button @click="confirmDelete(ver, res.resourceName)" title="Eliminar dataset"
+                    <button v-if="puede('recursos.borrar')" @click="confirmDelete(ver, res.resourceName)" title="Eliminar dataset"
                       class="p-1.5 rounded text-gray-600 hover:text-red-400 hover:bg-red-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
@@ -292,10 +296,40 @@
     </div>
 
   </div>
+  <!-- Visor de JSON del dataset -->
+  <div v-if="jsonViewer" class="fixed inset-0 z-[9500] flex items-center justify-center bg-black/70 p-4" @click.self="jsonViewer = null">
+    <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
+        <div>
+          <h3 class="text-sm font-semibold text-gray-100">{{ jsonViewer.resourceName }} <span class="font-mono text-gray-400">v{{ jsonViewer.version }}</span></h3>
+          <p class="text-xs text-gray-500">
+            {{ jsonViewer.records.length.toLocaleString() }} de {{ (jsonViewer.recordCount ?? 0).toLocaleString() }} registros cargados
+            <span v-if="jsonViewer.error" class="text-red-400 ml-2">{{ jsonViewer.error }}</span>
+          </p>
+        </div>
+        <button class="text-gray-400 hover:text-white text-lg" @click="jsonViewer = null">✕</button>
+      </div>
+      <pre class="flex-1 overflow-auto text-xs text-green-200/90 font-mono p-4 bg-gray-950/60">{{ jsonViewerTexto }}</pre>
+      <div class="flex items-center gap-2 px-5 py-3 border-t border-gray-700">
+        <button v-if="!jsonViewer.fin" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded disabled:opacity-50"
+          :disabled="jsonViewer.cargando" @click="cargarMasJson">
+          {{ jsonViewer.cargando ? 'Cargando…' : 'Cargar más' }}
+        </button>
+        <button class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded" @click="copiarJson">
+          {{ copiado ? '✓ Copiado' : 'Copiar' }}
+        </button>
+        <a :href="`/api/datasets/${jsonViewer.datasetId}/data.jsonl`" download
+          class="text-xs text-blue-400 hover:text-blue-300 underline ml-auto">Descargar JSONL completo</a>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../composables/useAuth'
+
+const { puede } = useAuth()
 
 const tree = ref([])
 const loading = ref(true)
@@ -455,5 +489,57 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`
+}
+
+// ── Visor de JSON del dataset ────────────────────────────────────────────
+const jsonViewer = ref(null)
+const copiado = ref(false)
+const PAGINA_JSON = 50
+
+const jsonViewerTexto = computed(() =>
+  jsonViewer.value ? JSON.stringify(jsonViewer.value.records, null, 2) : ''
+)
+
+async function openJsonViewer(res, ver) {
+  jsonViewer.value = {
+    datasetId: ver.datasetId,
+    resourceName: res.resourceName,
+    version: ver.version,
+    recordCount: ver.recordCount,
+    records: [],
+    offset: 0,
+    cargando: false,
+    fin: false,
+    error: '',
+  }
+  copiado.value = false
+  await cargarMasJson()
+}
+
+async function cargarMasJson() {
+  const v = jsonViewer.value
+  if (!v || v.cargando || v.fin) return
+  v.cargando = true
+  v.error = ''
+  try {
+    const r = await fetch(`/api/datasets/${v.datasetId}/records?limit=${PAGINA_JSON}&offset=${v.offset}`)
+    if (!r.ok) throw new Error(`Error ${r.status}`)
+    const d = await r.json()
+    v.records.push(...(d.records || []))
+    v.offset += d.returned || 0
+    if (!d.returned || d.returned < PAGINA_JSON) v.fin = true
+  } catch (e) {
+    v.error = e.message || 'No se pudo cargar el contenido.'
+  } finally {
+    v.cargando = false
+  }
+}
+
+async function copiarJson() {
+  try {
+    await navigator.clipboard.writeText(jsonViewerTexto.value)
+    copiado.value = true
+    setTimeout(() => { copiado.value = false }, 1500)
+  } catch { /* portapapeles no disponible */ }
 }
 </script>
