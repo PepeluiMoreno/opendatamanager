@@ -436,6 +436,12 @@ def _element_to_record(element: dict, preset_keys: List[str]) -> dict:
         "geometry":     None,
         "tags":         tags,
         "name":         tags.get("name") or tags.get("name:es") or tags.get("ref"),
+        # Ancla de enriquecimiento: SIPI usa el QID de Wikidata para fusión de
+        # alta confianza (ver services/etl/docs/VALIDACION_FUSION.md). Se promueve
+        # a campo de primer nivel para que los consumidores no tengan que hurgar
+        # en el dict `tags`. None cuando el elemento OSM no lo trae.
+        "wikidata":     tags.get("wikidata"),
+        "wikipedia":    tags.get("wikipedia"),
         "inferred_use": _infer_use(element, preset_keys),
     }
 
