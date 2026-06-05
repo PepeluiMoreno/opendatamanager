@@ -113,6 +113,17 @@ class Mutation:
             if not fetcher:
                 raise ValueError(f"Fetcher con id '{input.fetcher_id}' no existe")
 
+            preset_id = None
+            if getattr(input, "preset_id", None):
+                from app.models import FetcherPreset
+                preset = db.query(FetcherPreset).filter(
+                    FetcherPreset.id == input.preset_id,
+                    FetcherPreset.fetcher_id == fetcher.id,
+                    FetcherPreset.deleted_at.is_(None)).first()
+                if preset is None:
+                    raise ValueError("El perfil (preset) indicado no existe bajo ese fetcher")
+                preset_id = preset.id
+
             # Crear Resource
             resource = Resource(
                 id=uuid4(),
@@ -124,6 +135,7 @@ class Mutation:
                 target_table=input.target_table,
                 active=input.active,
                 schedule=input.schedule,
+                preset_id=preset_id,
             )
             db.add(resource)
             db.flush()  # Para obtener el ID
@@ -193,6 +205,18 @@ class Mutation:
                 resource.target_table = input.target_table
             if input.fetcher_id is not None:
                 resource.fetcher_id = input.fetcher_id
+            if getattr(input, "preset_id", None) is not None:
+                if input.preset_id == "":
+                    resource.preset_id = None
+                else:
+                    from app.models import FetcherPreset
+                    preset = db.query(FetcherPreset).filter(
+                        FetcherPreset.id == input.preset_id,
+                        FetcherPreset.fetcher_id == resource.fetcher_id,
+                        FetcherPreset.deleted_at.is_(None)).first()
+                    if preset is None:
+                        raise ValueError("El perfil (preset) indicado no existe bajo ese fetcher")
+                    resource.preset_id = preset.id
             if input.active is not None:
                 resource.active = input.active
             if input.schedule is not None:

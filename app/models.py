@@ -29,7 +29,9 @@ class Fetcher(Base):
     # Bloque de parámetros preestablecidos que convierte a este fetcher en una
     # VARIANTE de su especie (class_path): aísla las peculiaridades de una familia
     # de fuentes (p. ej. el field_map CODICE) para inyectarlas en el fetcher genérico.
-    preset_params = Column(JSONB, nullable=True)
+    preset_params = Column(JSONB, nullable=True)  # LEGACY: sustituido por FetcherPreset; se conserva como fallback transitorio
+
+    presets = relationship("FetcherPreset", back_populates="fetcher", cascade="all, delete-orphan")
     deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=True)
 
@@ -100,6 +102,10 @@ class Resource(Base):
     parent_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
     auto_generated = Column(Boolean, default=False, nullable=False)
 
+    # Perfil (preset) de la especie aplicado a este recurso. La particularización
+    # vive en el recurso, no en el catálogo de fetchers.
+    preset_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher_preset.id", ondelete="SET NULL"), nullable=True)
+
     # Versionado y procedencia de la definición (manifiesto canónico).
     manifest_version = Column(Integer, default=1, nullable=False)
     manifest_hash = Column(String(64), nullable=True)       # hash del manifiesto canónico actual
@@ -111,12 +117,36 @@ class Resource(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     fetcher = relationship("Fetcher", back_populates="resources")
+    preset = relationship("FetcherPreset", back_populates="resources")
     publisher_obj = relationship("Publisher", back_populates="resources")
     params = relationship("ResourceParam", back_populates="resource", cascade="all, delete-orphan")
     executions = relationship("ResourceExecution", back_populates="resource")
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
     children = relationship("Resource", foreign_keys=[parent_resource_id], lazy="dynamic")
+
+
+class FetcherPreset(Base):
+    """Perfil (preset) de una especie de fetcher: bloque de parámetros con nombre
+    que particulariza la especie para una familia de fuentes (p. ej. 'PLACSP
+    CODICE' sobre 'Feeds ATOM/RSS'). Vive BAJO la especie y solo se materializa en
+    los recursos que lo referencian; nunca es una entrada del catálogo."""
+    __tablename__ = "fetcher_preset"
+    __table_args__ = (
+        UniqueConstraint("fetcher_id", "code", name="uq_fetcher_preset_code"),
+        {"schema": "opendata"},
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    fetcher_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher.id", ondelete="CASCADE"), nullable=False)
+    code = Column(String(100), nullable=False)
+    description = Column(Text, nullable=True)
+    params = Column(JSONB, nullable=False, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
+
+    fetcher = relationship("Fetcher", back_populates="presets")
+    resources = relationship("Resource", back_populates="preset")
 
 
 class ResourceParam(Base):

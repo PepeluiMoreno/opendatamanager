@@ -96,16 +96,6 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
-        "name": "PLACSP CODICE (ATOM)",
-        "class_path": "app.fetchers.atom.AtomFetcher",
-        "description": "VARIANTE de 'Feeds ATOM/RSS' para sindicaciones CODICE 2.07 (PLACSP, agregadas, menores, encargos, consultas, Comunidad de Madrid). Las peculiaridades CODICE (paginación rel_next, field_map, incremental) viven en preset_params; el recurso solo aporta la 'url'.",
-        "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "http",
-             "hint": "URL del índice ATOM de la sindicación CODICE."},
-        ],
-        "preset_params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "fecha": "updated", "url": "link@href"}},
-    },
-    {
         "name": "File Download",
         "class_path": "app.fetchers.file_download.FileDownloadFetcher",
         "description": "Downloads a static file and converts rows to records. Supports PDF, XLS, XLSX, CSV and TSV.",
@@ -676,22 +666,6 @@ def seed() -> None:
             payload["fetcherId"] = fetcher_id
             _execute(CREATE_PARAM_MUTATION, {"input": payload})
 
-    # Persistir los bloques preset_params (variantes) vía ORM directo.
-    presets = {sp["name"]: sp["preset_params"] for sp in FETCHERS if sp.get("preset_params")}
-    if presets:
-        from app.database import SessionLocal
-        from app.models import Fetcher
-        db = SessionLocal()
-        try:
-            for code, preset in presets.items():
-                f = db.query(Fetcher).filter(Fetcher.code == code).first()
-                if f:
-                    f.preset_params = preset
-            db.commit()
-            print(f"[seed_fetchers] preset_params aplicados a {len(presets)} variante(s)")
-        finally:
-            db.close()
-
     # Fusión de la familia HTML mecánica (Forms / Paginated / URL Loop) en la especie
     # 'HTML (genérico)'. Mapeo por clase del modo de navegación y la estrategia de
     # extracción; los selectores bespoke ya viven en cada recurso. Idempotente.
@@ -789,6 +763,58 @@ def seed() -> None:
         if corregidos:
             db.commit()
             print(f"[seed_fetchers] navegación corregida a form_paged en {corregidos} recurso(s) con paginación por formulario")
+    finally:
+        db.close()
+
+    # Perfiles (presets) bajo su especie: el catálogo solo contiene especies; las
+    # particularizaciones con nombre viven en fetcher_preset y se eligen por recurso.
+    from app.database import SessionLocal as _SL_P
+    from app.models import Fetcher as _F_P, Resource as _R_P, FetcherPreset as _FP_P
+    from datetime import datetime as _dt_P
+    PRESETS = {
+        "Feeds ATOM/RSS": [
+            {
+                "code": "PLACSP CODICE",
+                "description": "Perfil para sindicaciones CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid). Fija la paginación rel_next, el field_map CODICE y la cosecha incremental; el recurso solo aporta la 'url'.",
+                "params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "fecha": "updated", "url": "link@href"}},
+            },
+        ],
+    }
+    db = _SL_P()
+    try:
+        for especie_code, perfiles in PRESETS.items():
+            esp = db.query(_F_P).filter(_F_P.code == especie_code).first()
+            if esp is None:
+                print(f"[seed_fetchers] AVISO: especie '{especie_code}' no existe; presets omitidos")
+                continue
+            for pdef in perfiles:
+                row = db.query(_FP_P).filter(_FP_P.fetcher_id == esp.id, _FP_P.code == pdef["code"]).first()
+                if row is None:
+                    db.add(_FP_P(fetcher_id=esp.id, code=pdef["code"],
+                                 description=pdef.get("description"), params=pdef["params"]))
+                    print(f"[seed_fetchers] preset '{pdef['code']}' creado bajo '{especie_code}'")
+                else:
+                    row.description = pdef.get("description")
+                    row.params = pdef["params"]
+                    row.deleted_at = None
+        db.commit()
+
+        # Migración: la fila-variante 'PLACSP CODICE (ATOM)' deja de ser un fetcher.
+        # Sus recursos pasan a la especie 'Feeds ATOM/RSS' + preset 'PLACSP CODICE'
+        # y la fila se retira. Autodesarmable: sin fila-variante viva, no hace nada.
+        variante = db.query(_F_P).filter(_F_P.code == "PLACSP CODICE (ATOM)", _F_P.deleted_at.is_(None)).first()
+        if variante is not None:
+            esp = db.query(_F_P).filter(_F_P.code == "Feeds ATOM/RSS").first()
+            preset = db.query(_FP_P).filter(_FP_P.fetcher_id == esp.id, _FP_P.code == "PLACSP CODICE",
+                                            _FP_P.deleted_at.is_(None)).first()
+            movidos = 0
+            for r in db.query(_R_P).filter(_R_P.fetcher_id == variante.id).all():
+                r.fetcher_id = esp.id
+                r.preset_id = preset.id
+                movidos += 1
+            variante.deleted_at = _dt_P.utcnow()
+            db.commit()
+            print(f"[seed_fetchers] variante 'PLACSP CODICE (ATOM)' → preset: {movidos} recurso(s) repuntados, fila retirada del catálogo")
     finally:
         db.close()
 

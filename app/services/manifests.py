@@ -66,6 +66,8 @@ def validate_manifest(manifest: Dict[str, Any], known_fetcher_codes) -> List[str
             errors.append(f"{pref}: falta 'fetcher' (code).")
         elif known and fcode not in known:
             errors.append(f"{pref}: fetcher '{fcode}' no está registrado.")
+        if "preset" in r and not isinstance(r.get("preset"), str):
+            errors.append(f"{pref}: 'preset' debe ser el código (string) de un perfil de la especie.")
         for forbidden in _FORBIDDEN_RESOURCE_KEYS:
             if forbidden in r:
                 errors.append(f"{pref}: campo prohibido '{forbidden}' (no se inyecta código ni ids).")
@@ -136,15 +138,20 @@ def _canonical_params(params_iterables) -> List[Dict[str, Any]]:
     return sorted(out, key=lambda d: d["key"])
 
 
-def canonical_resource(name, fetcher_code, schedule, active, params) -> Dict[str, Any]:
-    """Forma canónica determinista de UN recurso (base del hash/versionado)."""
-    return {
+def canonical_resource(name, fetcher_code, schedule, active, params, preset_code=None) -> Dict[str, Any]:
+    """Forma canónica determinista de UN recurso (base del hash/versionado).
+    La clave 'preset' solo se incluye si el recurso usa un perfil, para no alterar
+    el hash de los recursos que no lo usan."""
+    canon = {
         "name": name,
         "fetcher": fetcher_code,
         "schedule": schedule,
         "active": bool(active),
         "params": _canonical_params(params),
     }
+    if preset_code:
+        canon["preset"] = preset_code
+    return canon
 
 
 def manifest_hash(canonical: Dict[str, Any]) -> str:
@@ -154,11 +161,13 @@ def manifest_hash(canonical: Dict[str, Any]) -> str:
 
 
 def _canonical_from_db(session, resource) -> Dict[str, Any]:
-    from app.models import Fetcher, ResourceParam
+    from app.models import Fetcher, FetcherPreset, ResourceParam
     fetcher = session.get(Fetcher, resource.fetcher_id) if resource.fetcher_id else None
+    preset = session.get(FetcherPreset, resource.preset_id) if getattr(resource, "preset_id", None) else None
     params = session.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).all()
     return canonical_resource(resource.name, fetcher.code if fetcher else None,
-                              resource.schedule, resource.active, params)
+                              resource.schedule, resource.active, params,
+                              preset_code=preset.code if preset else None)
 
 
 def registrar_version(session, resource, origin: str, author: Optional[str] = None) -> Optional[str]:
@@ -238,8 +247,20 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
             skipped.append(f"{r.get('name')}: {perr}")
             continue
 
+        preset = None
+        if r.get("preset"):
+            from app.models import FetcherPreset
+            preset = (session.query(FetcherPreset)
+                      .filter(FetcherPreset.fetcher_id == fetcher.id,
+                              FetcherPreset.code == r["preset"],
+                              FetcherPreset.deleted_at.is_(None)).first())
+            if preset is None:
+                skipped.append(f"{r.get('name')}: preset '{r['preset']}' no existe bajo '{fetcher.code}'")
+                continue
+
         file_canon = canonical_resource(
             r["name"], fetcher.code, r.get("schedule"), r.get("active", True), r.get("params"),
+            preset_code=preset.code if preset else None,
         )
         file_hash = manifest_hash(file_canon)
 
@@ -255,6 +276,7 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
                 id=uuid4(), name=r["name"], publisher=publisher.nombre,
                 publisher_id=publisher.id, fetcher_id=fetcher.id,
                 active=bool(r.get("active", True)), schedule=r.get("schedule"),
+                preset_id=preset.id if preset else None,
                 auto_generated=True, origin="manifest",
             )
             session.add(resource)
@@ -288,6 +310,7 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
         if file_cambiado and not db_cambiado:
             # Solo cambió el fichero → aplicar.
             resource.fetcher_id = fetcher.id
+            resource.preset_id = preset.id if preset else None
             resource.active = bool(r.get("active", resource.active))
             resource.schedule = r.get("schedule", resource.schedule)
             _aplicar_params(resource, r)

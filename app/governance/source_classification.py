@@ -32,7 +32,7 @@ _FETCHERS_SCRAPING = frozenset({
 })
 # Fetchers de publicación abierta (ficheros/feeds estáticos).
 _FETCHERS_PUBLICACION = frozenset({
-    "File Download", "Compressed File", "Feeds ATOM/RSS", "PLACSP CODICE (ATOM)", "OSM Overpass", "XBRL",
+    "File Download", "Compressed File", "Feeds ATOM/RSS", "OSM Overpass", "XBRL",
 })
 # Fetchers de API abierta.
 _FETCHERS_API = frozenset({

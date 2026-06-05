@@ -10,7 +10,7 @@
   "resources": [
     {
       "name": "PLACSP - Contratos menores",
-      "fetcher": "PLACSP CODICE (ATOM)",
+      "fetcher": "Feeds ATOM/RSS",
       "schedule": "0 6 * * *",
       "active": true,
       "params": [
@@ -19,7 +19,8 @@
           "value": "https://contrataciondelestado.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes.atom",
           "is_external": false
         }
-      ]
+      ],
+      "preset": "PLACSP CODICE"
     }
   ]
 }

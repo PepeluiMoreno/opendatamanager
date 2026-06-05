@@ -10,7 +10,7 @@
   "resources": [
     {
       "name": "PLACSP - Consultas preliminares de mercado",
-      "fetcher": "PLACSP CODICE (ATOM)",
+      "fetcher": "Feeds ATOM/RSS",
       "schedule": "0 7 * * *",
       "active": true,
       "params": [
@@ -19,7 +19,8 @@
           "value": "https://contrataciondelestado.es/sindicacion/sindicacion_1403/CPM_SectorPublico.atom",
           "is_external": false
         }
-      ]
+      ],
+      "preset": "PLACSP CODICE"
     }
   ]
 }

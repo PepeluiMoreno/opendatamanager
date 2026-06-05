@@ -286,6 +286,19 @@
             </select>
           </div>
 
+          <div v-if="(selectedFetcher?.presets || []).length">
+            <label class="block text-xs font-medium mb-1">Perfil (preset)</label>
+            <select v-model="form.presetId" class="input w-full text-sm">
+              <option :value="null">— sin perfil —</option>
+              <option v-for="pr in selectedFetcher.presets" :key="pr.id" :value="pr.id">
+                {{ pr.code }}<template v-if="pr.description"> — {{ pr.description.slice(0, 80) }}</template>
+              </option>
+            </select>
+            <p v-if="selectedPreset" class="text-xs text-purple-300 mt-1">
+              El recurso hereda {{ Object.keys(selectedPreset.params || {}).length }} parámetro(s) del perfil; tu valor manda si rellenas el mismo campo.
+            </p>
+          </div>
+
           <div>
             <!-- Tabs for Parameters and Concurrency -->
             <div class="flex space-x-1 mb-4 border-b border-gray-600">
@@ -1291,7 +1304,7 @@ const previewError = ref(null)
 const previewParams = ref({})
 
 const form = ref({
-  name: '', description: '', publisherId: null, fetcherId: '', params: [], active: true, schedule: null,
+  name: '', description: '', publisherId: null, fetcherId: '', presetId: null, params: [], active: true, schedule: null,
   numWorkers: 1, maxConcurrentRequests: null, rateLimitPerSecond: null, requestDelayMs: null,
   retryAttempts: null, retryBackoffFactor: null, batchSize: null,
 })
@@ -1305,6 +1318,7 @@ const editingDerivedId = ref(null)
 const editingDerivedData = ref({})
 
 const selectedFetcher = computed(() => fetchers.value.find(type => type.id === form.value.fetcherId) || null)
+const selectedPreset = computed(() => (selectedFetcher.value?.presets || []).find(pr => pr.id === form.value.presetId) || null)
 
 // ── Visibilidad condicional (visible_when del esquema del fetcher) ──
 function paramValueOrDefault(name) {
@@ -1412,10 +1426,10 @@ function getParamEnumValues(pn) { return optionalParams.value.find(p => p.paramN
 function getParamDescription(pn) {
   const d = selectedFetcher.value?.paramsDef?.find(p => p.paramName===pn)
   const base = d?.hint || d?.description || ''
-  const preset = selectedFetcher.value?.presetParams?.[pn]
+  const preset = selectedPreset.value?.params?.[pn]
   if (preset !== undefined) {
     const pv = typeof preset === 'object' ? JSON.stringify(preset) : preset
-    return `[preset de la variante: ${pv}] ${base}`.trim()
+    return `[heredado del perfil: ${pv}] ${base}`.trim()
   }
   return base || null
 }
@@ -1438,7 +1452,7 @@ function editResource(resource) {
   const getParam = (k, d=null) => { const p=resource.params.find(p=>p.key===k); return p?(d===null?p.value:parseInt(p.value)):d }
   const ck = ['num_workers','max_concurrent_requests','rate_limit_per_second','request_delay_ms','retry_attempts','retry_backoff_factor','batch_size']
   form.value = {
-    name: resource.name, description: resource.description||'', publisherId: resource.publisherId||null, fetcherId: resource.fetcher.id,
+    name: resource.name, description: resource.description||'', publisherId: resource.publisherId||null, fetcherId: resource.fetcher.id, presetId: resource.preset?.id || null,
     params: resource.params.filter(p=>!ck.includes(p.key)).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false})),
     active: resource.active, schedule: resource.schedule||null,
     numWorkers: parseInt(getParam('num_workers',1)),
@@ -1522,7 +1536,7 @@ async function submitForm() {
     const allParams = [...form.value.params.filter(p=>p.key&&p.value).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false}))]
     const cp = { 'num_workers':{value:form.value.numWorkers,default:1},'max_concurrent_requests':{value:form.value.maxConcurrentRequests,default:null},'rate_limit_per_second':{value:form.value.rateLimitPerSecond,default:null},'request_delay_ms':{value:form.value.requestDelayMs,default:null},'retry_attempts':{value:form.value.retryAttempts,default:null},'retry_backoff_factor':{value:form.value.retryBackoffFactor,default:null},'batch_size':{value:form.value.batchSize,default:null} }
     for (const [k,c] of Object.entries(cp)) { if (c.value!==null&&c.value!==c.default) allParams.push({key:k,value:String(c.value)}) }
-    const input = { name:form.value.name, description:form.value.description||null, publisherId:form.value.publisherId||null, fetcherId:form.value.fetcherId, params:allParams, active:form.value.active, schedule:form.value.schedule||null }
+    const input = { name:form.value.name, description:form.value.description||null, publisherId:form.value.publisherId||null, fetcherId:form.value.fetcherId, presetId:form.value.presetId || (editingResource ? "" : null), params:allParams, active:form.value.active, schedule:form.value.schedule||null }
     if (showCreateModal.value) await createResource(input); else await updateResource(editingResource.value.id, input)
     closeModals(); await loadData()
   } catch (e) { error.value = 'Failed to save resource: ' + e.message }

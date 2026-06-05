@@ -10,7 +10,7 @@
   "resources": [
     {
       "name": "Comunidad de Madrid - Licitaciones",
-      "fetcher": "PLACSP CODICE (ATOM)",
+      "fetcher": "Feeds ATOM/RSS",
       "schedule": "0 8 * * *",
       "active": true,
       "params": [
@@ -24,7 +24,8 @@
           "value": "60",
           "is_external": false
         }
-      ]
+      ],
+      "preset": "PLACSP CODICE"
     }
   ]
 }

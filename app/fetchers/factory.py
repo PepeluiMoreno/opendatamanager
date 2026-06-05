@@ -43,10 +43,15 @@ class FetcherFactory:
                 f"No se pudo cargar el fetcher '{class_path}': {e}"
             )
 
-        # Orden de resolución: defaults de la clase → preset de la VARIANTE
-        # (bloque de peculiaridades del fetcher) → params del recurso → de ejecución.
+        # Orden de resolución: defaults de la clase → perfil (preset) elegido por
+        # el RECURSO → params del recurso → de ejecución. El perfil vive bajo la
+        # especie (FetcherPreset); fetcher.preset_params queda como fallback
+        # transitorio de filas-variante aún no migradas.
         params_dict = FetcherFactory._build_defaults_dict(resource.fetcher.params_def)
-        if resource.fetcher.preset_params:
+        preset = getattr(resource, "preset", None)
+        if preset is not None and getattr(preset, "deleted_at", None) is None and preset.params:
+            params_dict.update(preset.params)
+        elif resource.fetcher.preset_params:
             params_dict.update(resource.fetcher.preset_params)
         params_dict.update(FetcherFactory._build_params_dict(resource.params))
         if execution_params:

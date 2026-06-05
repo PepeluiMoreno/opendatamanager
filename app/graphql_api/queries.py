@@ -13,6 +13,7 @@ from app.models import (
     DerivedDatasetConfig, DerivedDatasetEntry, Publisher
 )
 from app.graphql_api.types import (
+    PresetType,
     FetcherType,
     ResourceType,
     FetcherParamType,
@@ -66,6 +67,10 @@ def map_resource_param(param: ResourceParam) -> ResourceParamType:
     )
 
 
+def map_preset(p) -> PresetType:
+    return PresetType(id=str(p.id), code=p.code, description=p.description, params=p.params)
+
+
 def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherType:
    
     if ft is None:
@@ -96,6 +101,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
         deleted_at=ft.deleted_at,
         created_at=ft.created_at,
         preset_params=getattr(ft, 'preset_params', None),
+        presets=[map_preset(pr) for pr in (getattr(ft, 'presets', None) or []) if pr.deleted_at is None] or None,
     )
 
 
@@ -154,6 +160,8 @@ def map_resource(resource: Resource) -> ResourceType:
         schedule=resource.schedule,
         fetcher=map_fetcher(resource.fetcher) if getattr(resource, 'fetcher', None) else None,
         params=[map_resource_param(p) for p in (resource.params or [])],
+        preset=(map_preset(resource.preset)
+                if getattr(resource, 'preset', None) and resource.preset.deleted_at is None else None),
         created_at=getattr(resource, 'created_at', None),
         deleted_at=resource.deleted_at,
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
