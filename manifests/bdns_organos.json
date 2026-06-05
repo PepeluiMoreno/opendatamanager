@@ -1,0 +1,224 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "BDNS",
+    "nombre": "Base de Datos Nacional de Subvenciones",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.infosubvenciones.es"
+  },
+  "resources": [
+    {
+      "name": "BDNS - Órganos Convocantes (Estatal)",
+      "fetcher": "API REST Paginada",
+      "schedule": "0 4 1 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/organos",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "get",
+          "is_external": false
+        },
+        {
+          "key": "vpd",
+          "value": "GE",
+          "is_external": false
+        },
+        {
+          "key": "idAdmon",
+          "value": "C",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "10000",
+          "is_external": false
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Órganos Convocantes (Autonómica)",
+      "fetcher": "API REST Paginada",
+      "schedule": "0 4 1 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/organos",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "get",
+          "is_external": false
+        },
+        {
+          "key": "vpd",
+          "value": "GE",
+          "is_external": false
+        },
+        {
+          "key": "idAdmon",
+          "value": "A",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "10000",
+          "is_external": false
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Órganos Convocantes (Local)",
+      "fetcher": "API REST Paginada",
+      "schedule": "0 4 1 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/organos",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "get",
+          "is_external": false
+        },
+        {
+          "key": "vpd",
+          "value": "GE",
+          "is_external": false
+        },
+        {
+          "key": "idAdmon",
+          "value": "L",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "10000",
+          "is_external": false
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Órganos Convocantes (Otros)",
+      "fetcher": "API REST Paginada",
+      "schedule": "0 4 1 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/organos",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "get",
+          "is_external": false
+        },
+        {
+          "key": "vpd",
+          "value": "GE",
+          "is_external": false
+        },
+        {
+          "key": "idAdmon",
+          "value": "O",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "10000",
+          "is_external": false
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

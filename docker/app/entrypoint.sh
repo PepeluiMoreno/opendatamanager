@@ -24,6 +24,7 @@ alembic upgrade heads
 echo "[entrypoint] Seeding fetcher catalog..."
 python seed_fetchers.py || echo "[entrypoint] WARNING: seed_fetchers.py failed — app arranca igualmente."
 python seed_rbac.py || echo "[entrypoint] WARNING: seed_rbac.py failed — app arranca igualmente."
+python seed_manifests.py || echo "[entrypoint] WARNING: seed_manifests.py failed — app arranca igualmente."
 
 echo "[entrypoint] Starting application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
