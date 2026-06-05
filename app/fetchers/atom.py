@@ -204,6 +204,74 @@ def _next_link(root: ET.Element) -> Optional[str]:
     return None
 
 
+def _miembros_zip_en_streaming(response, logger_=None):
+    """Lee miembros de un ZIP remoto secuencialmente desde un response en streaming,
+    SIN descargar el archivo completo. Recorre las cabeceras locales (PK\\x03\\x04),
+    descomprime cada miembro (deflate o stored) y lo emite como (nombre, bytes).
+    Pensado para previews de ZIPs pesados (p. ej. anuales de PLACSP): el llamante
+    corta la iteración (y con ella la descarga) en cuanto tiene suficiente.
+
+    Limitación deliberada: si un miembro usa data descriptor sin tamaños en la
+    cabecera local (flag bit 3), se descomprime hasta el EOF del deflate, que es
+    correcto para method=8; para method=0 sin tamaño no hay forma fiable y se aborta.
+    """
+    import struct
+    import zlib
+
+    crudo = response.raw
+    buf = b""
+
+    def _leer(n):
+        nonlocal buf
+        while len(buf) < n:
+            trozo = crudo.read(max(n - len(buf), 65536))
+            if not trozo:
+                break
+            buf += trozo
+        out, buf = buf[:n], buf[n:]
+        return out
+
+    while True:
+        firma = _leer(4)
+        if len(firma) < 4 or firma != b"PK\x03\x04":
+            return  # central directory (PK\x01\x02) u otro registro: fin de miembros
+        cab = _leer(26)
+        if len(cab) < 26:
+            return
+        (_ver, flags, method, _t, _d, _crc, csize, usize, nlen, elen) = struct.unpack("<HHHHHIIIHH", cab)
+        nombre = _leer(nlen).decode("utf-8", "replace")
+        _leer(elen)
+        con_descriptor = bool(flags & 0x8)
+
+        if method == 8:
+            dec = zlib.decompressobj(-15)
+            datos = bytearray()
+            if csize and not con_descriptor:
+                datos += dec.decompress(_leer(csize))
+                datos += dec.flush()
+            else:
+                # tamaño desconocido: alimentar hasta EOF del deflate
+                while not dec.eof:
+                    trozo = _leer(65536)
+                    if not trozo:
+                        break
+                    datos += dec.decompress(trozo)
+                # devolver al buffer lo no consumido y saltar el data descriptor
+                buf = dec.unused_data + buf
+                if con_descriptor:
+                    if buf[:4] == b"PK\x07\x08":
+                        _leer(16)
+                    else:
+                        _leer(12)
+            yield nombre, bytes(datos)
+        elif method == 0 and not con_descriptor:
+            yield nombre, _leer(csize)
+        else:
+            if logger_:
+                logger_.warning(f"  {nombre}: método {method} con descriptor no soportado en streaming; se aborta el preview parcial")
+            return
+
+
 class AtomFetcher(BaseFetcher):
 
     def fetch(self) -> RawData:
@@ -269,6 +337,43 @@ class AtomFetcher(BaseFetcher):
         if url.lower().split("?")[0].endswith(".zip"):
             import io as _io
             import zipfile as _zipfile
+
+            # Preview: los ZIP anuales pesan cientos de MB y descargarlos enteros
+            # revienta el timeout del gateway. Se leen los miembros en streaming
+            # desde el principio del archivo y se corta la conexión en cuanto hay
+            # registros suficientes (verificado: las cabeceras locales de PLACSP
+            # traen tamaños, sin data descriptor).
+            if preview_limit:
+                logger.info(f"Preview ATOM desde ZIP (streaming): {url}")
+                session = requests.Session()
+                response = self._request(session, "GET", url, headers=headers,
+                                         timeout=max(timeout, 300), stream=True)
+                response.raise_for_status()
+                magia = response.raw.peek(2)[:2] if hasattr(response.raw, "peek") else b""
+                hubo_miembros = False
+                try:
+                    for nombre, contenido in _miembros_zip_en_streaming(response, logger):
+                        hubo_miembros = True
+                        if not contenido:
+                            continue
+                        try:
+                            root = ET.fromstring(contenido)
+                        except ET.ParseError as e:
+                            logger.warning(f"  {nombre}: XML inválido, se omite ({e})")
+                            continue
+                        batch = _entradas(root)
+                        batch, _ = _filtrar_por_fecha(batch, date_field, desde, hasta)
+                        all_records.extend(batch)
+                        if len(all_records) >= preview_limit:
+                            break
+                finally:
+                    response.close()  # corta la descarga restante
+                if not hubo_miembros:
+                    raise ValueError(
+                        f"La url no devuelve un ZIP (bytes iniciales {magia!r}); "
+                        "el repositorio puede exigir cabecera User-Agent (param 'headers')")
+                return all_records[:preview_limit]
+
             logger.info(f"Fetch ATOM desde archivo ZIP: {url}")
             session = requests.Session()
             response = self._request(session, "GET", url, headers=headers, timeout=max(timeout, 300))
