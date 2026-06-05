@@ -749,6 +749,28 @@ def seed() -> None:
     finally:
         db.close()
 
+    # Fidelidad de la fusión REST: el antiguo RestLoopFetcher iteraba por defecto
+    # las 52 provincias INE cuando el recurso no traía 'pivot_values' (caso real:
+    # Notarías - Guía Notarial). La especie genérica no tiene ese default (y ahora
+    # falla en alto sin pivot_values), así que materializamos el default histórico
+    # en los recursos ya migrados a pivot_loop que carezcan de él. Idempotente.
+    _INE_PROVINCIAS = json.dumps([f"{n:02d}" for n in range(1, 53)])
+    db = SessionLocal()
+    try:
+        reparados = 0
+        for rp in db.query(ResourceParam).filter(ResourceParam.key == "pagination", ResourceParam.value == "pivot_loop").all():
+            tiene = db.query(ResourceParam).filter(
+                ResourceParam.resource_id == rp.resource_id, ResourceParam.key == "pivot_values"
+            ).first()
+            if tiene is None:
+                db.add(ResourceParam(resource_id=rp.resource_id, key="pivot_values", value=_INE_PROVINCIAS, is_external=False))
+                reparados += 1
+        if reparados:
+            db.commit()
+            print(f"[seed_fetchers] pivot_loop sin pivot_values: materializado default histórico (provincias INE) en {reparados} recurso(s)")
+    finally:
+        db.close()
+
     # Fidelidad de la fusión HTML: los recursos que paginaban por re-envío de
     # formulario (pagination_type=form, p. ej. RER) deben usar navigation=form_paged,
     # no 'paged' (que pagina por enlace). Idempotente.

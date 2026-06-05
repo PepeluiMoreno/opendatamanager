@@ -136,14 +136,28 @@ class PivotLoop(PaginationStrategy):
         self.pivot_param = params.get("pivot_param", "id")
         valores = params.get("pivot_values", [])
         if isinstance(valores, str):
-            valores = [v.strip() for v in valores.split(",") if v.strip()]
+            crudo = valores.strip()
+            try:
+                # Formato canónico: JSON array (fidelidad con el antiguo RestLoopFetcher)
+                import json as _json
+                parsed = _json.loads(crudo)
+                valores = parsed if isinstance(parsed, list) else [parsed]
+            except (ValueError, TypeError):
+                # Tolerancia: lista separada por comas
+                valores = [v.strip() for v in crudo.split(",") if v.strip()]
         self.valores: List[Any] = list(valores)
         self._i = 0
 
     def first(self):
         self._i = 0
         if not self.valores:
-            return {"url": self.url, "query": {}, "pivot": None}
+            # Antes (RestLoopFetcher) había un default implícito de provincias INE;
+            # en la especie genérica eso es un error de configuración: mejor avisar
+            # que enviar una petición con '{pivot}' sin sustituir.
+            raise ValueError(
+                "pagination=pivot_loop requiere el parámetro 'pivot_values' "
+                "(lista de valores a iterar; p. ej. códigos de provincia)"
+            )
         v = self.valores[0]
         return {"url": self.url, "query": {self.pivot_param: v}, "pivot": v}
 

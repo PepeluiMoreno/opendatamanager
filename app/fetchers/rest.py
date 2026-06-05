@@ -79,12 +79,29 @@ class RESTFetcher(BaseFetcher):
         preview_limit = int(self.params.get("_preview_limit", 0) or 0)
 
         strat = build_pagination(pagination, url, self.params)
+        # Con pivot_loop + cuerpo (json_body/form) el pivote viaja en el payload via
+        # '{pivot}'; no debe filtrarse también como parámetro de query.
+        pivote_en_cuerpo = pagination == "pivot_loop" and request_strategy in ("json_body", "form")
+        # Dedup entre iteraciones del pivote (fidelidad con el antiguo RestLoopFetcher).
+        id_field = self.params.get("id_field") or None
+        vistos = set()
         spec = strat.first()
         all_records = []
         while spec:
-            resp = _send(spec["url"], spec.get("query"), pivot=spec.get("pivot"))
+            extra_q = {} if pivote_en_cuerpo else spec.get("query")
+            resp = _send(spec["url"], extra_q, pivot=spec.get("pivot"))
             data = json.loads(resp.text) if resp.text and resp.text.strip() else {}
             batch = _extract_list(data, content_field)
+            if id_field and pagination == "pivot_loop":
+                nuevos = []
+                for reg in batch:
+                    clave = reg.get(id_field) if isinstance(reg, dict) else None
+                    if clave is not None:
+                        if clave in vistos:
+                            continue
+                        vistos.add(clave)
+                    nuevos.append(reg)
+                batch = nuevos
             all_records.extend(batch)
             if preview_limit and len(all_records) >= preview_limit:
                 break
