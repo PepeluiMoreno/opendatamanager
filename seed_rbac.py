@@ -45,6 +45,8 @@ ROLES = {
     "lector": ("Lector", "Lectura completa, sin mutaciones", _LECTURA),
     "operador": ("Operador", "Define y prueba recursos",
                  _LECTURA + ["recursos.crear", "recursos.editar", "recursos.testar"]),
+    "ejecutor": ("Ejecutor", "Lectura y ejecución de recursos (lanzar/parar)",
+                 _LECTURA + ["ejecuciones.lanzar", "ejecuciones.parar"]),
     "administrador": ("Administrador", "Acceso total",
                       [c for c, *_ in FUNCIONALIDADES]),
 }
