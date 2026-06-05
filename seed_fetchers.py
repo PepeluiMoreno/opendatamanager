@@ -743,6 +743,27 @@ def seed() -> None:
     finally:
         db.close()
 
+    # Rebaseline de sincronización: las fusiones (y cualquier transformación de
+    # sistema) cambian recursos en BD sin pasar por la UI ni por un manifiesto, así
+    # que su hash canónico queda desincronizado de last_synced_hash y los updates de
+    # manifiesto entrarían en conflicto. registrar_version no-opea si no hay deriva;
+    # si la hay, versiona el estado real de la BD y lo convierte en la nueva base.
+    from app.services.manifests import registrar_version as _rv
+    db = _SL_H()
+    try:
+        rebaselined = 0
+        for r in db.query(_R_H).filter(_R_H.deleted_at.is_(None)).all():
+            try:
+                if _rv(db, r, origin="seed", author="rebaseline"):
+                    rebaselined += 1
+            except Exception as e:
+                print(f"[seed_fetchers] AVISO rebaseline '{getattr(r, 'name', r.id)}': {e}")
+        if rebaselined:
+            db.commit()
+            print(f"[seed_fetchers] rebaseline: {rebaselined} recurso(s) re-sincronizados tras transformaciones de sistema")
+    finally:
+        db.close()
+
     # Poda segura: retira filas de fetcher MUERTAS (clase no importable) y sin
     # recursos. Enacta "un fetcher solo existe por una tecnología real": lo que no
     # tiene clase ni uso no es una tecnología, es ruido. Las tecnologías legítimas

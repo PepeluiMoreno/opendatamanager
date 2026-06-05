@@ -10,7 +10,7 @@
   "resources": [
     {
       "name": "BDNS - Órganos Convocantes (Estatal)",
-      "fetcher": "API REST Paginada",
+      "fetcher": "API REST",
       "schedule": "0 4 1 * *",
       "active": true,
       "params": [
@@ -20,38 +20,8 @@
           "is_external": false
         },
         {
-          "key": "method",
-          "value": "get",
-          "is_external": false
-        },
-        {
-          "key": "vpd",
-          "value": "GE",
-          "is_external": false
-        },
-        {
-          "key": "idAdmon",
-          "value": "C",
-          "is_external": false
-        },
-        {
-          "key": "page_param",
-          "value": "page",
-          "is_external": false
-        },
-        {
-          "key": "page_size_param",
-          "value": "pageSize",
-          "is_external": false
-        },
-        {
-          "key": "page_size",
-          "value": "10000",
-          "is_external": false
-        },
-        {
-          "key": "id_field",
-          "value": "id",
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"idAdmon\": \"C\"}",
           "is_external": false
         },
         {
@@ -63,7 +33,7 @@
     },
     {
       "name": "BDNS - Órganos Convocantes (Autonómica)",
-      "fetcher": "API REST Paginada",
+      "fetcher": "API REST",
       "schedule": "0 4 1 * *",
       "active": true,
       "params": [
@@ -73,38 +43,8 @@
           "is_external": false
         },
         {
-          "key": "method",
-          "value": "get",
-          "is_external": false
-        },
-        {
-          "key": "vpd",
-          "value": "GE",
-          "is_external": false
-        },
-        {
-          "key": "idAdmon",
-          "value": "A",
-          "is_external": false
-        },
-        {
-          "key": "page_param",
-          "value": "page",
-          "is_external": false
-        },
-        {
-          "key": "page_size_param",
-          "value": "pageSize",
-          "is_external": false
-        },
-        {
-          "key": "page_size",
-          "value": "10000",
-          "is_external": false
-        },
-        {
-          "key": "id_field",
-          "value": "id",
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"idAdmon\": \"A\"}",
           "is_external": false
         },
         {
@@ -116,7 +56,7 @@
     },
     {
       "name": "BDNS - Órganos Convocantes (Local)",
-      "fetcher": "API REST Paginada",
+      "fetcher": "API REST",
       "schedule": "0 4 1 * *",
       "active": true,
       "params": [
@@ -126,38 +66,8 @@
           "is_external": false
         },
         {
-          "key": "method",
-          "value": "get",
-          "is_external": false
-        },
-        {
-          "key": "vpd",
-          "value": "GE",
-          "is_external": false
-        },
-        {
-          "key": "idAdmon",
-          "value": "L",
-          "is_external": false
-        },
-        {
-          "key": "page_param",
-          "value": "page",
-          "is_external": false
-        },
-        {
-          "key": "page_size_param",
-          "value": "pageSize",
-          "is_external": false
-        },
-        {
-          "key": "page_size",
-          "value": "10000",
-          "is_external": false
-        },
-        {
-          "key": "id_field",
-          "value": "id",
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"idAdmon\": \"L\"}",
           "is_external": false
         },
         {
@@ -169,7 +79,7 @@
     },
     {
       "name": "BDNS - Órganos Convocantes (Otros)",
-      "fetcher": "API REST Paginada",
+      "fetcher": "API REST",
       "schedule": "0 4 1 * *",
       "active": true,
       "params": [
@@ -179,38 +89,8 @@
           "is_external": false
         },
         {
-          "key": "method",
-          "value": "get",
-          "is_external": false
-        },
-        {
-          "key": "vpd",
-          "value": "GE",
-          "is_external": false
-        },
-        {
-          "key": "idAdmon",
-          "value": "O",
-          "is_external": false
-        },
-        {
-          "key": "page_param",
-          "value": "page",
-          "is_external": false
-        },
-        {
-          "key": "page_size_param",
-          "value": "pageSize",
-          "is_external": false
-        },
-        {
-          "key": "page_size",
-          "value": "10000",
-          "is_external": false
-        },
-        {
-          "key": "id_field",
-          "value": "id",
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"idAdmon\": \"O\"}",
           "is_external": false
         },
         {
