@@ -27,6 +27,8 @@ class HTMLFetcher(BaseFetcher):
         mode = (self.params.get("navigation") or "single").lower()
         if mode == "form_pivot":
             return self._form_pivot()
+        if mode == "form_paged":
+            return self._form_paged()
         if mode == "pivot":
             return self._over_pivots(self._pivots())
         if mode == "paged":
@@ -144,6 +146,50 @@ class HTMLFetcher(BaseFetcher):
             d = float(self.params.get("delay", 0) or 0)
             if d:
                 time.sleep(d)
+        return all_records
+
+
+    def _form_paged(self):
+        """Paginación por re-envío de formulario con sesión (cookies/estado).
+        Fiel al antiguo PaginatedHtmlFetcher pagination_type=form: primera petición
+        con el método configurado; después, POST del formulario de paginación con
+        page_param incrementado hasta agotar formulario, páginas vacías o max_pages."""
+        import requests as _rq
+        url = self.params["url"]
+        session = _rq.Session()
+        method = (self.params.get("method", "GET") or "GET").upper()
+        timeout = int(self.params.get("timeout", 30))
+        max_pages = int(self.params.get("max_pages", 500))
+        delay = float(self.params.get("delay_between_pages", self.params.get("delay", 1.0)) or 0)
+        page_param = self.params.get("page_param", "pagina")
+        selectors = self.params.get("next_form_selector") or "form"
+        max_records = int(self.params.get("max_records", 0) or 0)
+        preview = int(self.params.get("_preview_limit", 0) or 0)
+        headers = self._headers()
+
+        resp = self._request(session, method, url, headers=headers, timeout=timeout)
+        resp.raise_for_status()
+        all_records = []
+        page = 1
+        while True:
+            batch = self._extract(resp.text)
+            all_records.extend(batch)
+            if preview and len(all_records) >= preview:
+                return all_records[:preview]
+            if max_records and len(all_records) >= max_records:
+                return all_records
+            if page >= max_pages or (page > 1 and not batch):
+                break
+            siguiente = nav.form_next(resp.text, selectors, page_param=page_param, base_url=url)
+            if not siguiente:
+                break
+            destino, inputs = siguiente
+            if delay:
+                time.sleep(delay)
+            resp = self._request(session, "POST", destino or url, data=inputs,
+                                 headers=headers, timeout=timeout)
+            resp.raise_for_status()
+            page += 1
         return all_records
 
 

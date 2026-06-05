@@ -163,6 +163,7 @@ FETCHERS: List[Dict[str, Any]] = [
                  {"value": "paged", "label": "Paginado", "help": "Sigue la paginación (enlace 'siguiente' o {page} en la plantilla)."},
                  {"value": "pivot", "label": "Una búsqueda por valor", "help": "Repite la consulta para cada valor de una lista; admite paginación dentro de cada valor."},
                  {"value": "form_pivot", "label": "Formulario por valor", "help": "Descubre el formulario (campos ocultos + action) y lo envía por cada valor."},
+                 {"value": "form_paged", "label": "Formulario paginado", "help": "Re-envía el formulario de paginación incrementando el parámetro de página, con sesión (buscadores con estado)."},
              ]},
             {"param_name": "extraction", "data_type": "enum", "required": False, "default_value": "fields", "group": "extraccion",
              "hint": "Cómo se leen los datos de cada página.",
@@ -189,6 +190,11 @@ FETCHERS: List[Dict[str, Any]] = [
             {"param_name": "search_field_values", "data_type": "json", "required": False, "group": "navegacion", "visible_when": {"param": "navigation", "in": ["pivot", "form_pivot"]}},
             {"param_name": "search_field_name", "data_type": "string", "required": False, "group": "navegacion", "visible_when": {"param": "navigation", "in": ["form_pivot"]}},
             {"param_name": "form_selector", "data_type": "string", "required": False, "group": "navegacion", "visible_when": {"param": "navigation", "in": ["form_pivot"]}},
+            {"param_name": "next_form_selector", "data_type": "string", "required": False, "group": "navegacion",
+             "hint": "Selector(es) CSS del formulario de paginación (admite lista separada por comas).",
+             "visible_when": {"param": "navigation", "in": ["form_paged"]}},
+            {"param_name": "page_param", "data_type": "string", "required": False, "default_value": "pagina", "group": "navegacion",
+             "visible_when": {"param": "navigation", "in": ["form_paged"]}},
             {"param_name": "pivot_source_odmgr_query", "data_type": "string", "required": False, "group": "navegacion", "visible_when": {"param": "navigation", "in": ["pivot"]}},
             {"param_name": "pivot_source_field", "data_type": "string", "required": False, "group": "navegacion", "visible_when": {"param": "navigation", "in": ["pivot"]}},
             {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 500, "group": "navegacion", "visible_when": {"param": "navigation", "in": ["paged", "pivot"]}},
@@ -740,6 +746,26 @@ def seed() -> None:
             if migrados or retirados:
                 db.commit()
                 print(f"[seed_fetchers] familia REST fusionada en 'API REST': {migrados} recurso(s); retiradas {retirados}")
+    finally:
+        db.close()
+
+    # Fidelidad de la fusión HTML: los recursos que paginaban por re-envío de
+    # formulario (pagination_type=form, p. ej. RER) deben usar navigation=form_paged,
+    # no 'paged' (que pagina por enlace). Idempotente.
+    db = _SL_H()
+    try:
+        corregidos = 0
+        for rp in db.query(_RP_H).filter(_RP_H.key == "pagination_type", _RP_H.value == "form").all():
+            nav = db.query(_RP_H).filter(_RP_H.resource_id == rp.resource_id, _RP_H.key == "navigation").first()
+            if nav is None:
+                db.add(_RP_H(resource_id=rp.resource_id, key="navigation", value="form_paged", is_external=False))
+                corregidos += 1
+            elif nav.value != "form_paged":
+                nav.value = "form_paged"
+                corregidos += 1
+        if corregidos:
+            db.commit()
+            print(f"[seed_fetchers] navegación corregida a form_paged en {corregidos} recurso(s) con paginación por formulario")
     finally:
         db.close()
 

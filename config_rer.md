@@ -123,3 +123,26 @@ mutation {
 4. Ejecutar recurso y monitorear progreso
 
 Este fetcher puede extraer los 14,836 registros automáticamente del buscador RER.
+
+---
+
+## ⚠️ ESTADO 2026-06-05 (verificado en vivo)
+
+El buscador (`maper.mjusticia.gob.es`, Struts2-jQuery) **ya no responde a POSTs
+programáticos**: el envío del formulario `formBusqRER` (con sesión, con todos los
+inputs, con criterios, e incluso como XHR) devuelve siempre el buscador
+re-renderizado, sin resultados. El flujo de este documento (y por tanto los
+recursos históricos de HTML Forms / HTML Paginated) **no funciona contra el sitio
+actual**; la rotura es del lado de la fuente y anterior a la fusión de fetchers.
+
+**Vía recomendada: Power BI público del Ministerio** (PowerBIFetcher). Verificado
+en vivo: la `resource_key` documentada en el docstring de
+`app/fetchers/powerbi.py` sigue siendo válida (el endpoint `querydata` la acepta y
+valida el cuerpo). Falta el `query_json` (SemanticQuery) completo para montar el
+recurso: recuperarlo de la configuración original o reconstruirlo descubriendo el
+esquema del modelo.
+
+La especie `HTML (genérico)` incorpora de todos modos `navigation=form_paged`
+(paginación por re-envío de formulario, portada fielmente del fetcher antiguo y
+con su parte pura testeada) para otros buscadores de la misma escuela que sí
+admitan envío programático.

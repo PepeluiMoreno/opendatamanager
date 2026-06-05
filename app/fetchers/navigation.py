@@ -82,3 +82,45 @@ def follow_links(soup_or_html: Union[BeautifulSoup, str],
         if href:
             urls.append(urljoin(base_url, href) if base_url else href)
     return urls
+
+
+def form_next(soup_or_html: Union[BeautifulSoup, str],
+              selectors: Union[str, List[str], None],
+              page_param: str = "pagina",
+              base_url: Optional[str] = None):
+    """Paginación por re-envío de formulario (buscadores con estado, p. ej. RER).
+    Localiza el formulario de paginación, recoge TODOS sus input/select e
+    incrementa page_param. Devuelve (url_destino, inputs) o None si no hay
+    formulario. Portado fielmente de PaginatedHtmlFetcher (pagination_type=form)."""
+    soup = (soup_or_html if isinstance(soup_or_html, BeautifulSoup)
+            else BeautifulSoup(soup_or_html or "", "html.parser"))
+    if isinstance(selectors, str):
+        s = selectors.strip()
+        if s.startswith("["):
+            import json as _j
+            try:
+                selectors = _j.loads(s)
+            except Exception:
+                selectors = [s]
+        else:
+            selectors = [x.strip() for x in s.split(",") if x.strip()]
+    form = None
+    for sel in (selectors or ["form"]):
+        form = soup.select_one(sel)
+        if form:
+            break
+    if form is None:
+        return None
+    inputs = {}
+    for inp in form.find_all(["input", "select"]):
+        name = inp.get("name")
+        if name:
+            inputs[name] = inp.get("value", "") or ""
+    try:
+        actual = int(inputs.get(page_param, 1) or 1)
+    except (TypeError, ValueError):
+        actual = 1
+    inputs[page_param] = str(actual + 1)
+    action = form.get("action") or ""
+    destino = urljoin(base_url, action) if (base_url and action) else (action or base_url)
+    return destino, inputs

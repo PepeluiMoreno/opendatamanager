@@ -24,3 +24,17 @@ def test_next_link_lista_selectores_y_urljoin():
 def test_follow_links():
     html = "<ul><a class='sub' href='/a'>A</a><a class='sub' href='/b'>B</a></ul>"
     assert follow_links(html, "a.sub", base_url="https://e.org") == ["https://e.org/a", "https://e.org/b"]
+
+
+def test_form_next_extrae_inputs_e_incrementa_pagina():
+    from app.fetchers.navigation import form_next
+    html = """<form name='paginationForm' action='/Maper/buscarRER.action'>
+      <input type='hidden' name='token' value='abc'/>
+      <input type='hidden' name='pagina' value='3'/>
+      <select name='orden'><option value='nombre' selected>n</option></select>
+    </form>"""
+    destino, inputs = form_next(html, "form[name='paginationForm'], .paginacion-form",
+                                page_param="pagina", base_url="https://maper.mjusticia.gob.es/Maper/RER.action")
+    assert destino == "https://maper.mjusticia.gob.es/Maper/buscarRER.action"
+    assert inputs["token"] == "abc" and inputs["pagina"] == "4" and "orden" in inputs
+    assert form_next("<div>sin formulario</div>", "form") is None
