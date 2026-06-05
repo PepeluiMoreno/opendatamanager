@@ -17,6 +17,7 @@ _ETIQUETAS = {
     "recurso.baja": "Recurso dado de baja (cambio en el origen)",
     "recurso.conflicto": "Conflicto de sincronización",
     "ejecucion.fallo": "Fallo de ejecución",
+    "recurso.recuperado": "Recurso recuperado",
 }
 
 

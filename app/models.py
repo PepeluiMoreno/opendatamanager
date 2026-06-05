@@ -101,6 +101,7 @@ class Resource(Base):
     manifest_hash = Column(String(64), nullable=True)       # hash del manifiesto canónico actual
     last_synced_hash = Column(String(64), nullable=True)    # base común para detección de conflictos
     origin = Column(String(20), default="ui", nullable=False)  # ui | manifest | seed
+    source_status = Column(String(20), default="ok", nullable=False)  # ok | baja (salud del origen)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)

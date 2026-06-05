@@ -38,6 +38,24 @@ def _run_resource(resource_id: str) -> None:
         session.close()
 
 
+def _maintenance() -> None:
+    """Job diario: revisa la salud de las fuentes (baja/recuperación por origen)
+    y despacha el digest de avisos por email."""
+    from app.database import SessionLocal
+    from app.services.salud_fuentes import revisar_salud_fuentes
+    from app.services.eventos import enviar_digest
+
+    session = SessionLocal()
+    try:
+        salud = revisar_salud_fuentes(session)
+        envio = enviar_digest(session)
+        logger.info(f"Mantenimiento: salud={salud} avisos={envio}")
+    except Exception as e:
+        logger.error(f"Mantenimiento falló: {e}")
+    finally:
+        session.close()
+
+
 def sync_schedule(resource_id: str, schedule: str | None) -> None:
     """Registra, actualiza o elimina el job de un resource."""
     scheduler = _get_scheduler()
@@ -83,6 +101,12 @@ def start() -> None:
         logger.info(f"Scheduler iniciado con {len(resources)} jobs activos")
     finally:
         session.close()
+
+    # Job diario de mantenimiento: salud de fuentes + digest de avisos (08:00).
+    scheduler.add_job(
+        _maintenance, trigger=CronTrigger(hour=8, minute=0),
+        id="mantenimiento_salud_avisos", replace_existing=True,
+    )
 
     scheduler.start()
 
