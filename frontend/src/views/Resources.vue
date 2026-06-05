@@ -1305,7 +1305,24 @@ const editingDerivedId = ref(null)
 const editingDerivedData = ref({})
 
 const selectedFetcher = computed(() => fetchers.value.find(type => type.id === form.value.fetcherId) || null)
-const requiredParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required === true) || [])
+
+// ── Visibilidad condicional (visible_when del esquema del fetcher) ──
+function paramValueOrDefault(name) {
+  const fp = form.value.params.find(p => p.key === name)
+  if (fp && fp.value !== undefined && fp.value !== null && fp.value !== '') return fp.value
+  const def = selectedFetcher.value?.paramsDef?.find(d => d.paramName === name)
+  return def?.defaultValue ?? ''
+}
+function isVisibleParam(p) {
+  const cond = p.visibleWhen
+  if (!cond || !cond.param) return true
+  const cur = paramValueOrDefault(cond.param)
+  if (Array.isArray(cond.in)) return cond.in.includes(cur)
+  if (cond.equals !== undefined) return cur === cond.equals
+  return true
+}
+
+const requiredParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required === true && isVisibleParam(p)) || [])
 const optionalParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required !== true) || [])
 const addedOptionalParams = computed(() => { const req = requiredParams.value.map(p => p.paramName); return form.value.params.map(p => p.key).filter(k => !req.includes(k)) })
 
@@ -1314,6 +1331,7 @@ const paramGroups = computed(() => {
   const grouped = {}; const order = []
   for (const p of optionalParams.value) {
     if (!p.group) continue
+    if (!isVisibleParam(p)) continue
     if (!grouped[p.group]) { grouped[p.group] = []; order.push(p.group) }
     grouped[p.group].push(p)
   }
@@ -1391,7 +1409,7 @@ function selectedEnumMeta(pn, ev, f) { const sel = getParamValue(pn); if (!sel |
 function getParamValue(pn) { return form.value.params.find(p => p.key === pn)?.value || '' }
 function getParamType(pn) { return optionalParams.value.find(p => p.paramName === pn)?.dataType || 'string' }
 function getParamEnumValues(pn) { return optionalParams.value.find(p => p.paramName === pn)?.enumValues || null }
-function getParamDescription(pn) { return requiredParams.value.find(p => p.paramName===pn)?.description || optionalParams.value.find(p => p.paramName===pn)?.description || null }
+function getParamDescription(pn) { const d = selectedFetcher.value?.paramsDef?.find(p => p.paramName===pn); return d?.hint || d?.description || null }
 function getOverpassPresets(pn) { return requiredParams.value.find(p => p.paramName===pn)?.enumValues || getParamEnumValues(pn) || {} }
 function isFullWidthParam(dt) { return dt === 'json_filter_map' || dt === 'overpass_query' || dt === 'bbox' }
 function parseBbox(val) { if (!val) return ['','','','']; const p = String(val).split(',').map(s=>s.trim()); while(p.length<4) p.push(''); return p }

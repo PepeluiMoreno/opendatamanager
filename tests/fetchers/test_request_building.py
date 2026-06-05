@@ -24,3 +24,10 @@ def test_sparql():
     r = build_request("sparql", {"sparql_query": "SELECT * WHERE {?s ?p ?o}"})
     assert r["data"]["query"].startswith("SELECT")
     assert "sparql-results+json" in r["headers"]["Accept"]
+
+
+def test_graphql_y_sparql_leen_query_unificada():
+    r = build_request("graphql", {"query": "{ b }"})
+    assert r["json"]["query"] == "{ b }"
+    r = build_request("sparql", {"query": "ASK { ?s ?p ?o }"})
+    assert r["data"]["query"].startswith("ASK")

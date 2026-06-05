@@ -152,13 +152,15 @@ const GROUP_LABELS = {
   extraccion: 'Extracción de resultados',
   paginacion: 'Paginación',
   http: 'HTTP',
+  peticion: 'Petición (qué se envía)',
+  navegacion: 'Navegación',
   format: 'Formato',
   excel: 'Excel',
   pagination: 'Paginación',
   navigation: 'Navegación',
   behavior: 'Comportamiento',
 }
-const GROUP_ORDER = ['descubrimiento', 'envio_busqueda', 'extraccion', 'paginacion', 'http', 'format', 'excel']
+const GROUP_ORDER = ['http', 'descubrimiento', 'envio_busqueda', 'peticion', 'navegacion', 'paginacion', 'extraccion', 'format', 'excel', 'behavior']
 
 function groupLabel(key) {
   if (GROUP_LABELS[key]) return GROUP_LABELS[key]

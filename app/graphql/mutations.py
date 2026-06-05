@@ -58,6 +58,13 @@ class Mutation:
                 active=input.active,
                 schedule=input.schedule,
             )
+            # Validación sintáctica de la query según su tipo (request)
+            from app.services.query_validation import validar_query
+            _pmap = {p.key: p.value for p in (input.params or [])}
+            _err = validar_query(_pmap.get("request"), _pmap.get("query"))
+            if _err:
+                raise ValueError(_err)
+
             db.add(resource)
             db.flush()  # Para obtener el ID
 
@@ -106,6 +113,13 @@ class Mutation:
 
             # Actualizar parámetros si se proporcionan
             if input.params is not None:
+                # Validación sintáctica de la query según su tipo (request)
+                from app.services.query_validation import validar_query
+                _pmap = {p.key: p.value for p in input.params}
+                _err = validar_query(_pmap.get("request"), _pmap.get("query"))
+                if _err:
+                    raise ValueError(_err)
+
                 # Eliminar parámetros existentes
                 db.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).delete()
 

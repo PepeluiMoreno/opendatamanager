@@ -47,7 +47,7 @@ def _form(params, pivot):
 
 
 def _graphql(params, pivot):
-    query = _sub_pivot(params.get("graphql_query", "") or "", pivot)
+    query = _sub_pivot(params.get("query") or params.get("graphql_query", "") or "", pivot)
     variables = params.get("graphql_variables") or {}
     if isinstance(variables, str):
         variables = _json.loads(variables) if variables.strip() else {}
@@ -57,7 +57,7 @@ def _graphql(params, pivot):
 
 
 def _sparql(params, pivot):
-    query = _sub_pivot(params.get("sparql_query", "") or "", pivot)
+    query = _sub_pivot(params.get("query") or params.get("sparql_query", "") or "", pivot)
     return {"method": (params.get("method", "POST") or "POST").upper(),
             "json": None, "data": {"query": query},
             "headers": {"Accept": "application/sparql-results+json"}}
