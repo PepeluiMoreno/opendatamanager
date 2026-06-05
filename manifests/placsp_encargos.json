@@ -1,0 +1,50 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "PLACSP",
+    "nombre": "Plataforma de Contratación del Sector Público",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://contrataciondelestado.es"
+  },
+  "resources": [
+    {
+      "name": "PLACSP - Encargos a medios propios",
+      "fetcher": "Feeds ATOM/RSS",
+      "schedule": "30 6 * * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contrataciondelestado.es/sindicacion/sindicacion_1383/EMP_SectorPublico.atom",
+          "is_external": false
+        },
+        {
+          "key": "pagination",
+          "value": "rel_next",
+          "is_external": false
+        },
+        {
+          "key": "max_pages",
+          "value": "6",
+          "is_external": false
+        },
+        {
+          "key": "delay",
+          "value": "2",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "180",
+          "is_external": false
+        },
+        {
+          "key": "field_map",
+          "value": "{\"expediente\": \"ContractFolderID\", \"estado\": \"ContractFolderStatusCode\", \"titulo\": \"title\", \"objeto\": \"ProcurementProject/Name\", \"tipo_codigo\": \"ProcurementProject/TypeCode\", \"subtipo_codigo\": \"ProcurementProject/SubTypeCode\", \"cpv\": \"ItemClassificationCode\", \"importe\": \"TotalAmount\", \"valor_estimado\": \"EstimatedOverallContractAmount\", \"organo_contratacion\": \"LocatedContractingParty/PartyName/Name\", \"provincia\": \"CountrySubentity\", \"provincia_codigo\": \"CountrySubentityCode\", \"adjudicatario\": \"WinningParty/PartyName/Name\", \"fecha\": \"updated\", \"url\": \"link@href\"}",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
