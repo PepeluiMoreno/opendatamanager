@@ -600,6 +600,13 @@ RESOURCES: List[Dict[str, Any]] = [
         },
     },
     {
+        # RETIRADO (2026-06-06): scraper de formulario contra el portal
+        # WebSphere/JSF de la Plataforma — la página no tiene <select> alguno
+        # (0 selects, ViewState JSF; verificado en vivo), así que el SearchLoop
+        # no puede operar. SUPERSEDED por los recursos PLACSP CODICE (feed de
+        # novedades + históricos anuales), que traen provincia en cada registro
+        # (CountrySubentity/CountrySubentityCode). Se conserva la fila inactiva
+        # como rastro; licitaciones por provincia = filtrar los datasets PLACSP.
         "name": "Contrataciones del Estado - Licitaciones por Provincia",
         "fetcher_name": "HTML SearchLoop",
         "publisher_acronimo": "MINHAC",
@@ -607,11 +614,7 @@ RESOURCES: List[Dict[str, Any]] = [
         "active": False,
         "schedule": None,
         "params": {
-            "url":                    "https://contrataciondelestado.es/wps/portal/plataforma",
-            "search_field_name":      "provincia",
-            "rows_selector":          "table tr",
-            "delay_between_searches": "2",
-            "timeout":                "60",
+            "url": "https://contrataciondelestado.es/wps/portal/plataforma",
         },
     },
     {
