@@ -608,15 +608,25 @@ RESOURCES: List[Dict[str, Any]] = [
         },
     },
     {
+        # API REST JSON (linked-data-api/ELDA): registros en result.items y
+        # paginación por enlace siguiente en result.next. Estaba mal
+        # especificado como 'HTML Forms' (un scraper sobre un JSON → 0 filas).
         "name": "Datos.gob.es - Catálogo",
-        "fetcher_name": "HTML Forms",
+        "fetcher_name": "API REST",
         "publisher_acronimo": "MINHAC",
         "target_table": "datosgob_catalog",
         "schedule": None,
         "params": {
-            "url":     "https://datos.gob.es/apidata/catalog/dataset",
-            "method":  "GET",
-            "timeout": "45",
+            "url":             "https://datos.gob.es/apidata/catalog/dataset",
+            "request":         "query",
+            "pagination":      "rel_next",
+            "content_field":   "result.items",
+            "next_link_field": "result.next",
+            "query_params":    '{"_pageSize": "100"}',
+            "headers":         '{"Accept": "application/json", "User-Agent": "Mozilla/5.0"}',
+            "id_field":        "_about",
+            "delay":           "1",
+            "timeout":         "45",
         },
     },
 
