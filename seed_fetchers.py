@@ -91,6 +91,9 @@ FETCHERS: List[Dict[str, Any]] = [
             {"param_name": "desde", "data_type": "string", "required": False, "group": "incremental",
              "hint": "Suelo temporal: fecha ISO (solo entradas desde esa fecha) o 'auto' (incremental: desde la última ejecución completada).",
              "help_md": "Para feeds en orden descendente, la paginación se detiene al alcanzar entradas anteriores. 'auto' usa la marca de agua de la ejecución previa, evitando depender de max_pages."},
+{"param_name": "hasta", "data_type": "string", "required": False, "group": "incremental",
+             "hint": "Techo temporal de la ventana (ISO). Vacío = sin techo: cosecha hasta lo más reciente.",
+             "help_md": "Para feeds en orden descendente, la paginación se detiene al alcanzar entradas anteriores. 'auto' usa la marca de agua de la ejecución previa, evitando depender de max_pages."},
             {"param_name": "date_field", "data_type": "string", "required": False, "default_value": "fecha", "group": "incremental",
              "hint": "Campo de salida que contiene la fecha de la entrada (por defecto 'fecha')."}
         ],
@@ -775,7 +778,7 @@ def seed() -> None:
         "Feeds ATOM/RSS": [
             {
                 "code": "PLACSP CODICE",
-                "description": "Perfil para sindicaciones CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid). Fija la paginación rel_next, el field_map CODICE y la cosecha incremental; el recurso solo aporta la 'url'.",
+                "description": "Perfil para sindicaciones CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid). Fija la paginación rel_next, el field_map CODICE y la cosecha incremental; el recurso aporta la 'url' y la ventana temporal (desde/hasta) como parámetros externos.",
                 "params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "fecha": "updated", "url": "link@href"}},
             },
         ],

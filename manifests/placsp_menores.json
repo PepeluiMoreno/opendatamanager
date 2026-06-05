@@ -18,6 +18,16 @@
           "key": "url",
           "value": "https://contrataciondelestado.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes.atom",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
         }
       ],
       "preset": "PLACSP CODICE"

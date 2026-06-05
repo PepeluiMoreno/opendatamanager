@@ -167,15 +167,18 @@ def _parse_dt(valor: Optional[str]):
     return None
 
 
-def _filtrar_por_fecha(batch, date_field: str, desde):
-    """Conserva entradas con fecha >= `desde` (o fecha desconocida, por prudencia).
-    Devuelve (conservadas, frontera_alcanzada). Asume feed en orden descendente:
-    si aparece una entrada con fecha < desde, hemos llegado a lo ya visto.
+def _filtrar_por_fecha(batch, date_field: str, desde, hasta=None):
+    """Conserva entradas dentro de la ventana temporal [desde, hasta] (las de fecha
+    desconocida se conservan por prudencia). Devuelve (conservadas, frontera_alcanzada).
+    Asume feed en orden descendente: una entrada con fecha < desde marca la frontera
+    (ya hemos llegado a lo viejo); una entrada con fecha > hasta simplemente se
+    descarta y se sigue paginando hacia atrás hasta entrar en la ventana.
 
     Compara de forma 'naive' (sin zona) para evitar errores aware/naive."""
-    if desde is None:
+    if desde is None and hasta is None:
         return batch, False
-    desde_cmp = desde.replace(tzinfo=None)
+    desde_cmp = desde.replace(tzinfo=None) if desde else None
+    hasta_cmp = hasta.replace(tzinfo=None) if hasta else None
     conservadas = []
     frontera = False
     for rec in batch:
@@ -183,10 +186,13 @@ def _filtrar_por_fecha(batch, date_field: str, desde):
         if d is None:
             conservadas.append(rec)  # sin fecha → no se descarta
             continue
-        if d.replace(tzinfo=None) >= desde_cmp:
-            conservadas.append(rec)
-        else:
+        d = d.replace(tzinfo=None)
+        if desde_cmp and d < desde_cmp:
             frontera = True
+            continue
+        if hasta_cmp and d > hasta_cmp:
+            continue
+        conservadas.append(rec)
     return conservadas, frontera
 
 
@@ -239,12 +245,14 @@ class AtomFetcher(BaseFetcher):
         # (los feeds van en orden descendente). 'desde=auto' usa la marca de agua
         # inyectada por el manager en '_watermark' (máximo de la ejecución previa).
         date_field = self.params.get("date_field", "fecha")
-        desde_raw = self.params.get("desde")
+        desde_raw = self.params.get("desde") or None       # "" equivale a ausente
         if desde_raw == "auto":
             desde_raw = self.params.get("_watermark")
         desde = _parse_dt(desde_raw)
-        if desde:
-            logger.info(f"  parada incremental por fecha: solo entradas desde {desde.isoformat()}")
+        hasta = _parse_dt(self.params.get("hasta") or None)  # techo opcional de la ventana
+        if desde or hasta:
+            logger.info(f"  ventana temporal: desde={desde.isoformat() if desde else '—'} "
+                        f"hasta={hasta.isoformat() if hasta else '—'}")
 
         def _entradas(root):
             if field_map:
@@ -264,7 +272,7 @@ class AtomFetcher(BaseFetcher):
                 response.raise_for_status()
                 root = ET.fromstring(response.text)
                 batch = _entradas(root)
-                batch, frontera = _filtrar_por_fecha(batch, date_field, desde)
+                batch, frontera = _filtrar_por_fecha(batch, date_field, desde, hasta)
                 all_records.extend(batch)
                 logger.info(f"  página {page} — {len(batch)} entradas (total: {len(all_records)})")
                 page += 1

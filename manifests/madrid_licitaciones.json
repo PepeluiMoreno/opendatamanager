@@ -23,6 +23,16 @@
           "key": "max_pages",
           "value": "60",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
         }
       ],
       "preset": "PLACSP CODICE"
