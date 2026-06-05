@@ -10,7 +10,6 @@ import asyncio
 from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from app.security import require_admin
 from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
 from strawberry.fastapi import GraphQLRouter
 from app.graphql.schema import schema
@@ -78,20 +77,15 @@ app.add_middleware(
 # Configurar router GraphQL (gestión — Strawberry)
 # Autorización RBAC por operación: el contexto resuelve usuario y permisos
 # efectivos; las mutaciones exigen su funcionalidad (fail-closed) y las
-# consultas quedan abiertas al invitado (lectura). ODM_ADMIN_TOKEN como
-# break-glass otorga todos los permisos.
+# consultas quedan abiertas al invitado (lectura). Autenticación por sesión
+# de usuario (sin token de administración).
 from starlette.requests import Request as _Request  # noqa: E402
-from app.auth import current_user_from_request, effective_permissions  # noqa: E402
+from app.auth import current_user_from_request, effective_permissions, requiere_funcionalidad  # noqa: E402
 
 
 async def get_graphql_context(request: _Request, db=Depends(get_db)):
     usuario = current_user_from_request(db, request)
     permisos = effective_permissions(db, usuario)
-    auth = request.headers.get("authorization", "")
-    expected = os.environ.get("ODM_ADMIN_TOKEN", "")
-    if expected and auth.lower().startswith("bearer ") and auth[7:].strip() == expected:
-        from app.models import Funcionalidad
-        permisos = {f.code for f in db.query(Funcionalidad).all()}
     return {"request": request, "db": db, "usuario": usuario, "permisos": permisos}
 
 
@@ -248,7 +242,7 @@ def _rebuild_data_api() -> None:
         db2.close()
 
 
-@app.delete("/api/datasets/{dataset_id}", dependencies=[Depends(require_admin)])
+@app.delete("/api/datasets/{dataset_id}", dependencies=[Depends(requiere_funcionalidad("recursos.borrar"))])
 async def delete_dataset(dataset_id: str, hard: bool = False):
     """Borra un dataset.
     - hard=False (default): soft-delete (deleted_at = now), va a Trash, restaurable.
@@ -279,7 +273,7 @@ async def delete_dataset(dataset_id: str, hard: bool = False):
         session.close()
 
 
-@app.post("/api/datasets/{dataset_id}/restore", dependencies=[Depends(require_admin)])
+@app.post("/api/datasets/{dataset_id}/restore", dependencies=[Depends(requiere_funcionalidad("recursos.borrar"))])
 async def restore_dataset(dataset_id: str):
     """Restaura un dataset soft-borrado (deleted_at → null)."""
     session = SessionLocal()
@@ -330,7 +324,7 @@ async def resource_datasets_summary(resource_id: str):
         session.close()
 
 
-@app.delete("/api/resources/{resource_id}/datasets", dependencies=[Depends(require_admin)])
+@app.delete("/api/resources/{resource_id}/datasets", dependencies=[Depends(requiere_funcionalidad("recursos.borrar"))])
 async def delete_resource_datasets(resource_id: str, hard: bool = False):
     """Cascada: borra todos los datasets activos de un recurso.
     - hard=False (default): soft-delete de cada uno.

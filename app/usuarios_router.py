@@ -5,10 +5,10 @@ el sistema sin al menos un administrador activo.
 import os
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.auth import current_user_from_request, effective_permissions, revoke_user_sessions
+from app.auth import requiere_funcionalidad, revoke_user_sessions
 from app.database import get_db
 from app.models import Rol, Usuario
 from app.passwords import hash_password
@@ -16,26 +16,11 @@ from app.passwords import hash_password
 ROL_ADMIN = "administrador"
 
 
-def requiere_api(code: str):
-    """Dependencia FastAPI: exige la funcionalidad `code` (sesión o break-glass)."""
-
-    def dep(request: Request, db=Depends(get_db)):
-        auth = request.headers.get("authorization", "")
-        expected = os.environ.get("ODM_ADMIN_TOKEN", "")
-        if expected and auth.lower().startswith("bearer ") and auth[7:].strip() == expected:
-            return None  # break-glass
-        usuario = current_user_from_request(db, request)
-        if code not in effective_permissions(db, usuario):
-            raise HTTPException(status_code=403, detail="No autorizado.")
-        return usuario
-
-    return dep
-
 
 router = APIRouter(
     prefix="/api/usuarios",
     tags=["usuarios"],
-    dependencies=[Depends(requiere_api("usuarios.gestionar"))],
+    dependencies=[Depends(requiere_funcionalidad("usuarios.gestionar"))],
 )
 
 

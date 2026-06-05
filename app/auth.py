@@ -101,3 +101,19 @@ def guest_permissions(db) -> Set[str]:
 def effective_permissions(db, usuario: Optional[Usuario]) -> Set[str]:
     """Permisos efectivos: los del invitado son base común para todos."""
     return guest_permissions(db) | user_permissions(usuario)
+
+
+def requiere_funcionalidad(code: str):
+    """Dependencia FastAPI para endpoints REST: exige `code` en los permisos
+    efectivos de la sesión actual. Sin sesión válida o sin el permiso → 403.
+    Autenticación exclusivamente por sesión de usuario (sin token de admin)."""
+    from fastapi import Depends, HTTPException
+    from app.database import get_db
+
+    def dep(request: Request, db=Depends(get_db)):
+        usuario = current_user_from_request(db, request)
+        if code not in effective_permissions(db, usuario):
+            raise HTTPException(status_code=403, detail="No autorizado.")
+        return usuario
+
+    return dep
