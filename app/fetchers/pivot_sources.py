@@ -13,9 +13,33 @@ Params reconocidos:
   pivot_source_odmgr_url    — (opcional) endpoint; default env ODMGR_DATA_URL
 """
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import requests
+
+
+def fetch_odmgr_records(query_name: str, fields: List[str], *,
+                        base_url: Optional[str] = None,
+                        filter_field: str = "", filter_value: str = "",
+                        timeout: int = 30) -> List[Dict[str, Any]]:
+    """Lee TODOS los registros (paginando) de una query de la API GraphQL de
+    datos de ODM, seleccionando `fields`. Transporte común del pivote-desde-
+    dataset y del cruce de datasets."""
+    base = base_url or os.environ.get("ODMGR_DATA_URL", "http://localhost:8000/graphql/data")
+    sel = " ".join(fields)
+    limit, offset, out = 5000, 0, []
+    while True:
+        farg = f', {filter_field}: "{filter_value}"' if filter_field and filter_value else ""
+        gql = f"{{ {query_name}(limit: {limit}, offset: {offset}{farg}) {{ total items {{ {sel} }} }} }}"
+        body = requests.post(base, json={"query": gql}, timeout=timeout).json()
+        if "errors" in body:
+            raise ValueError(f"API de datos ODM ({query_name}): {body['errors'][0].get('message')}")
+        page = body["data"][query_name]
+        out.extend(page["items"])
+        offset += limit
+        if offset >= page["total"]:
+            break
+    return out
 
 
 def pivots_from_odmgr(params: Dict[str, Any]) -> List[Any]:
@@ -27,21 +51,12 @@ def pivots_from_odmgr(params: Dict[str, Any]) -> List[Any]:
         raise ValueError(
             "pivot_source_odmgr_query requiere también 'pivot_source_field'"
         )
-    base = (params.get("pivot_source_odmgr_url")
-            or os.environ.get("ODMGR_DATA_URL", "http://localhost:8000/graphql/data"))
-    ff = params.get("pivot_source_filter_field", "")
-    fv = params.get("pivot_source_filter_value", "")
-    limit, offset, out = 5000, 0, []
-    while True:
-        farg = f', {ff}: "{fv}"' if ff and fv else ""
-        gql = f"{{ {query_name}(limit: {limit}, offset: {offset}{farg}) {{ total items {{ {field} }} }} }}"
-        body = requests.post(base, json={"query": gql}, timeout=30).json()
-        if "errors" in body:
-            raise ValueError(f"Fuente de pivotes ODM: {body['errors'][0].get('message')}")
-        page = body["data"][query_name]
-        out.extend(it[field] for it in page["items"] if it.get(field))
-        offset += limit
-        if offset >= page["total"]:
-            break
+    registros = fetch_odmgr_records(
+        query_name, [field],
+        base_url=params.get("pivot_source_odmgr_url"),
+        filter_field=params.get("pivot_source_filter_field", ""),
+        filter_value=params.get("pivot_source_filter_value", ""),
+    )
+    out = [r[field] for r in registros if r.get(field)]
     seen = set()
     return [v for v in out if not (v in seen or seen.add(v))]

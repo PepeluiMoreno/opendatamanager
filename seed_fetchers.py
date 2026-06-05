@@ -405,6 +405,41 @@ FETCHERS: List[Dict[str, Any]] = [
              "description": "URL raíz del portal a crawlear. Único parámetro visible — todo lo demás (max_depth, allowed_extensions, timeouts, selectores) son defaults internos del fetcher."},
         ],
     },
+    {
+        "name": "Cruce de datasets",
+        "class_path": "app.fetchers.cross_dataset.CrossDatasetFetcher",
+        "description": "Especie interna: cruza dos datasets ya cosechados en ODM (vía la API de datos) y produce un dataset derivado. Declarativo: queries izquierda/derecha, claves, tipo de cruce (enriquecer / solo emparejados) y campos a volcar. Al ser un recurso normal hereda schedule, ejecuciones, salud, versionado y linaje. Caso típico: órganos BDNS × puente DIR3 → órganos con su código DIR3.",
+        "params": [
+            {"param_name": "left_query", "data_type": "string", "required": True, "group": "cruce",
+             "hint": "Query de datos del dataset izquierdo (el que se conserva/enriquece)."},
+            {"param_name": "left_fields", "data_type": "json", "required": True, "group": "cruce",
+             "hint": "Campos a leer del lado izquierdo (JSON array)."},
+            {"param_name": "left_key", "data_type": "string", "required": True, "group": "cruce",
+             "hint": "Clave de cruce en el lado izquierdo."},
+            {"param_name": "right_query", "data_type": "string", "required": True, "group": "cruce",
+             "hint": "Query de datos del dataset derecho (el que aporta campos)."},
+            {"param_name": "right_fields", "data_type": "json", "required": True, "group": "cruce",
+             "hint": "Campos a leer del lado derecho (JSON array)."},
+            {"param_name": "right_key", "data_type": "string", "required": True, "group": "cruce",
+             "hint": "Clave de cruce en el lado derecho."},
+            {"param_name": "match", "data_type": "enum", "required": False, "default_value": "eq", "group": "cruce",
+             "hint": "Cómo casan las claves.",
+             "enum_values": [
+                 {"value": "eq", "label": "Igualdad", "help": "left_key == right_key."},
+                 {"value": "in_array", "label": "Contenido en lista", "help": "La clave derecha es una lista que contiene a la izquierda (p. ej. ids del puente DIR3)."},
+             ]},
+            {"param_name": "join", "data_type": "enum", "required": False, "default_value": "enrich", "group": "cruce",
+             "hint": "Qué pasa con las filas izquierdas sin pareja.",
+             "enum_values": [
+                 {"value": "enrich", "label": "Enriquecer", "help": "Todas las filas izquierdas; las emparejadas suman los campos del derecho."},
+                 {"value": "inner", "label": "Solo emparejadas", "help": "Se descartan las filas izquierdas sin pareja."},
+             ]},
+            {"param_name": "select", "data_type": "json", "required": False, "group": "cruce",
+             "hint": "Mapa {campo_salida: campo_del_derecho}; vacío = todos los right_fields menos la clave."},
+            {"param_name": "odmgr_data_url", "data_type": "string", "required": False, "group": "cruce",
+             "hint": "Endpoint de la API de datos; vacío = ODMGR_DATA_URL del entorno."},
+        ],
+    },
 ]
 
 # ── Catálogo de tecnologías de entrega (especies). Descripción larga con

@@ -179,6 +179,70 @@
           "is_external": false
         }
       ]
+    },
+    {
+      "name": "BDNS - Órganos Convocantes con DIR3 (derivado)",
+      "fetcher": "Cruce de datasets",
+      "schedule": "0 6 2 * *",
+      "active": false,
+      "_doc": "Derivado: órganos (todos los ámbitos, ya aplanados con tree_flatten) enriquecidos con su código DIR3 vía el puente /organos/codigo. ANTES DE ACTIVAR: fijar left_query/right_query con las queries de datos reales de los datasets 'órganos' y 'puente DIR3' en el Data Explorer, y programarlo después de sus fuentes (puente: día 2 a las 05:00).",
+      "params": [
+        {
+          "key": "left_query",
+          "value": "",
+          "is_external": false
+        },
+        {
+          "key": "left_fields",
+          "value": "[\"id\",\"descripcion\",\"nivel\",\"padre_id\",\"padre_descripcion\",\"ruta\",\"tipo_admon\"]",
+          "is_external": false
+        },
+        {
+          "key": "left_key",
+          "value": "id",
+          "is_external": false
+        },
+        {
+          "key": "right_query",
+          "value": "",
+          "is_external": false
+        },
+        {
+          "key": "right_fields",
+          "value": "[\"dir3\",\"ids\"]",
+          "is_external": false
+        },
+        {
+          "key": "right_key",
+          "value": "ids",
+          "is_external": false
+        },
+        {
+          "key": "match",
+          "value": "in_array",
+          "is_external": false
+        },
+        {
+          "key": "join",
+          "value": "enrich",
+          "is_external": false
+        },
+        {
+          "key": "select",
+          "value": "{\"dir3\": \"dir3\"}",
+          "is_external": false
+        },
+        {
+          "key": "dedup_key",
+          "value": "id",
+          "is_external": false
+        },
+        {
+          "key": "dedup_order_field",
+          "value": "id",
+          "is_external": false
+        }
+      ]
     }
   ]
 }

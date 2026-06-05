@@ -33,14 +33,22 @@ clave secundaria cuando exista.
 
 ## Pasos al retomar
 
-1. Especie `CruceDatasets` + seed + tests.
+1. ~~Especie `CruceDatasets` + seed + tests~~ **HECHO (2026-06-06)**:
+   `app/fetchers/cross_dataset.py` (núcleo puro `cruzar` + fetcher sobre la API
+   de datos), matriculada en el catálogo, tests en
+   `tests/fetchers/test_cross_dataset.py`. Primer uso: recurso derivado
+   "Órganos Convocantes con DIR3" en `manifests/bdns_organos.json` (inactivo
+   hasta fijar left_query/right_query en prod).
 2. ~~Recurso puente `{dir3, ids_bdns}`~~ **HECHO (2026-06-05)**: `pivot_source_odmgr_query`
    portado a RESTFetcher (módulo compartido `app/fetchers/pivot_sources.py`),
    `pivot_field_out` para anotar el pivote en cada fila, respuesta-objeto por pivote
    soportada. Recurso en `manifests/bdns_puente_dir3.json` — al importar en prod,
    fijar `pivot_source_odmgr_query`/`pivot_source_field` con la query del dataset
    DIR3 cosechado. Verificado en vivo (L01280796→2993, L01380435→3368, 204 omitido).
-3. Cruce subvención↔órgano(DIR3)↔licitación como recurso `CruceDatasets`.
+3. Cruce subvención↔órgano(DIR3)↔licitación como recurso `CruceDatasets` —
+   ya posible declarativamente: convocatorias (left, por ids de órgano vía
+   búsqueda por organos[]) × puente (dir3) × licitaciones PLACSP (dir3 nativo).
+   Falta solo cosechar convocatorias por órgano y declarar los dos cruces.
 
 ## Cosecha cruda (en curso, fuera de este pendiente)
 
