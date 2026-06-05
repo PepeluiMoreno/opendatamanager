@@ -326,6 +326,22 @@ class FetcherManager:
             session.commit()
             logger.log(f"  Done: {total_records} records → {staging_path}")
 
+            # Dedup opcional del staging: si el recurso define 'dedup_key', el JSONL
+            # final conserva una sola fila por clave — la de mayor 'dedup_order_field'
+            # (default: 'fecha'), o la última emitida si no hay campo de orden. Caso
+            # típico: PLACSP, donde cada cambio de estado del expediente es una foto
+            # nueva y el consumidor quiere la más reciente.
+            _fp = getattr(fetcher, "params", {}) or {}
+            _dedup_key = str(_fp.get("dedup_key") or "").strip()
+            if _dedup_key:
+                _orden = str(_fp.get("dedup_order_field") or "fecha").strip()
+                _antes = total_records
+                total_records = FetcherManager._dedup_staging(staging_path, _dedup_key, _orden)
+                if total_records != _antes:
+                    execution.total_records = total_records
+                    session.commit()
+                    logger.log(f"  Dedup por '{_dedup_key}': {_antes} → {total_records} registros (gana mayor '{_orden}')")
+
             logger.log("[2/5] DATASET - Building dataset...")
             dataset_builder = DatasetBuilder()
             dataset = dataset_builder.build(
@@ -404,6 +420,43 @@ class FetcherManager:
             session.commit()
 
         return dataset
+
+    @staticmethod
+    def _dedup_staging(staging_path: str, key_field: str, order_field: str) -> int:
+        """Reescribe el JSONL de staging dejando una fila por valor de `key_field`:
+        gana la de mayor `order_field` (comparación lexicográfica — válida para
+        fechas ISO); a igualdad o sin campo de orden, la última emitida. Las filas
+        sin clave se conservan tal cual. Dos pasadas por offsets de byte para no
+        cargar el fichero en memoria. Devuelve el nº de registros resultante."""
+        ganadores: dict = {}   # clave -> (orden, offset, longitud)
+        sin_clave: list = []   # [(offset, longitud)]
+        with open(staging_path, "rb") as f:
+            offset = f.tell()
+            for linea in f:
+                longitud = len(linea)
+                try:
+                    reg = json.loads(linea)
+                    clave = reg.get(key_field)
+                except (ValueError, AttributeError):
+                    clave = None
+                if clave is None or clave == "":
+                    sin_clave.append((offset, longitud))
+                else:
+                    orden = str(reg.get(order_field) or "")
+                    previo = ganadores.get(clave)
+                    if previo is None or orden >= previo[0]:
+                        ganadores[clave] = (orden, offset, longitud)
+                offset += longitud
+        seleccion = sorted(
+            [(o, l) for (_, o, l) in ganadores.values()] + sin_clave
+        )  # orden de aparición original
+        tmp_path = staging_path + ".dedup"
+        with open(staging_path, "rb") as src, open(tmp_path, "wb") as dst:
+            for offset, longitud in seleccion:
+                src.seek(offset)
+                dst.write(src.read(longitud))
+        os.replace(tmp_path, staging_path)
+        return len(seleccion)
 
     @staticmethod
     def _derive_dataset(session: Session, config: DerivedDatasetConfig, staging_path: str, logger: ExecutionLogger) -> int:
