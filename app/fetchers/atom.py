@@ -260,6 +260,40 @@ class AtomFetcher(BaseFetcher):
             return _parse_feed_entries(root)
 
         all_records: List[Dict[str, Any]] = []
+
+        # Modo archivo ZIP (repositorio histórico de sindicaciones, p. ej. los
+        # anuales/mensuales de PLACSP): la url apunta a un .zip cuyos ficheros
+        # internos son los mismos ATOM del feed. Se procesan todos aplicando la
+        # ventana temporal [desde, hasta]; al ser un corpus cerrado no hay
+        # frontera de parada ni paginación.
+        if url.lower().split("?")[0].endswith(".zip"):
+            import io as _io
+            import zipfile as _zipfile
+            logger.info(f"Fetch ATOM desde archivo ZIP: {url}")
+            session = requests.Session()
+            response = self._request(session, "GET", url, headers=headers, timeout=max(timeout, 300))
+            response.raise_for_status()
+            magia = response.content[:2]
+            if magia != b"PK":
+                raise ValueError(
+                    f"La url no devuelve un ZIP (bytes iniciales {magia!r}); "
+                    "el repositorio puede exigir cabecera User-Agent (param 'headers')")
+            zf = _zipfile.ZipFile(_io.BytesIO(response.content))
+            internos = sorted((n for n in zf.namelist() if not n.endswith("/")), reverse=True)
+            logger.info(f"  {len(internos)} ficheros internos")
+            for nombre in internos:
+                try:
+                    root = ET.fromstring(zf.read(nombre))
+                except ET.ParseError as e:
+                    logger.warning(f"  {nombre}: XML inválido, se omite ({e})")
+                    continue
+                batch = _entradas(root)
+                batch, _ = _filtrar_por_fecha(batch, date_field, desde, hasta)
+                all_records.extend(batch)
+                if preview_limit and len(all_records) >= preview_limit:
+                    return all_records[:preview_limit]
+            logger.info(f"  total: {len(all_records)} entradas en la ventana")
+            return all_records
         page = 0
         logger.info(f"Iniciando fetch ATOM: {url} (paginación={pagination})")
         session = requests.Session()

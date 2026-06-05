@@ -59,3 +59,39 @@ def test_ventana_con_techo_hasta():
     # solo techo, sin suelo: no hay frontera nunca
     conservadas, frontera = _filtrar_por_fecha(batch, "fecha", None, hasta=datetime(2026, 5, 31))
     assert frontera is False and len(conservadas) == 3
+
+
+def test_modo_zip_con_ventana(monkeypatch):
+    """La url .zip se procesa entera: ATOMs internos por el mismo pipeline,
+    filtrados por la ventana temporal, sin paginación."""
+    import io, zipfile
+    from app.fetchers.atom import AtomFetcher
+
+    def atom(*entradas):
+        cuerpo = "".join(
+            f"<entry><title>{t}</title><updated>{u}</updated>"
+            f"<cac-place-ext:ContractFolderStatus xmlns:cac-place-ext='x'>"
+            f"<ContractFolderID>{t}</ContractFolderID></cac-place-ext:ContractFolderStatus></entry>"
+            for t, u in entradas)
+        return f"<feed xmlns='http://www.w3.org/2005/Atom'>{cuerpo}</feed>".encode()
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("placsp_202212.atom", atom(("E-2022", "2022-12-05T10:00:00")))
+        z.writestr("placsp_202301.atom", atom(("E-2023a", "2023-01-10T10:00:00"),
+                                              ("E-2023b", "2023-01-20T10:00:00")))
+        z.writestr("placsp_202402.atom", atom(("E-2024", "2024-02-01T10:00:00")))
+    contenido = buf.getvalue()
+    assert contenido[:2] == b"PK"
+
+    class Resp:
+        status_code = 200
+        content = contenido
+        def raise_for_status(self): pass
+
+    f = AtomFetcher({"url": "https://x/contratos_2023.zip", "desde": "2023-01-01",
+                     "hasta": "2023-12-31", "date_field": "updated"})
+    monkeypatch.setattr(AtomFetcher, "_request", lambda self, s, m, u, **k: Resp())
+    recs = f.fetch()
+    titulos = sorted(r.get("title") for r in recs)
+    assert titulos == ["E-2023a", "E-2023b"], titulos

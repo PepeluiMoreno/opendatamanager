@@ -1,0 +1,157 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "PLACSP",
+    "nombre": "Plataforma de Contratación del Sector Público",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://contrataciondelestado.es"
+  },
+  "resources": [
+    {
+      "name": "PLACSP - Contratos menores 2022 (histórico)",
+      "fetcher": "Feeds ATOM/RSS",
+      "preset": "PLACSP CODICE",
+      "schedule": null,
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes_2022.zip",
+          "is_external": false
+        },
+        {
+          "key": "headers",
+          "value": "{\"User-Agent\": \"Mozilla/5.0 (compatible; OpenDataManager/1.0)\"}",
+          "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
+        }
+      ]
+    },
+    {
+      "name": "PLACSP - Contratos menores 2023 (histórico)",
+      "fetcher": "Feeds ATOM/RSS",
+      "preset": "PLACSP CODICE",
+      "schedule": null,
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes_2023.zip",
+          "is_external": false
+        },
+        {
+          "key": "headers",
+          "value": "{\"User-Agent\": \"Mozilla/5.0 (compatible; OpenDataManager/1.0)\"}",
+          "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
+        }
+      ]
+    },
+    {
+      "name": "PLACSP - Contratos menores 2024 (histórico)",
+      "fetcher": "Feeds ATOM/RSS",
+      "preset": "PLACSP CODICE",
+      "schedule": null,
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes_2024.zip",
+          "is_external": false
+        },
+        {
+          "key": "headers",
+          "value": "{\"User-Agent\": \"Mozilla/5.0 (compatible; OpenDataManager/1.0)\"}",
+          "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
+        }
+      ]
+    },
+    {
+      "name": "PLACSP - Contratos menores 2025 (histórico)",
+      "fetcher": "Feeds ATOM/RSS",
+      "preset": "PLACSP CODICE",
+      "schedule": null,
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes_2025.zip",
+          "is_external": false
+        },
+        {
+          "key": "headers",
+          "value": "{\"User-Agent\": \"Mozilla/5.0 (compatible; OpenDataManager/1.0)\"}",
+          "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
+        }
+      ]
+    },
+    {
+      "name": "PLACSP - Contratos menores 2026 (histórico)",
+      "fetcher": "Feeds ATOM/RSS",
+      "preset": "PLACSP CODICE",
+      "schedule": null,
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_1143/contratosMenoresPerfilesContratantes_2026.zip",
+          "is_external": false
+        },
+        {
+          "key": "headers",
+          "value": "{\"User-Agent\": \"Mozilla/5.0 (compatible; OpenDataManager/1.0)\"}",
+          "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "",
+          "is_external": true
+        },
+        {
+          "key": "hasta",
+          "value": "",
+          "is_external": true
+        }
+      ]
+    }
+  ]
+}
