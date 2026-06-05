@@ -118,3 +118,21 @@ El registro es puro y testeable (`tests/fetchers/test_pagination.py`). Próximo 
 hacer que el fetcher ATOM y un fetcher REST genérico lo consuman, y migrar los
 recursos de la familia REST a `(REST genérico + estrategia)` antes de retirar las
 clases sobrantes.
+
+## Estado de la fusión REST y catálogo de tecnologías
+
+- **REST unificado (aditivo, sin romper)**: `RESTFetcher` ya consume el registro de
+  paginación. Sin `pagination` (o `none`) se comporta como siempre (los recursos
+  vivos de "API REST" intactos); con estrategia, recorre y acumula `content_field`.
+  Absorbe a **API REST Paginada** (= `query_offset`/`page_number`). Migrar sus
+  recursos a `(API REST + pagination)` y retirar la clase es un paso posterior
+  verificado, recurso por recurso.
+- **`REST Loop`** (POST con plantilla + pivote) y **`JSON Time Series`** (extracción
+  estadística pesada) NO son solo variantes de paginación: varían por las categorías
+  *construcción de la petición* y *extracción*. Se fusionarán cuando esas categorías
+  estén formalizadas como la de paginación.
+- **Catálogo de tecnologías**: sembradas 23 especies nuevas (GraphQL, SPARQL, SDMX,
+  OAI-PMH, OGC API-Features, CSW, WMTS, WCS, STAC, ArcGIS REST, NGSI-LD, SSE,
+  WebSocket, MQTT, Kafka, GTFS-RT, webhooks entrantes, navegador headless, OCR PDF,
+  ofimática, S3, FTP/SFTP/WebDAV, gRPC) con explicación y casos de uso en su
+  descripción larga, marcadas como planificadas hasta implementar su clase.
