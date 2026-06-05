@@ -178,6 +178,13 @@ extracción— que separaban a sus variantes:
 | REST Loop          | (json_body, pivot_loop, …)                      |
 | JSON Time Series   | (query, none, timeseries_long)                  |
 
-`pivot_loop` ya expone el valor iterado en el spec para que `json_body` lo
-plantille en el cuerpo. Falta solo migrar los recursos vivos a la especie REST y
-retirar las clases — paso verificado, recurso por recurso (toca producción).
+`pivot_loop` expone el valor iterado en el spec para que `json_body` lo plantille
+en el cuerpo. **FUSIÓN REALIZADA**: `seed_fetchers._colapsar_familia_rest` repunta
+los recursos de las tres variantes a `API REST` (añadiendo los params mapeados;
+para JSON Time Series copia `content_field` desde `root_path`) y retira (soft-delete)
+las filas variantes. Las clases `paginated_rest.py` / `rest_loop.py` /
+`json_timeseries.py` se han eliminado: la especie `API REST` las cubre por completo.
+Mapa aplicado: Paginada→(query, page_number start_page=0, passthrough);
+Loop→(json_body, pivot_loop, passthrough); Time Series→(query, none, timeseries_long).
+A verificar en el primer despliegue: que cada recurso migrado siga devolviendo los
+mismos registros (sobre todo REST Loop, cuya extracción de respuesta era a medida).

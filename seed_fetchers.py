@@ -53,18 +53,6 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
-        "name": "API REST Paginada",
-        "class_path": "app.fetchers.paginated_rest.PaginatedRestFetcher",
-        "description": "Paginated REST API — iterates pages until empty",
-        "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "http"},
-            {"param_name": "method", "data_type": "string", "required": False, "default_value": "GET", "group": "http"},
-            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 60, "group": "http"},
-            {"param_name": "id_field", "data_type": "string", "required": False, "group": "pagination"},
-            {"param_name": "bounding_field", "data_type": "string", "required": False, "group": "pagination"},
-        ],
-    },
-    {
         "name": "Feeds ATOM/RSS",
         "class_path": "app.fetchers.atom.AtomFetcher",
         "description": "ATOM/RSS feed reader",
@@ -309,46 +297,6 @@ FETCHERS: List[Dict[str, Any]] = [
             {"param_name": "stop_on_error", "data_type": "boolean", "required": False, "default_value": False, "group": "behavior"},
             {"param_name": "headers", "data_type": "json", "required": False, "group": "behavior"},
             {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 30, "group": "behavior"},
-        ],
-    },
-    {
-        "name": "REST Loop",
-        "class_path": "app.fetchers.rest_loop.RestLoopFetcher",
-        "description": "REST API iterated over a list of pivot values (e.g. province codes)",
-        "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "http"},
-            {"param_name": "method", "data_type": "string", "required": False, "default_value": "POST", "group": "http"},
-            {"param_name": "payload_template", "data_type": "json", "required": False, "group": "http"},
-            {"param_name": "pivot_values", "data_type": "json", "required": False, "group": "pivot"},
-            {"param_name": "id_field", "data_type": "string", "required": False, "group": "behavior"},
-            {"param_name": "delay", "data_type": "number", "required": False, "default_value": 2, "group": "behavior"},
-            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 30, "group": "http"},
-            {"param_name": "headers", "data_type": "json", "required": False, "group": "http"},
-        ],
-    },
-    {
-        "name": "JSON Time Series",
-        "class_path": "app.fetchers.json_timeseries.JsonTimeseriesFetcher",
-        "description": "Generic fetcher for APIs that return arrays of time series with metadata.",
-        "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "http"},
-            {"param_name": "method", "data_type": "string", "required": False, "default_value": "GET", "group": "http"},
-            {"param_name": "query_params", "data_type": "json", "required": False, "group": "http"},
-            {"param_name": "headers", "data_type": "json", "required": False, "group": "http"},
-            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 120, "group": "http"},
-            {"param_name": "root_path", "data_type": "string", "required": False, "group": "structure"},
-            {"param_name": "meta_container", "data_type": "string", "required": False, "default_value": "MetaData", "group": "structure"},
-            {"param_name": "meta_code_field", "data_type": "string", "required": False, "default_value": "Codigo", "group": "structure"},
-            {"param_name": "meta_name_field", "data_type": "string", "required": False, "default_value": "Nombre", "group": "structure"},
-            {"param_name": "meta_dim_path", "data_type": "string", "required": False, "default_value": "Variable.Codigo", "group": "structure"},
-            {"param_name": "data_container", "data_type": "string", "required": False, "default_value": "Data", "group": "structure"},
-            {"param_name": "period_field", "data_type": "string", "required": False, "default_value": "Anyo", "group": "structure"},
-            {"param_name": "subperiod_field", "data_type": "string", "required": False, "default_value": "Periodo", "group": "structure"},
-            {"param_name": "value_field", "data_type": "string", "required": False, "default_value": "Valor", "group": "structure"},
-            {"param_name": "secret_field", "data_type": "string", "required": False, "default_value": "Secreto", "group": "structure"},
-            {"param_name": "serie_name_field", "data_type": "string", "required": False, "default_value": "Nombre", "group": "structure"},
-            {"param_name": "flatten_mode", "data_type": "string", "required": False, "default_value": "long", "group": "output"},
-            {"param_name": "batch_size", "data_type": "integer", "required": False, "default_value": 500, "group": "output"},
         ],
     },
     {
@@ -682,6 +630,49 @@ def seed() -> None:
             print(f"[seed_fetchers] preset_params aplicados a {len(presets)} variante(s)")
         finally:
             db.close()
+
+    # Fusión de la familia REST: las variantes históricas (paginada / loop / time
+    # series) son ya la especie 'API REST' con distintas elecciones de petición,
+    # paginación y extracción. Repuntamos sus recursos a 'API REST' añadiendo los
+    # params mapeados y retiramos las filas variantes. Idempotente (tras la 1ª pasada
+    # no quedan recursos en las variantes ni filas sin retirar).
+    from app.database import SessionLocal
+    from app.models import Fetcher, Resource, ResourceParam
+    from datetime import datetime
+    _MAP_REST = {
+        "API REST Paginada": {"pagination": "page_number", "start_page": "0", "request": "query", "extraction": "passthrough"},
+        "REST Loop": {"request": "json_body", "pagination": "pivot_loop", "extraction": "passthrough"},
+        "JSON Time Series": {"request": "query", "pagination": "none", "extraction": "timeseries_long"},
+    }
+    db = SessionLocal()
+    try:
+        api = db.query(Fetcher).filter(Fetcher.code == "API REST").first()
+        migrados, retirados = 0, []
+        if api:
+            for code, extra in _MAP_REST.items():
+                f = db.query(Fetcher).filter(Fetcher.code == code).first()
+                if not f:
+                    continue
+                for r in db.query(Resource).filter(Resource.fetcher_id == f.id).all():
+                    claves = {p.key for p in db.query(ResourceParam).filter(ResourceParam.resource_id == r.id).all()}
+                    if code == "JSON Time Series" and "content_field" not in claves:
+                        rp = db.query(ResourceParam).filter(ResourceParam.resource_id == r.id, ResourceParam.key == "root_path").first()
+                        if rp and rp.value:
+                            db.add(ResourceParam(resource_id=r.id, key="content_field", value=rp.value, is_external=False))
+                            claves.add("content_field")
+                    for k, v in extra.items():
+                        if k not in claves:
+                            db.add(ResourceParam(resource_id=r.id, key=k, value=v, is_external=False))
+                    r.fetcher_id = api.id
+                    migrados += 1
+                if f.deleted_at is None:
+                    f.deleted_at = datetime.utcnow()
+                    retirados.append(code)
+            if migrados or retirados:
+                db.commit()
+                print(f"[seed_fetchers] familia REST fusionada en 'API REST': {migrados} recurso(s); retiradas {retirados}")
+    finally:
+        db.close()
 
     # Poda segura: retira filas de fetcher MUERTAS (clase no importable) y sin
     # recursos. Enacta "un fetcher solo existe por una tecnología real": lo que no
