@@ -540,8 +540,16 @@ mutation($id: String!) {
 """
 
 
+# Contexto de arranque: el seed corre en proceso, antes de la app, con acceso
+# directo a la BD; no es una petición de usuario. Se otorga a sí mismo los permisos
+# del catálogo para pasar las permission_classes de las mutaciones. La vía HTTP
+# (get_graphql_context) no se toca: sigue exigiendo sesión autenticada.
+from app.rbac import MAPA_TRANSACCIONES as _MAPA_TX
+_CTX_BOOTSTRAP: Dict[str, Any] = {"permisos": set(_MAPA_TX.values()), "username": "bootstrap"}
+
+
 def _execute(query: str, variables: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    result = schema.execute_sync(query, variable_values=variables)
+    result = schema.execute_sync(query, variable_values=variables, context_value=_CTX_BOOTSTRAP)
     if result.errors:
         messages = "; ".join(str(err) for err in result.errors)
         raise RuntimeError(messages)
