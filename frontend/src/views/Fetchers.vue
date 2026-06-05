@@ -38,52 +38,52 @@
       <div v-else-if="filtered.length === 0" class="text-center py-10 text-gray-500">
         No fetchers match the current filters.
       </div>
-      <table v-else class="w-full text-sm">
+      <table v-else class="w-full text-xs">
         <thead class="bg-gray-900 text-gray-400 text-xs uppercase tracking-wide">
           <tr>
-            <th class="px-4 py-3 text-left cursor-pointer select-none hover:text-white" @click="setSort('name')">
+            <th class="py-1.5 px-3 text-left cursor-pointer select-none hover:text-white" @click="setSort('name')">
               Name <SortIcon field="name" :sortBy="sortBy" :sortDir="sortDir" />
             </th>
-            <th class="px-4 py-3 text-left hidden md:table-cell">Description</th>
-            <th class="px-4 py-3 text-center cursor-pointer select-none hover:text-white w-28" @click="setSort('resources')">
+            <th class="py-1.5 px-3 text-left hidden md:table-cell">Description</th>
+            <th class="py-1.5 px-3 text-center cursor-pointer select-none hover:text-white w-28" @click="setSort('resources')">
               Resources <SortIcon field="resources" :sortBy="sortBy" :sortDir="sortDir" />
             </th>
-            <th class="px-4 py-3 text-center cursor-pointer select-none hover:text-white w-28" @click="setSort('params')">
+            <th class="py-1.5 px-3 text-center cursor-pointer select-none hover:text-white w-28" @click="setSort('params')">
               Params <SortIcon field="params" :sortBy="sortBy" :sortDir="sortDir" />
             </th>
-            <th class="px-4 py-3 text-left cursor-pointer select-none hover:text-white w-36" @click="setSort('createdAt')">
+            <th class="py-1.5 px-3 text-left cursor-pointer select-none hover:text-white w-36" @click="setSort('createdAt')">
               Created <SortIcon field="createdAt" :sortBy="sortBy" :sortDir="sortDir" />
             </th>
-            <th class="px-4 py-3 w-24"></th>
+            <th class="py-1.5 px-3 w-24"></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-700">
           <tr
-            v-for="f in filtered"
+            v-for="f in paged"
             :key="f.id"
             class="hover:bg-gray-750 transition-colors"
           >
-            <td class="px-4 py-3 font-medium text-white">
+            <td class="py-1.5 px-3 font-medium text-white">
               <span :title="f.classPath || ''" class="cursor-default">{{ f.name || f.code }}</span>
               <span v-if="f.presets && f.presets.length"
                     class="ml-2 text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded align-middle"
                     :title="'Perfiles disponibles: ' + f.presets.map(p => p.code).join(', ')">{{ f.presets.length }} perfil{{ f.presets.length > 1 ? 'es' : '' }}</span>
               <span v-if="f.classPath" class="block text-xs text-gray-600 font-mono mt-0.5">{{ f.classPath }}</span>
             </td>
-            <td class="px-4 py-3 text-gray-400 hidden md:table-cell max-w-xs truncate" :title="f.description">
+            <td class="py-1.5 px-3 text-gray-400 hidden md:table-cell max-w-xs truncate" :title="f.description">
               {{ f.description || '—' }}
             </td>
-            <td class="px-4 py-3 text-center">
+            <td class="py-1.5 px-3 text-center">
               <span
                 class="inline-flex items-center justify-center min-w-[1.5rem] px-2 py-0.5 rounded-full text-xs font-semibold"
                 :class="f.resources?.length ? 'bg-blue-900 text-blue-300' : 'bg-gray-700 text-gray-500'"
               >{{ f.resources?.length ?? 0 }}</span>
             </td>
-            <td class="px-4 py-3 text-center">
+            <td class="py-1.5 px-3 text-center">
               <span class="text-gray-400">{{ f.paramsDef?.length ?? 0 }}</span>
             </td>
-            <td class="px-4 py-3 text-gray-500 text-xs">{{ formatDate(f.createdAt) }}</td>
-            <td class="px-4 py-3">
+            <td class="py-1.5 px-3 text-gray-500 text-xs">{{ formatDate(f.createdAt) }}</td>
+            <td class="py-1.5 px-3">
               <div class="flex justify-end gap-2">
                 <button
                   v-if="puede('fetchers.gestionar')"
@@ -117,10 +117,31 @@
         </tbody>
       </table>
 
-      <!-- Footer count -->
-      <div v-if="!loading && !error && filtered.length > 0" class="px-4 py-2 border-t border-gray-700 text-xs text-gray-500">
-        {{ filtered.length }} fetcher{{ filtered.length !== 1 ? 's' : '' }}
-        <span v-if="filtered.length !== Fetchers.length"> (filtered from {{ Fetchers.length }})</span>
+      <!-- Pagination -->
+      <div v-if="!loading && !error && filtered.length > 0"
+           class="flex items-center justify-between px-3 py-1.5 border-t border-gray-700 text-xs">
+        <div class="flex items-center gap-3 text-gray-400">
+          <span>
+            {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filtered.length) }}
+            de {{ filtered.length }}
+            <span v-if="filtered.length !== Fetchers.length" class="text-gray-600">(filtrados de {{ Fetchers.length }})</span>
+          </span>
+          <div class="flex items-center gap-1">
+            <span>Filas:</span>
+            <select v-model.number="pageSize" class="input py-0 px-1 text-xs">
+              <option v-for="n in [10,15,20,25,50]" :key="n" :value="n">{{ n }}</option>
+            </select>
+          </div>
+        </div>
+        <div v-if="totalPages > 1" class="flex gap-0.5">
+          <button @click="currentPage--" :disabled="currentPage === 1"
+            class="px-2 py-0.5 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700">‹</button>
+          <button v-for="pg in totalPages" :key="pg" @click="currentPage = pg"
+            :class="pg === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'text-gray-300 border-gray-600 hover:bg-gray-700'"
+            class="px-2 py-0.5 rounded border">{{ pg }}</button>
+          <button @click="currentPage++" :disabled="currentPage === totalPages"
+            class="px-2 py-0.5 rounded border border-gray-600 text-gray-300 disabled:opacity-30 hover:bg-gray-700">›</button>
+        </div>
       </div>
     </div>
 
@@ -174,7 +195,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { fetchFetchers, deleteFetcher as deleteFetcherAPI } from '../api/graphql'
 import { useAuth } from '../composables/useAuth'
 
@@ -203,6 +224,9 @@ const showDeleteDialog = ref(false)
 const hardDeleteFlag   = ref(false)
 const editingFetcher   = ref(null)
 const fetcherToDelete  = ref(null)
+
+const currentPage = ref(1)
+const pageSize    = ref(15)
 
 const filterText     = ref('')
 const filterDateFrom = ref('')
@@ -253,6 +277,13 @@ const filtered = computed(() => {
     return 0
   })
 })
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / pageSize.value)))
+const paged = computed(() =>
+  filtered.value.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value)
+)
+watch([filterText, filterDateFrom, filterDateTo, pageSize], () => { currentPage.value = 1 })
+watch(totalPages, (n) => { if (currentPage.value > n) currentPage.value = n })
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function setSort(field) {

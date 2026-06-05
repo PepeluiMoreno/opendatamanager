@@ -28,6 +28,26 @@
           "key": "timeout",
           "value": "60",
           "is_external": false
+        },
+        {
+          "key": "extraction",
+          "value": "tree_flatten",
+          "is_external": false
+        },
+        {
+          "key": "children_field",
+          "value": "children",
+          "is_external": false
+        },
+        {
+          "key": "label_field",
+          "value": "descripcion",
+          "is_external": false
+        },
+        {
+          "key": "const_fields",
+          "value": "{\"tipo_admon\": \"C\"}",
+          "is_external": false
         }
       ]
     },
@@ -50,6 +70,26 @@
         {
           "key": "timeout",
           "value": "60",
+          "is_external": false
+        },
+        {
+          "key": "extraction",
+          "value": "tree_flatten",
+          "is_external": false
+        },
+        {
+          "key": "children_field",
+          "value": "children",
+          "is_external": false
+        },
+        {
+          "key": "label_field",
+          "value": "descripcion",
+          "is_external": false
+        },
+        {
+          "key": "const_fields",
+          "value": "{\"tipo_admon\": \"A\"}",
           "is_external": false
         }
       ]
@@ -74,6 +114,26 @@
           "key": "timeout",
           "value": "60",
           "is_external": false
+        },
+        {
+          "key": "extraction",
+          "value": "tree_flatten",
+          "is_external": false
+        },
+        {
+          "key": "children_field",
+          "value": "children",
+          "is_external": false
+        },
+        {
+          "key": "label_field",
+          "value": "descripcion",
+          "is_external": false
+        },
+        {
+          "key": "const_fields",
+          "value": "{\"tipo_admon\": \"L\"}",
+          "is_external": false
         }
       ]
     },
@@ -96,6 +156,26 @@
         {
           "key": "timeout",
           "value": "60",
+          "is_external": false
+        },
+        {
+          "key": "extraction",
+          "value": "tree_flatten",
+          "is_external": false
+        },
+        {
+          "key": "children_field",
+          "value": "children",
+          "is_external": false
+        },
+        {
+          "key": "label_field",
+          "value": "descripcion",
+          "is_external": false
+        },
+        {
+          "key": "const_fields",
+          "value": "{\"tipo_admon\": \"O\"}",
           "is_external": false
         }
       ]
