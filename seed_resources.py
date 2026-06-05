@@ -561,16 +561,14 @@ RESOURCES: List[Dict[str, Any]] = [
         "target_table": "",
         "schedule": None,
         "params": {
-            "base_url":      "https://www.juntadeandalucia.es/ssdigitales/datasets/contentapi/1.0.0/search/",
-            "dataset_id":    "jda_buscador_bienes_inmuebles.atom",
-            "format":        "atom",
-            "page_size":     "50",
-            "start_index":   "0",
-            "max_pages":     "1",
-            "sort":          "date:desc",
-            "source_filter": "data",
-            "verify_ssl":    "true",
-            "timeout":       "30",
+            # Feed Atom OpenSearch del buscador de inmuebles (URL oficial del
+            # catálogo CKAN de datos abiertos; paginado por from/size).
+            "url":             "https://www.juntadeandalucia.es/ssdigitales/datasets/contentapi/1.0.0/search/jda_buscador_bienes_inmuebles.atom",
+            "query_params":    '{"_source": "data", "sort": "date:desc"}',
+            "start_param":     "from",
+            "page_size_param": "size",
+            "page_size":       "50",
+            "timeout":         "30",
         },
     },
 
