@@ -102,6 +102,12 @@ class RESTFetcher(BaseFetcher):
         return json.loads(raw)
 
     def normalize(self, parsed: ParsedData) -> DomainData:
+        # Categoría 'extracción': si se indica una estrategia, se aplica; si no,
+        # se devuelve el parseado tal cual (comportamiento histórico).
+        extraction = self.params.get("extraction")
+        if extraction:
+            from app.fetchers.extraction import extract
+            return extract(extraction, parsed, self.params)
         return parsed
 
 

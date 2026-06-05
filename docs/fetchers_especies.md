@@ -136,3 +136,21 @@ clases sobrantes.
   WebSocket, MQTT, Kafka, GTFS-RT, webhooks entrantes, navegador headless, OCR PDF,
   ofimática, S3, FTP/SFTP/WebDAV, gRPC) con explicación y casos de uso en su
   descripción larga, marcadas como planificadas hasta implementar su clase.
+
+## Categoría EXTRACCIÓN (implementada)
+
+`app/fetchers/extraction.py` registra estrategias que convierten un payload JSON
+decodificado en registros planos (puro y testeable):
+
+| Estrategia        | Qué hace |
+|-------------------|----------|
+| `passthrough`     | los registros tal cual (tras seleccionar la lista) |
+| `field_map`       | aplana cada registro con `{salida: ruta.con.puntos}` |
+| `timeseries_long` | formato largo estadístico (dimensiones + puntos) — **absorbe JSON Time Series** |
+| `bindings`        | resultados SPARQL (`results.bindings`) |
+
+El `RESTFetcher` la consume vía `extraction` (aditivo: sin valor → parseado tal
+cual). Con esto la especie REST cubre ya **paginación** y **extracción**, las dos
+categorías que separaban a `API REST Paginada` y `JSON Time Series`. La extracción
+de ATOM (field_map sobre rutas de elementos XML) es el primo XML de `field_map`:
+mismo concepto, distinto resolvedor; se unificará al migrar ATOM a este registro.
