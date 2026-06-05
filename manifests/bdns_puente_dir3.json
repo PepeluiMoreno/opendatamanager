@@ -13,20 +13,68 @@
       "fetcher": "API REST",
       "schedule": "0 5 2 * *",
       "active": true,
-      "_doc": "Resuelve cada código DIR3 contra /organos/codigo y produce {dir3, tipoAdmon, ids}: el mapa entre el catálogo DIR3 y los ids internos de órganos de BDNS. Los DIR3 inexistentes en BDNS responden 204 y se omiten. ANTES DE ACTIVAR EN PROD: fijar pivot_source_odmgr_query y pivot_source_field con la query de datos del dataset DIR3 cosechado (catálogo de unidades) y el campo del código.",
+      "_doc": "Resuelve cada código DIR3 contra /organos/codigo y produce {dir3, tipoAdmon, ids}. Fuente de pivotes direccionada por NOMBRE de recurso (la query se deriva en runtime). VERIFICAR en prod que pivot_source_field coincide con la cabecera real del dataset DIR3 cosechado (oficial: C_ID_UD_ORGANICA). Los DIR3 sin presencia en BDNS responden 204 y se omiten. El preview capa las iteraciones del pivote al límite del preview.",
       "params": [
-        { "key": "url", "value": "https://www.infosubvenciones.es/bdnstrans/api/organos/codigo", "is_external": false },
-        { "key": "request", "value": "query", "is_external": false },
-        { "key": "pagination", "value": "pivot_loop", "is_external": false },
-        { "key": "pivot_param", "value": "codigo", "is_external": false },
-        { "key": "pivot_field_out", "value": "dir3", "is_external": false },
-        { "key": "pivot_source_odmgr_query", "value": "", "is_external": false },
-        { "key": "pivot_source_field", "value": "", "is_external": false },
-        { "key": "query_params", "value": "{\"vpd\": \"GE\"}", "is_external": false },
-        { "key": "dedup_key", "value": "dir3", "is_external": false },
-        { "key": "dedup_order_field", "value": "dir3", "is_external": false },
-        { "key": "delay", "value": "0.3", "is_external": false },
-        { "key": "timeout", "value": "30", "is_external": false }
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/organos/codigo",
+          "is_external": false
+        },
+        {
+          "key": "request",
+          "value": "query",
+          "is_external": false
+        },
+        {
+          "key": "pagination",
+          "value": "pivot_loop",
+          "is_external": false
+        },
+        {
+          "key": "pivot_param",
+          "value": "codigo",
+          "is_external": false
+        },
+        {
+          "key": "pivot_field_out",
+          "value": "dir3",
+          "is_external": false
+        },
+        {
+          "key": "pivot_source_resource",
+          "value": "DIR3 - Unidades Organicas (XLSX)",
+          "is_external": false
+        },
+        {
+          "key": "pivot_source_field",
+          "value": "C_ID_UD_ORGANICA",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\"}",
+          "is_external": false
+        },
+        {
+          "key": "dedup_key",
+          "value": "dir3",
+          "is_external": false
+        },
+        {
+          "key": "dedup_order_field",
+          "value": "dir3",
+          "is_external": false
+        },
+        {
+          "key": "delay",
+          "value": "0.3",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "30",
+          "is_external": false
+        }
       ]
     }
   ]

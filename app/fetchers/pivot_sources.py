@@ -44,12 +44,33 @@ def fetch_odmgr_records(query_name: str, fields: List[str], *,
 
 def pivots_from_odmgr(params: Dict[str, Any]) -> List[Any]:
     """Devuelve la lista de valores (sin duplicados, en orden de aparición) del
-    campo `pivot_source_field` de la query `pivot_source_odmgr_query`."""
-    query_name = params.get("pivot_source_odmgr_query")
+    campo `pivot_source_field` del dataset fuente.
+
+    Direccionamiento (preferencia): `pivot_source_resource` — NOMBRE del recurso
+    fuente; la query se deriva en runtime con dataset_query_name, igual que en
+    CruceDatasets. Fallback: `pivot_source_odmgr_query` (query directa)."""
     field = params.get("pivot_source_field")
+    nombre = (params.get("pivot_source_resource") or "").strip() \
+        if isinstance(params.get("pivot_source_resource"), str) else params.get("pivot_source_resource")
+    query_name = params.get("pivot_source_odmgr_query")
+    if nombre:
+        from app.database import SessionLocal
+        from app.graphql_data.schema_builder import dataset_query_name
+        from app.models import Resource
+        db = SessionLocal()
+        try:
+            r = (db.query(Resource)
+                   .filter(Resource.name == nombre, Resource.deleted_at.is_(None))
+                   .first())
+            if r is None:
+                raise ValueError(f"Fuente de pivotes: el recurso '{nombre}' no existe")
+            query_name = dataset_query_name(r.name)
+        finally:
+            db.close()
     if not query_name or not field:
         raise ValueError(
-            "pivot_source_odmgr_query requiere también 'pivot_source_field'"
+            "La fuente de pivotes requiere 'pivot_source_resource' (nombre de "
+            "recurso, preferido) o 'pivot_source_odmgr_query', más 'pivot_source_field'"
         )
     registros = fetch_odmgr_records(
         query_name, [field],

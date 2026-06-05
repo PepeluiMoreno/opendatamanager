@@ -79,7 +79,7 @@ class RESTFetcher(BaseFetcher):
         preview_limit = int(self.params.get("_preview_limit", 0) or 0)
 
         strat_params = self.params
-        if pagination == "pivot_loop" and self.params.get("pivot_source_odmgr_query"):
+        if pagination == "pivot_loop" and (self.params.get("pivot_source_resource") or self.params.get("pivot_source_odmgr_query")):
             # Los valores del pivote salen de un dataset ya cosechado en ODM
             # (p. ej. códigos DIR3 del catálogo oficial).
             from app.fetchers.pivot_sources import pivots_from_odmgr
@@ -95,9 +95,18 @@ class RESTFetcher(BaseFetcher):
         # Dedup entre iteraciones del pivote (fidelidad con el antiguo RestLoopFetcher).
         id_field = self.params.get("id_field") or None
         vistos = set()
+        # Preview con pivot_loop: sin cap, un preview recorrería TODOS los valores
+        # (decenas de miles en el puente DIR3 → timeout del gateway). Se capan las
+        # peticiones al propio límite del preview (≥1 registro esperado por valor)
+        # y se acorta la cortesía entre peticiones.
+        max_pivot_requests = preview_limit if (preview_limit and pagination == "pivot_loop") else 0
+        if max_pivot_requests:
+            delay = min(delay, 0.2)
+        pivot_requests = 0
         spec = strat.first()
         all_records = []
         while spec:
+            pivot_requests += 1
             extra_q = {} if pivote_en_cuerpo else spec.get("query")
             resp = _send(spec["url"], extra_q, pivot=spec.get("pivot"))
             data = json.loads(resp.text) if resp.text and resp.text.strip() else {}
@@ -122,6 +131,8 @@ class RESTFetcher(BaseFetcher):
                 batch = nuevos
             all_records.extend(batch)
             if preview_limit and len(all_records) >= preview_limit:
+                break
+            if max_pivot_requests and pivot_requests >= max_pivot_requests:
                 break
             if max_records and len(all_records) >= max_records:
                 break

@@ -99,7 +99,9 @@ RESOURCES: List[Dict[str, Any]] = [
         "target_table": "geo_provincias",
         "schedule": "0 4 1 1 *",
         "params": {
-            "url":     "https://servicios.ine.es/wstempus/js/ES/VALORES_VARIABLE/20",
+            # Variable Tempus 115 = Provincias (canónica). La 20 es 'Islas' en el
+            # catálogo de VARIABLES aunque hoy devuelva provincias por alias.
+            "url":     "https://servicios.ine.es/wstempus/js/ES/VALORES_VARIABLE/115",
             "method":  "GET",
             "timeout": "60",
         },

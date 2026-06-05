@@ -65,7 +65,7 @@ class HTMLFetcher(BaseFetcher):
         return extract_html(self.params.get("extraction", "fields"), html, self.params)
 
     def _pivots(self):
-        q = self.params.get("pivot_source_odmgr_query")
+        q = self.params.get("pivot_source_resource") or self.params.get("pivot_source_odmgr_query")
         if q:
             from app.fetchers.pivot_sources import pivots_from_odmgr
             return pivots_from_odmgr(self.params)
