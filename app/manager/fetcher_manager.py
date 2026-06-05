@@ -326,6 +326,24 @@ class FetcherManager:
             session.commit()
             logger.log(f"  Done: {total_records} records → {staging_path}")
 
+            # Linaje de derivados: si el fetcher resolvió recursos fuente
+            # (CruceDatasets), sincronizamos resource_dependency. Idempotente:
+            # refleja exactamente las dependencias de esta ejecución.
+            deps = getattr(fetcher, "resolved_dependencies", None)
+            if deps and any(deps.values()):
+                from app.models import ResourceDependency
+                session.query(ResourceDependency).filter(
+                    ResourceDependency.derived_resource_id == resource.id
+                ).delete()
+                for role, ids in deps.items():
+                    for sid in ids:
+                        session.add(ResourceDependency(
+                            derived_resource_id=resource.id,
+                            source_resource_id=sid, role=role))
+                session.commit()
+                logger.log(f"  Linaje: {sum(len(v) for v in deps.values())} dependencia(s) registradas "
+                           + str({k: len(v) for k, v in deps.items()}))
+
             # Dedup opcional del staging: si el recurso define 'dedup_key', el JSONL
             # final conserva una sola fila por clave — la de mayor 'dedup_order_field'
             # (default: 'fecha'), o la última emitida si no hay campo de orden. Caso

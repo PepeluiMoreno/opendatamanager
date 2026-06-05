@@ -42,3 +42,24 @@ def test_match_eq():
     filas = cruzar(left, right, left_key="k", right_key="k", join="enrich")
     assert filas[0]["extra"] == "X"
     assert "extra" not in filas[1]
+
+
+def test_names_admite_string_lista_y_json():
+    from app.fetchers.cross_dataset import _names
+    assert _names("Recurso A") == ["Recurso A"]
+    assert _names('["A", "B"]') == ["A", "B"]
+    assert _names(["A", "B"]) == ["A", "B"]
+    assert _names("") == [] and _names(None) == []
+
+
+def test_resolve_side_fallback_a_query_directa():
+    from app.fetchers.cross_dataset import resolve_side
+    queries, ids = resolve_side("left", {"left_query": "miQuery"})
+    assert queries == ["miQuery"] and ids == []
+
+
+def test_resolve_side_error_claro_sin_nada():
+    import pytest
+    from app.fetchers.cross_dataset import resolve_side
+    with pytest.raises(ValueError, match="left_resource"):
+        resolve_side("left", {})

@@ -185,11 +185,16 @@
       "fetcher": "Cruce de datasets",
       "schedule": "0 6 2 * *",
       "active": false,
-      "_doc": "Derivado: órganos (todos los ámbitos, ya aplanados con tree_flatten) enriquecidos con su código DIR3 vía el puente /organos/codigo. ANTES DE ACTIVAR: fijar left_query/right_query con las queries de datos reales de los datasets 'órganos' y 'puente DIR3' en el Data Explorer, y programarlo después de sus fuentes (puente: día 2 a las 05:00).",
+      "_doc": "Derivado: órganos (todos los ámbitos, ya aplanados con tree_flatten) enriquecidos con su código DIR3 vía el puente /organos/codigo. Direccionado por NOMBRE de recurso: la query se deriva en runtime y el linaje queda registrado al ejecutar. Activar cuando órganos y puente tengan dataset; programado tras el puente (día 2, 06:00).",
       "params": [
         {
-          "key": "left_query",
-          "value": "",
+          "key": "left_resource",
+          "value": "[\"BDNS - Órganos Convocantes (Estatal)\", \"BDNS - Órganos Convocantes (Autonómica)\", \"BDNS - Órganos Convocantes (Local)\", \"BDNS - Órganos Convocantes (Otros)\"]",
+          "is_external": false
+        },
+        {
+          "key": "right_resource",
+          "value": "BDNS - Puente DIR3 ↔ Órganos",
           "is_external": false
         },
         {
@@ -200,11 +205,6 @@
         {
           "key": "left_key",
           "value": "id",
-          "is_external": false
-        },
-        {
-          "key": "right_query",
-          "value": "",
           "is_external": false
         },
         {

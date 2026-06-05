@@ -132,6 +132,12 @@ class Resource(Base):
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
     children = relationship("Resource", foreign_keys=[parent_resource_id], lazy="dynamic")
+    # Linaje de derivados (especie CruceDatasets y futuros): recursos de los que
+    # este recurso depende como fuente, y derivados que dependen de este.
+    dependencies = relationship("ResourceDependency", foreign_keys="ResourceDependency.derived_resource_id",
+                                cascade="all, delete-orphan", lazy="dynamic")
+    dependents = relationship("ResourceDependency", foreign_keys="ResourceDependency.source_resource_id",
+                              lazy="dynamic", overlaps="dependencies")
 
 
 class DatasetLease(Base):
@@ -358,6 +364,24 @@ class DatasetSubscription(Base):
 
     application = relationship("Application", back_populates="subscriptions")
     resource = relationship("Resource")
+
+
+class ResourceDependency(Base):
+    """Linaje entre recursos: el derivado depende del fuente con un rol
+    ('left' | 'right' en CruceDatasets). Sincronizado automáticamente por el
+    manager al ejecutar el derivado."""
+    __tablename__ = "resource_dependency"
+    __table_args__ = (
+        UniqueConstraint("derived_resource_id", "source_resource_id", "role",
+                         name="uq_resource_dependency"),
+        {"schema": "opendata"},
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    derived_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
+    source_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(10), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class DerivedDatasetConfig(Base):

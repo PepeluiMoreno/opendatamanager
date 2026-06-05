@@ -33,7 +33,14 @@ clave secundaria cuando exista.
 
 ## Pasos al retomar
 
-1. ~~Especie `CruceDatasets` + seed + tests~~ **HECHO (2026-06-06)**:
+1. ~~Especie `CruceDatasets` + seed + tests~~ **HECHO (2026-06-06)** y
+   **formalizado**: direccionamiento por NOMBRE de recurso (`left_resource`/
+   `right_resource`, string o lista con unión; la query se deriva en runtime
+   con `dataset_query_name`, así que sobrevive a regeneraciones) y linaje a
+   máquina en `opendata.resource_dependency` (sincronizado por el manager en
+   cada ejecución del derivado; base para la señal "fuente más nueva que
+   derivado"). `left_query`/`right_query` quedan como vía avanzada sin linaje.
+   Detalle previo:
    `app/fetchers/cross_dataset.py` (núcleo puro `cruzar` + fetcher sobre la API
    de datos), matriculada en el catálogo, tests en
    `tests/fetchers/test_cross_dataset.py`. Primer uso: recurso derivado
