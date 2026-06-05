@@ -819,12 +819,14 @@ def seed() -> None:
     try:
         reparados = 0
         for rp in db.query(ResourceParam).filter(ResourceParam.key == "pagination", ResourceParam.value == "pivot_loop").all():
-            tiene = db.query(ResourceParam).filter(
-                ResourceParam.resource_id == rp.resource_id, ResourceParam.key == "pivot_values"
-            ).first()
-            if tiene is None:
-                db.add(ResourceParam(resource_id=rp.resource_id, key="pivot_values", value=_INE_PROVINCIAS, is_external=False))
-                reparados += 1
+            claves_r = {p.key for p in db.query(ResourceParam).filter(ResourceParam.resource_id == rp.resource_id).all()}
+            # Solo aplica el default histórico a quien NO tiene ni pivot_values ni
+            # fuente de pivotes (el puente DIR3 usa pivot_source_resource y NO debe
+            # recibir provincias INE como códigos).
+            if claves_r & {"pivot_values", "pivot_source_resource", "pivot_source_odmgr_query"}:
+                continue
+            db.add(ResourceParam(resource_id=rp.resource_id, key="pivot_values", value=_INE_PROVINCIAS, is_external=False))
+            reparados += 1
         if reparados:
             db.commit()
             print(f"[seed_fetchers] pivot_loop sin pivot_values: materializado default histórico (provincias INE) en {reparados} recurso(s)")
