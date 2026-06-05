@@ -17,6 +17,7 @@ class FetcherType:
     resources: Optional[List["ResourceType"]] = None
     deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
     created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
+    preset_params: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="presetParams")
 
 @strawberry.type
 class FetcherParamType:

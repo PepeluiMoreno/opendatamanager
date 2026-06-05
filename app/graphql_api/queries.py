@@ -95,6 +95,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
         resources=resources if include_resources else None,
         deleted_at=ft.deleted_at,
         created_at=ft.created_at,
+        preset_params=getattr(ft, 'preset_params', None),
     )
 
 

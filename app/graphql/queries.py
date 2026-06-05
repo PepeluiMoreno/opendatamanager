@@ -84,7 +84,8 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
         description=ft.description,
         params_def=[map_type_fetcher_param(p) for p in (ft.params_def or [])],
         name=ft.code,  # Use code as name for display
-        resources=resources if include_resources else None
+        resources=resources if include_resources else None,
+        preset_params=getattr(ft, 'preset_params', None),
     ) 
 
 

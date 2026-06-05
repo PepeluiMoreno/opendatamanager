@@ -1409,7 +1409,16 @@ function selectedEnumMeta(pn, ev, f) { const sel = getParamValue(pn); if (!sel |
 function getParamValue(pn) { return form.value.params.find(p => p.key === pn)?.value || '' }
 function getParamType(pn) { return optionalParams.value.find(p => p.paramName === pn)?.dataType || 'string' }
 function getParamEnumValues(pn) { return optionalParams.value.find(p => p.paramName === pn)?.enumValues || null }
-function getParamDescription(pn) { const d = selectedFetcher.value?.paramsDef?.find(p => p.paramName===pn); return d?.hint || d?.description || null }
+function getParamDescription(pn) {
+  const d = selectedFetcher.value?.paramsDef?.find(p => p.paramName===pn)
+  const base = d?.hint || d?.description || ''
+  const preset = selectedFetcher.value?.presetParams?.[pn]
+  if (preset !== undefined) {
+    const pv = typeof preset === 'object' ? JSON.stringify(preset) : preset
+    return `[preset de la variante: ${pv}] ${base}`.trim()
+  }
+  return base || null
+}
 function getOverpassPresets(pn) { return requiredParams.value.find(p => p.paramName===pn)?.enumValues || getParamEnumValues(pn) || {} }
 function isFullWidthParam(dt) { return dt === 'json_filter_map' || dt === 'overpass_query' || dt === 'bbox' }
 function parseBbox(val) { if (!val) return ['','','','']; const p = String(val).split(',').map(s=>s.trim()); while(p.length<4) p.push(''); return p }

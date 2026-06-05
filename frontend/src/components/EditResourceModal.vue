@@ -26,6 +26,25 @@
         </div>
       </div>
 
+      <!-- Variante: bloque preset_params fijado sobre la especie -->
+      <div v-if="presetEntries.length" class="mb-6 p-4 bg-purple-950 bg-opacity-30 border border-purple-800 rounded">
+        <h3 class="text-sm font-semibold uppercase tracking-wide text-purple-300 mb-2">
+          Variante — parámetros fijados (preset)
+        </h3>
+        <p class="text-xs text-gray-400 mb-3">
+          Estos valores los aporta la variante sobre su especie ({{ Fetcher.classPath }});
+          los recursos solo configuran el resto.
+        </p>
+        <table class="text-xs w-full">
+          <tbody>
+            <tr v-for="[k, v] in presetEntries" :key="k" class="border-t border-purple-900 align-top">
+              <td class="py-1 pr-3 font-mono text-purple-300 whitespace-nowrap">{{ k }}</td>
+              <td class="py-1 text-gray-300 font-mono break-all">{{ typeof v === 'object' ? JSON.stringify(v) : v }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <!-- Parameters List: agrupados por categoría de variación -->
       <div v-if="Fetcher.paramsDef && Fetcher.paramsDef.length > 0">
         <h3 class="text-xl font-semibold mb-4">Parameters</h3>
@@ -45,6 +64,9 @@
                 <h5 class="font-semibold">{{ param.paramName }}</h5>
                 <span v-if="param.required" class="text-xs bg-red-600 px-2 py-0.5 rounded">Required</span>
                 <span class="text-xs bg-gray-600 px-2 py-0.5 rounded">{{ param.dataType }}</span>
+                <span v-if="presetMap[param.paramName] !== undefined"
+                      class="text-xs bg-purple-900 text-purple-300 px-2 py-0.5 rounded"
+                      :title="'Fijado por la variante: ' + presetMap[param.paramName]">preset</span>
                 <span v-if="param.defaultValue !== null && param.defaultValue !== undefined" class="text-xs text-gray-400">
                   default: {{ param.defaultValue }}
                 </span>
@@ -135,6 +157,9 @@ const groupedParams = computed(() => {
     params: byGroup[k],
   }))
 })
+
+const presetMap = computed(() => props.Fetcher.presetParams || {})
+const presetEntries = computed(() => Object.entries(presetMap.value))
 
 function enumOptions(param) {
   if (!Array.isArray(param.enumValues) || !param.enumValues.length) return []
