@@ -149,6 +149,47 @@ def _extract_flat(el: ET.Element, field_map: Dict[str, str]) -> Dict[str, Any]:
     return {salida: _first_by_path(el, ruta) for salida, ruta in field_map.items()}
 
 
+def _parse_dt(valor: Optional[str]):
+    """Parsea una fecha ISO 8601 (con o sin hora/zona) a datetime. None si no se puede."""
+    if not valor:
+        return None
+    from datetime import datetime
+    s = str(valor).strip().replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(s)
+    except ValueError:
+        # fecha sola u otros formatos cortos
+        for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(s[:19], fmt)
+            except ValueError:
+                continue
+    return None
+
+
+def _filtrar_por_fecha(batch, date_field: str, desde):
+    """Conserva entradas con fecha >= `desde` (o fecha desconocida, por prudencia).
+    Devuelve (conservadas, frontera_alcanzada). Asume feed en orden descendente:
+    si aparece una entrada con fecha < desde, hemos llegado a lo ya visto.
+
+    Compara de forma 'naive' (sin zona) para evitar errores aware/naive."""
+    if desde is None:
+        return batch, False
+    desde_cmp = desde.replace(tzinfo=None)
+    conservadas = []
+    frontera = False
+    for rec in batch:
+        d = _parse_dt(rec.get(date_field) if isinstance(rec, dict) else None)
+        if d is None:
+            conservadas.append(rec)  # sin fecha → no se descarta
+            continue
+        if d.replace(tzinfo=None) >= desde_cmp:
+            conservadas.append(rec)
+        else:
+            frontera = True
+    return conservadas, frontera
+
+
 def _next_link(root: ET.Element) -> Optional[str]:
     ns = "{http://www.w3.org/2005/Atom}"
     for link in root.findall(f"{ns}link") or root.findall("link"):
@@ -193,6 +234,18 @@ class AtomFetcher(BaseFetcher):
         pagination = (self.params.get("pagination", "query") or "query").lower()
         delay = float(self.params.get("delay", 0))
 
+        # Parada incremental por fecha: 'desde' (ISO) marca el suelo temporal; se
+        # filtran las entradas anteriores y se deja de paginar al alcanzarlas
+        # (los feeds van en orden descendente). 'desde=auto' usa la marca de agua
+        # inyectada por el manager en '_watermark' (máximo de la ejecución previa).
+        date_field = self.params.get("date_field", "fecha")
+        desde_raw = self.params.get("desde")
+        if desde_raw == "auto":
+            desde_raw = self.params.get("_watermark")
+        desde = _parse_dt(desde_raw)
+        if desde:
+            logger.info(f"  parada incremental por fecha: solo entradas desde {desde.isoformat()}")
+
         def _entradas(root):
             if field_map:
                 return [_extract_flat(e, field_map) for e in _entry_elements(root)]
@@ -211,10 +264,14 @@ class AtomFetcher(BaseFetcher):
                 response.raise_for_status()
                 root = ET.fromstring(response.text)
                 batch = _entradas(root)
+                batch, frontera = _filtrar_por_fecha(batch, date_field, desde)
                 all_records.extend(batch)
                 logger.info(f"  página {page} — {len(batch)} entradas (total: {len(all_records)})")
                 page += 1
                 if preview_limit and len(all_records) >= preview_limit:
+                    break
+                if frontera:
+                    logger.info("  frontera de fecha alcanzada; se detiene la paginación")
                     break
                 if max_pages and page >= max_pages:
                     break
@@ -243,6 +300,8 @@ class AtomFetcher(BaseFetcher):
                 raise ValueError(f"No se pudo parsear el XML del feed: {e}\nRespuesta: {response.text[:200]}")
 
             entries = _entradas(root)
+            raw_count = len(entries)
+            entries, frontera = _filtrar_por_fecha(entries, date_field, desde)
             batch_count = len(entries)
             all_records.extend(entries)
 
@@ -253,7 +312,11 @@ class AtomFetcher(BaseFetcher):
             if preview_limit and len(all_records) >= preview_limit:
                 break
 
-            if batch_count < effective_page_size:
+            if frontera:
+                logger.info("  frontera de fecha alcanzada; se detiene la paginación")
+                break
+
+            if raw_count < effective_page_size:
                 break
 
             if max_pages and page >= max_pages:

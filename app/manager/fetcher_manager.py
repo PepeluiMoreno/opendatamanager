@@ -163,6 +163,28 @@ class FetcherManager:
                 runtime_params["_matched_urls"] = list(candidate.matched_urls or [])
                 runtime_params["_dimensions"] = list(candidate.dimensions or [])
 
+            # Marca de agua incremental: si el recurso pide `desde=auto`, fijamos el
+            # suelo temporal a partir de la última ejecución completada (con un día
+            # de margen). Así el fetcher ATOM solo recorre lo nuevo, sin depender de
+            # max_pages. La primera ejecución no tiene marca → trae todo (hasta el límite).
+            try:
+                _rp = {p.key: p.value for p in resource.params}
+                if _rp.get("desde") == "auto":
+                    _last_ok = (
+                        session.query(ResourceExecution)
+                        .filter(
+                            ResourceExecution.resource_id == resource.id,
+                            ResourceExecution.status == "completed",
+                        )
+                        .order_by(ResourceExecution.started_at.desc())
+                        .first()
+                    )
+                    if _last_ok and _last_ok.started_at:
+                        from datetime import timedelta
+                        runtime_params["_watermark"] = (_last_ok.started_at - timedelta(days=1)).isoformat()
+            except Exception as _e:  # noqa: BLE001 — la marca es una optimización, no crítica
+                logger.warning(f"No se pudo calcular la marca de agua incremental: {_e}")
+
             fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
 
             # ── DISCOVER MODE ────────────────────────────────────────────────

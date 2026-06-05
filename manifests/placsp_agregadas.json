@@ -43,6 +43,11 @@
           "key": "field_map",
           "value": "{\"expediente\": \"ContractFolderID\", \"estado\": \"ContractFolderStatusCode\", \"titulo\": \"title\", \"objeto\": \"ProcurementProject/Name\", \"tipo_codigo\": \"ProcurementProject/TypeCode\", \"subtipo_codigo\": \"ProcurementProject/SubTypeCode\", \"cpv\": \"ItemClassificationCode\", \"importe\": \"TotalAmount\", \"valor_estimado\": \"EstimatedOverallContractAmount\", \"organo_contratacion\": \"LocatedContractingParty/PartyName/Name\", \"provincia\": \"CountrySubentity\", \"provincia_codigo\": \"CountrySubentityCode\", \"adjudicatario\": \"WinningParty/PartyName/Name\", \"fecha\": \"updated\", \"url\": \"link@href\"}",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false
         }
       ]
     }

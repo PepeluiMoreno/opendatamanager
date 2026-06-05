@@ -54,7 +54,12 @@ FETCHERS: List[Dict[str, Any]] = [
              "hint": "Mapa {campo_salida: ruta_local} para aplanar cada entry (p. ej. CODICE).",
              "help_md": "Rutas por nombre de etiqueta, anidables con '/'. Atributos con 'tag@attr'. Sin field_map, cada entry se devuelve como dict anidado."},
             {"param_name": "delay", "data_type": "integer", "required": False, "default_value": 0, "group": "comportamiento",
-             "hint": "Segundos de cortesía entre páginas."}
+             "hint": "Segundos de cortesía entre páginas."},
+            {"param_name": "desde", "data_type": "string", "required": False, "group": "incremental",
+             "hint": "Suelo temporal: fecha ISO (solo entradas desde esa fecha) o 'auto' (incremental: desde la última ejecución completada).",
+             "help_md": "Para feeds en orden descendente, la paginación se detiene al alcanzar entradas anteriores. 'auto' usa la marca de agua de la ejecución previa, evitando depender de max_pages."},
+            {"param_name": "date_field", "data_type": "string", "required": False, "default_value": "fecha", "group": "incremental",
+             "hint": "Campo de salida que contiene la fecha de la entrada (por defecto 'fecha')."}
         ],
     },
     {
