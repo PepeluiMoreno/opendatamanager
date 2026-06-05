@@ -215,7 +215,7 @@ class Query:
         """Lista todos los fetchers disponibles"""
         db = get_db()
         try:
-            fetchers = db.query(FetcherModel).all()
+            fetchers = db.query(FetcherModel).filter(FetcherModel.deleted_at == None).all()
             return [map_fetcher(ft, include_resources=True) for ft in fetchers]
         finally:
             db.close()
