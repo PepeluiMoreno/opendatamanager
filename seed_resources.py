@@ -380,17 +380,23 @@ RESOURCES: List[Dict[str, Any]] = [
 
     # ── Entidades religiosas ──────────────────────────────────────────────────
     {
+        # El XLSX original (conferenciaepiscopal.es/data/diocesis.xlsx) nunca
+        # existió — URL imaginada en el seed. La CEE solo publica el catálogo de
+        # diócesis como página HTML; el dataset rico de entidades religiosas es
+        # el RER (pendiente: vía Power BI, ver config_rer.md).
         "name": "Diócesis y Entidades Religiosas (CEE)",
-        "fetcher_name": "File Download",
+        "fetcher_name": "HTML (genérico)",
         "publisher_acronimo": "CEE",
         "target_table": "entidades_religiosas",
         "schedule": "0 3 1 1 *",
         "params": {
-            "url":       "https://www.conferenciaepiscopal.es/data/diocesis.xlsx",
-            "format":    "xlsx",
-            "skip_rows": "1",
-            "timeout":   "30",
-            "headers":   '{"User-Agent": "Mozilla/5.0"}',
+            "url":             "https://www.conferenciaepiscopal.es/diocesis/",
+            "extraction":      "fields",
+            "rows_selector":   "table td a",
+            "field_self_text": "nombre",
+            "field_attrs":     '{"url": "href"}',
+            "timeout":         "30",
+            "headers":         '{"User-Agent": "Mozilla/5.0"}',
         },
     },
     {

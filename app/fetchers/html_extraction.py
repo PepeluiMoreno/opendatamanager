@@ -59,6 +59,12 @@ def _record_from(scope, params: Dict[str, Any]) -> Dict[str, Any]:
     for field, attr in _as_dict(params.get("field_attrs")).items():
         rec[field] = scope.get(attr) if hasattr(scope, "get") else None
 
+    # texto del propio elemento-fila (cuando la fila ES el dato, p. ej.
+    # rows_selector="table td a": el nombre es el texto del enlace)
+    self_field = params.get("field_self_text")
+    if self_field:
+        rec[str(self_field)] = _text(scope)
+
     for field, cfg in _as_dict(params.get("field_label_selectors")).items():
         container = scope.select_one(cfg.get("container", "body")) or scope
         label = (cfg.get("label", "") or "").lower()
