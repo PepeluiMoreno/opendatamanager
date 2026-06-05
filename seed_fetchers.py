@@ -157,7 +157,8 @@ FETCHERS: List[Dict[str, Any]] = [
             {"param_name": "model_id", "data_type": "integer", "required": True, "group": "peticion"},
             {"param_name": "dataset_id", "data_type": "string", "required": True, "group": "peticion"},
             {"param_name": "report_id", "data_type": "string", "required": True, "group": "peticion"},
-            {"param_name": "visual_id", "data_type": "string", "required": True, "group": "peticion"},
+            {"param_name": "visual_id", "data_type": "string", "required": False, "default_value": "powerbi_fetcher", "group": "peticion",
+             "hint": "Cualquier ID de visual válido del report; la clase usa un valor por defecto si no se indica."},
             {"param_name": "query_json", "data_type": "json", "required": True, "group": "peticion",
              "hint": "SemanticQuery completa: {From:[...], Select:[...], Where:[...], OrderBy:[...]}."},
             {"param_name": "projections", "data_type": "string", "required": False, "group": "extraccion",
@@ -166,6 +167,7 @@ FETCHERS: List[Dict[str, Any]] = [
              "hint": "Mapa Gn → nombre de campo, p. ej. {\"G0\": \"nombre\", \"G1\": \"web\"}. Sin definir: G0, G1, ..."},
             {"param_name": "page_size", "data_type": "integer", "required": False, "default_value": 500, "group": "paginacion"},
             {"param_name": "delay", "data_type": "number", "required": False, "default_value": 0.3, "group": "behavior"},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 60, "group": "http"},
         ],
     },
     {
