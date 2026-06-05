@@ -1,0 +1,33 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "BDNS",
+    "nombre": "Base de Datos Nacional de Subvenciones",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.infosubvenciones.es"
+  },
+  "resources": [
+    {
+      "name": "BDNS - Puente DIR3 ↔ Órganos",
+      "fetcher": "API REST",
+      "schedule": "0 5 2 * *",
+      "active": true,
+      "_doc": "Resuelve cada código DIR3 contra /organos/codigo y produce {dir3, tipoAdmon, ids}: el mapa entre el catálogo DIR3 y los ids internos de órganos de BDNS. Los DIR3 inexistentes en BDNS responden 204 y se omiten. ANTES DE ACTIVAR EN PROD: fijar pivot_source_odmgr_query y pivot_source_field con la query de datos del dataset DIR3 cosechado (catálogo de unidades) y el campo del código.",
+      "params": [
+        { "key": "url", "value": "https://www.infosubvenciones.es/bdnstrans/api/organos/codigo", "is_external": false },
+        { "key": "request", "value": "query", "is_external": false },
+        { "key": "pagination", "value": "pivot_loop", "is_external": false },
+        { "key": "pivot_param", "value": "codigo", "is_external": false },
+        { "key": "pivot_field_out", "value": "dir3", "is_external": false },
+        { "key": "pivot_source_odmgr_query", "value": "", "is_external": false },
+        { "key": "pivot_source_field", "value": "", "is_external": false },
+        { "key": "query_params", "value": "{\"vpd\": \"GE\"}", "is_external": false },
+        { "key": "dedup_key", "value": "dir3", "is_external": false },
+        { "key": "dedup_order_field", "value": "dir3", "is_external": false },
+        { "key": "delay", "value": "0.3", "is_external": false },
+        { "key": "timeout", "value": "30", "is_external": false }
+      ]
+    }
+  ]
+}

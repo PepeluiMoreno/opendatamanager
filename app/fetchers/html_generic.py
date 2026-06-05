@@ -67,26 +67,9 @@ class HTMLFetcher(BaseFetcher):
     def _pivots(self):
         q = self.params.get("pivot_source_odmgr_query")
         if q:
-            return self._pivots_from_odmgr(q, self.params.get("pivot_source_field"))
+            from app.fetchers.pivot_sources import pivots_from_odmgr
+            return pivots_from_odmgr(self.params)
         return nav.pivot_values(self.params)
-
-    def _pivots_from_odmgr(self, query_name, field):
-        base = (self.params.get("pivot_source_odmgr_url")
-                or os.environ.get("ODMGR_DATA_URL", "http://localhost:8000/graphql/data"))
-        ff = self.params.get("pivot_source_filter_field", "")
-        fv = self.params.get("pivot_source_filter_value", "")
-        limit, offset, out = 5000, 0, []
-        while True:
-            farg = f', {ff}: "{fv}"' if ff and fv else ""
-            gql = f"{{ {query_name}(limit: {limit}, offset: {offset}{farg}) {{ total items {{ {field} }} }} }}"
-            body = requests.post(base, json={"query": gql}, timeout=30).json()
-            page = body["data"][query_name]
-            out.extend(it[field] for it in page["items"] if it.get(field))
-            offset += limit
-            if offset >= page["total"]:
-                break
-        seen = set()
-        return [v for v in out if not (v in seen or seen.add(v))]
 
     def _over_pivots(self, pivots):
         template = self.params.get("url_template") or self.params.get("url")

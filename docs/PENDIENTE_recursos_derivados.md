@@ -34,9 +34,12 @@ clave secundaria cuando exista.
 ## Pasos al retomar
 
 1. Especie `CruceDatasets` + seed + tests.
-2. Recurso puente `{dir3, ids_bdns}` vía `pivot_loop` sobre el catálogo DIR3 contra
-   `/organos/codigo` (requiere portar `pivot_source_odmgr_query` al RESTFetcher,
-   hoy solo en HTMLFetcher).
+2. ~~Recurso puente `{dir3, ids_bdns}`~~ **HECHO (2026-06-05)**: `pivot_source_odmgr_query`
+   portado a RESTFetcher (módulo compartido `app/fetchers/pivot_sources.py`),
+   `pivot_field_out` para anotar el pivote en cada fila, respuesta-objeto por pivote
+   soportada. Recurso en `manifests/bdns_puente_dir3.json` — al importar en prod,
+   fijar `pivot_source_odmgr_query`/`pivot_source_field` con la query del dataset
+   DIR3 cosechado. Verificado en vivo (L01280796→2993, L01380435→3368, 204 omitido).
 3. Cruce subvención↔órgano(DIR3)↔licitación como recurso `CruceDatasets`.
 
 ## Cosecha cruda (en curso, fuera de este pendiente)

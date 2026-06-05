@@ -78,10 +78,20 @@ class RESTFetcher(BaseFetcher):
         delay = float(self.params.get("delay", self.params.get("delay_between_pages", 0)) or 0)
         preview_limit = int(self.params.get("_preview_limit", 0) or 0)
 
-        strat = build_pagination(pagination, url, self.params)
+        strat_params = self.params
+        if pagination == "pivot_loop" and self.params.get("pivot_source_odmgr_query"):
+            # Los valores del pivote salen de un dataset ya cosechado en ODM
+            # (p. ej. códigos DIR3 del catálogo oficial).
+            from app.fetchers.pivot_sources import pivots_from_odmgr
+            strat_params = {**self.params, "pivot_values": pivots_from_odmgr(self.params)}
+        strat = build_pagination(pagination, url, strat_params)
         # Con pivot_loop + cuerpo (json_body/form) el pivote viaja en el payload via
         # '{pivot}'; no debe filtrarse también como parámetro de query.
         pivote_en_cuerpo = pagination == "pivot_loop" and request_strategy in ("json_body", "form")
+        # Si 'pivot_field_out' está definido, cada fila lleva el valor del pivote
+        # que la produjo (esencial cuando la respuesta no lo repite, p. ej. el
+        # puente DIR3→ids de BDNS).
+        pivot_field_out = self.params.get("pivot_field_out") or None
         # Dedup entre iteraciones del pivote (fidelidad con el antiguo RestLoopFetcher).
         id_field = self.params.get("id_field") or None
         vistos = set()
@@ -92,6 +102,14 @@ class RESTFetcher(BaseFetcher):
             resp = _send(spec["url"], extra_q, pivot=spec.get("pivot"))
             data = json.loads(resp.text) if resp.text and resp.text.strip() else {}
             batch = _extract_list(data, content_field)
+            if (not batch and pagination == "pivot_loop" and not content_field
+                    and isinstance(data, dict) and data):
+                # Respuesta objeto por valor de pivote (p. ej. /organos/codigo de
+                # BDNS devuelve {"tipoAdmon","ids"}): un registro por petición.
+                batch = [data]
+            if pivot_field_out and spec.get("pivot") is not None:
+                batch = [{**r, pivot_field_out: spec["pivot"]} if isinstance(r, dict) else r
+                         for r in batch]
             if id_field and pagination == "pivot_loop":
                 nuevos = []
                 for reg in batch:
