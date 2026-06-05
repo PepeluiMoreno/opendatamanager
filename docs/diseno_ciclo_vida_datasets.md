@@ -112,3 +112,41 @@ más aunque sea re-derivable.
 - Datos: datasets como JSONL en `data_path` + metadatos en `dataset` (semver).
 - Falta por construir: retención, prioridad, TTL, leases, rastro de acceso y
   recolector (hoy no existe ninguno).
+
+## Cálculo de la retención concedible (control de admisión por capacidad)
+
+El "máximo por política" no es una constante: ODM **calcula** el plazo que puede
+conceder a una nueva petición a partir del espacio disponible y de lo que los
+recursos programados van a acumular durante la ventana.
+
+El espacio libre es una **curva en el tiempo**. Sobre `[ahora, ahora+T]`:
+
+```
+libre(t) = libre_ahora
+           − Σ acumulación_programada(t)     # cron × tamaño/ejecución × load_mode=append
+           − tamaño_estimado_nuevo(t)         # lo que ocupará el recurso solicitado
+           + Σ liberaciones_previstas(t)       # leases/TTL que expiran en la ventana
+           (+ reclamable_bajo_presión)         # re-derivable ∧ barato ∧ poco demandado
+```
+
+**Plazo concedible** = el mayor `T` tal que `libre(t) ≥ margen_seguridad` para todo
+`t` de la ventana. Resultado de la admisión:
+- cabe entero → se concede el plazo pedido;
+- cabe un tramo → se concede ese ("hasta el martes, no hasta el jueves");
+- no cabe ni el mínimo → "no podemos atender tu petición".
+
+**Ingredientes** (ya en el modelo, salvo el último):
+- `Resource.schedule` (cron) y `Resource.load_mode` (`append` acumula, `replace`
+  no) → qué recursos son acumulables y a qué ritmo.
+- `Dataset.record_count` + tamaño en disco del JSONL histórico → tasa de
+  crecimiento estimada por recurso.
+- Leases activos y TTL → liberaciones previstas.
+- **A construir**: consciencia del disco (espacio total asignado y libre) y el
+  simulador del balance.
+
+**Honestidades del cálculo**:
+- El pronóstico es **estimación**, no profecía (el volumen de una fuente cambia con
+  el tiempo) → margen de seguridad y re-evaluación periódica.
+- Un plazo concedido es un **contrato**: si el pronóstico empeora, ODM **no recorta
+  lo ya concedido**; reacciona desalojando primero lo re-derivable/barato y
+  endureciendo o denegando las **nuevas** peticiones. Nunca incumple hacia atrás.
