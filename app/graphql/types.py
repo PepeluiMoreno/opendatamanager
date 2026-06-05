@@ -10,7 +10,10 @@ class FetcherType:
     """Tipo de fetcher"""
     id: str
     code: str
-    class_path: str = strawberry.field(name="classPath")
+    # Nullable: la columna lo es y la factory tiene fallback para filas sin
+    # class_path. Declararlo no-nulo tumbaba el listado (seed de arranque y
+    # GetFetchers del UI) en cuanto existía una fila así.
+    class_path: Optional[str] = strawberry.field(default=None, name="classPath")
     description: Optional[str] = None
     params_def: List["FetcherParamType"] = strawberry.field(default_factory=list)
     name: str = strawberry.field(name="name")
