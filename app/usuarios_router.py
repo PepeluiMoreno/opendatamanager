@@ -30,6 +30,7 @@ class UsuarioCrear(BaseModel):
     email: Optional[str] = None
     roles: List[str] = []
     is_active: bool = True
+    notificar_email: bool = False
 
 
 class UsuarioActualizar(BaseModel):
@@ -37,6 +38,7 @@ class UsuarioActualizar(BaseModel):
     password: Optional[str] = None
     roles: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    notificar_email: Optional[bool] = None
 
 
 def _perfil(u: Usuario) -> dict:
@@ -45,6 +47,7 @@ def _perfil(u: Usuario) -> dict:
         "username": u.username,
         "email": u.email,
         "is_active": u.is_active,
+        "notificar_email": u.notificar_email,
         "roles": [r.code for r in u.roles],
         "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None,
     }
@@ -94,6 +97,7 @@ def crear(payload: UsuarioCrear, db=Depends(get_db)):
         email=(payload.email or None),
         password_hash=hash_password(payload.password),
         is_active=payload.is_active,
+        notificar_email=payload.notificar_email,
         roles=roles,
     )
     db.add(u)
@@ -117,6 +121,8 @@ def actualizar(usuario_id: str, payload: UsuarioActualizar, db=Depends(get_db)):
 
     if payload.email is not None:
         u.email = payload.email or None
+    if payload.notificar_email is not None:
+        u.notificar_email = payload.notificar_email
     if nuevos_roles is not None:
         u.roles = db.query(Rol).filter(Rol.code.in_(nuevos_roles)).all()
     if payload.is_active is not None:

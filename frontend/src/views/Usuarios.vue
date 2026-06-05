@@ -73,6 +73,10 @@
             <input type="checkbox" v-model="form.is_active" class="rounded bg-gray-800 border-gray-700" />
             <span class="text-sm text-gray-200">Activo</span>
           </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" v-model="form.notificar_email" class="rounded bg-gray-800 border-gray-700" />
+            <span class="text-sm text-gray-200">Avisarme por email de novedades (altas/bajas de recursos)</span>
+          </label>
         </div>
 
         <p v-if="formError" class="text-sm text-red-400 mt-3">{{ formError }}</p>
@@ -124,12 +128,12 @@ async function cargar() {
 
 function abrirCrear() {
   formError.value = ''
-  form.value = { id: null, username: '', email: '', password: '', roles: ['lector'], is_active: true }
+  form.value = { id: null, username: '', email: '', password: '', roles: ['lector'], is_active: true, notificar_email: false }
 }
 
 function abrirEditar(u) {
   formError.value = ''
-  form.value = { id: u.id, username: u.username, email: u.email || '', password: '', roles: [...u.roles], is_active: u.is_active }
+  form.value = { id: u.id, username: u.username, email: u.email || '', password: '', roles: [...u.roles], is_active: u.is_active, notificar_email: !!u.notificar_email }
 }
 
 async function guardar() {
@@ -137,13 +141,13 @@ async function guardar() {
   guardando.value = true
   try {
     if (form.value.id) {
-      const body = { email: form.value.email, roles: form.value.roles, is_active: form.value.is_active }
+      const body = { email: form.value.email, roles: form.value.roles, is_active: form.value.is_active, notificar_email: form.value.notificar_email }
       if (form.value.password) body.password = form.value.password
       await api(`/${form.value.id}`, { method: 'PATCH', body: JSON.stringify(body) })
     } else {
       await api('', { method: 'POST', body: JSON.stringify({
         username: form.value.username, password: form.value.password,
-        email: form.value.email || null, roles: form.value.roles, is_active: true,
+        email: form.value.email || null, roles: form.value.roles, is_active: true, notificar_email: form.value.notificar_email,
       }) })
     }
     form.value = null

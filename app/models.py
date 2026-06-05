@@ -378,6 +378,7 @@ class Usuario(Base):
     email = Column(String(255), unique=True, nullable=True)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    notificar_email = Column(Boolean, default=False, nullable=False)  # avisos de novedades
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
 
@@ -445,3 +446,19 @@ class ResourceManifestVersion(Base):
     origin = Column(String(20), nullable=False)     # ui | manifest | seed
     author = Column(String(120), nullable=True)     # username, o 'manifest:<fichero>'
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Evento(Base):
+    """Novedad del sistema susceptible de aviso (alta/baja de recurso, conflicto…).
+    Se genera al importar manifiestos o detectar cambios de origen; el despacho
+    de emails marca `notificado`."""
+    __tablename__ = "evento"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tipo = Column(String(40), nullable=False)        # recurso.alta | recurso.baja | recurso.conflicto | ejecucion.fallo
+    recurso_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
+    titulo = Column(String(300), nullable=False)
+    detalle = Column(JSONB, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    notificado = Column(Boolean, default=False, nullable=False)

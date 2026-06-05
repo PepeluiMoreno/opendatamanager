@@ -53,6 +53,18 @@ def main() -> int:
 
     print(f"[seed_manifests] TOTAL creados={creados} actualizados={actualizados} "
           f"db_ahead={len(db_ahead)} conflictos={len(conflictos)} errores={len(errores)}")
+
+    # Despacho de avisos por email de las novedades (no-fatal).
+    try:
+        from app.services.eventos import enviar_digest
+        db = SessionLocal()
+        try:
+            res = enviar_digest(db)
+            print(f"[seed_manifests] avisos: eventos={res.get('eventos')} emails={res.get('emails')} {res.get('nota','')}")
+        finally:
+            db.close()
+    except Exception as e:  # noqa: BLE001
+        print(f"[seed_manifests] aviso de novedades falló (no-fatal): {e}")
     if conflictos:
         print(f"[seed_manifests] CONFLICTOS (revisar; NO se han pisado): {conflictos}")
     if db_ahead:

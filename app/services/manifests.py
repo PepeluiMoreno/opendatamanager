@@ -262,6 +262,9 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
             _aplicar_params(resource, r)
             session.flush()
             registrar_version(session, resource, origin="manifest", author=autor)
+            from app.services.eventos import registrar_evento
+            registrar_evento(session, "recurso.alta", resource.name, resource,
+                             {"fetcher": fetcher.code, "source": source})
             created += 1
             continue
 
@@ -296,6 +299,9 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
             db_ahead.append(r["name"])
         else:
             # Ambos divergen → conflicto: no se pisa nada.
+            from app.services.eventos import registrar_evento
+            registrar_evento(session, "recurso.conflicto", r["name"], resource,
+                             {"motivo": "divergencia fichero/BD"})
             conflicts.append(r["name"])
 
     session.commit()
