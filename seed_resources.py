@@ -507,13 +507,18 @@ RESOURCES: List[Dict[str, Any]] = [
         },
     },
     {
+        # Apuntaba al catálogo de datos.gob.es (duplicando 'Datos.gob.es -
+        # Catálogo' y devolviendo 0 filas por falta de content_field). El
+        # catálogo propio del INE son las operaciones estadísticas de Tempus.
         "name": "Catalogos del INE",
         "fetcher_name": "API REST",
         "publisher_acronimo": "INE",
         "target_table": "",
         "schedule": None,
         "params": {
-            "url": "https://datos.gob.es/apidata/catalog/dataset.json",
+            "url":      "https://servicios.ine.es/wstempus/js/ES/OPERACIONES_DISPONIBLES",
+            "id_field": "Id",
+            "timeout":  "60",
         },
     },
 

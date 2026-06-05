@@ -99,19 +99,34 @@ def resolve_side(side: str, params: Dict[str, Any]) -> Tuple[List[str], List[Any
         f"o '{side}_query' (query de la API de datos)")
 
 
+def _norm_key(v: Any) -> Any:
+    """Normaliza una clave textual para cruces por denominación: mayúsculas,
+    sin acentos, espacios colapsados. No-strings se devuelven tal cual."""
+    if not isinstance(v, str):
+        return v
+    import unicodedata
+    s = unicodedata.normalize("NFKD", v)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return " ".join(s.upper().split())
+
+
 def cruzar(left: List[Dict], right: List[Dict], *, left_key: str, right_key: str,
            match: str = "eq", join: str = "enrich",
-           select: Dict[str, str] | None = None) -> List[Dict[str, Any]]:
+           select: Dict[str, str] | None = None,
+           normalize_keys: bool = False) -> List[Dict[str, Any]]:
     """Núcleo puro del cruce. Índice del right por clave; con match=in_array la
-    clave derecha es una lista y se indexa cada elemento. A igualdad de clave
-    gana la última fila del right (datasets ya deduplicados aguas arriba)."""
+    clave derecha es una lista y se indexa cada elemento. Con normalize_keys
+    las claves textuales casan sin distinguir mayúsculas/acentos/espaciado
+    (cruces por denominación). A igualdad de clave gana la última fila del
+    right (datasets ya deduplicados aguas arriba)."""
+    nk = _norm_key if normalize_keys else (lambda x: x)
     indice: Dict[Any, Dict] = {}
     for r in right:
         k = r.get(right_key)
         claves = k if (match == "in_array" and isinstance(k, list)) else [k]
         for c in claves:
             if c is not None:
-                indice[c] = r
+                indice[nk(c)] = r
 
     if select:
         campos = select
@@ -120,7 +135,7 @@ def cruzar(left: List[Dict], right: List[Dict], *, left_key: str, right_key: str
 
     out: List[Dict[str, Any]] = []
     for l in left:
-        pareja = indice.get(l.get(left_key))
+        pareja = indice.get(nk(l.get(left_key)))
         if pareja is None:
             if join == "inner":
                 continue
@@ -173,6 +188,7 @@ class CrossDatasetFetcher(BaseFetcher):
             match=(p.get("match") or "eq"),
             join=(p.get("join") or "enrich"),
             select=_as_dict(p.get("select")) or None,
+            normalize_keys=str(p.get("normalize_keys", "")).lower() in ("1", "true", "yes", "si", "sí"),
         )
         limite = int(p.get("_preview_limit", 0) or 0)
         return filas[:limite] if limite else filas

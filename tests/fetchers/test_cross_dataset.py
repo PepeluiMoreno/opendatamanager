@@ -63,3 +63,14 @@ def test_resolve_side_error_claro_sin_nada():
     from app.fetchers.cross_dataset import resolve_side
     with pytest.raises(ValueError, match="left_resource"):
         resolve_side("left", {})
+
+
+def test_normalize_keys_cruce_por_denominacion():
+    left = [{"descripcion": "AYUNTAMIENTO DE MOSTOLES"}]
+    right = [{"dir3": "L01280924", "nombre": "Ayuntamiento de Móstoles"}]
+    filas = cruzar(left, right, left_key="descripcion", right_key="nombre",
+                   select={"dir3": "dir3"}, normalize_keys=True)
+    assert filas[0]["dir3"] == "L01280924"
+    sin = cruzar(left, right, left_key="descripcion", right_key="nombre",
+                 select={"dir3": "dir3"})
+    assert "dir3" not in sin[0]

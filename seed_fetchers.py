@@ -442,6 +442,8 @@ FETCHERS: List[Dict[str, Any]] = [
              ]},
             {"param_name": "select", "data_type": "json", "required": False, "group": "cruce",
              "hint": "Mapa {campo_salida: campo_del_derecho}; vacío = todos los right_fields menos la clave."},
+            {"param_name": "normalize_keys", "data_type": "boolean", "required": False, "default_value": "false", "group": "cruce",
+             "hint": "Cruce por denominación: las claves textuales casan sin distinguir mayúsculas, acentos ni espaciado."},
             {"param_name": "odmgr_data_url", "data_type": "string", "required": False, "group": "cruce",
              "hint": "Endpoint de la API de datos; vacío = ODMGR_DATA_URL del entorno."},
         ],
