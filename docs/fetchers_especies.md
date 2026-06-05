@@ -75,3 +75,46 @@ en vez de crear fetchers nuevos, y darles un recurso que las valide.
 las variantes conviene que clasifique por **especie (class_path)** para no mantener
 listas por variante. (De momento la variante CODICE se añadió a la lista de
 "publicación abierta".)
+
+## Categorías de variación (el "origen" de las variantes)
+
+Una variante se desvía del genérico por unos pocos **ejes** bien definidos. Nombrarlos
+convierte `preset_params` en algo legible y componible (y, a futuro, editable por
+grupos en la UI) en vez de una bolsa opaca:
+
+| Categoría        | Qué aísla                                  | Parámetros típicos |
+|------------------|--------------------------------------------|--------------------|
+| **Paginación**   | cómo se recorre el conjunto                | `pagination` + sub-bloque |
+| **Extracción**   | cómo se sacan los registros de la respuesta| `field_map`, rutas |
+| **Incremental**  | cómo se para por novedad                   | `desde`, `date_field` |
+| **Cortesía**     | ritmo y límites                            | `delay`, `timeout`, `max_pages` |
+| **Transporte/auth** | conexión y credenciales                 | `headers`, api key, OAuth |
+
+### Paginación como categoría (implementada)
+
+`app/fetchers/pagination.py` registra las estrategias con nombre, compartidas por
+cualquier fetcher sobre HTTP:
+
+| Estrategia      | Cómo avanza                                  |
+|-----------------|----------------------------------------------|
+| `none`          | una sola petición                            |
+| `query_offset`  | `start_index`/`page_size` hasta página incompleta |
+| `page_number`   | `page=N` hasta página vacía                   |
+| `rel_next`      | sigue el enlace `next` de la respuesta        |
+| `cursor`        | reenvía el token de la siguiente página       |
+| `pivot_loop`    | una petición por valor de una lista           |
+
+Esto **explica y disuelve la familia REST**: no son cuatro tecnologías, es una
+(HTTP+JSON) con distinta paginación:
+
+| Fetcher actual      | = especie REST + estrategia |
+|---------------------|------------------------------|
+| API REST            | `none`                       |
+| API REST Paginada   | `query_offset` / `page_number` |
+| REST Loop           | `pivot_loop`                 |
+| JSON Time Series    | `none` (+ extracción propia) |
+
+El registro es puro y testeable (`tests/fetchers/test_pagination.py`). Próximo paso:
+hacer que el fetcher ATOM y un fetcher REST genérico lo consuman, y migrar los
+recursos de la familia REST a `(REST genérico + estrategia)` antes de retirar las
+clases sobrantes.
