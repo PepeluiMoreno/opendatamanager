@@ -764,6 +764,38 @@ def seed() -> None:
     finally:
         db.close()
 
+    # Reset del historial de versiones (una sola vez): el historial acumulado
+    # durante el refactor de la aplicación (fusiones, rebaselines, correcciones de
+    # manifiesto) es ruido de sistema, no historia editorial de los recursos. Se
+    # borra y cada recurso arranca en versión 1 con su estado actual como base.
+    # Autodesarmable: la presencia del marcador (author='reset-historial-v1') hace
+    # que no vuelva a ejecutarse; el historial legítimo posterior se conserva.
+    from app.models import ResourceManifestVersion as _RMV
+    from app.services.manifests import _canonical_from_db as _canon_db, manifest_hash as _mh
+    db = _SL_H()
+    try:
+        ya_reseteado = db.query(_RMV).filter(_RMV.author == "reset-historial-v1").first() is not None
+        hay_historial = db.query(_RMV).first() is not None
+        if hay_historial and not ya_reseteado:
+            borradas = db.query(_RMV).delete()
+            nuevos = 0
+            for r in db.query(_R_H).filter(_R_H.deleted_at.is_(None)).all():
+                try:
+                    canon = _canon_db(db, r)
+                    h = _mh(canon)
+                    r.manifest_version = 1
+                    r.manifest_hash = h
+                    r.last_synced_hash = h
+                    db.add(_RMV(resource_id=r.id, version=1, manifest_json=canon, hash=h,
+                                origin="seed", author="reset-historial-v1"))
+                    nuevos += 1
+                except Exception as e:
+                    print(f"[seed_fetchers] AVISO reset historial '{getattr(r, 'name', r.id)}': {e}")
+            db.commit()
+            print(f"[seed_fetchers] historial de versiones reseteado: {borradas} entradas antiguas eliminadas, {nuevos} recursos en versión 1")
+    finally:
+        db.close()
+
     # Poda segura: retira filas de fetcher MUERTAS (clase no importable) y sin
     # recursos. Enacta "un fetcher solo existe por una tecnología real": lo que no
     # tiene clase ni uso no es una tecnología, es ruido. Las tecnologías legítimas
