@@ -1,0 +1,886 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API de SNPSAP",
+    "description": "El objetivo principal del servicio es proporcionar la informaci&oacute;n de SNPSAP en formatos reutilizables.\n",
+    "version": "2.1.0",
+    "termsOfService": "https://www.igae.pap.hacienda.gob.es/",
+    "contact": {
+      "name": "Soporte técnico BDNS",
+      "email": "soportetecnicobdns@igae.hacienda.gob.es"
+    }
+  },
+  "_comments": "Lista de servidores de producción:\n  https://www.infosubvenciones.es/bdnstrans/GE/es/api/v2.1\n  https://www.infosubvenciones.gob.es/bdnstrans/GE/es/api/v2.1\n  https://www.pap.hacienda.gob.es/bdnstrans/GE/es/api/v2.1\n  https://www.subvenciones.gob.es/bdnstrans/GE/es/api/v2.1",
+  "tags": [
+    {
+      "name": "Convocatoria",
+      "description": "Consulta de datos de una convocatoria"
+    },
+    {
+      "name": "Listado de Convocatorias",
+      "description": "Consulta el conjunto de convocatorias que cumplen con los criterios incluidos por el usuario en la URI."
+    },
+    {
+      "name": "Catálogo",
+      "description": "Consultar los valores del catálogo de datos para definir los filtros del método listadoconvocatoria."
+    }
+  ],
+  "x-tagGroups": [
+    {
+      "name": "General",
+      "tags": [
+        "Convocatoria",
+        "listadoconvocatoria",
+        "Catálogo"
+      ]
+    }
+  ],
+  "paths": {
+    "/convocatoria/{id-convocatoria}": {
+      "get": {
+        "tags": [
+          "Convocatoria"
+        ],
+        "summary": "Consulta los datos de una convocatoria",
+        "description": "Permite consultar la informaci&oacute;n de una convocatoria almacenada en la Base de Datos Nacional de Subvenciones (BDNS) y publicada en SNPSAP indicando su c&oacute;digo id-convocatoria.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/id-convocatoria"
+          }
+        ],
+        "operationId": "getConvocatoria",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/UnaConvocatoria"
+          },
+          "250": {
+            "$ref": "#/components/responses/ConvocatoriaNoExistente"
+          }
+        }
+      }
+    },
+    "/listadoconvocatoria": {
+      "get": {
+        "tags": [
+          "Listado de Convocatorias"
+        ],
+        "summary": "Listado de convocatorias",
+        "description": "Permite consultar el conjunto de convocatorias que cumplen con los criterios incluidos por el usuario en la URI.",
+        "operationId": "getListadoConvocatorias",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/titulo-contiene"
+          },
+          {
+            "$ref": "#/components/parameters/fecha-desde"
+          },
+          {
+            "$ref": "#/components/parameters/fecha-hasta"
+          },
+          {
+            "$ref": "#/components/parameters/fecha-mod-desde"
+          },
+          {
+            "$ref": "#/components/parameters/fecha-mod-hasta"
+          },
+          {
+            "$ref": "#/components/parameters/administracion"
+          },
+          {
+            "$ref": "#/components/parameters/organo"
+          },
+          {
+            "$ref": "#/components/parameters/finalidad"
+          },
+          {
+            "$ref": "#/components/parameters/instrumento"
+          },
+          {
+            "$ref": "#/components/parameters/sa-number"
+          },
+          {
+            "$ref": "#/components/parameters/mrr"
+          },
+          {
+            "$ref": "#/components/parameters/page-size"
+          },
+          {
+            "$ref": "#/components/parameters/page"
+          },
+          {
+            "$ref": "#/components/parameters/sort"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ListaConvocatorias"
+          },
+          "251": {
+            "$ref": "#/components/responses/NoExistenConvocatorias"
+          },
+          "253": {
+            "$ref": "#/components/responses/ErrorFiltro"
+          },
+          "256": {
+            "$ref": "#/components/responses/FormatoValorError"
+          }
+        }
+      }
+    },
+    "/catalogo/{dataset}": {
+      "get": {
+        "tags": [
+          "Catálogo"
+        ],
+        "summary": "Consulta los datos de una convocatoria",
+        "description": "Permite consultar los valores del catálogo de datos para definir los filtros del método listadoconvocatoria.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/dataset"
+          }
+        ],
+        "operationId": "getCatalagoDataSet",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/Dataset"
+          },
+          "252": {
+            "$ref": "#/components/responses/DatasetError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "id-convocatoria": {
+        "name": "id-convocatoria",
+        "in": "path",
+        "required": true,
+        "description": "Número para la identificación de la convocatoria asignado por la BDNS.",
+        "example": 627877,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "titulo-contiene": {
+        "name": "titulo-contiene",
+        "in": "query",
+        "description": "Texto incluido como T&iacute;tulo de la convocatoria en espa&ntilde;ol o lengua cooficial (contiene).",
+        "example": "libros",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "fecha-desde": {
+        "name": "fecha-desde",
+        "in": "query",
+        "description": "Fecha inicial de registro de la convocatoria. Se incluye en la b&uacute;squeda la fecha indicada. Formato dd/mm/yyyy.",
+        "example": "01/07/2021",
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{2}\\/[0-9]{2}\\/[0-9]{4}$"
+        }
+      },
+      "fecha-hasta": {
+        "name": "fecha-hasta",
+        "in": "query",
+        "description": "Fecha final de registro de la convocatoria. Se incluye en la b&uacute;squeda la fecha indicada. Formato dd/mm/yyyy.",
+        "example": "30/07/2021",
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{2}\\/[0-9]{2}\\/[0-9]{4}$"
+        }
+      },
+      "fecha-mod-desde": {
+        "name": "fecha-mod-desde",
+        "in": "query",
+        "description": "Fecha inicial de modificación de la convocatoria. Se incluye en la búsqueda la fecha indicada. Formato dd/mm/yyyy.",
+        "example": "01/07/2021",
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{2}\\/[0-9]{2}\\/[0-9]{4}$"
+        }
+      },
+      "fecha-mod-hasta": {
+        "name": "fecha-mod-hasta",
+        "in": "query",
+        "description": "Fecha final de modificacion de la convocatoria. Se incluye en la búsqueda la fecha indicada. Formato dd/mm/yyyy.",
+        "example": "30/07/2021",
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{2}\\/[0-9]{2}\\/[0-9]{4}$"
+        }
+      },
+      "administracion": {
+        "name": "administracion",
+        "in": "query",
+        "description": "Administraci&oacute;n concedente de las convocatorias. Los valores posibles de este filtro se pueden obtener realizando una petici&oacute;n a la operaci&oacute;n cat&aacute;logo de datos indicando en dataset el valor administracion.",
+        "example": "A10",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "organo": {
+        "name": "organo",
+        "in": "query",
+        "description": "Órgano concedente de las convocatorias. Los valores posibles de este filtro se pueden obtener realizando una petici&oacute;n a la operaci&oacute;n cat&aacute;logo de datos indicando en dataset el valor organo.",
+        "example": "L01360519",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "finalidad": {
+        "name": "finalidad",
+        "in": "query",
+        "description": "Finalidad (pol&iacute;tica de gasto). Los valores posibles de este filtro se pueden obtener realizando una petici&oacute;n a la operaci&oacute;n cat&aacute;logo de datos indicando en dataset el valor finalidad.",
+        "example": "EDUCACION",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "instrumento": {
+        "name": "instrumento",
+        "in": "query",
+        "description": "Instrumentos de ayuda. Los valores posibles de este filtro se pueden obtener realizando una petici&oacute;n a la operaci&oacute;n cat&aacute;logo de datos indicando en dataset el valor instrumento.",
+        "example": "GARANTIA",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "sa-number": {
+        "name": "sa-number",
+        "in": "query",
+        "description": "SA Number. Referencia de ayuda de estado.",
+        "example": "SA.32838",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "mrr": {
+        "name": "mrr",
+        "in": "query",
+        "description": "Mecanismo de recuperación y resiliencia. Admite los valores 0/1.",
+        "example": 0,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "page-size": {
+        "name": "page-size",
+        "in": "query",
+        "description": "Este parámetro se utiliza para fijar el número de resultados por página. El valor máximo es 1000. En caso de no informarlo el valor por defecto será 200.",
+        "example": 200,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "page": {
+        "name": "page",
+        "in": "query",
+        "description": "Este parámetro se utiliza para indicar el número de página que queremos mostrar. La página inicial es 0. En caso de no informarlo se mostrará la página inicial.",
+        "example": 0,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "sort": {
+        "name": "sort",
+        "in": "query",
+        "description": "Este parámetro se utiliza para indicar cómo ordenar los resultados en función de uno o varios campos de la respuesta . En caso de no informarlo se ordenará por codigo-BDNS. En caso de informar varios campos de ordenación estos deberán estar separados por comas. Se puede indicar que la ordenación sea ascendente usando un guión, el orden será descendente por defecto.",
+        "example": "finalidad,-organo,titulo",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "dataset": {
+        "name": "dataset",
+        "in": "path",
+        "required": true,
+        "description": "Filtro del que se quiere obtener los valores.",
+        "example": "administracion",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "instrumento",
+            "finalidad",
+            "administracion",
+            "organo"
+          ]
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "codigo": {
+            "type": "string",
+            "description": "Código del error."
+          },
+          "mensaje": {
+            "type": "string",
+            "description": "Descripción del error."
+          }
+        }
+      },
+      "Advertencia": {
+        "type": "object",
+        "properties": {
+          "advertencia": {
+            "type": "string",
+            "description": "Advertencia legal."
+          }
+        }
+      },
+      "Fecha-descarga": {
+        "type": "object",
+        "properties": {
+          "fecha-descarga": {
+            "type": "string",
+            "description": "Contiene la fecha en la que se realiza la petición. Formato dd/mm/yyyy."
+          }
+        }
+      },
+      "Page-size": {
+        "type": "object",
+        "properties": {
+          "page-size": {
+            "type": "string",
+            "description": "El número de resultados mostrados por página."
+          }
+        }
+      },
+      "Sort": {
+        "type": "object",
+        "properties": {
+          "sort": {
+            "type": "string",
+            "description": "Campo por el que se ordena los resultados."
+          }
+        }
+      },
+      "Next": {
+        "type": "object",
+        "properties": {
+          "next": {
+            "type": "string",
+            "description": "Siguiente URL. Cuando sea la última página este campo se mostrará vacío."
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "string",
+            "description": "Indica el número de página que se muestra."
+          }
+        }
+      },
+      "Total-pages": {
+        "type": "object",
+        "properties": {
+          "total-pages": {
+            "type": "string",
+            "description": "Indica el número total de páginas."
+          }
+        }
+      },
+      "Convocatoria": {
+        "type": "object",
+        "properties": {
+          "codigo-BDNS": {
+            "description": "Número para la identificación de la convocatoria asignado por la BDNS.",
+            "type": "string"
+          },
+          "mrr": {
+            "description": "Mecanismo de recuperación y resiliencia. Formato 0/1.",
+            "type": "string"
+          },
+          "dir3-organo": {
+            "description": "Órgano gestor de la convocatoria utilizando la codificación DIR3.",
+            "type": "string"
+          },
+          "desc-organo": {
+            "description": "Descripción del órgano gestor de la convocatoria.",
+            "type": "string"
+          },
+          "sa-number": {
+            "description": "Referencia asignada por la UE como identificador de la Ayuda. En este campo se devolverá la referencia asignada por la Comisión Europea (Case Number) con formato SA.XXXXXX.",
+            "type": "string"
+          },
+          "fecha-registro": {
+            "description": "Fecha de recepción de la convocatoria en la BDNS. Formato dd/mm/yyyy.",
+            "type": "string",
+            "format": "date"
+          },
+          "fecha-mod": {
+            "description": "Fecha de modificación de la convocatoria en la BDNS. Formato dd/mm/yyyy.",
+            "type": "string",
+            "format": "date"
+          },
+          "titulo": {
+            "description": "Descripción de la convocatoria en castellano.",
+            "type": "string"
+          },
+          "titulo-cooficial": {
+            "description": "Descripción de la convocatoria en lengua cooficial.",
+            "type": "string"
+          },
+          "inicio-solicitud": {
+            "description": "Texto y/o fecha de inicio del periodo habilitado para admitir solicitudes. Se concatenan los campos separados por un guion.",
+            "type": "string"
+          },
+          "fin-solicitud": {
+            "description": "Texto y/o fecha de fin del periodo habilitado para admitir solicitudes. Se concatenan los campos separados por un guion.",
+            "type": "string"
+          },
+          "abierto": {
+            "description": "Condición de período de admisión de solicitudes permanentemente abierto. Indica si la convocatoria mantiene permanente abierto el período de admisión de solicitudes. Valores posibles ‘0’ cerrado / ’1’ abierto.",
+            "type": "string"
+          },
+          "region": {
+            "description": "Una o varias regiones que se verán beneficiadas por las subvenciones o ayudas convocadas. Una convocatoria puede tener varias regiones de impacto por lo que los valores se agruparán en un bloque.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "tipo-beneficiario": {
+            "description": "Uno o varios de los tipos de beneficiario previstos en la convocatoria. Una convocatoria puede tener varios tipos de beneficiario por lo que los valores se agruparán en un bloque.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "finalidad": {
+            "description": "Objetivo de la subvención o ayuda pública desde el punto de vista de las políticas de gasto.",
+            "type": "object",
+            "properties": {
+              "codigo": {
+                "type": "string"
+              },
+              "descripcion": {
+                "type": "string"
+              }
+            }
+          },
+          "instrumento": {
+            "description": "Una o varias de las figuras jurídicas o económicas en base a las que se conceden las subvenciones y ayudas.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "sector": {
+            "description": "Refleja uno o varios sectores de actividad económica beneficiados por la subvención o la ayuda pública.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "descripcionBR": {
+            "description": "Descripción de las bases reguladoras. Texto del título de la norma que contiene las bases reguladoras que rigen la Convocatoria.",
+            "type": "string"
+          },
+          "URLespBR": {
+            "description": "URL de las BBRR en castellano. Enlace al sitio web que contiene el texto completo en castellano de las bases reguladoras.",
+            "type": "string"
+          },
+          "financiacion": {
+            "description": "Refleja uno o varias fuentes de financiación para la subvención o la ayuda pública.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "importe": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "fondoUE": {
+            "description": "Refleja uno o varios fondos de la UE que financian la subvención o la ayuda pública.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codigo": {
+                  "type": "string"
+                },
+                "descripcion": {
+                  "type": "string"
+                },
+                "importe": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "permalink-convocatoria": {
+            "description": "URL con el enlace al detalle de la convocatoria en SNPSAP.",
+            "type": "string"
+          },
+          "permalink-concesiones": {
+            "description": "Enlace a las concesiones de la convocatoria.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "responses": {
+      "ListaConvocatorias": {
+        "description": "Operación correcta.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "advertencia",
+                "fecha-descarga",
+                "page-size",
+                "next",
+                "page",
+                "total-pages",
+                "sort",
+                "convocatoria"
+              ],
+              "properties": {
+                "advertencia": {
+                  "$ref": "#/components/schemas/Advertencia"
+                },
+                "fecha-descarga": {
+                  "$ref": "#/components/schemas/Fecha-descarga"
+                },
+                "page-size": {
+                  "$ref": "#/components/schemas/Page-size"
+                },
+                "next": {
+                  "$ref": "#/components/schemas/Next"
+                },
+                "page": {
+                  "$ref": "#/components/schemas/Page"
+                },
+                "total-pages": {
+                  "$ref": "#/components/schemas/Total-pages"
+                },
+                "sort": {
+                  "$ref": "#/components/schemas/Sort"
+                },
+                "convocatorias": {
+                  "description": "Bloque con el listado de convocatorias.",
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "orden",
+                      "convocatoria"
+                    ],
+                    "properties": {
+                      "orden": {
+                        "type": "integer",
+                        "description": "numero de orden de la convocatoria en el documento"
+                      },
+                      "convocatoria": {
+                        "$ref": "#/components/schemas/Convocatoria"
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "example": {
+              "advertencia": "La reutilización de los datos del Sistema Nacional de Publicidad de Subvenciones y Ayudas Públicas está sujeta a una serie de restricciones y consideraciones legales. Consulte el aviso legal en https://www.pap.hacienda.gob.es/bdnstrans/GE/es/avisolegal.Además, el usuario debe ser consciente que la información presentada es de naturaleza dinámica, y que los datos pueden ser sometidos a correcciones, inserciones, modificaciones y eliminaciones en momentos posteriores a su extracción.",
+              "fecha-descarga": "05/04/2022",
+              "page-size": 200,
+              "next": "",
+              "page": 0,
+              "total-pages": 1,
+              "convocatorias": {
+                "convocatoria - orden 1": {
+                  "codigo-BDNS": "301123",
+                  "mrr": "0",
+                  "dir3-organo": "A13005014",
+                  "desc-organo": "COMUNIDAD DE MADRID - INTERVENCIÓN GENERAL DE LA COMUNIDAD DE MADRID",
+                  "sa-number": "SA.00000",
+                  "fecha-registro": "21/10/2019",
+                  "fecha-mod": "16/12/2019",
+                  "titulo": "PRUEBA CONVOCATORIA/CANÓNICA/PROCED. CD/ÓRGANO NO INTERMEDIADO",
+                  "titulo-cooficial": "",
+                  "inicio-solicitud": "15/10/2019",
+                  "fin-solicitud": "30/10/2019",
+                  "abierto": "0",
+                  "region": [
+                    "ES1 - NOROESTE"
+                  ],
+                  "tipo-beneficiario": [
+                    {
+                      "codigo": "PFA",
+                      "descripcion": "PYME Y PERSONAS FÍSICAS QUE DESARROLLAN ACTIVIDAD ECONÓMICA"
+                    }
+                  ],
+                  "finalidad": {
+                    "codigo": "12",
+                    "descripcion": "AGRICULTURA, PESCA Y ALIMENTACIÓN"
+                  },
+                  "instrumento": [
+                    {
+                      "codigo": "SUBV",
+                      "descripcion": "SUBVENCIÓN Y ENTREGA DINERARIA SIN CONTRAPRESTACIÓN "
+                    }
+                  ],
+                  "sector": [
+                    {
+                      "codigo": "35",
+                      "descripcion": "Suministro de energía eléctrica, gas, vapor y aire acondicionado"
+                    }
+                  ],
+                  "descripcionBR": "bbrr",
+                  "URLespBR": "http://www.BR.es",
+                  "financiacion": [
+                    {
+                      "codigo": "PCA",
+                      "descripcion": "PRESUPUESTOS GENERALES DE LAS COMUNIDADES AUTÓNOMAS",
+                      "importe": "120"
+                    }
+                  ],
+                  "fondoUE": [
+                    {
+                      "codigo": "6",
+                      "descripcion": "FEAGA - FONDO EUROPEO AGRÍCOLA DE GARANTÍA",
+                      "importe": "130"
+                    }
+                  ],
+                  "permalink-convocatoria": "http://localhost:7001/bdnstrans/GE/es/convocatoria/302372",
+                  "permalink-concesiones": "http://localhost:7001/bdnstrans/GE/es/concesiones/convocatoria/302372"
+                }
+              }
+            }
+          }
+        }
+      },
+      "UnaConvocatoria": {
+        "description": "Operación correcta.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "advertencia",
+                "convocatoria"
+              ],
+              "properties": {
+                "advertencia": {
+                  "$ref": "#/components/schemas/Advertencia"
+                },
+                "convocatoria": {
+                  "$ref": "#/components/schemas/Convocatoria"
+                }
+              }
+            },
+            "example": {
+              "advertencia": "La reutilización de los datos del Sistema Nacional de Publicidad de Subvenciones y Ayudas Públicas está sujeta a una serie de restricciones y consideraciones legales. Consulte el aviso legal en https://www.pap.hacienda.gob.es/bdnstrans/GE/es/avisolegal.Además, el usuario debe ser consciente que la información presentada es de naturaleza dinámica, y que los datos pueden ser sometidos a correcciones, inserciones, modificaciones y eliminaciones en momentos posteriores a su extracción.",
+              "convocatoria": {
+                "codigo-BDNS": "301123",
+                "mrr": "0",
+                "dir3-organo": "A13005014",
+                "desc-organo": "COMUNIDAD DE MADRID - INTERVENCIÓN GENERAL DE LA COMUNIDAD DE MADRID",
+                "sa-number": "SA.00000",
+                "fecha-registro": "21/10/2019",
+                "fecha-mod": "16/12/2019",
+                "titulo": "PRUEBA CONVOCATORIA/CANÓNICA/PROCED. CD/ÓRGANO NO INTERMEDIADO",
+                "titulo-cooficial": "",
+                "inicio-solicitud": "15/10/2019",
+                "fin-solicitud": "30/10/2019",
+                "abierto": "0",
+                "region": [
+                  "ES1 - NOROESTE"
+                ],
+                "tipo-beneficiario": [
+                  {
+                    "codigo": "PFA",
+                    "descripcion": "PYME Y PERSONAS FÍSICAS QUE DESARROLLAN ACTIVIDAD ECONÓMICA"
+                  }
+                ],
+                "finalidad": {
+                  "codigo": "12",
+                  "descripcion": "AGRICULTURA, PESCA Y ALIMENTACIÓN"
+                },
+                "instrumento": [
+                  {
+                    "codigo": "SUBV",
+                    "descripcion": "SUBVENCIÓN Y ENTREGA DINERARIA SIN CONTRAPRESTACIÓN "
+                  }
+                ],
+                "sector": [
+                  {
+                    "codigo": "35",
+                    "descripcion": "Suministro de energía eléctrica, gas, vapor y aire acondicionado"
+                  }
+                ],
+                "descripcionBR": "bbrr",
+                "URLespBR": "http://www.BR.es",
+                "financiacion": [
+                  {
+                    "codigo": "PCA",
+                    "descripcion": "PRESUPUESTOS GENERALES DE LAS COMUNIDADES AUTÓNOMAS",
+                    "importe": "120"
+                  }
+                ],
+                "fondoUE": [
+                  {
+                    "codigo": "6",
+                    "descripcion": "FEAGA - FONDO EUROPEO AGRÍCOLA DE GARANTÍA",
+                    "importe": "130"
+                  }
+                ],
+                "permalink-convocatoria": "http://localhost:7001/bdnstrans/GE/es/convocatoria/302372",
+                "permalink-concesiones": "http://localhost:7001/bdnstrans/GE/es/concesiones/convocatoria/302372"
+              }
+            }
+          }
+        }
+      },
+      "NoExistenConvocatorias": {
+        "description": "No existen convocatorias con los criterios de búsqueda.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "codigo": "0251",
+              "mensaje": "No existen convocatorias con los criterios de búsqueda."
+            }
+          }
+        }
+      },
+      "ErrorFiltro": {
+        "description": "Los criterios de búsqueda indicados en la URL no existen o no tienen la sintaxis correcta.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "codigo": "0253",
+              "mensaje": "Los criterios de búsqueda indicados en la URL no existen o no tienen la sintaxis correcta."
+            }
+          }
+        }
+      },
+      "FormatoValorError": {
+        "description": "El criterio de búsqueda no tiene el formato o valor admitido.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "codigo": "0256",
+              "mensaje": "El criterio de búsqueda mrr no tiene el formato o valor admitido."
+            }
+          }
+        }
+      },
+      "ConvocatoriaNoExistente": {
+        "description": "No existe la convocatoria con el código BDNS indicado.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "codigo": "0250",
+              "mensaje": "No existe una convocatoria con el código BDNS indicado."
+            }
+          }
+        }
+      },
+      "DatasetError": {
+        "description": "No existe ningún dataset con el nombre indicado.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            },
+            "example": {
+              "keyword": "instr",
+              "codigo": "0252",
+              "mensaje": "No existe ningún dataset con el nombre indicado."
+            }
+          }
+        }
+      },
+      "Dataset": {
+        "description": "Operación correcta.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "descripcion",
+                "keyword"
+              ],
+              "properties": {
+                "descripcion": {
+                  "description": "Descripción del valor del filtro",
+                  "type": "string"
+                },
+                "keyword": {
+                  "description": "Código que se deberá indicar en el filtro del API",
+                  "type": "string"
+                }
+              },
+              "example": [
+                {
+                  "descripcion": "Andalucía",
+                  "keyword": "A01"
+                },
+                {
+                  "descripcion": "Aragón",
+                  "keyword": "A02"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}
