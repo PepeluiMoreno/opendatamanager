@@ -126,6 +126,43 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "HTML (genérico)",
+        "class_path": "app.fetchers.html_generic.HTMLFetcher",
+        "description": "ESPECIE genérica de scraping HTML sobre HTTP. Delega en registros: navegación (single|paged|pivot|form_pivot), extracción (fields|table, dialecto de selectores CSS) y construcción de la petición (query|form_submit). Absorbe HTML Forms, HTML Paginated y URL Loop HTML.",
+        "params": [
+            {"param_name": "url", "data_type": "string", "required": False, "group": "http"},
+            {"param_name": "url_template", "data_type": "string", "required": False, "group": "navegacion",
+             "hint": "Plantilla con {value} (pivote) y/o {page} (paginación)."},
+            {"param_name": "navigation", "data_type": "string", "required": False, "default_value": "single", "group": "navegacion",
+             "hint": "single | paged | pivot | form_pivot."},
+            {"param_name": "extraction", "data_type": "string", "required": False, "default_value": "fields", "group": "extraccion",
+             "hint": "fields | table."},
+            {"param_name": "request", "data_type": "string", "required": False, "default_value": "query", "group": "peticion",
+             "hint": "query | form_submit."},
+            {"param_name": "rows_selector", "data_type": "string", "required": False, "group": "extraccion"},
+            {"param_name": "field_selectors", "data_type": "json", "required": False, "group": "extraccion"},
+            {"param_name": "field_attr_selectors", "data_type": "json", "required": False, "group": "extraccion"},
+            {"param_name": "field_all_selectors", "data_type": "json", "required": False, "group": "extraccion"},
+            {"param_name": "field_all_text", "data_type": "json", "required": False, "group": "extraccion"},
+            {"param_name": "field_attrs", "data_type": "json", "required": False, "group": "extraccion"},
+            {"param_name": "field_label_selectors", "data_type": "json", "required": False, "group": "extraccion"},
+            {"param_name": "next_page_selector", "data_type": "string", "required": False, "group": "navegacion"},
+            {"param_name": "next_page_attr", "data_type": "string", "required": False, "default_value": "href", "group": "navegacion"},
+            {"param_name": "pivot_values", "data_type": "json", "required": False, "group": "navegacion"},
+            {"param_name": "search_field_values", "data_type": "json", "required": False, "group": "navegacion"},
+            {"param_name": "search_field_name", "data_type": "string", "required": False, "group": "navegacion"},
+            {"param_name": "form_selector", "data_type": "string", "required": False, "group": "navegacion"},
+            {"param_name": "pivot_source_odmgr_query", "data_type": "string", "required": False, "group": "navegacion"},
+            {"param_name": "pivot_source_field", "data_type": "string", "required": False, "group": "navegacion"},
+            {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 500, "group": "navegacion"},
+            {"param_name": "start_page", "data_type": "integer", "required": False, "default_value": 1, "group": "navegacion"},
+            {"param_name": "delay_between_pages", "data_type": "number", "required": False, "default_value": 1.0, "group": "behavior"},
+            {"param_name": "headers", "data_type": "json", "required": False, "group": "http"},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 30, "group": "http"},
+        ],
+    },
+
+    {
         "name": "HTML SearchLoop",
         "class_path": "app.fetchers.searchloop_html.SearchLoopHtmlFetcher",
         "description": "HTML scraper that pivots over <select> option values",
@@ -198,25 +235,6 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
-        "name": "HTML Paginated",
-        "class_path": "app.fetchers.paginated_html.PaginatedHtmlFetcher",
-        "description": "HTML scraper with automatic pagination",
-        "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "navigation"},
-            {"param_name": "row_selector", "data_type": "string", "required": True, "group": "extraction"},
-            {"param_name": "next_selector", "data_type": "string", "required": False, "group": "pagination"},
-        ],
-    },
-    {
-        "name": "HTML Forms",
-        "class_path": "app.fetchers.html.HtmlFetcher",
-        "description": "Simple HTML form GET/POST scraper",
-        "params": [
-            {"param_name": "url", "data_type": "string", "required": True, "group": "navigation"},
-            {"param_name": "method", "data_type": "string", "required": False, "default_value": "GET", "group": "http"},
-        ],
-    },
-    {
         "name": "OSM Overpass",
         "class_path": "app.fetchers.osm.OSMFetcher",
         "description": "OpenStreetMap Overpass API query",
@@ -266,37 +284,6 @@ FETCHERS: List[Dict[str, Any]] = [
         "params": [
             {"param_name": "wsdl", "data_type": "string", "required": True, "group": "request"},
             {"param_name": "operation", "data_type": "string", "required": True, "group": "request"},
-        ],
-    },
-    {
-        "name": "URL Loop HTML",
-        "class_path": "app.fetchers.url_loop_html.UrlLoopHtmlFetcher",
-        "description": "HTML scraper genérico con pivot, múltiples registros por página y paginación.",
-        "params": [
-            {"param_name": "url_template", "data_type": "string", "required": True, "group": "url"},
-            {"param_name": "page_base_url", "data_type": "string", "required": False, "group": "url"},
-            {"param_name": "pivot_values", "data_type": "json", "required": False, "group": "pivot_static"},
-            {"param_name": "pivot_field", "data_type": "string", "required": False, "default_value": "pivot_value", "group": "pivot_static"},
-            {"param_name": "pivot_source_odmgr_query", "data_type": "string", "required": False, "group": "pivot_source"},
-            {"param_name": "pivot_source_field", "data_type": "string", "required": False, "group": "pivot_source"},
-            {"param_name": "pivot_source_odmgr_url", "data_type": "string", "required": False, "group": "pivot_source"},
-            {"param_name": "pivot_source_filter_field", "data_type": "string", "required": False, "group": "pivot_source"},
-            {"param_name": "pivot_source_filter_value", "data_type": "string", "required": False, "group": "pivot_source"},
-            {"param_name": "record_selector", "data_type": "string", "required": True, "group": "extraction"},
-            {"param_name": "field_attrs", "data_type": "json", "required": False, "group": "extraction"},
-            {"param_name": "field_selectors", "data_type": "json", "required": False, "group": "extraction"},
-            {"param_name": "field_attr_selectors", "data_type": "json", "required": False, "group": "extraction"},
-            {"param_name": "field_all_text", "data_type": "json", "required": False, "group": "extraction"},
-            {"param_name": "field_all_separator", "data_type": "string", "required": False, "default_value": " | ", "group": "extraction"},
-            {"param_name": "required_field", "data_type": "string", "required": False, "group": "extraction"},
-            {"param_name": "next_page_selector", "data_type": "string", "required": False, "group": "pagination"},
-            {"param_name": "next_page_attr", "data_type": "string", "required": False, "default_value": "href", "group": "pagination"},
-            {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 500, "group": "pagination"},
-            {"param_name": "delay_between_pages", "data_type": "number", "required": False, "default_value": 1.5, "group": "pagination"},
-            {"param_name": "delay_between_pivots", "data_type": "number", "required": False, "default_value": 2.0, "group": "behavior"},
-            {"param_name": "stop_on_error", "data_type": "boolean", "required": False, "default_value": False, "group": "behavior"},
-            {"param_name": "headers", "data_type": "json", "required": False, "group": "behavior"},
-            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 30, "group": "behavior"},
         ],
     },
     {
@@ -630,6 +617,43 @@ def seed() -> None:
             print(f"[seed_fetchers] preset_params aplicados a {len(presets)} variante(s)")
         finally:
             db.close()
+
+    # Fusión de la familia HTML mecánica (Forms / Paginated / URL Loop) en la especie
+    # 'HTML (genérico)'. Mapeo por clase del modo de navegación y la estrategia de
+    # extracción; los selectores bespoke ya viven en cada recurso. Idempotente.
+    # (searchloop/web_tree NO se tocan: recursión por niveles y árbol son especies propias.)
+    _MAP_HTML = {
+        "HTML Forms": {"navigation": "single", "extraction": "table", "request": "query"},
+        "HTML Paginated": {"navigation": "paged", "extraction": "fields", "request": "query"},
+        "URL Loop HTML": {"navigation": "pivot", "extraction": "fields", "request": "query"},
+    }
+    from app.database import SessionLocal as _SL_H
+    from app.models import Fetcher as _F_H, Resource as _R_H, ResourceParam as _RP_H
+    from datetime import datetime as _dt_H
+    db = _SL_H()
+    try:
+        gen = db.query(_F_H).filter(_F_H.code == "HTML (genérico)").first()
+        mig, ret = 0, []
+        if gen:
+            for code, extra in _MAP_HTML.items():
+                f = db.query(_F_H).filter(_F_H.code == code).first()
+                if not f:
+                    continue
+                for r in db.query(_R_H).filter(_R_H.fetcher_id == f.id).all():
+                    claves = {p.key for p in db.query(_RP_H).filter(_RP_H.resource_id == r.id).all()}
+                    for k, v in extra.items():
+                        if k not in claves:
+                            db.add(_RP_H(resource_id=r.id, key=k, value=v, is_external=False))
+                    r.fetcher_id = gen.id
+                    mig += 1
+                if f.deleted_at is None:
+                    f.deleted_at = _dt_H.utcnow()
+                    ret.append(code)
+            if mig or ret:
+                db.commit()
+                print(f"[seed_fetchers] familia HTML mecánica fusionada en 'HTML (genérico)': {mig} recurso(s); retiradas {ret}")
+    finally:
+        db.close()
 
     # Fusión de la familia REST: las variantes históricas (paginada / loop / time
     # series) son ya la especie 'API REST' con distintas elecciones de petición,

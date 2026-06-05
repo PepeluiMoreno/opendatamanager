@@ -43,3 +43,14 @@ def test_field_selectors_acepta_json_string():
     html = "<div><h1>Título</h1></div>"
     out = extract_html("fields", html, {"field_selectors": '{"t": "h1"}'})
     assert out == [{"t": "Título"}]
+
+
+def test_fields_superset_attrs_y_all_text():
+    html = "<li class='r' data-id='42'><span class='t'>a</span><span class='t'>b</span></li>"
+    out = extract_html("fields", html, {
+        "rows_selector": "li.r",
+        "field_attrs": {"id": "data-id"},
+        "field_all_text": {"tags": ".t"},
+        "field_all_separator": "+",
+    })
+    assert out == [{"id": "42", "tags": "a+b"}]

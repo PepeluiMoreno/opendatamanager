@@ -13,7 +13,7 @@ class FetcherFactory:
     # Fallback estático por si el fetcher no tiene class_path en BD
     _FALLBACK = {
         "API REST": "app.fetchers.rest.RestFetcher",
-        "HTML Forms": "app.fetchers.html.HtmlFetcher",
+        "HTML (genérico)": "app.fetchers.html_generic.HTMLFetcher",
     }
 
     @staticmethod

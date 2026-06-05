@@ -50,6 +50,15 @@ def _record_from(scope, params: Dict[str, Any]) -> Dict[str, Any]:
         els = scope.select(sel)
         rec[field] = sep.join(_text(e) for e in els) if els else None
 
+    # alias de field_all_selectors usado por url_loop
+    for field, sel in _as_dict(params.get("field_all_text")).items():
+        els = scope.select(sel)
+        rec[field] = sep.join(_text(e) for e in els) if els else None
+
+    # atributo en el propio elemento de la fila/ámbito (p. ej. data-id) — url_loop
+    for field, attr in _as_dict(params.get("field_attrs")).items():
+        rec[field] = scope.get(attr) if hasattr(scope, "get") else None
+
     for field, cfg in _as_dict(params.get("field_label_selectors")).items():
         container = scope.select_one(cfg.get("container", "body")) or scope
         label = (cfg.get("label", "") or "").lower()

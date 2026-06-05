@@ -215,3 +215,26 @@ Plan: (1) extracción HTML ✅ → (2) registro de navegación/descubrimiento �
 (3) `form_submit` en request_building → (4) especie genérica `HTMLFetcher` que
 consuma los registros → (5) colapsar las cinco clases en variantes (preset_params),
 verificando recurso por recurso (scraping recursivo es lo más delicado).
+
+## Familia HTML: FUSIÓN PARCIAL realizada
+
+- **Especie genérica `app/fetchers/html_generic.py` (HTMLFetcher)**: consume los tres
+  registros (navegación, extracción HTML, construcción de la petición) y cubre los
+  modos `single` / `paged` / `pivot` (con paginación por next-link o `{page}`, y
+  pivote literal o desde una query GraphQL de ODM) / `form_pivot` (descubre hidden
+  inputs + action y envía el formulario por cada valor).
+- **Colapsadas** (seed `_colapsar_familia_html`, mapeo por clase): `HTML Forms`→single,
+  `HTML Paginated`→paged, `URL Loop HTML`→pivot. Recursos repuntados a `HTML (genérico)`,
+  filas retiradas, clases `html.py`/`paginated_html.py`/`url_loop_html.py` eliminadas.
+  La extracción HTML se amplió a superconjunto (`field_attrs`, `field_all_text`) para
+  no perder fidelidad con el dialecto de url_loop.
+- **NO colapsadas (especies propias, por diseño)**: `HTML SearchLoop` (scraping
+  recursivo por `levels` con herencia de campos) y `Web Tree` (rastreo de árbol de
+  directorios). Son tecnologías de descubrimiento genuinamente distintas, con
+  orquestación recursiva con estado; no son meras variantes. Si en el futuro se
+  formaliza un registro de recursión, podrían plegarse, pero hoy aportan valor como
+  clases dedicadas.
+- A verificar en el 1er deploy, recurso por recurso (selectores bespoke): que cada
+  recurso HTML migrado siga extrayendo los mismos registros. Lo más sensible es la
+  antigua `HTML Forms` (su clase devolvía una estructura tablas/forms, no registros
+  planos): si su consumidor esperaba ese shape, ajustar navigation/extraction.

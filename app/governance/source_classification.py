@@ -28,7 +28,7 @@ SCRAPING = frozenset({SCRAPING_PUBLICO, SCRAPING_PRIVADO})
 # Fetchers cuyo transporte es scraping de páginas (no API/feed/fichero).
 _FETCHERS_SCRAPING = frozenset({
     "HTML Form", "HTML Paginated", "HTML SearchLoop", "Web Tree",
-    "URL Loop HTML", "Power BI", "PDF Table",
+    "URL Loop HTML", "HTML (genérico)", "Power BI", "PDF Table",
 })
 # Fetchers de publicación abierta (ficheros/feeds estáticos).
 _FETCHERS_PUBLICACION = frozenset({
