@@ -106,6 +106,14 @@ class Resource(Base):
     # vive en el recurso, no en el catálogo de fetchers.
     preset_id = Column(UUID(as_uuid=True), ForeignKey("opendata.fetcher_preset.id", ondelete="SET NULL"), nullable=True)
 
+    # Ciclo de vida / caché (docs/diseno_ciclo_vida_datasets.md)
+    rederivable = Column(Boolean, default=True, nullable=False)
+    coste_rederivacion = Column(String(10), default="medio", nullable=False)  # bajo|medio|alto
+    retencion_permanente = Column(Boolean, default=False, nullable=False)
+    retencion_ttl_dias = Column(Integer, nullable=True)
+    retencion_min_versiones = Column(Integer, default=1, nullable=False)
+    prioridad_base = Column(Integer, default=0, nullable=False)
+
     # Versionado y procedencia de la definición (manifiesto canónico).
     manifest_version = Column(Integer, default=1, nullable=False)
     manifest_hash = Column(String(64), nullable=True)       # hash del manifiesto canónico actual
@@ -124,6 +132,31 @@ class Resource(Base):
     datasets = relationship("Dataset", back_populates="resource")
     derived_configs = relationship("DerivedDatasetConfig", back_populates="source_resource", cascade="all, delete-orphan")
     children = relationship("Resource", foreign_keys=[parent_resource_id], lazy="dynamic")
+
+
+class DatasetLease(Base):
+    """Arrendamiento de un dataset: un titular (proceso/aplicación o usuario) pide un
+    recurso con una retención; ODM concede un plazo y lo conserva mientras el lease
+    siga activo. Reference counting + liberación anticipada. Ver
+    docs/diseno_ciclo_vida_datasets.md."""
+    __tablename__ = "dataset_lease"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
+    dataset_id = Column(UUID(as_uuid=True), ForeignKey("opendata.dataset.id", ondelete="SET NULL"), nullable=True)
+    titular_tipo = Column(String(20), nullable=False)   # usuario | application
+    titular_id = Column(UUID(as_uuid=True), nullable=True)
+    email_contacto = Column(String(255), nullable=True)
+    retencion_solicitada_dias = Column(Integer, nullable=True)
+    permanente = Column(Boolean, default=False, nullable=False)
+    concedido_hasta = Column(DateTime, nullable=True)
+    estado = Column(String(20), default="activo", nullable=False)  # activo | liberado | expirado
+    created_at = Column(DateTime, default=datetime.utcnow)
+    released_at = Column(DateTime, nullable=True)
+
+    resource = relationship("Resource")
+    dataset = relationship("Dataset")
 
 
 class FetcherPreset(Base):
@@ -291,6 +324,8 @@ class Dataset(Base):
     schema_json = Column(JSONB, nullable=False)
     data_path = Column(String(500), nullable=False)
     record_count = Column(Integer)
+    last_served_at = Column(DateTime, nullable=True)   # rastro de acceso (demanda)
+    accesos = Column(Integer, default=0, nullable=False)
     checksum = Column(String(64))
     created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)

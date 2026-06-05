@@ -390,6 +390,88 @@ async def datasets_trash():
         session.close()
 
 
+@app.get("/api/mis-datos")
+def mis_datos(request: _Request, db=Depends(get_db)):
+    from app.auth import get_user_by_token, SESSION_COOKIE
+    u = get_user_by_token(db, request.cookies.get(SESSION_COOKIE, ""))
+    if not u:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    return {"username": u.username, "email": u.email,
+            "notificar_email": bool(u.notificar_email),
+            "roles": [r.code for r in u.roles]}
+
+
+@app.put("/api/mis-datos")
+async def actualizar_mis_datos(request: _Request, db=Depends(get_db)):
+    from app.auth import get_user_by_token, SESSION_COOKIE
+    u = get_user_by_token(db, request.cookies.get(SESSION_COOKIE, ""))
+    if not u:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    body = await request.json()
+    if "email" in body:
+        u.email = (body["email"] or None)
+    if "notificar_email" in body:
+        u.notificar_email = bool(body["notificar_email"])
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/api/mis-datos/password")
+async def cambiar_mi_password(request: _Request, db=Depends(get_db)):
+    from app.auth import get_user_by_token, SESSION_COOKIE
+    from app.passwords import verify_password, hash_password
+    u = get_user_by_token(db, request.cookies.get(SESSION_COOKIE, ""))
+    if not u:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    body = await request.json()
+    if not verify_password(body.get("actual", ""), u.password_hash):
+        raise HTTPException(status_code=400, detail="La contrase\u00f1a actual no es correcta")
+    nueva = body.get("nueva", "") or ""
+    if len(nueva) < 8:
+        raise HTTPException(status_code=400, detail="La nueva contrase\u00f1a debe tener al menos 8 caracteres")
+    u.password_hash = hash_password(nueva)
+    db.commit()
+    return {"ok": True}
+
+
+@app.get("/api/mis-datos/historial")
+def mi_historial(request: _Request, db=Depends(get_db)):
+    from app.auth import get_user_by_token, SESSION_COOKIE
+    from app.models import DatasetLease, Resource as _R
+    u = get_user_by_token(db, request.cookies.get(SESSION_COOKIE, ""))
+    if not u:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    leases = (db.query(DatasetLease)
+              .filter(DatasetLease.titular_tipo == "usuario", DatasetLease.titular_id == u.id)
+              .order_by(DatasetLease.created_at.desc()).all())
+    out = []
+    for l in leases:
+        r = db.get(_R, l.resource_id)
+        out.append({"id": str(l.id), "recurso": r.name if r else None,
+                    "estado": l.estado, "permanente": bool(l.permanente),
+                    "solicitado": l.created_at.isoformat() if l.created_at else None,
+                    "concedido_hasta": l.concedido_hasta.isoformat() if l.concedido_hasta else None})
+    return {"solicitudes": out}
+
+
+@app.post("/api/mis-datos/historial/{lease_id}/liberar")
+def liberar_mi_lease(lease_id: str, request: _Request, db=Depends(get_db)):
+    from app.auth import get_user_by_token, SESSION_COOKIE
+    from app.models import DatasetLease
+    from app.services.leases import liberar_lease
+    u = get_user_by_token(db, request.cookies.get(SESSION_COOKIE, ""))
+    if not u:
+        raise HTTPException(status_code=401, detail="No autenticado")
+    l = db.query(DatasetLease).filter(DatasetLease.id == lease_id,
+                                      DatasetLease.titular_tipo == "usuario",
+                                      DatasetLease.titular_id == u.id).first()
+    if not l:
+        raise HTTPException(status_code=404, detail="Arrendamiento no encontrado")
+    liberar_lease(db, l)
+    db.commit()
+    return {"ok": True, "estado": l.estado}
+
+
 @app.get("/api/datasets/{dataset_id}/records")
 async def dataset_records(dataset_id: str, limit: int = 50, offset: int = 0):
     """Registros del dataset como JSON paginado (para el visor del Data Explorer).
@@ -403,6 +485,13 @@ async def dataset_records(dataset_id: str, limit: int = 50, offset: int = 0):
             raise HTTPException(status_code=404, detail="Dataset not found")
         if not os.path.exists(dataset.data_path):
             raise HTTPException(status_code=404, detail="Data file not found")
+        try:
+            from datetime import datetime as _dtacc
+            dataset.accesos = (dataset.accesos or 0) + 1
+            dataset.last_served_at = _dtacc.utcnow()
+            session.commit()
+        except Exception:
+            session.rollback()
         records, invalid = [], 0
         with open(dataset.data_path, "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
