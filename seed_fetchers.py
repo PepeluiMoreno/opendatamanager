@@ -509,6 +509,40 @@ def seed() -> None:
         finally:
             db.close()
 
+    # Poda segura: retira filas de fetcher MUERTAS (clase no importable) y sin
+    # recursos. Enacta "un fetcher solo existe por una tecnología real": lo que no
+    # tiene clase ni uso no es una tecnología, es ruido. Las tecnologías legítimas
+    # sin recursos NO se tocan (esperan un recurso que las valide).
+    import importlib
+    from app.database import SessionLocal
+    from app.models import Fetcher
+    db = SessionLocal()
+    try:
+        retirados = []
+        seeded = {sp["name"] for sp in FETCHERS}
+        for f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
+            if f.code in seeded:   # del catálogo de tecnologías → intocable
+                continue
+            if f.resources:  # tiene recursos → intocable
+                continue
+            cp = f.class_path
+            importable = False
+            if cp:
+                try:
+                    mod, cls = cp.rsplit(".", 1)
+                    importable = hasattr(importlib.import_module(mod), cls)
+                except Exception:
+                    importable = False
+            if not importable:
+                from datetime import datetime
+                f.deleted_at = datetime.utcnow()
+                retirados.append(f.code)
+        if retirados:
+            db.commit()
+            print(f"[seed_fetchers] retirados (muertos, sin clase ni recursos): {retirados}")
+    finally:
+        db.close()
+
     print(f"[seed_fetchers] catálogo sincronizado: {len(FETCHERS)} fetchers base")
 
 
