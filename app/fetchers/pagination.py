@@ -143,14 +143,16 @@ class PivotLoop(PaginationStrategy):
     def first(self):
         self._i = 0
         if not self.valores:
-            return {"url": self.url, "query": {}}
-        return {"url": self.url, "query": {self.pivot_param: self.valores[0]}}
+            return {"url": self.url, "query": {}, "pivot": None}
+        v = self.valores[0]
+        return {"url": self.url, "query": {self.pivot_param: v}, "pivot": v}
 
     def following(self, *, last_batch_size, meta=None):
         self._i += 1
         if self._i >= len(self.valores):
             return None
-        return {"url": self.url, "query": {self.pivot_param: self.valores[self._i]}}
+        v = self.valores[self._i]
+        return {"url": self.url, "query": {self.pivot_param: v}, "pivot": v}
 
 
 REGISTRO = {

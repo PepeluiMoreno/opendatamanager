@@ -154,3 +154,30 @@ cual). Con esto la especie REST cubre ya **paginación** y **extracción**, las 
 categorías que separaban a `API REST Paginada` y `JSON Time Series`. La extracción
 de ATOM (field_map sobre rutas de elementos XML) es el primo XML de `field_map`:
 mismo concepto, distinto resolvedor; se unificará al migrar ATOM a este registro.
+
+## Categoría CONSTRUCCIÓN DE LA PETICIÓN (implementada)
+
+`app/fetchers/request_building.py` — "qué se envía", como registro de estrategias:
+
+| Estrategia  | Método | Cuerpo |
+|-------------|--------|--------|
+| `query`     | GET (o el indicado) | sin cuerpo (comportamiento histórico) |
+| `json_body` | POST   | plantilla JSON con `{pivot}` — **absorbe REST Loop** |
+| `form`      | POST   | formulario con plantilla |
+| `graphql`   | POST   | `{query, variables}` |
+| `sparql`    | POST   | `query=…` + Accept sparql-results+json |
+
+El `RESTFetcher` la consume vía `request` (aditivo: `query` = como siempre). Con
+esto la especie REST cubre ya **las tres categorías** —petición, paginación,
+extracción— que separaban a sus variantes:
+
+| Variante histórica | = API REST + (request, pagination, extraction) |
+|--------------------|------------------------------------------------|
+| API REST           | (query, none, passthrough)                     |
+| API REST Paginada  | (query, query_offset/page_number, field_map)   |
+| REST Loop          | (json_body, pivot_loop, …)                      |
+| JSON Time Series   | (query, none, timeseries_long)                  |
+
+`pivot_loop` ya expone el valor iterado en el spec para que `json_body` lo
+plantille en el cuerpo. Falta solo migrar los recursos vivos a la especie REST y
+retirar las clases — paso verificado, recurso por recurso (toca producción).

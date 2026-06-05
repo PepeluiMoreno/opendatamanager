@@ -1,7 +1,9 @@
 import requests
 import json
+import time
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 from app.fetchers.pagination import build as build_pagination
+from app.fetchers.request_building import build_request
 
 
 def _dig(obj, path):
@@ -18,10 +20,6 @@ def _dig(obj, path):
 
 
 def _extract_list(data, content_field):
-    """Saca la lista de registros de una página JSON.
-    - content_field: ruta a la lista (p. ej. 'content' o 'data.items').
-    - sin content_field: si la página YA es una lista, se usa; si no, [].
-    """
     if content_field:
         val = _dig(data, content_field)
         return val if isinstance(val, list) else []
@@ -29,20 +27,20 @@ def _extract_list(data, content_field):
 
 
 class RESTFetcher(BaseFetcher):
-    """Fetcher genérico para APIs REST/JSON sobre HTTP.
+    """Fetcher genérico para APIs REST/JSON sobre HTTP — la ESPECIE REST.
 
-    Es la ESPECIE REST: el recorrido del conjunto se delega en la categoría
-    'paginación' (registro de estrategias). Sin `pagination` (o `none`) hace una
-    única petición y devuelve el JSON tal cual (comportamiento histórico). Con
-    una estrategia (`query_offset`, `page_number`, `rel_next`, `cursor`,
-    `pivot_loop`) recorre las páginas y acumula los registros de `content_field`.
+    Las peculiaridades se delegan en categorías de variación con registro propio:
+      - construcción de la petición (`request`): query | json_body | form | graphql | sparql
+      - paginación (`pagination`): none | query_offset | page_number | rel_next | cursor | pivot_loop
+      - extracción (`extraction`): passthrough | field_map | timeseries_long | bindings
+    Por defecto (request=query, pagination=none, extraction=passthrough) hace una
+    sola petición GET y devuelve el JSON tal cual: comportamiento histórico.
     """
 
     def fetch(self) -> RawData:
         url = self.params.get("url")
         if not url:
             raise ValueError("El parámetro 'url' es obligatorio para RESTFetcher")
-        method = self.params.get("method", "GET").upper()
         timeout = int(self.params.get("timeout", 30))
 
         headers = self.params.get("headers", {})
@@ -52,20 +50,31 @@ class RESTFetcher(BaseFetcher):
         if isinstance(query_params, str):
             query_params = json.loads(query_params) if query_params.strip() else {}
 
+        request_strategy = self.params.get("request", "query")
         pagination = (self.params.get("pagination") or "none").lower()
 
-        # Modo histórico: una sola petición, JSON sin tocar.
+        def _send(target_url, extra_query, pivot=None):
+            rq = build_request(request_strategy, self.params, pivot=pivot)
+            merged_headers = {**headers, **rq.get("headers", {})}
+            q = {**query_params, **(extra_query or {})}
+            kwargs = {"headers": merged_headers, "params": q, "timeout": timeout}
+            if rq.get("json") is not None:
+                kwargs["json"] = rq["json"]
+            if rq.get("data") is not None:
+                kwargs["data"] = rq["data"]
+            resp = self._request(None, rq["method"], target_url, **kwargs)
+            resp.raise_for_status()
+            return resp
+
+        # Modo histórico: una sola petición, cuerpo según la estrategia, JSON sin tocar.
         if pagination in ("", "none"):
-            response = self._request(None, method, url, headers=headers, params=query_params, timeout=timeout)
-            response.raise_for_status()
-            return response.text
+            return _send(url, {}).text
 
         # Modo paginado: recorre con la estrategia y acumula registros.
         content_field = self.params.get("content_field")
-        next_link_field = self.params.get("next_link_field")   # rel_next en JSON
-        cursor_field = self.params.get("cursor_field")          # cursor
+        next_link_field = self.params.get("next_link_field")
+        cursor_field = self.params.get("cursor_field")
         max_records = int(self.params.get("max_records", 0) or 0)
-        import time
         delay = float(self.params.get("delay", self.params.get("delay_between_pages", 0)) or 0)
         preview_limit = int(self.params.get("_preview_limit", 0) or 0)
 
@@ -73,9 +82,7 @@ class RESTFetcher(BaseFetcher):
         spec = strat.first()
         all_records = []
         while spec:
-            q = {**query_params, **(spec.get("query") or {})}
-            resp = self._request(None, method, spec["url"], headers=headers, params=q, timeout=timeout)
-            resp.raise_for_status()
+            resp = _send(spec["url"], spec.get("query"), pivot=spec.get("pivot"))
             data = json.loads(resp.text) if resp.text and resp.text.strip() else {}
             batch = _extract_list(data, content_field)
             all_records.extend(batch)
@@ -94,7 +101,6 @@ class RESTFetcher(BaseFetcher):
         return all_records[:preview_limit] if preview_limit else all_records
 
     def parse(self, raw: RawData) -> ParsedData:
-        # En modo paginado, fetch() ya devuelve la lista de registros.
         if isinstance(raw, (list, dict)):
             return raw
         if not raw or not raw.strip():
@@ -102,8 +108,6 @@ class RESTFetcher(BaseFetcher):
         return json.loads(raw)
 
     def normalize(self, parsed: ParsedData) -> DomainData:
-        # Categoría 'extracción': si se indica una estrategia, se aplica; si no,
-        # se devuelve el parseado tal cual (comportamiento histórico).
         extraction = self.params.get("extraction")
         if extraction:
             from app.fetchers.extraction import extract
@@ -111,5 +115,4 @@ class RESTFetcher(BaseFetcher):
         return parsed
 
 
-# Alias para compatibilidad con nombres en base de datos
 RestFetcher = RESTFetcher
