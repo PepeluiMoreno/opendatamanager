@@ -63,6 +63,16 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "PLACSP CODICE (ATOM)",
+        "class_path": "app.fetchers.atom.AtomFetcher",
+        "description": "VARIANTE de 'Feeds ATOM/RSS' para sindicaciones CODICE 2.07 (PLACSP, agregadas, menores, encargos, consultas, Comunidad de Madrid). Las peculiaridades CODICE (paginación rel_next, field_map, incremental) viven en preset_params; el recurso solo aporta la 'url'.",
+        "params": [
+            {"param_name": "url", "data_type": "string", "required": True, "group": "http",
+             "hint": "URL del índice ATOM de la sindicación CODICE."},
+        ],
+        "preset_params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "fecha": "updated", "url": "link@href"}},
+    },
+    {
         "name": "File Download",
         "class_path": "app.fetchers.file_download.FileDownloadFetcher",
         "description": "Downloads a static file and converts rows to records. Supports PDF, XLS, XLSX, CSV and TSV.",
@@ -482,6 +492,22 @@ def seed() -> None:
             payload = _param_payload(param_spec)
             payload["fetcherId"] = fetcher_id
             _execute(CREATE_PARAM_MUTATION, {"input": payload})
+
+    # Persistir los bloques preset_params (variantes) vía ORM directo.
+    presets = {sp["name"]: sp["preset_params"] for sp in FETCHERS if sp.get("preset_params")}
+    if presets:
+        from app.database import SessionLocal
+        from app.models import Fetcher
+        db = SessionLocal()
+        try:
+            for code, preset in presets.items():
+                f = db.query(Fetcher).filter(Fetcher.code == code).first()
+                if f:
+                    f.preset_params = preset
+            db.commit()
+            print(f"[seed_fetchers] preset_params aplicados a {len(presets)} variante(s)")
+        finally:
+            db.close()
 
     print(f"[seed_fetchers] catálogo sincronizado: {len(FETCHERS)} fetchers base")
 

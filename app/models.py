@@ -26,6 +26,10 @@ class Fetcher(Base):
     code = Column('name', String(50), unique=True, nullable=False)
     class_path = Column(String(255), nullable=True)
     description = Column(Text)
+    # Bloque de parámetros preestablecidos que convierte a este fetcher en una
+    # VARIANTE de su especie (class_path): aísla las peculiaridades de una familia
+    # de fuentes (p. ej. el field_map CODICE) para inyectarlas en el fetcher genérico.
+    preset_params = Column(JSONB, nullable=True)
     deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=True)
 

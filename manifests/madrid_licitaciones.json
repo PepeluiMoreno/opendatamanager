@@ -1,0 +1,30 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "CMADRID",
+    "nombre": "Comunidad de Madrid — Contratación Pública",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://contratos-publicos.comunidad.madrid"
+  },
+  "resources": [
+    {
+      "name": "Comunidad de Madrid - Licitaciones",
+      "fetcher": "PLACSP CODICE (ATOM)",
+      "schedule": "0 8 * * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://contratos-publicos.comunidad.madrid/feed/licitaciones2",
+          "is_external": false
+        },
+        {
+          "key": "max_pages",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

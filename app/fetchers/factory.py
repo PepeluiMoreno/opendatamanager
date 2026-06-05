@@ -43,8 +43,11 @@ class FetcherFactory:
                 f"No se pudo cargar el fetcher '{class_path}': {e}"
             )
 
-        # Resolution order: fetcher defaults → resource params → execution params
+        # Orden de resolución: defaults de la clase → preset de la VARIANTE
+        # (bloque de peculiaridades del fetcher) → params del recurso → de ejecución.
         params_dict = FetcherFactory._build_defaults_dict(resource.fetcher.params_def)
+        if resource.fetcher.preset_params:
+            params_dict.update(resource.fetcher.preset_params)
         params_dict.update(FetcherFactory._build_params_dict(resource.params))
         if execution_params:
             params_dict.update(execution_params)
