@@ -63,11 +63,25 @@ def _sparql(params, pivot):
             "headers": {"Accept": "application/sparql-results+json"}}
 
 
+def _form_submit(params, pivot):
+    """Envío de formulario HTML: cuerpo = hidden inputs descubiertos + campo de búsqueda
+    con el valor de pivote + extras. El descubrimiento de hidden inputs/action lo hace
+    el fetcher (es HTTP); aquí solo se ensambla el cuerpo."""
+    body = dict(_plantilla_a_dict(params.get("form_hidden") or {}, None))
+    field = params.get("search_field_name")
+    if field and pivot is not None:
+        body[field] = pivot
+    body.update(_plantilla_a_dict(params.get("form_extra") or {}, pivot))
+    return {"method": (params.get("method", "POST") or "POST").upper(),
+            "json": None, "data": body, "headers": {}}
+
+
 REGISTRO = {
     "query": _query,
     "none": _query,
     "json_body": _json_body,
     "form": _form,
+    "form_submit": _form_submit,
     "graphql": _graphql,
     "sparql": _sparql,
 }
