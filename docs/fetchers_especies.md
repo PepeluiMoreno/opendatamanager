@@ -188,3 +188,30 @@ Mapa aplicado: Paginada→(query, page_number start_page=0, passthrough);
 Loop→(json_body, pivot_loop, passthrough); Time Series→(query, none, timeseries_long).
 A verificar en el primer despliegue: que cada recurso migrado siga devolviendo los
 mismos registros (sobre todo REST Loop, cuya extracción de respuesta era a medida).
+
+## Familia HTML: análisis y primer ladrillo
+
+Cinco clases (HTML Forms, HTML Paginated, HTML SearchLoop, URL Loop HTML, Web Tree)
+comparten categorías con REST pero añaden complejidad real, así que NO se colapsan
+de golpe como REST; se formalizan sus categorías como registros primero.
+
+Categorías de variación HTML:
+- **Extracción** (sabor HTML): selectores CSS → registros. Dialecto común:
+  `field_selectors` (texto), `field_attr_selectors` (atributo, p. ej. href),
+  `field_all_selectors` (todos los matches unidos), `field_label_selectors` (valor
+  junto a una etiqueta), más extracción de tablas. **FORMALIZADA** en
+  `app/fetchers/html_extraction.py` (estrategias `fields` y `table`, puras y testeadas).
+- **Construcción de la petición / formulario**: GET con query, o envío de formulario
+  (descubrir hidden inputs + action). Extiende `request_building` con `form_submit`.
+- **Descubrimiento / navegación** (categoría NUEVA, la más compleja, sin equivalente
+  en REST): pivot sobre `<select>`/lista, `url_template` con `{value}`/`{page}`,
+  seguir links de paginación por selector CSS, y scraping recursivo por `levels`
+  (seguir `subpage_link_selector` a profundidad arbitraria con herencia de campos) /
+  árbol Web Tree. Pendiente de formalizar como registro.
+- **Paginación**: links next/prev por selector CSS, o `{page}` en plantilla. Es el
+  mismo concepto que `rel_next`/`page_number` pero la señal viene del HTML, no de JSON.
+
+Plan: (1) extracción HTML ✅ → (2) registro de navegación/descubrimiento →
+(3) `form_submit` en request_building → (4) especie genérica `HTMLFetcher` que
+consuma los registros → (5) colapsar las cinco clases en variantes (preset_params),
+verificando recurso por recurso (scraping recursivo es lo más delicado).
