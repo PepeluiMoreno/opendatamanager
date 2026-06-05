@@ -96,6 +96,12 @@ class Resource(Base):
     parent_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
     auto_generated = Column(Boolean, default=False, nullable=False)
 
+    # Versionado y procedencia de la definición (manifiesto canónico).
+    manifest_version = Column(Integer, default=1, nullable=False)
+    manifest_hash = Column(String(64), nullable=True)       # hash del manifiesto canónico actual
+    last_synced_hash = Column(String(64), nullable=True)    # base común para detección de conflictos
+    origin = Column(String(20), default="ui", nullable=False)  # ui | manifest | seed
+
     created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
@@ -420,3 +426,22 @@ class Sesion(Base):
     last_seen_at = Column(DateTime, nullable=True)
 
     usuario = relationship("Usuario")
+
+
+class ResourceManifestVersion(Base):
+    """Historial de versiones del manifiesto canónico de un recurso.
+
+    Cada cambio (por UI o por importación de manifiesto) escribe una fila, lo
+    que da auditoría, trazabilidad de origen y rollback.
+    """
+    __tablename__ = "resource_manifest_version"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
+    version = Column(Integer, nullable=False)
+    manifest_json = Column(JSONB, nullable=False)   # manifiesto canónico de ESE recurso
+    hash = Column(String(64), nullable=False)
+    origin = Column(String(20), nullable=False)     # ui | manifest | seed
+    author = Column(String(120), nullable=True)     # username, o 'manifest:<fichero>'
+    created_at = Column(DateTime, default=datetime.utcnow)

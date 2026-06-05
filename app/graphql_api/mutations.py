@@ -3,6 +3,16 @@ Mutations GraphQL para modificar datos.
 """
 import strawberry
 from app.rbac import requiere
+
+
+def _registrar_ui(db, resource, info):
+    """Versiona un recurso editado por la UI: bumpea versión, escribe historial
+    y marca origin='ui' con el autor de la sesión."""
+    from app.services.manifests import registrar_version
+    ctx = getattr(info, "context", None)
+    usuario = ctx.get("usuario") if isinstance(ctx, dict) else None
+    db.flush()
+    registrar_version(db, resource, origin="ui", author=getattr(usuario, "username", None))
 import threading
 import ctypes
 from typing import Optional, List, Dict
@@ -92,7 +102,7 @@ def get_db():
 @strawberry.type
 class Mutation:
     @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
-    def create_resource(self, input: CreateResourceInput) -> ResourceType:
+    def create_resource(self, input: CreateResourceInput, info: strawberry.types.Info) -> ResourceType:
         """Crea una nueva fuente de datos"""
         db = get_db()
         try:
@@ -129,6 +139,7 @@ class Mutation:
                 )
                 db.add(param)
 
+            _registrar_ui(db, resource, info)
             db.commit()
             db.refresh(resource)
             scheduler.sync_schedule(str(resource.id), resource.schedule)
@@ -155,7 +166,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
-    def update_resource(self, id: str, input: UpdateResourceInput) -> ResourceType:
+    def update_resource(self, id: str, input: UpdateResourceInput, info: strawberry.types.Info) -> ResourceType:
         """Actualiza una fuente de datos existente"""
         db = get_db()
         try:
@@ -203,6 +214,7 @@ class Mutation:
                     )
                     db.add(param)
 
+            _registrar_ui(db, resource, info)
             db.commit()
             db.refresh(resource)
             scheduler.sync_schedule(str(resource.id), resource.schedule)
@@ -214,7 +226,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
-    def clone_resource(self, id: str, name: Optional[str] = None) -> ResourceType:
+    def clone_resource(self, id: str, info: strawberry.types.Info, name: Optional[str] = None) -> ResourceType:
         """Clona un Resource existente copiando todos sus parámetros.
 
         El clon se crea inactivo y sin schedule para evitar ejecuciones no deseadas.
@@ -249,6 +261,7 @@ class Mutation:
                     is_external=p.is_external,
                 ))
 
+            _registrar_ui(db, clone, info)
             db.commit()
             db.refresh(clone)
             return map_resource(clone)

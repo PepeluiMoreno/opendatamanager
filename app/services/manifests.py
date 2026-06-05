@@ -13,6 +13,8 @@ Política de gobernanza (opcional, soft-dependency): si el paquete de gobernanza
 está disponible, se clasifica el origen y se exige que la clase esté admitida
 (`ODM_ALLOWED_SOURCE_CLASSES`). Si no, el import funciona igual (rama independiente).
 """
+import hashlib
+import json
 from typing import Any, Dict, List, Optional
 
 MANIFEST_VERSION = 1
@@ -123,7 +125,63 @@ def _policy_error(publisher_nivel: Optional[str], fetcher_code: Optional[str], c
     return None
 
 
-def import_manifest(session, manifest: Dict[str, Any]) -> Dict[str, Any]:
+
+def _canonical_params(params_iterables) -> List[Dict[str, Any]]:
+    out = []
+    for p in (params_iterables or []):
+        if isinstance(p, dict):
+            out.append({"key": p["key"], "value": p["value"], "is_external": bool(p.get("is_external", False))})
+        else:
+            out.append({"key": p.key, "value": p.value, "is_external": bool(p.is_external)})
+    return sorted(out, key=lambda d: d["key"])
+
+
+def canonical_resource(name, fetcher_code, schedule, active, params) -> Dict[str, Any]:
+    """Forma canónica determinista de UN recurso (base del hash/versionado)."""
+    return {
+        "name": name,
+        "fetcher": fetcher_code,
+        "schedule": schedule,
+        "active": bool(active),
+        "params": _canonical_params(params),
+    }
+
+
+def manifest_hash(canonical: Dict[str, Any]) -> str:
+    return hashlib.sha256(
+        json.dumps(canonical, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+
+
+def _canonical_from_db(session, resource) -> Dict[str, Any]:
+    from app.models import Fetcher, ResourceParam
+    fetcher = session.get(Fetcher, resource.fetcher_id) if resource.fetcher_id else None
+    params = session.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).all()
+    return canonical_resource(resource.name, fetcher.code if fetcher else None,
+                              resource.schedule, resource.active, params)
+
+
+def registrar_version(session, resource, origin: str, author: Optional[str] = None) -> Optional[str]:
+    """Recalcula el canónico del recurso; si cambió, bumpea versión, escribe
+    historial y actualiza hashes (la BD pasa a ser la nueva base de sync).
+    Devuelve el hash nuevo, o None si no hubo cambios reales."""
+    from app.models import ResourceManifestVersion
+    canon = _canonical_from_db(session, resource)
+    h = manifest_hash(canon)
+    if resource.manifest_hash == h:
+        return None
+    resource.manifest_version = (resource.manifest_version or 0) + 1
+    resource.manifest_hash = h
+    resource.last_synced_hash = h
+    resource.origin = origin
+    session.add(ResourceManifestVersion(
+        resource_id=resource.id, version=resource.manifest_version,
+        manifest_json=canon, hash=h, origin=origin, author=author,
+    ))
+    return h
+
+
+def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifest") -> Dict[str, Any]:
     """Importa un manifiesto (upsert idempotente). Devuelve un resumen.
 
     - Publisher: upsert por `acronimo`.
@@ -157,6 +215,18 @@ def import_manifest(session, manifest: Dict[str, Any]) -> Dict[str, Any]:
 
     created = updated = 0
     skipped: List[str] = []
+    conflicts: List[str] = []
+    db_ahead: List[str] = []
+    autor = f"manifest:{source}"
+
+    def _aplicar_params(resource, r):
+        session.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).delete()
+        for p in (r.get("params") or []):
+            session.add(ResourceParam(
+                id=uuid4(), resource_id=resource.id,
+                key=p["key"], value=p["value"], is_external=bool(p.get("is_external", False)),
+            ))
+
     for r in manifest["resources"]:
         fetcher = session.query(Fetcher).filter(Fetcher.code == r["fetcher"]).first()
         if fetcher is None:
@@ -168,40 +238,68 @@ def import_manifest(session, manifest: Dict[str, Any]) -> Dict[str, Any]:
             skipped.append(f"{r.get('name')}: {perr}")
             continue
 
+        file_canon = canonical_resource(
+            r["name"], fetcher.code, r.get("schedule"), r.get("active", True), r.get("params"),
+        )
+        file_hash = manifest_hash(file_canon)
+
         resource = (
             session.query(Resource)
             .filter(Resource.publisher_id == publisher.id, Resource.name == r["name"])
             .first()
         )
+
+        # Alta: el recurso nace del manifiesto.
         if resource is None:
             resource = Resource(
-                id=uuid4(),
-                name=r["name"],
-                publisher=publisher.nombre,
-                publisher_id=publisher.id,
-                fetcher_id=fetcher.id,
-                active=bool(r.get("active", True)),
-                schedule=r.get("schedule"),
+                id=uuid4(), name=r["name"], publisher=publisher.nombre,
+                publisher_id=publisher.id, fetcher_id=fetcher.id,
+                active=bool(r.get("active", True)), schedule=r.get("schedule"),
+                auto_generated=True, origin="manifest",
             )
             session.add(resource)
             session.flush()
+            _aplicar_params(resource, r)
+            session.flush()
+            registrar_version(session, resource, origin="manifest", author=autor)
             created += 1
-        else:
+            continue
+
+        # Detección a tres bandas: base (last_synced) vs fichero vs BD.
+        db_hash = manifest_hash(_canonical_from_db(session, resource))
+        base = resource.last_synced_hash
+
+        if file_hash == db_hash:
+            if base != file_hash:                      # alinear base sin tocar nada
+                resource.last_synced_hash = file_hash
+            continue                                    # ya en sync
+
+        if base is None:
+            # Recurso heredado sin base común: no pisar; requiere revisión.
+            conflicts.append(f"{r['name']}: sin base de sync (recurso preexistente); revisar")
+            continue
+
+        file_cambiado = file_hash != base
+        db_cambiado = db_hash != base
+
+        if file_cambiado and not db_cambiado:
+            # Solo cambió el fichero → aplicar.
             resource.fetcher_id = fetcher.id
             resource.active = bool(r.get("active", resource.active))
             resource.schedule = r.get("schedule", resource.schedule)
-            # Reemplazar params existentes
-            session.query(ResourceParam).filter(ResourceParam.resource_id == resource.id).delete()
+            _aplicar_params(resource, r)
+            session.flush()
+            registrar_version(session, resource, origin="manifest", author=autor)
             updated += 1
-
-        for p in (r.get("params") or []):
-            session.add(ResourceParam(
-                id=uuid4(),
-                resource_id=resource.id,
-                key=p["key"],
-                value=p["value"],
-                is_external=bool(p.get("is_external", False)),
-            ))
+        elif db_cambiado and not file_cambiado:
+            # Solo cambió la BD → el fichero está obsoleto; no tocar.
+            db_ahead.append(r["name"])
+        else:
+            # Ambos divergen → conflicto: no se pisa nada.
+            conflicts.append(r["name"])
 
     session.commit()
-    return {"ok": True, "created": created, "updated": updated, "skipped": skipped, "errors": []}
+    return {
+        "ok": True, "created": created, "updated": updated,
+        "skipped": skipped, "db_ahead": db_ahead, "conflicts": conflicts, "errors": [],
+    }
