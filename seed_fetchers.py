@@ -407,47 +407,6 @@ FETCHERS: List[Dict[str, Any]] = [
              "description": "URL raíz del portal a crawlear. Único parámetro visible — todo lo demás (max_depth, allowed_extensions, timeouts, selectores) son defaults internos del fetcher."},
         ],
     },
-    {
-        "name": "Cruce de datasets",
-        "class_path": "app.fetchers.cross_dataset.CrossDatasetFetcher",
-        "description": "Especie interna: cruza dos datasets ya cosechados en ODM (vía la API de datos) y produce un dataset derivado. Declarativo: queries izquierda/derecha, claves, tipo de cruce (enriquecer / solo emparejados) y campos a volcar. Al ser un recurso normal hereda schedule, ejecuciones, salud, versionado y linaje. Caso típico: órganos BDNS × puente DIR3 → órganos con su código DIR3.",
-        "params": [
-            {"param_name": "left_resource", "data_type": "json", "required": False, "group": "cruce",
-             "hint": "Recurso(s) fuente del lado izquierdo, por nombre (string o lista; con varios se concatena la unión). Preferido: la query se deriva sola y la dependencia queda como linaje."},
-            {"param_name": "left_query", "data_type": "string", "required": False, "group": "cruce",
-             "hint": "Alternativa avanzada: query de datos directa del lado izquierdo (sin linaje)."},
-            {"param_name": "left_fields", "data_type": "json", "required": True, "group": "cruce",
-             "hint": "Campos a leer del lado izquierdo (JSON array)."},
-            {"param_name": "left_key", "data_type": "string", "required": True, "group": "cruce",
-             "hint": "Clave de cruce en el lado izquierdo."},
-            {"param_name": "right_resource", "data_type": "json", "required": False, "group": "cruce",
-             "hint": "Recurso(s) fuente del lado derecho, por nombre (string o lista). Preferido."},
-            {"param_name": "right_query", "data_type": "string", "required": False, "group": "cruce",
-             "hint": "Alternativa avanzada: query de datos directa del lado derecho (sin linaje)."},
-            {"param_name": "right_fields", "data_type": "json", "required": True, "group": "cruce",
-             "hint": "Campos a leer del lado derecho (JSON array)."},
-            {"param_name": "right_key", "data_type": "string", "required": True, "group": "cruce",
-             "hint": "Clave de cruce en el lado derecho."},
-            {"param_name": "match", "data_type": "enum", "required": False, "default_value": "eq", "group": "cruce",
-             "hint": "Cómo casan las claves.",
-             "enum_values": [
-                 {"value": "eq", "label": "Igualdad", "help": "left_key == right_key."},
-                 {"value": "in_array", "label": "Contenido en lista", "help": "La clave derecha es una lista que contiene a la izquierda (p. ej. ids del puente DIR3)."},
-             ]},
-            {"param_name": "join", "data_type": "enum", "required": False, "default_value": "enrich", "group": "cruce",
-             "hint": "Qué pasa con las filas izquierdas sin pareja.",
-             "enum_values": [
-                 {"value": "enrich", "label": "Enriquecer", "help": "Todas las filas izquierdas; las emparejadas suman los campos del derecho."},
-                 {"value": "inner", "label": "Solo emparejadas", "help": "Se descartan las filas izquierdas sin pareja."},
-             ]},
-            {"param_name": "select", "data_type": "json", "required": False, "group": "cruce",
-             "hint": "Mapa {campo_salida: campo_del_derecho}; vacío = todos los right_fields menos la clave."},
-            {"param_name": "normalize_keys", "data_type": "boolean", "required": False, "default_value": "false", "group": "cruce",
-             "hint": "Cruce por denominación: las claves textuales casan sin distinguir mayúsculas, acentos ni espaciado."},
-            {"param_name": "odmgr_data_url", "data_type": "string", "required": False, "group": "cruce",
-             "hint": "Endpoint de la API de datos; vacío = ODMGR_DATA_URL del entorno."},
-        ],
-    },
 ]
 
 # ── Catálogo de tecnologías de entrega (especies). Descripción larga con
@@ -989,6 +948,31 @@ def seed() -> None:
         if retirados:
             db.commit()
             print(f"[seed_fetchers] retirados (muertos, sin clase ni recursos): {retirados}")
+    finally:
+        db.close()
+
+    # Decisión de diseño 2026-06-06 (docs/PENDIENTE_recursos_derivados.md): los
+    # joins no viven en la plataforma. Retirada idempotente del recurso derivado
+    # 'Órganos Convocantes con DIR3' (su cruce pasa al consumidor) y, al quedar
+    # sin recursos, la especie 'Cruce de datasets' cae en la poda anterior en la
+    # siguiente pasada — la adelantamos aquí para que un solo arranque baste.
+    db = SessionLocal()
+    try:
+        from datetime import datetime as _dt
+        derivado = (db.query(Resource)
+                      .filter(Resource.name == "BDNS - Órganos Convocantes con DIR3 (derivado)",
+                              Resource.deleted_at.is_(None)).first())
+        if derivado is not None:
+            derivado.active = False
+            derivado.deleted_at = _dt.utcnow()
+            db.commit()
+            print("[seed_fetchers] retirado el recurso derivado 'Órganos con DIR3' (joins → consumidor)")
+        especie = db.query(Fetcher).filter(Fetcher.code == "Cruce de datasets",
+                                           Fetcher.deleted_at.is_(None)).first()
+        if especie is not None and not [r for r in especie.resources if r.deleted_at is None]:
+            especie.deleted_at = _dt.utcnow()
+            db.commit()
+            print("[seed_fetchers] retirada la especie 'Cruce de datasets'")
     finally:
         db.close()
 

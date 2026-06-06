@@ -11,9 +11,9 @@
     {
       "name": "BDNS - Puente DIR3 ↔ Órganos",
       "fetcher": "API REST",
-      "schedule": "0 5 2 * *",
+      "schedule": "0 5 2 1 *",
       "active": false,
-      "_doc": "DESACTIVADO por defecto: fuerza bruta código-a-código (decenas de miles de peticiones a BDNS). La vía preferida es el cruce por denominación normalizada (recurso 'BDNS - Órganos Convocantes con DIR3 (derivado)'), a coste cero de peticiones externas. Este puente queda para resolver el remanente sin pareja por nombre, si hiciera falta. Resuelve cada código DIR3 contra /organos/codigo y produce {dir3, tipoAdmon, ids}. Fuente de pivotes direccionada por NOMBRE de recurso (la query se deriva en runtime). VERIFICAR en prod que pivot_source_field coincide con la cabecera real del dataset DIR3 cosechado (oficial: C_ID_UD_ORGANICA). Los DIR3 sin presencia en BDNS responden 204 y se omiten. El preview capa las iteraciones del pivote al límite del preview.",
+      "_doc": "DATO DE REFERENCIA (pieza-conector): mapa dir3 → {tipoAdmon, ids BDNS}, producido como batch ANUAL resolviendo cada código DIR3 contra /organos/codigo (los 204 se omiten; el preview capa las iteraciones). Filosofía: ODM publica las piezas, incluidos los puentes de identidad; el ensamblaje (joins analíticos) es de las aplicaciones consumidoras. Desactivado hasta reparar las fuentes DIR3 y verificar pivot_source_field contra la cabecera real del dataset.",
       "params": [
         {
           "key": "url",

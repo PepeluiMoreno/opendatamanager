@@ -21,9 +21,7 @@ API_ABIERTA = "api_abierta"               # API abierta y documentada (REST/SOAP
 PUBLICACION_ABIERTA = "publicacion_abierta"  # ficheros/feeds publicados (descargas, ATOM, OSM dumps)
 SCRAPING_PUBLICO = "scraping_publico"     # scraping de fuente pública sin API
 SCRAPING_PRIVADO = "scraping_privado"     # scraping/explotación de fuente privada o de pago
-DERIVADO_INTERNO = "derivado_interno"     # sin origen externo: cruza/deriva datasets YA admitidos
-
-ABIERTAS = frozenset({API_ABIERTA, PUBLICACION_ABIERTA, DERIVADO_INTERNO})
+ABIERTAS = frozenset({API_ABIERTA, PUBLICACION_ABIERTA})
 SCRAPING = frozenset({SCRAPING_PUBLICO, SCRAPING_PRIVADO})
 
 # Fetchers cuyo transporte es scraping de páginas (no API/feed/fichero).
@@ -40,10 +38,6 @@ _FETCHERS_API = frozenset({
     "API REST", "API REST Paginada", "REST Loop", "SOAP", "WFS", "WMS",
     "JSON Time Series",
 })
-# Especies internas: su "transporte" es el propio almacén de ODM. No tocan
-# origen externo alguno (las fuentes ya pasaron su propia admisión), así que
-# su clase está siempre admitida.
-_FETCHERS_INTERNOS = frozenset({"Cruce de datasets"})
 
 
 def es_abierto(clase: Optional[str]) -> bool:
@@ -58,8 +52,6 @@ def clasificar(publisher_nivel: Optional[str], fetcher_code: Optional[str]) -> O
     """
     if (publisher_nivel or "").upper() == "PRIVADO":
         return SCRAPING_PRIVADO
-    if fetcher_code in _FETCHERS_INTERNOS:
-        return DERIVADO_INTERNO
     if fetcher_code in _FETCHERS_SCRAPING:
         return SCRAPING_PUBLICO
     if fetcher_code in _FETCHERS_PUBLICACION:

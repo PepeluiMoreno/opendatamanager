@@ -1,5 +1,33 @@
 # PENDIENTE: recursos derivados (cruce de datasets)
 
+## DECISIÓN DE DISEÑO (2026-06-06) — cierre del tema
+
+**Los joins NO viven en la plataforma.** Línea acordada: *ODM produce piezas,
+incluidas las piezas-conector; el ensamblaje es del consumidor.*
+
+- Los **puentes de identidad** (dir3↔BDNS y futuros) son DATOS DE REFERENCIA
+  que ODM publica como recursos ordinarios: el puente código-a-código queda
+  como batch anual (manifests/bdns_puente_dir3.json), y la resolución por
+  denominación es una herramienta de CURACIÓN offline con ambigüedades
+  marcadas para revisión humana (scripts/cruce_curacion.py).
+- Los **cruces analíticos** (subvención×órgano×licitación, enriquecimientos)
+  son del ámbito de las aplicaciones consumidoras: con las piezas y el puente
+  servidos por la API de datos, son joins exactos triviales.
+- La especie `CruceDatasets` se retira del catálogo (forzaba la filosofía del
+  fetcher: origen interno, publisher ficticio, gobernanza especial,
+  auto-llamada HTTP). El núcleo `cruzar` sobrevive en la herramienta de
+  curación. La tabla `resource_dependency` se conserva: el linaje sigue
+  siendo útil para la frescura del puente.
+- **Multi-fetcher descartado**, con su única justificación futura legítima
+  apuntada: cuando una MISMA fuente exija dos llamadas para componer UN
+  registro coherente (composición de transporte). Nunca para analítica
+  entre datasets.
+
+Lo que sigue debajo es el histórico del diseño anterior, conservado como
+contexto de por qué se llegó aquí.
+
+---
+
 Aparcado el 2026-06-05 por decisión de producto: de momento se cosechan las piezas
 crudas y el cruce se hace fuera de ODM. Este documento conserva el diseño y los
 hechos verificados para retomarlo.

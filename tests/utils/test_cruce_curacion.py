@@ -1,5 +1,5 @@
-"""Tests del núcleo puro de CruceDatasets (app.fetchers.cross_dataset.cruzar)."""
-from app.fetchers.cross_dataset import cruzar
+"""Tests del núcleo puro de cruce (scripts.cruce_curacion.cruzar) — herramienta de curación."""
+from scripts.cruce_curacion import cruzar
 
 ORGANOS = [
     {"id": 2993, "descripcion": "AYUNTAMIENTO DE MADRID"},
@@ -44,25 +44,7 @@ def test_match_eq():
     assert "extra" not in filas[1]
 
 
-def test_names_admite_string_lista_y_json():
-    from app.fetchers.cross_dataset import _names
-    assert _names("Recurso A") == ["Recurso A"]
-    assert _names('["A", "B"]') == ["A", "B"]
-    assert _names(["A", "B"]) == ["A", "B"]
-    assert _names("") == [] and _names(None) == []
 
-
-def test_resolve_side_fallback_a_query_directa():
-    from app.fetchers.cross_dataset import resolve_side
-    queries, ids = resolve_side("left", {"left_query": "miQuery"})
-    assert queries == ["miQuery"] and ids == []
-
-
-def test_resolve_side_error_claro_sin_nada():
-    import pytest
-    from app.fetchers.cross_dataset import resolve_side
-    with pytest.raises(ValueError, match="left_resource"):
-        resolve_side("left", {})
 
 
 def test_normalize_keys_cruce_por_denominacion():

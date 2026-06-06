@@ -129,67 +129,50 @@ sigue siendo quedarse con la `fecha` mayor.
 
 ## 6. Recursos que usan otros recursos
 
-Cuatro mecanismos, de menos a más acoplado:
+Tres mecanismos vivos, todos de transporte:
 
-1. **`pivot_source_odmgr_query`** — un recurso itera los valores de un campo de
+1. **`pivot_source_resource`** — un recurso itera los valores de un campo de
    un dataset de otro (§3). Ej.: el puente DIR3 itera los códigos del catálogo
    DIR3 contra `/organos/codigo` de BDNS.
 2. **`DerivedDatasetConfig`** — catálogos como subproducto de la ejecución de
    un recurso (upsert por clave natural; p. ej. beneficiarios desde
    concesiones).
-3. **`parent_resource_id`** — recursos hijos promovidos por el crawler Web Tree
-   (modo discover → promover → hijo en modo stream).
-4. **Especie `CruceDatasets`** (`CrossDatasetFetcher`) — el cruce declarativo
-   de dos datasets, formalizado en §7.
+3. **`parent_resource_id`** — recursos hijos promovidos por el crawler Web Tree.
 
-## 7. Recursos derivados: la especie CruceDatasets
+## 7. Dónde viven los joins: en el consumidor
 
-Un recurso cuyo "transporte" es el propio almacén de ODM. Declarativo y, por
-ser un recurso normal, hereda gratis schedule, ejecuciones, salud, versionado
-y linaje. Diseño original y estado en `docs/PENDIENTE_recursos_derivados.md`.
+Decisión de diseño (2026-06-06): **los joins no viven en la plataforma**. Un
+cruce es una opinión sobre el uso (claves, normalización, huérfanos) y cada
+consumidor puede necesitar una distinta; incrustarlo en ODM forzaba la
+filosofía del fetcher (la especie `CruceDatasets`, retirada: origen interno,
+publisher ficticio, gobernanza especial, auto-llamada HTTP).
 
-**Direccionamiento por recurso, no por query.** Las fuentes se referencian por
-**nombre de recurso** (`left_resource`/`right_resource`; string o lista — con
-varios se concatena la unión de sus datasets). El nombre de query se deriva en
-runtime con `dataset_query_name`, así que sobrevive a regeneraciones del
-dataset. `left_query`/`right_query` existen como vía avanzada, explícitamente
-sin linaje.
+La línea: *ODM produce piezas, incluidas las piezas-conector; el ensamblaje es
+del consumidor.*
 
-**Semántica del cruce** (núcleo puro `cruzar`, testeable):
-`left_key`/`right_key`; `match` = `eq` | `in_array` (la clave derecha es una
-lista que contiene a la izquierda); `join` = `enrich` (todas las filas
-izquierdas, las emparejadas suman campos del derecho) | `inner` (solo
-emparejadas); `select` = mapa `{salida: campo_del_derecho}` (vacío: todos los
-`right_fields` menos la clave). A igualdad de clave gana la última fila del
-derecho — los datasets llegan ya deduplicados (§5).
-
-**Linaje a máquina.** Tabla `opendata.resource_dependency`
-(derivado → fuente, rol `left`/`right`, FK CASCADE). El fetcher resuelve los
-ids de los recursos fuente y el manager sincroniza la tabla en cada ejecución
-del derivado (idempotente: refleja las dependencias reales de la última
-ejecución). Es la base de la señal pendiente "fuente más nueva que derivado",
-que con esta tabla es una comparación trivial de fechas de último dataset.
-
-**Frescura v1 por cron**: el derivado se programa después de sus fuentes.
+- **Puentes de identidad** = datos de referencia que ODM publica como recursos
+  ordinarios. El que requiere resolución por denominación se produce con la
+  herramienta de curación offline (`scripts/cruce_curacion.py`), que marca las
+  ambigüedades para revisión humana — la resolución de identidad merece ojos.
+- **Cruces analíticos** = aplicaciones consumidoras, con joins exactos sobre
+  las piezas servidas por la API de datos.
+- Frontera del multi-fetcher (descartado): solo se reabriría si una MISMA
+  fuente exigiera dos llamadas para componer UN registro (composición de
+  transporte, nunca analítica entre datasets).
 
 ## 8. El caso completo: subvenciones ↔ DIR3 ↔ licitaciones
 
-DIR3 es la espina dorsal del cruce entre contratación y subvenciones:
+DIR3 es la espina dorsal del cruce, que se materializa EN EL CONSUMIDOR:
 
-| Pieza | Clave | Estado |
+| Pieza (servida por ODM) | Clave | Estado |
 |---|---|---|
-| Catálogo DIR3 | código DIR3 | cosechado (FileDownload) |
+| Catálogo DIR3 | código DIR3 | fuentes 404 — pendiente reparar |
 | PLACSP licitaciones | DIR3 nativo en el CODICE | en el field_map del perfil |
-| BDNS órganos | id interno + jerarquía (`tree_flatten`) | cosechado |
-| **Puente DIR3↔BDNS** | `pivot_loop` del catálogo DIR3 contra `/organos/codigo` → `{dir3, tipoAdmon, ids}` | `manifests/bdns_puente_dir3.json` |
-| **Órganos con DIR3** | CruceDatasets: órganos (4 ámbitos, unión) × puente, `match=in_array`, `join=enrich` | `manifests/bdns_organos.json` (derivado) |
+| BDNS órganos (jerarquía) | id interno | cosechado (`tree_flatten`) |
+| **Puente DIR3↔BDNS** | batch anual contra `/organos/codigo` → `{dir3, tipoAdmon, ids}` | manifiesto listo, desactivado hasta reparar DIR3 |
 
-BDNS no expone el DIR3 en sentido directo (ni en `/organos` ni en el detalle
-de convocatorias — verificado); `/organos/codigo?codigo=<DIR3>` resuelve el
-sentido inverso, y con el catálogo DIR3 como fuente de pivotes el puente sale
-como un recurso más. El último eslabón (convocatorias por órgano ×
-licitaciones por DIR3) queda declarable con la misma especie cuando se
-cosechen convocatorias por órgano.
+Con esas piezas, `licitación.dir3 = puente.dir3` y `puente.ids ∋ órgano.id`
+son joins exactos en la aplicación consumidora.
 
 ## 9. Referencias
 
