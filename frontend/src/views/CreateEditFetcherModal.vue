@@ -1,13 +1,15 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+  <div class="w-full">
+      <div class="bg-gray-800 rounded-lg p-6 w-full">
       <div class="flex items-start justify-between mb-6">
-        <h2 class="text-2xl font-bold">
-          {{ Fetcher ? 'Edit Fetcher' : 'New Fetcher' }}
-        </h2>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-white text-2xl">
-          ×
-        </button>
+        <div class="flex items-center gap-3">
+          <button @click="$emit('close')" class="btn btn-secondary text-sm py-1 px-3" title="Volver al listado">← Fetchers</button>
+          <h2 class="text-2xl font-bold">
+            {{ Fetcher ? 'Edit Fetcher' : 'New Fetcher' }}
+            <span v-if="Fetcher" class="text-purple-300 font-mono text-lg ml-1">{{ Fetcher.name || Fetcher.code }}</span>
+          </h2>
+        </div>
+        <button @click="$emit('close')" class="text-gray-400 hover:text-white text-2xl">×</button>
       </div>
 
       <form @submit.prevent="submitForm" class="space-y-6">
@@ -29,8 +31,9 @@
             <label class="block text-sm font-medium mb-2">Description</label>
             <textarea
               v-model="formData.description"
-              rows="3"
-              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+              v-autogrow
+              rows="2"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 resize-none"
               placeholder="Describe what this Fetcher does..."
             ></textarea>
           </div>
@@ -62,8 +65,13 @@
         <!-- Parameters List with Tabs -->
         <div class="border-t border-gray-600 pt-6">
             <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-semibold">Basic Parameters Definition</h3>
-              <div class="flex gap-2">
+              <h3 class="text-xl font-semibold cursor-pointer select-none flex items-center gap-2"
+                  @click="seccionBasicaAbierta = !seccionBasicaAbierta">
+                <span class="text-gray-500 text-base">{{ seccionBasicaAbierta ? '▾' : '▸' }}</span>
+                Basic Parameters Definition
+                <span v-if="!seccionBasicaAbierta" class="text-xs text-gray-500 font-normal">({{ parameters.length }} parámetros)</span>
+              </h3>
+              <div class="flex gap-2" v-show="seccionBasicaAbierta">
                 <button
                   type="button"
                   @click="addParameter"
@@ -74,6 +82,7 @@
               </div>
             </div>
               
+          <div v-show="seccionBasicaAbierta">
           <div v-if="parameters.length === 0" class="text-center py-8 text-gray-400">
             No parameters configured yet. Add at least one parameter for this Fetcher.
           </div>
@@ -270,6 +279,7 @@
               </template>
             </div>
           </div>
+          </div>
         </div>
 
         <!-- Profile Parameters Definition: misma gramática visual que el bloque básico -->
@@ -280,6 +290,11 @@
               <span class="text-purple-300 font-mono text-base">«{{ varianteActiva.code || 'nueva variante' }}»</span>
             </h3>
             <div class="flex gap-2">
+              <button type="button" @click="cerrarVariante(varianteActiva)"
+                      class="btn btn-secondary text-sm py-1 px-2"
+                      title="Cerrar sin guardar: descarta los cambios no guardados">
+                Cerrar
+              </button>
               <button type="button" v-if="varianteActiva.id" @click="retirarVariante(varianteActiva)"
                       class="btn btn-secondary text-sm py-1 px-2 text-red-400 border-red-800">
                 Retirar variante
@@ -299,7 +314,8 @@
             </div>
             <div>
               <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
-              <input v-model="varianteActiva.description" class="input w-full text-sm" />
+              <textarea v-model="varianteActiva.description" v-autogrow rows="1"
+                        class="input w-full text-sm resize-none"></textarea>
             </div>
           </div>
 
@@ -672,6 +688,18 @@ function updateEnumValuesString(param, value) {
 
 
 // ── Variants (perfiles): implementaciones concretas de la tecnología ─────────
+// Panel básico colapsable: abierto al crear (hay que definir params), plegado al editar
+const seccionBasicaAbierta = ref(!props.Fetcher)
+// Textareas que crecen con el contenido (sin scroll interno)
+const vAutogrow = {
+  mounted(el) {
+    el.style.overflowY = 'hidden'
+    const ajustar = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
+    el.addEventListener('input', ajustar)
+    requestAnimationFrame(ajustar)
+  },
+  updated(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' },
+}
 const variantes = ref([])
 const varianteActiva = ref(null)
 const paramAAnadir = ref('')
@@ -728,10 +756,14 @@ function nuevaVariante() {
   varianteActiva.value = v
 }
 watch(() => props.Fetcher, (f) => {
-  variantes.value = (f?.presets || []).map(p => ({
-    id: p.id, code: p.code, description: p.description || '',
-    entries: _aEntries(p.params), _error: null, _saving: false,
-  }))
+  variantes.value = (f?.presets || []).map(p => {
+    const entries = _aEntries(p.params)
+    return {
+      id: p.id, code: p.code, description: p.description || '',
+      entries, _error: null, _saving: false,
+      _orig: { code: p.code, description: p.description || '', entries: JSON.parse(JSON.stringify(entries)) },
+    }
+  })
   varianteActiva.value = null
 }, { immediate: true })
 
@@ -748,12 +780,26 @@ async function guardarVariante(v) {
       const res = await createFetcherPreset(props.Fetcher.id, v.code, v.description, params)
       v.id = res.createFetcherPreset.id
     }
+    v._orig = { code: v.code, description: v.description, entries: JSON.parse(JSON.stringify(v.entries)) }
     emit('saved', `Variante "${v.code}" guardada`)
   } catch (e) {
     v._error = e?.message || String(e)
   } finally {
     v._saving = false
   }
+}
+function cerrarVariante(v) {
+  // Cerrar sin guardar: las variantes guardadas vuelven a su último estado
+  // persistido; una variante nueva sin guardar se descarta del listado.
+  if (v.id && v._orig) {
+    v.code = v._orig.code
+    v.description = v._orig.description
+    v.entries = JSON.parse(JSON.stringify(v._orig.entries))
+    v._error = null
+  } else if (!v.id) {
+    variantes.value = variantes.value.filter(x => x !== v)
+  }
+  varianteActiva.value = null
 }
 async function retirarVariante(v) {
   if (!confirm(`¿Retirar la variante "${v.code}"? Se bloqueará si algún recurso la usa.`)) return

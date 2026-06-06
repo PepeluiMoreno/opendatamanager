@@ -1,5 +1,6 @@
 <template>
   <div class="p-6 flex flex-col h-full" ref="viewEl">
+    <template v-if="!(showCreateModal || showEditModal)">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Resources</h1>
       <div class="flex gap-2">
@@ -231,16 +232,21 @@
       </div>
     </div>
 
-    <!-- Create/Edit Modal -->
+    </template>
+
+    <!-- Create/Edit: vista plena que sustituye al listado -->
     <div
       v-if="showCreateModal || showEditModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      @click.self="closeModals"
+      class="w-full"
     >
-      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-        <h2 class="text-xl font-bold mb-4">
-          {{ showCreateModal ? 'Create Resource' : 'Edit Resource' }}
-        </h2>
+      <div class="bg-gray-800 rounded-lg p-6 w-full">
+        <div class="flex items-center gap-3 mb-4">
+          <button @click="closeModals" class="btn btn-secondary text-sm py-1 px-3" title="Volver al listado">← Resources</button>
+          <h2 class="text-xl font-bold">
+            {{ showCreateModal ? 'Create Resource' : 'Edit Resource' }}
+            <span v-if="editingResource" class="text-blue-300 text-base ml-1">{{ editingResource.name }}</span>
+          </h2>
+        </div>
 
         <form @submit.prevent="submitForm" class="space-y-3 text-sm">
           <div class="grid grid-cols-2 gap-4">
@@ -270,8 +276,9 @@
             <label class="block text-xs font-medium mb-1">Description</label>
             <textarea
               v-model="form.description"
-              class="input w-full text-sm"
-              rows="2"
+              v-autogrow
+              class="input w-full text-sm resize-none"
+              rows="1"
               placeholder="Optional description of this resource..."
             ></textarea>
           </div>
@@ -349,7 +356,7 @@
             </div>
 
             <!-- Tab Content: Parameters -->
-            <div v-if="activeParamTab === 'parameters'" class="h-[400px] overflow-y-auto pr-2">
+            <div v-if="activeParamTab === 'parameters'" class="min-h-[200px] pr-2">
               <!-- Preestablecidos por el perfil: visibles, sobrescribibles -->
               <div v-if="selectedPreset && presetSectionParams.length" class="mb-4">
                 <h4 class="text-sm font-medium mb-2 text-purple-400">
@@ -749,7 +756,7 @@
             </div>
 
             <!-- Tab Content: Concurrency & Parallelism -->
-            <div v-if="activeParamTab === 'concurrency'" class="h-[400px] overflow-y-auto pr-2 space-y-4">
+            <div v-if="activeParamTab === 'concurrency'" class="min-h-[200px] pr-2 space-y-4">
 
               <!-- Fieldset: Parallelism -->
               <fieldset class="border border-blue-700 rounded p-3">
@@ -838,7 +845,7 @@
             </div>
 
             <!-- Tab Content: Outputs (Derived Datasets) -->
-            <div v-if="activeParamTab === 'outputs'" class="h-[400px] overflow-y-auto pr-2 space-y-3">
+            <div v-if="activeParamTab === 'outputs'" class="min-h-[200px] pr-2 space-y-3">
               <p class="text-xs text-gray-400">
                 Define catalog datasets extracted as a side-product of this resource's execution.
                 Each config specifies a <strong class="text-gray-300">natural key</strong> and the fields to collect.
@@ -1659,6 +1666,17 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(runningPollTimer); _ro?.disconnect(); window.removeEventListener('resize', recalcPageSize)
 })
+// Textareas que crecen con el contenido (sin scroll interno)
+const vAutogrow = {
+  mounted(el) {
+    el.style.overflowY = 'hidden'
+    const ajustar = () => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' }
+    el.addEventListener('input', ajustar)
+    requestAnimationFrame(ajustar)
+  },
+  updated(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' },
+}
+
 function origenBadge(r) {
   // Procedencia del recurso, con tooltip explicativo. Sustituye al antiguo
   // badge 'auto', que mezclaba manifiestos y crawler sin explicarse.

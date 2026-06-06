@@ -854,6 +854,21 @@ def seed() -> None:
                            "page_size": 100, "id_field": "id", "delay": 1,
                            "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
             },
+            {
+                "code": "Paginada",
+                "description": "Recorrido por número de página (page=N) hasta página vacía. Heredera de la antigua especie 'API REST Paginada': fija paginación page_number sobre petición query y extracción passthrough; el recurso aporta la 'url' y, si el API no es 1-based, su 'start_page'.",
+                "params": {"pagination": "page_number", "request": "query", "extraction": "passthrough"},
+            },
+            {
+                "code": "Loop de pivotes",
+                "description": "Una petición por cada valor de una lista (provincias, códigos...) con cuerpo JSON. Heredera del antiguo 'REST Loop': fija petición json_body y paginación pivot_loop; el recurso aporta 'url', 'pivot_param' y la fuente de pivotes (pivot_values o pivot_source_resource).",
+                "params": {"request": "json_body", "pagination": "pivot_loop", "extraction": "passthrough"},
+            },
+            {
+                "code": "Series temporales JSON",
+                "description": "Respuesta JSON de series temporales aplanada a formato largo. Heredera del antiguo 'JSON Time Series': fija extracción timeseries_long sin paginación; el recurso aporta 'url' y 'content_field' (raíz de las series).",
+                "params": {"request": "query", "pagination": "none", "extraction": "timeseries_long"},
+            },
         ],
     }
     db = _SL_P()
@@ -891,6 +906,42 @@ def seed() -> None:
             variante.deleted_at = _dt_P.utcnow()
             db.commit()
             print(f"[seed_fetchers] variante 'PLACSP CODICE (ATOM)' → preset: {movidos} recurso(s) repuntados, fila retirada del catálogo")
+
+        # Migración: la fusión REST copió a cada recurso el paquete de params de su
+        # antigua especie (Paginada / REST Loop / JSON Time Series). Ahora que esos
+        # paquetes SON variantes, asignamos la variante a los recursos de 'API REST'
+        # sin preset cuyos params copiados coinciden con el paquete, y desinflamos
+        # esos params (solo los idénticos: comportamiento intacto; cualquier valor
+        # divergente se queda como override del recurso). Autodesarmable.
+        from app.models import ResourceParam as _RP_P
+        esp_rest = db.query(_F_P).filter(_F_P.code == "API REST", _F_P.deleted_at.is_(None)).first()
+        if esp_rest is not None:
+            _PAQUETES = {
+                "Paginada": {"pagination": "page_number", "request": "query", "extraction": "passthrough"},
+                "Loop de pivotes": {"request": "json_body", "pagination": "pivot_loop", "extraction": "passthrough"},
+                "Series temporales JSON": {"request": "query", "pagination": "none", "extraction": "timeseries_long"},
+            }
+            asignados = {}
+            for r in db.query(_R_P).filter(_R_P.fetcher_id == esp_rest.id,
+                                           _R_P.preset_id.is_(None),
+                                           _R_P.deleted_at.is_(None)).all():
+                rps = db.query(_RP_P).filter(_RP_P.resource_id == r.id).all()
+                valores = {p.key: p.value for p in rps}
+                for code, paquete in _PAQUETES.items():
+                    if all(valores.get(k) == v for k, v in paquete.items()):
+                        preset = db.query(_FP_P).filter(_FP_P.fetcher_id == esp_rest.id, _FP_P.code == code,
+                                                        _FP_P.deleted_at.is_(None)).first()
+                        if preset is None:
+                            break
+                        r.preset_id = preset.id
+                        for p in rps:
+                            if p.key in paquete and p.value == paquete[p.key]:
+                                db.delete(p)
+                        asignados[code] = asignados.get(code, 0) + 1
+                        break
+            if asignados:
+                db.commit()
+                print(f"[seed_fetchers] paquetes de la fusión REST → variantes asignadas: {asignados}")
     finally:
         db.close()
 

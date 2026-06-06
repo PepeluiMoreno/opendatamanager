@@ -1,5 +1,6 @@
 <template>
   <div class="p-8">
+    <template v-if="!showCreateModal">
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-3xl font-bold">Fetchers</h1>
       <button v-if="puede('fetchers.gestionar')" @click="showCreateModal = true" class="btn btn-primary">Add Fetcher</button>
@@ -153,8 +154,9 @@
         </div>
       </div>
     </div>
+    </template>
 
-    <!-- Create/Edit Modal -->
+    <!-- Create/Edit: vista plena que sustituye al listado -->
     <CreateEditFetcherModal
       v-if="showCreateModal"
       :Fetcher="editingFetcher"
