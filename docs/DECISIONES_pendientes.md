@@ -72,6 +72,31 @@ manuales (robusto y mejor modelado, pero requiere antes el scoping del crawler
 Web Tree y cierra 3 ítems del backlog con el mecanismo correcto.
 **Estado**: sin decidir.
 
+### 8. Web Tree: qué dato producen los hijos (el parseo genérico no basta)
+**Contexto**: el descubrimiento y la organización funcionan (series y bundles
+con sus dimensiones), pero el CONTENIDO decepciona: los XLSX municipales tipo
+'Informe PMP' no son tablas sino informes maquetados con UN dato útil por
+fichero; el parseo tabular genérico produce filas-basura (pancartas, etiquetas,
+celdas decorativas). Crítica del usuario, literal y certera: 'esto lo único que
+produce es un directorio de URLs y con errores'.
+**Opciones**:
+  (a) *Registro documental* como modo por defecto de bundles y series no
+  tabulares: una fila por fichero con {dimensiones, url, nombre, formato,
+  fecha} y SIN intentar extraer contenido. Honesto, barato, útil como censo
+  con linaje ('el directorio de URLs', pero a propósito y sin errores).
+  (b) *Extracción dirigida (recetas)*: nuevo modo de extracción por recurso
+  para ficheros-formulario — capturas declarativas tipo «la celda a la derecha
+  de la etiqueta 'Periodo Medio de Pago Global'» → una fila limpia por fichero
+  ({year, month, pmp_dias}). Coste moderado; convierte series como el PMP en
+  datasets de verdad.
+  (c) *Mejorar el parseo tabular genérico* (sniffing de cabeceras, descarte de
+  pancartas). Ayuda en ficheros que SÍ son tablas; en los informes-formulario
+  seguiría produciendo basura mejor alineada.
+**Recomendación**: (a) como comportamiento por defecto inmediato de los hijos
+Web Tree + (b) opt-in por recurso para las series valiosas (PMP el primero);
+(c) solo después, y limitado a ficheros con tabla real.
+**Estado**: sin decidir.
+
 ---
 
 ## Decididas (histórico breve)
