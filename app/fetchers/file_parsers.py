@@ -95,19 +95,52 @@ def _parse_excel(content: bytes, params: Dict[str, Any], fmt: str) -> List[Dict[
 
     for eng in (engine, fallback):
         try:
-            df = pd.read_excel(
+            raw = pd.read_excel(
                 io.BytesIO(content),
                 sheet_name=sheet,
                 skiprows=skip_rows,
+                header=None,
                 dtype=str,
                 engine=eng,
-            )
-            df.columns = [_normalize_col(c) for c in df.columns]
-            df = df.dropna(how="all").fillna("")
-            return df.to_dict(orient="records")
+            ).fillna("")
+            rows = [[str(c).strip() for c in fila] for fila in raw.values.tolist()]
+            hdr = _sniff_header_row(rows, params)
+            cabecera = rows[hdr] if hdr < len(rows) else []
+            columns = [_normalize_col(c) if c else f"col_{i}" for i, c in enumerate(cabecera)]
+            registros = []
+            for fila in rows[hdr + 1:]:
+                if not any(c for c in fila):
+                    continue
+                registros.append({columns[i] if i < len(columns) else f"col_{i}": v
+                                  for i, v in enumerate(fila)})
+            return registros
         except Exception:
             if eng == fallback:
                 raise
+
+
+def _sniff_header_row(rows, params) -> int:
+    """Localiza la fila de cabecera de una hoja Excel.
+
+    Los ficheros municipales suelen abrir con filas-pancarta (un título fusionado
+    a lo ancho) antes de la cabecera real. Si el recurso fija `header_row`, manda;
+    si no, se elige la primera fila de las ~15 iniciales con ≥2 celdas pobladas y
+    una anchura cercana a la máxima observada (la pancarta de celda única nunca
+    cumple)."""
+    if "header_row" in params:
+        try:
+            return int(params["header_row"])
+        except (TypeError, ValueError):
+            pass
+    ventana = rows[:15]
+    anchos = [sum(1 for c in fila if c) for fila in ventana]
+    if not anchos:
+        return 0
+    maximo = max(anchos)
+    for i, n in enumerate(anchos):
+        if n >= 2 and n >= 0.6 * maximo:
+            return i
+    return 0
 
 
 def _parse_csv_like(content: bytes, params: Dict[str, Any], delimiter: str = "") -> List[Dict[str, str]]:
@@ -172,11 +205,14 @@ def parse_pdf_table(content: bytes, params: Dict[str, Any]) -> List[Dict[str, st
     if len(table) <= header_row:
         return []
 
-    raw_headers = table[header_row]
-    columns = [_normalize_col(h or f"col_{i}") for i, h in enumerate(raw_headers)]
+    filas_norm = [[str(c or "").strip() for c in fila] for fila in table]
+    if "header_row" not in params:
+        header_row = _sniff_header_row(filas_norm, params)
+    raw_headers = filas_norm[header_row]
+    columns = [_normalize_col(h) if h else f"col_{i}" for i, h in enumerate(raw_headers)]
 
     records: List[Dict[str, str]] = []
-    for row in table[header_row + 1:]:
+    for row in filas_norm[header_row + 1:]:
         if not any(cell for cell in row if cell):
             continue
         padded = list(row) + [""] * max(0, len(columns) - len(row))

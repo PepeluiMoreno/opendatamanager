@@ -16,10 +16,16 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   no-tabla (una sola columna cuyo nombre es una frase larga) y devolver 0
   filas; y al casar celdas multilínea, no repetir el contenido por línea.
 
-- [ ] **Parser XLSX: filas-pancarta antes de la cabecera**: los informes PMP de
-  Jerez abren con un título fusionado ('PERIODO MEDIO DE PAGO GLOBAL...') que el
-  parser toma como datos con columnas unnamed_N. Añadir detección de cabecera
-  (primera fila mayoritariamente no vacía y única) a parse_structured_file.
+- [x] **Parser: detección de cabecera (filas-pancarta)** (este push): el sniffing
+  _sniff_header_row elige como cabecera la primera fila con ≥2 celdas pobladas y
+  anchura cercana a la máxima (la pancarta de celda única nunca cumple);
+  aplicado a Excel Y a PDF-tabla (header_row explícito sigue mandando).
+  Verificado con los ficheros reales de Jerez: 'Ejecución gastos publicidad'
+  (PDF con pinta de Excel) pasó de pancarta-como-cabecera y col_1..col_3 a
+  descripcion/creditos_totales/total_gastado/saldo_de_credito; ejecucionAyto
+  conserva sus 25 columnas y pierde la fila-fórmula '( a )'. Los
+  informes-formulario (PMP) siguen necesitando receta (§8b): no hay cabecera
+  que olfatear donde no hay tabla.
 
 - [x] **Jerez — recursos Web Tree creados** (este push): scripts/jerez_webtree.py
   hace el ciclo completo (crawler padre acotado a a07-economica → discover →
