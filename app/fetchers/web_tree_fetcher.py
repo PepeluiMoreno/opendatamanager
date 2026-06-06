@@ -390,7 +390,7 @@ class WebTreeFetcher(BaseFetcher):
                 out[name] = path_segs[idx]
         return out
 
-    def _download_and_parse(self, url: str) -> List[Dict[str, Any]]:
+    def _download_bytes(self, url: str) -> bytes:
         timeout = int(self._opt("download_timeout"))
         max_mb = int(self._opt("max_file_mb"))
         response = self._request(
@@ -406,9 +406,24 @@ class WebTreeFetcher(BaseFetcher):
             received += len(chunk)
             if received > max_mb * 1024 * 1024:
                 raise RuntimeError(f"Fichero demasiado grande (>{max_mb} MB): {url}")
-        content = b"".join(chunks)
+        return b"".join(chunks)
+
+    def _download_and_parse(self, url: str) -> List[Dict[str, Any]]:
+        content = self._download_bytes(url)
         fmt = self._resolve_format(url)
         return parse_structured_file(content, fmt, {}, source_name=url)
+
+    def _fila_de_receta(self, url: str) -> Dict[str, Any]:
+        """Modo receta: descarga el fichero, lo reduce a rejilla y aplica la
+        receta del recurso → UNA fila limpia por fichero."""
+        import json as _json
+        from app.services.recetas import extraer_con_receta, grid_de_fichero
+        receta = self._opt("receta")
+        if isinstance(receta, str):
+            receta = _json.loads(receta) if receta.strip() else []
+        content = self._download_bytes(url)
+        grid = grid_de_fichero(content, self._resolve_format(url))
+        return extraer_con_receta(grid, receta or [])
 
     def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
         matched_urls = self.params.get("_matched_urls")
@@ -432,6 +447,28 @@ class WebTreeFetcher(BaseFetcher):
 
         producidas = 0
         buffer: List[Dict[str, Any]] = []
+
+        # ── Modo RECETA: extracción dirigida — una fila limpia por fichero ──
+        if str(self._opt("extract_mode") or "datos").strip().lower() == "receta":
+            for i, url in enumerate(matched_urls):
+                fila = self._fila_de_receta(url)
+                fila.update(self._extract_dim_values(url, dimensions))
+                fila["_source_file_url"] = url
+                fila["_source_file_name"] = Path(urlparse(url).path).name
+                fila["_source_format"] = self._resolve_format(url)
+                buffer.append(fila)
+                self.current_state = {"files_done": i + 1, "files_total": len(matched_urls), "last_url": url}
+                while len(buffer) >= batch_size:
+                    yield buffer[:batch_size]
+                    producidas += batch_size
+                    buffer = buffer[batch_size:]
+                if preview_limit is not None and producidas + len(buffer) >= preview_limit:
+                    break
+                if file_delay > 0:
+                    time.sleep(file_delay)
+            if buffer:
+                yield buffer
+            return
 
         # ── Modo CENSO: registro documental sin descargar ni parsear ──
         # Una fila por fichero: dimensiones + url + nombre + formato. Es el

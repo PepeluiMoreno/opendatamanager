@@ -413,7 +413,9 @@ FETCHERS: List[Dict[str, Any]] = [
         "description": "Crawler de portales web clásicos. En modo discover (Resource padre, parent_resource_id=NULL) recorre el árbol e infiere agrupaciones por dimensiones (year, month, quarter, ...) que el operador revisa y promueve. En modo stream (Resource hijo promovido) descarga las URLs de su ResourceCandidate enriqueciendo cada registro con las dimensiones detectadas.",
         "params": [
             {"param_name": "extract_mode", "data_type": "string", "required": False, "group": "output",
-             "hint": "Qué produce cada fichero: 'datos' lo descarga y parsea a filas (tablas); 'censo' emite una fila por fichero con dimensiones+url+formato, sin descargar (registro documental, insumo de catálogos)."},
+             "hint": "Qué produce cada fichero: 'datos' lo descarga y parsea a filas (tablas); 'censo' emite una fila por fichero con dimensiones+url+formato, sin descargar; 'receta' aplica capturas declarativas (param receta) y emite una fila limpia por fichero."},
+            {"param_name": "receta", "data_type": "json", "required": False, "group": "output",
+             "hint": "Capturas para extract_mode=receta. Lista de {campo, etiqueta(regex), tipo: numero|texto, posicion?: celda|derecha|debajo}. P. ej. [{\"campo\": \"pmp_global_dias\", \"etiqueta\": \"Periodo Medio de Pago Global\", \"tipo\": \"numero\"}]."},
             {"param_name": "root_url", "data_type": "string", "required": True, "group": "navigation",
              "hint": "URL raíz desde la que arranca el recorrido. P. ej. https://transparencia.<municipio>.es/economica/deuda."},
             {"param_name": "path_prefix", "data_type": "string", "required": False, "group": "navigation",
@@ -848,6 +850,12 @@ def seed() -> None:
                 "code": "Censo documental",
                 "description": "Registro documental del árbol: una fila por fichero con sus dimensiones, url, nombre y formato — sin descargar ni parsear nada. El modo honesto para pilas de documentos e informes no tabulares, e insumo directo de catálogos (CKAN/DCAT).",
                 "params": {"extract_mode": "censo"},
+                "locked": ["extract_mode"],
+            },
+            {
+                "code": "Extracción con receta",
+                "description": "Para ficheros-formulario (informes maquetados): aplica las capturas declarativas del param `receta` del recurso y emite UNA fila limpia por fichero (el dato pescado + dimensiones + procedencia). Misma gramática para XLSX y PDF.",
+                "params": {"extract_mode": "receta"},
                 "locked": ["extract_mode"],
             },
             {

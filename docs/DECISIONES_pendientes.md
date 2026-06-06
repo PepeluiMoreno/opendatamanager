@@ -118,8 +118,14 @@ para ficheros con tabla real.
 Implementado: param extract_mode, variantes 'Censo documental' (🔒 censo) y
 'Extracción de datos' (🔒 datos), y jerez_webtree.py v2 — UN directorio-censo
 con todo el árbol + hijos de extracción solo para los TABLA_REAL de la
-auditoría. Las recetas (8b) quedan como evolución pendiente para rescatar los
-31 informes-formulario (PMP el primero).
+auditoría. Recetas (8b) IMPLEMENTADAS (2026-06, 'dale a 8b'): motor en
+app/services/recetas.py (capturas declarativas {campo, etiqueta, tipo,
+posicion?} con cascada celda→derecha→debajo y números en formato español;
+gramática única para XLSX/PDF vía rejilla), tercer extract_mode 'receta' con
+variante 'Extracción con receta' 🔒, param `receta` por recurso. Piloto PMP
+verificado en vivo: 27 ficheros → una fila limpia por mes (2026-01: 84,89
+días...). Quedan ~30 informes-formulario esperando su receta en la whitelist
+RECETAS de jerez_webtree.py.
 **Ratificada (2026-06)**: se evaluó la vía 'param solo en el recurso, sin
 variantes' (propuesta del usuario) — funcionalmente equivalente y ya posible
 hoy. Se mantienen las dos variantes por una única razón: etiqueta veraz en el

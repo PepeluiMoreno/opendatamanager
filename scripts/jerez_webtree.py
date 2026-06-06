@@ -47,6 +47,16 @@ LEGADOS = ["%Catálogo del Portal%", "%Información económica%portal%", "%Infor
 # Patrones (sobre path_template) de los hijos TABLA_REAL según la auditoría
 # 2026-06 (docs/AUDITORIA_jerez_hijos.md). Editar aquí cuando haya recetas o
 # nuevas series tabulares.
+# Recetas (§8b) por patrón de path_template: el hijo nace en variante
+# 'Extracción con receta' con estas capturas. Piloto: PMP mensual.
+RECETAS = {
+    "Informe_PMP_{year}_{month}": [
+        {"campo": "pmp_global_dias",
+         "etiqueta": "Periodo Medio de Pago Global a Proveedores Mensual",
+         "tipo": "numero"},
+    ],
+}
+
 EXTRAER = [
     "03-ejecucionAyto",
     "c-deuda/{year}/deuda",
@@ -155,7 +165,8 @@ def main():
         from app.models import FetcherPreset
         v_censo = db.query(FetcherPreset).filter(FetcherPreset.code == "Censo documental").first()
         v_datos = db.query(FetcherPreset).filter(FetcherPreset.code == "Extracción de datos").first()
-        if not (v_censo and v_datos):
+        v_receta = db.query(FetcherPreset).filter(FetcherPreset.code == "Extracción con receta").first()
+        if not (v_censo and v_datos and v_receta):
             raise SystemExit("Faltan las variantes Web Tree (ejecuta seed_fetchers.py)")
 
         # 3a. EL recurso-directorio: candidata con TODAS las hojas, variante Censo
@@ -186,8 +197,10 @@ def main():
         # 3b. Persistir candidatas; promover en 'datos' SOLO las TABLA_REAL
         creados = 0
         usados = {directorio.target_table}
+        import json as _json
         for p in props:
-            extraer = any(pat in p.path_template for pat in EXTRAER)
+            receta = next((r for pat, r in RECETAS.items() if pat in p.path_template), None)
+            extraer = receta is not None or any(pat in p.path_template for pat in EXTRAER)
             if not extraer:
                 continue  # sin artificios: la taxonomía se recalcula con infer() cuando haga falta
             cand = ResourceCandidate(
@@ -213,10 +226,13 @@ def main():
                 name=nombre, fetcher_id=crawler.fetcher_id, publisher_id=crawler.publisher_id,
                 target_table=tt, active=True, enable_load=False, load_mode="upsert",
                 parent_resource_id=crawler.id, auto_generated=True,
-                preset_id=v_datos.id,
+                preset_id=(v_receta.id if receta else v_datos.id),
             )
             db.add(child); db.flush()
             db.add(ResourceParam(resource_id=child.id, key="root_url", value=ROOT))
+            if receta:
+                db.add(ResourceParam(resource_id=child.id, key="receta",
+                                     value=_json.dumps(receta, ensure_ascii=False)))
             cand.status = "promoted"
             cand.promoted_resource_id = child.id
             cand.reviewed_at = datetime.utcnow()
