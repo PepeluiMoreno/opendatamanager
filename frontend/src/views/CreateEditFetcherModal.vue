@@ -34,12 +34,35 @@
               placeholder="Describe what this Fetcher does..."
             ></textarea>
           </div>
+
+          <!-- Variants: implementaciones concretas de esta tecnología -->
+          <div v-if="Fetcher">
+            <label class="block text-sm font-medium mb-1">Variants</label>
+            <p class="text-xs text-gray-400 mb-2">
+              Implementaciones concretas de esta tecnología. Cada variante fija valores para los
+              parámetros de abajo; los recursos la eligen y heredan esos valores.
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+              <button v-for="v in variantes" :key="v.id || v._tmp" type="button"
+                      @click="seleccionarVariante(v)"
+                      class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                      :class="varianteActiva === v
+                        ? 'bg-purple-900 text-purple-200 border-purple-600'
+                        : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'">
+                {{ v.code || '(sin nombre)' }}
+              </button>
+              <button type="button" @click="nuevaVariante"
+                      class="px-2.5 py-1 rounded-full text-xs border border-dashed border-gray-500 text-gray-400 hover:bg-gray-700">
+                + New variant
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- Parameters List with Tabs -->
         <div class="border-t border-gray-600 pt-6">
             <div class="flex items-center justify-between mb-4">
-              <h3 class="text-xl font-semibold">Parameters Definition</h3>
+              <h3 class="text-xl font-semibold">Basic Parameters Definition</h3>
               <div class="flex gap-2">
                 <button
                   type="button"
@@ -225,60 +248,91 @@
           </div>
         </div>
 
-        <!-- Perfiles (presets) de la especie: solo en edición -->
-        <div v-if="Fetcher" class="border-t border-gray-600 pt-4">
-          <div class="flex items-center justify-between mb-2">
-            <h3 class="text-sm font-medium text-purple-400">Perfiles de la especie</h3>
-            <button type="button" @click="nuevoPerfil"
-                    class="text-xs px-2 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-700">
-              + Nuevo perfil
-            </button>
-          </div>
-          <p class="text-xs text-gray-500 mb-2">
-            Un perfil es una implementación concreta de esta tecnología (bloque de parámetros con nombre).
-            Los recursos lo eligen y heredan sus valores; al guardar cambios aquí, los recursos que no hayan
-            sobrescrito un campo lo heredan en su próxima ejecución.
-          </p>
-          <div v-if="!perfiles.length" class="text-xs text-gray-500 italic">Sin perfiles.</div>
-          <div v-for="pf in perfiles" :key="pf.id || pf._tmp" class="mb-2 rounded border border-purple-900/60 bg-gray-900/40">
-            <div class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none" @click="pf._open = !pf._open">
-              <span class="text-xs font-mono text-purple-300">{{ pf.code || '(sin código)' }}</span>
-              <span class="text-[10px] text-gray-500 truncate">{{ pf.description }}</span>
-              <span class="ml-auto text-[10px] text-gray-500">{{ Object.keys(parseParams(pf) || {}).length }} parámetro(s)</span>
-              <span class="text-gray-500">{{ pf._open ? '▾' : '▸' }}</span>
-            </div>
-            <div v-if="pf._open" class="px-3 pb-3 space-y-2">
-              <div class="grid grid-cols-2 gap-2">
-                <div>
-                  <label class="block text-[10px] text-gray-500 mb-0.5">Código</label>
-                  <input v-model="pf.code" class="input w-full text-xs" />
-                </div>
-                <div>
-                  <label class="block text-[10px] text-gray-500 mb-0.5">Descripción</label>
-                  <input v-model="pf.description" class="input w-full text-xs" />
-                </div>
-              </div>
-              <div>
-                <label class="block text-[10px] text-gray-500 mb-0.5">Parámetros (JSON)</label>
-                <textarea v-model="pf._paramsText" rows="6" class="input w-full text-xs font-mono"
-                          :class="{ 'border-red-700': pf._jsonError }"
-                          @input="validarJsonPerfil(pf)"></textarea>
-                <p v-if="pf._jsonError" class="text-[10px] text-red-400 mt-0.5">{{ pf._jsonError }}</p>
-              </div>
-              <div class="flex justify-end gap-2">
-                <button v-if="pf.id" type="button" @click="eliminarPerfil(pf)"
-                        class="text-xs px-2 py-1 rounded border border-red-800 text-red-400 hover:bg-red-950">
-                  Retirar
-                </button>
-                <button type="button" :disabled="!!pf._jsonError || !pf.code || pf._saving"
-                        @click="guardarPerfil(pf)"
-                        class="text-xs px-2 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-40">
-                  {{ pf._saving ? 'Guardando…' : (pf.id ? 'Guardar perfil' : 'Crear perfil') }}
-                </button>
-              </div>
-              <p v-if="pf._error" class="text-[10px] text-red-400">{{ pf._error }}</p>
+        <!-- Profile Parameters Definition: misma gramática visual que el bloque básico -->
+        <div v-if="Fetcher && varianteActiva" class="border-t border-gray-600 pt-6">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-xl font-semibold">
+              Profile Parameters Definition
+              <span class="text-purple-300 font-mono text-base">«{{ varianteActiva.code || 'nueva variante' }}»</span>
+            </h3>
+            <div class="flex gap-2">
+              <button type="button" v-if="varianteActiva.id" @click="retirarVariante(varianteActiva)"
+                      class="btn btn-secondary text-sm py-1 px-2 text-red-400 border-red-800">
+                Retirar variante
+              </button>
+              <button type="button" :disabled="!varianteActiva.code || varianteActiva._saving"
+                      @click="guardarVariante(varianteActiva)"
+                      class="btn btn-primary text-sm py-1 px-2 disabled:opacity-40">
+                {{ varianteActiva._saving ? 'Guardando…' : (varianteActiva.id ? 'Guardar variante' : 'Crear variante') }}
+              </button>
             </div>
           </div>
+
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">Variant name *</label>
+              <input v-model="varianteActiva.code" class="input w-full text-sm" placeholder="p. ej. PLACSP CODICE" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
+              <input v-model="varianteActiva.description" class="input w-full text-sm" />
+            </div>
+          </div>
+
+          <div v-if="!varianteActiva.entries.length" class="text-center py-4 text-gray-400 text-sm">
+            Esta variante aún no fija ningún parámetro.
+          </div>
+
+          <div v-else class="space-y-2">
+            <div class="grid grid-cols-12 gap-2 text-xs font-medium text-gray-400 px-2">
+              <div class="col-span-3">Parámetro</div>
+              <div class="col-span-2">Tipo</div>
+              <div class="col-span-6">Valor en esta variante</div>
+              <div class="col-span-1"></div>
+            </div>
+            <div v-for="(e, i) in varianteActiva.entries" :key="i"
+                 class="grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700">
+              <div class="col-span-3 pt-1">
+                <select v-model="e.key" class="input w-full text-xs">
+                  <option v-for="p in parameters" :key="p.paramName" :value="p.paramName">{{ p.paramName }}</option>
+                  <option v-if="e.key && !parameters.some(p => p.paramName === e.key)" :value="e.key">{{ e.key }} (fuera del catálogo)</option>
+                </select>
+              </div>
+              <div class="col-span-2 pt-2 text-xs text-gray-500">{{ tipoDe(e.key) }}</div>
+              <div class="col-span-6">
+                <!-- enum → desplegable con las opciones del parámetro -->
+                <select v-if="tipoDe(e.key) === 'enum'" v-model="e.value" class="input w-full text-xs">
+                  <option v-for="o in enumDe(e.key)" :key="o.value" :value="o.value">{{ o.label || o.value }}</option>
+                </select>
+                <!-- boolean → sí/no -->
+                <select v-else-if="tipoDe(e.key) === 'boolean'" v-model="e.value" class="input w-full text-xs">
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+                <!-- json/objetos → editor multilínea SOLO para ese parámetro -->
+                <textarea v-else-if="tipoDe(e.key) === 'json' || esValorLargo(e.value)"
+                          v-model="e.value" rows="4" class="input w-full text-xs font-mono"
+                          :class="{ 'border-red-700': errorJsonEntrada(e) }"></textarea>
+                <input v-else v-model="e.value" class="input w-full text-xs" />
+                <p v-if="errorJsonEntrada(e)" class="text-[10px] text-red-400 mt-0.5">{{ errorJsonEntrada(e) }}</p>
+                <p v-if="hintDe(e.key)" class="text-[10px] text-gray-600 mt-0.5 leading-tight">{{ hintDe(e.key) }}</p>
+              </div>
+              <div class="col-span-1 pt-1 text-right">
+                <button type="button" @click="varianteActiva.entries.splice(i, 1)"
+                        class="text-red-400 hover:text-red-300 text-sm" title="Quitar de la variante">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3">
+            <select class="input text-xs" v-model="paramAAnadir" @change="anadirEntrada">
+              <option value="">+ Fijar parámetro en esta variante…</option>
+              <option v-for="p in paramsDisponiblesVariante" :key="p.paramName" :value="p.paramName">
+                {{ p.paramName }} ({{ p.dataType }})
+              </option>
+            </select>
+          </div>
+          <p v-if="varianteActiva._error" class="text-xs text-red-400 mt-2">{{ varianteActiva._error }}</p>
         </div>
 
         <!-- Validation Error -->
@@ -397,6 +451,7 @@ watch(() => props.Fetcher, (newFetcher) => {
         id: p.id || null,
         paramName: p.paramName || '',
         dataType: p.dataType || 'string',
+        hint: p.hint || p.description || null,
         required: p.required !== undefined ? p.required : true,
         defaultValue: p.defaultValue ?? null,
         enumValues: p.enumValues || null,
@@ -545,55 +600,101 @@ function updateEnumValuesString(param, value) {
   param.enumValues = values.length > 0 ? values : null
 }
 
-// ── Perfiles de la especie ────────────────────────────────────────────────────
-const perfiles = ref([])
+
+// ── Variants (perfiles): implementaciones concretas de la tecnología ─────────
+const variantes = ref([])
+const varianteActiva = ref(null)
+const paramAAnadir = ref('')
 let _tmpSeq = 0
 
-watch(() => props.Fetcher, (f) => {
-  perfiles.value = (f?.presets || []).map(p => ({
-    id: p.id, code: p.code, description: p.description || '',
-    _paramsText: JSON.stringify(p.params || {}, null, 2),
-    _open: false, _jsonError: null, _error: null, _saving: false,
+function _aEntries(paramsObj) {
+  return Object.entries(paramsObj || {}).map(([key, v]) => ({
+    key, value: (v !== null && typeof v === 'object') ? JSON.stringify(v, null, 1) : String(v ?? ''),
   }))
+}
+function _deEntries(entries) {
+  const out = {}
+  for (const e of entries) {
+    if (!e.key) continue
+    const dt = tipoDe(e.key)
+    let v = e.value
+    if (dt === 'json' || esJsonTexto(v)) { try { v = JSON.parse(v) } catch { /* se valida antes */ } }
+    else if (dt === 'integer' || dt === 'number') { const n = Number(v); if (!Number.isNaN(n) && v !== '') v = n }
+    else if (dt === 'boolean') { v = String(v) === 'true' }
+    out[e.key] = v
+  }
+  return out
+}
+function esJsonTexto(v) { const t = String(v ?? '').trim(); return t.startsWith('{') || t.startsWith('[') }
+function esValorLargo(v) { return String(v ?? '').length > 70 || esJsonTexto(v) }
+function tipoDe(k) { return parameters.value.find(p => p.paramName === k)?.dataType || 'string' }
+function hintDe(k) { const p = parameters.value.find(p => p.paramName === k); return p?.hint || p?.description || null }
+function enumDe(k) {
+  const ev = parameters.value.find(p => p.paramName === k)?.enumValues
+  if (!ev) return []
+  try { const arr = typeof ev === 'string' ? JSON.parse(ev) : ev; return Array.isArray(arr) ? arr : [] } catch { return [] }
+}
+function errorJsonEntrada(e) {
+  if (tipoDe(e.key) !== 'json' && !esJsonTexto(e.value)) return null
+  try { JSON.parse(e.value || '{}'); return null } catch (err) { return 'JSON inválido: ' + err.message }
+}
+const paramsDisponiblesVariante = computed(() => {
+  if (!varianteActiva.value) return []
+  const usados = new Set(varianteActiva.value.entries.map(e => e.key))
+  return parameters.value.filter(p => p.paramName && !usados.has(p.paramName))
+})
+function anadirEntrada() {
+  if (!paramAAnadir.value || !varianteActiva.value) return
+  const dt = tipoDe(paramAAnadir.value)
+  const def = parameters.value.find(p => p.paramName === paramAAnadir.value)?.defaultValue
+  varianteActiva.value.entries.push({ key: paramAAnadir.value,
+    value: def != null ? String(def) : (dt === 'boolean' ? 'false' : '') })
+  paramAAnadir.value = ''
+}
+function seleccionarVariante(v) { varianteActiva.value = varianteActiva.value === v ? null : v }
+function nuevaVariante() {
+  const v = { id: null, _tmp: ++_tmpSeq, code: '', description: '', entries: [], _error: null, _saving: false }
+  variantes.value.push(v)
+  varianteActiva.value = v
+}
+watch(() => props.Fetcher, (f) => {
+  variantes.value = (f?.presets || []).map(p => ({
+    id: p.id, code: p.code, description: p.description || '',
+    entries: _aEntries(p.params), _error: null, _saving: false,
+  }))
+  varianteActiva.value = null
 }, { immediate: true })
 
-function parseParams(pf) {
-  try { return JSON.parse(pf._paramsText || '{}') } catch { return null }
-}
-function validarJsonPerfil(pf) {
-  try { JSON.parse(pf._paramsText || '{}'); pf._jsonError = null }
-  catch (e) { pf._jsonError = 'JSON inválido: ' + e.message }
-}
-function nuevoPerfil() {
-  perfiles.value.push({ id: null, _tmp: ++_tmpSeq, code: '', description: '',
-    _paramsText: '{\n}', _open: true, _jsonError: null, _error: null, _saving: false })
-}
-async function guardarPerfil(pf) {
-  pf._error = null; pf._saving = true
+async function guardarVariante(v) {
+  v._error = null
+  const conError = v.entries.find(e => errorJsonEntrada(e))
+  if (conError) { v._error = `El parámetro '${conError.key}' tiene JSON inválido`; return }
+  v._saving = true
   try {
-    const params = parseParams(pf)
-    if (pf.id) {
-      await updateFetcherPreset(pf.id, { code: pf.code, description: pf.description, params })
+    const params = _deEntries(v.entries)
+    if (v.id) {
+      await updateFetcherPreset(v.id, { code: v.code, description: v.description, params })
     } else {
-      const res = await createFetcherPreset(props.Fetcher.id, pf.code, pf.description, params)
-      pf.id = res.createFetcherPreset.id
+      const res = await createFetcherPreset(props.Fetcher.id, v.code, v.description, params)
+      v.id = res.createFetcherPreset.id
     }
-    emit('saved', `Perfil "${pf.code}" guardado`)
+    emit('saved', `Variante "${v.code}" guardada`)
   } catch (e) {
-    pf._error = e?.message || String(e)
+    v._error = e?.message || String(e)
   } finally {
-    pf._saving = false
+    v._saving = false
   }
 }
-async function eliminarPerfil(pf) {
-  if (!confirm(`¿Retirar el perfil "${pf.code}"? Se bloqueará si algún recurso lo usa.`)) return
-  pf._error = null
+async function retirarVariante(v) {
+  if (!confirm(`¿Retirar la variante "${v.code}"? Se bloqueará si algún recurso la usa.`)) return
+  v._error = null
   try {
-    await deleteFetcherPreset(pf.id)
-    perfiles.value = perfiles.value.filter(x => x !== pf)
-    emit('saved', `Perfil "${pf.code}" retirado`)
+    await deleteFetcherPreset(v.id)
+    variantes.value = variantes.value.filter(x => x !== v)
+    varianteActiva.value = null
+    emit('saved', `Variante "${v.code}" retirada`)
   } catch (e) {
-    pf._error = e?.message || String(e)
+    v._error = e?.message || String(e)
   }
 }
 
