@@ -414,5 +414,9 @@ class PromoteCandidateInput:
     schedule: Optional[str] = None
     enable_load: Optional[bool] = strawberry.field(default=False, name="enableLoad")
     load_mode: Optional[str] = strawberry.field(default="upsert", name="loadMode")
+    # Variante (FetcherPreset.code) con la que nace el hijo: 'Censo documental',
+    # 'Extracción de datos', 'Extracción con receta'... Se resuelve bajo la
+    # especie del crawler padre. None ⇒ sin variante (comportamiento histórico).
+    variant: Optional[str] = None
 
 
