@@ -1424,6 +1424,7 @@ const paramGroups = computed(() => {
     if (!grouped[p.group]) { grouped[p.group] = []; order.push(p.group) }
     grouped[p.group].push(p)
   }
+  order.sort((a, b) => formatGroupName(a).localeCompare(formatGroupName(b), 'es'))
   return order.map(name => ({ name, params: grouped[name] }))
 })
 
@@ -1454,7 +1455,7 @@ const GROUP_LABELS = {
   peticion: 'Parámetros de petición',
   paginacion: 'Parámetros de paginación',
   extraccion: 'Parámetros de extracción',
-  http: 'Parámetros HTTP (conexión)',
+  http: 'Parámetros de conexión',
   query: 'Parámetros de consulta',
   otros: 'Otros parámetros',
   // etiquetas heredadas de especies antiguas

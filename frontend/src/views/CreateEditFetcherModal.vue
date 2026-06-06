@@ -46,6 +46,13 @@
               parámetros de abajo; los recursos la eligen y heredan esos valores.
             </p>
             <div class="flex flex-wrap items-center gap-2">
+              <button type="button" @click="varianteActiva && cerrarVariante(varianteActiva)"
+                      class="px-2.5 py-1 rounded-full text-xs border transition-colors"
+                      :class="!varianteActiva
+                        ? 'bg-blue-900 text-blue-200 border-blue-600'
+                        : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'">
+                Genérico
+              </button>
               <button v-for="v in variantes" :key="v.id || v._tmp" type="button"
                       @click="seleccionarVariante(v)"
                       class="px-2.5 py-1 rounded-full text-xs border transition-colors"
@@ -68,11 +75,29 @@
               <h3 class="text-xl font-semibold cursor-pointer select-none flex items-center gap-2"
                   @click="seccionBasicaAbierta = !seccionBasicaAbierta">
                 <span class="text-gray-500 text-base">{{ seccionBasicaAbierta ? '▾' : '▸' }}</span>
-                Basic Parameters Definition
-                <span v-if="!seccionBasicaAbierta" class="text-xs text-gray-500 font-normal">({{ parameters.length }} parámetros)</span>
+                <template v-if="varianteActiva">
+                  <span class="text-purple-300 font-mono">{{ varianteActiva.code || 'Nueva variante' }}</span> Parameters Definition
+                </template>
+                <template v-else>Parameters Definition</template>
+                <span v-if="!seccionBasicaAbierta" class="text-xs text-gray-500 font-normal">({{ totalAll }} parámetros)</span>
               </h3>
               <div class="flex gap-2" v-show="seccionBasicaAbierta">
+                <template v-if="varianteActiva">
+                  <input v-if="!varianteActiva.id || varianteActiva._renombrando" v-model="varianteActiva.code"
+                         class="input text-sm w-44" placeholder="Nombre de la variante" />
+                  <button type="button" @click="cerrarVariante(varianteActiva)"
+                          class="btn btn-secondary text-sm py-1 px-2"
+                          title="Volver a Genérico descartando los cambios no guardados">Cerrar</button>
+                  <button type="button" v-if="varianteActiva.id" @click="retirarVariante(varianteActiva)"
+                          class="btn btn-secondary text-sm py-1 px-2 text-red-400 border-red-800">Retirar</button>
+                  <button type="button" :disabled="!varianteActiva.code || varianteActiva._saving"
+                          @click="guardarVariante(varianteActiva)"
+                          class="btn btn-primary text-sm py-1 px-2 disabled:opacity-40">
+                    {{ varianteActiva._saving ? 'Guardando…' : (varianteActiva.id ? 'Guardar variante' : 'Crear variante') }}
+                  </button>
+                </template>
                 <button
+                  v-if="!varianteActiva"
                   type="button"
                   @click="addParameter"
                   class="btn btn-secondary text-sm py-1 px-2"
@@ -131,7 +156,7 @@
             <p v-if="extrasVariante.length" class="text-[11px] text-purple-300/80 mb-2">
               Los contadores incluyen {{ extrasVariante.length }} parámetro(s) específico(s) de la variante
               «{{ varianteActiva.code }}» fuera del catálogo básico
-              ({{ extrasVariante.map(e => e.key).join(', ') }}); se editan abajo, en Profile Parameters Definition.
+              ({{ extrasVariante.map(e => e.key).join(', ') }}); aparecen al final, en la sección «Fuera del catálogo».
             </p>
 
             <!-- Parameters Grid -->
@@ -141,7 +166,8 @@
                 <div class="col-span-2">Nombre</div>
                 <div class="col-span-2">Tipo</div>
                 <div class="col-span-1 text-center">Req</div>
-                <div class="col-span-6">Valor por defecto / Opciones</div>
+                <div :class="varianteActiva ? 'col-span-3' : 'col-span-6'">Valor por defecto / Opciones</div>
+                <div v-if="varianteActiva" class="col-span-4 text-purple-300">Valor en «{{ varianteActiva.code || '…' }}»</div>
                 <div class="col-span-1"></div>
               </div>
 
@@ -167,7 +193,8 @@
                     v-model="param.paramName"
                     type="text"
                     required
-                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono"
+                    :disabled="!!varianteActiva"
+                    class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono disabled:opacity-60"
                     placeholder="param_name"
                   />
                   <div v-if="param.description" class="relative flex-shrink-0">
@@ -195,7 +222,8 @@
                    <select
                      v-model="param.dataType"
                      required
-                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
+                     :disabled="!!varianteActiva"
+                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 disabled:opacity-60"
                      @change="onDataTypeChange(param, $event)"
                    >
                      <option value="string">String</option>
@@ -226,13 +254,14 @@
                     <input
                       type="checkbox"
                       v-model="param.required"
-                      class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500"
+                      :disabled="!!varianteActiva"
+                      class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 disabled:opacity-60"
                     />
                   </label>
                 </div>
 
                 <!-- Default Value / Enum Values — ocupa el máximo espacio disponible -->
-                <div class="col-span-6 space-y-1">
+                <div :class="varianteActiva ? 'col-span-3' : 'col-span-6'" class="space-y-1">
                   <!-- Enum: editar opciones como texto -->
                   <input
                     v-if="param.dataType === 'enum'"
@@ -265,9 +294,44 @@
                   />
                 </div>
 
+                <!-- Valor en la variante activa (vacío = no fijado: rige el default) -->
+                <div v-if="varianteActiva" class="col-span-4 space-y-1">
+                  <select v-if="param.dataType === 'enum'"
+                          :value="valorVariante(param.paramName)"
+                          @change="setValorVariante(param.paramName, $event.target.value)"
+                          class="input w-full text-xs"
+                          :class="{ 'border-purple-700': valorVariante(param.paramName) !== '' }">
+                    <option value="">— no fijado —</option>
+                    <option v-for="o in normalizeOpts(param.enumValues)" :key="o.value" :value="o.value">{{ o.label }}</option>
+                  </select>
+                  <select v-else-if="param.dataType === 'boolean'"
+                          :value="valorVariante(param.paramName)"
+                          @change="setValorVariante(param.paramName, $event.target.value)"
+                          class="input w-full text-xs"
+                          :class="{ 'border-purple-700': valorVariante(param.paramName) !== '' }">
+                    <option value="">— no fijado —</option>
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                  <textarea v-else-if="param.dataType === 'json' || esValorLargo(valorVariante(param.paramName))"
+                            :value="valorVariante(param.paramName)"
+                            @input="setValorVariante(param.paramName, $event.target.value)"
+                            rows="3" class="input w-full text-xs font-mono"
+                            :class="{ 'border-purple-700': valorVariante(param.paramName) !== '', 'border-red-700': !!errorJsonValor(param) }"
+                            placeholder="— no fijado —"></textarea>
+                  <input v-else
+                         :value="valorVariante(param.paramName)"
+                         @input="setValorVariante(param.paramName, $event.target.value)"
+                         class="input w-full text-xs"
+                         :class="{ 'border-purple-700': valorVariante(param.paramName) !== '' }"
+                         placeholder="— no fijado —" />
+                  <p v-if="errorJsonValor(param)" class="text-[10px] text-red-400">{{ errorJsonValor(param) }}</p>
+                </div>
+
                 <!-- Actions -->
                 <div class="col-span-1 flex justify-center pt-1">
                   <button
+                    v-if="!varianteActiva"
                     type="button"
                     @click="removeParameter(parameters.indexOf(param))"
                     class="text-red-400 hover:text-red-300"
@@ -281,101 +345,29 @@
               </div>
               </template>
             </div>
-          </div>
-          </div>
-        </div>
 
-        <!-- Profile Parameters Definition: misma gramática visual que el bloque básico -->
-        <div v-if="Fetcher && varianteActiva" class="border-t border-gray-600 pt-6">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-xl font-semibold">
-              Profile Parameters Definition
-              <span class="text-purple-300 font-mono text-base">«{{ varianteActiva.code || 'nueva variante' }}»</span>
-            </h3>
-            <div class="flex gap-2">
-              <button type="button" @click="cerrarVariante(varianteActiva)"
-                      class="btn btn-secondary text-sm py-1 px-2"
-                      title="Cerrar sin guardar: descarta los cambios no guardados">
-                Cerrar
-              </button>
-              <button type="button" v-if="varianteActiva.id" @click="retirarVariante(varianteActiva)"
-                      class="btn btn-secondary text-sm py-1 px-2 text-red-400 border-red-800">
-                Retirar variante
-              </button>
-              <button type="button" :disabled="!varianteActiva.code || varianteActiva._saving"
-                      @click="guardarVariante(varianteActiva)"
-                      class="btn btn-primary text-sm py-1 px-2 disabled:opacity-40">
-                {{ varianteActiva._saving ? 'Guardando…' : (varianteActiva.id ? 'Guardar variante' : 'Crear variante') }}
-              </button>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2 mb-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-400 mb-1">Variant name *</label>
-              <input v-model="varianteActiva.code" class="input w-full text-sm" placeholder="p. ej. PLACSP CODICE" />
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-400 mb-1">Description</label>
-              <textarea v-model="varianteActiva.description" v-autogrow rows="1"
-                        class="input w-full text-sm resize-none"></textarea>
-            </div>
-          </div>
-
-          <div v-if="!varianteActiva.entries.length" class="text-center py-4 text-gray-400 text-sm">
-            Esta variante aún no fija ningún parámetro.
-          </div>
-
-          <div v-else class="space-y-2">
-            <div class="grid grid-cols-12 gap-2 text-xs font-medium text-gray-400 px-2">
-              <div class="col-span-3">Parámetro</div>
-              <div class="col-span-2">Tipo</div>
-              <div class="col-span-6">Valor en esta variante</div>
-              <div class="col-span-1"></div>
-            </div>
-            <div v-for="(e, i) in varianteActiva.entries" :key="i"
-                 class="grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700">
-              <div class="col-span-3 pt-1">
-                <select v-model="e.key" class="input w-full text-xs">
-                  <option v-for="p in parameters" :key="p.paramName" :value="p.paramName">{{ p.paramName }}</option>
-                  <option v-if="e.key && !parameters.some(p => p.paramName === e.key)" :value="e.key">{{ e.key }} (fuera del catálogo)</option>
-                </select>
+            <!-- Claves de la variante fuera del catálogo (heredadas): valor editable -->
+            <div v-if="varianteActiva && extrasVariante.length" class="mt-3">
+              <div class="flex items-center gap-2 mb-1 px-1">
+                <span class="text-[11px] uppercase tracking-wide font-semibold text-amber-300">Fuera del catálogo</span>
+                <span class="text-[10px] text-gray-500">({{ extrasVariante.length }})</span>
+                <div class="flex-1 border-t border-gray-700"></div>
               </div>
-              <div class="col-span-2 pt-2 text-xs text-gray-500">{{ tipoDe(e.key) }}</div>
-              <div class="col-span-6">
-                <!-- enum → desplegable con las opciones del parámetro -->
-                <select v-if="tipoDe(e.key) === 'enum'" v-model="e.value" class="input w-full text-xs">
-                  <option v-for="o in enumDe(e.key)" :key="o.value" :value="o.value">{{ o.label || o.value }}</option>
-                </select>
-                <!-- boolean → sí/no -->
-                <select v-else-if="tipoDe(e.key) === 'boolean'" v-model="e.value" class="input w-full text-xs">
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </select>
-                <!-- json/objetos → editor multilínea SOLO para ese parámetro -->
-                <textarea v-else-if="tipoDe(e.key) === 'json' || esValorLargo(e.value)"
-                          v-model="e.value" rows="4" class="input w-full text-xs font-mono"
-                          :class="{ 'border-red-700': errorJsonEntrada(e) }"></textarea>
-                <input v-else v-model="e.value" class="input w-full text-xs" />
-                <p v-if="errorJsonEntrada(e)" class="text-[10px] text-red-400 mt-0.5">{{ errorJsonEntrada(e) }}</p>
-                <p v-if="hintDe(e.key)" class="text-[10px] text-gray-600 mt-0.5 leading-tight">{{ hintDe(e.key) }}</p>
-              </div>
-              <div class="col-span-1 pt-1 text-right">
-                <button type="button" @click="varianteActiva.entries.splice(i, 1)"
-                        class="text-red-400 hover:text-red-300 text-sm" title="Quitar de la variante">✕</button>
+              <div v-for="e in extrasVariante" :key="e.key"
+                   class="grid grid-cols-12 gap-2 items-start p-2 border border-amber-900/50 rounded">
+                <div class="col-span-3 pt-1 text-xs font-mono text-amber-300">{{ e.key }}</div>
+                <div class="col-span-8">
+                  <textarea v-if="esValorLargo(e.value)" v-model="e.value" rows="3" class="input w-full text-xs font-mono"></textarea>
+                  <input v-else v-model="e.value" class="input w-full text-xs" />
+                </div>
+                <div class="col-span-1 pt-1 text-right">
+                  <button type="button" @click="setValorVariante(e.key, '')"
+                          class="text-red-400 hover:text-red-300 text-sm" title="Quitar de la variante">✕</button>
+                </div>
               </div>
             </div>
           </div>
-
-          <div class="mt-3">
-            <select class="input text-xs" v-model="paramAAnadir" @change="anadirEntrada">
-              <option value="">+ Fijar parámetro en esta variante…</option>
-              <option v-for="p in paramsDisponiblesVariante" :key="p.paramName" :value="p.paramName">
-                {{ p.paramName }} ({{ p.dataType }})
-              </option>
-            </select>
           </div>
-          <p v-if="varianteActiva._error" class="text-xs text-red-400 mt-2">{{ varianteActiva._error }}</p>
         </div>
 
         <!-- Validation Error -->
@@ -473,12 +465,11 @@ const filteredParams = computed(() => {
   return parameters.value
 })
 
-const ORDEN_GRUPOS = ['peticion', 'paginacion', 'extraccion', 'http']
 const ETIQUETAS_GRUPO = {
   peticion: 'Parámetros de petición',
   paginacion: 'Parámetros de paginación',
   extraccion: 'Parámetros de extracción',
-  http: 'Parámetros HTTP (conexión)',
+  http: 'Parámetros de conexión',
   query: 'Parámetros de consulta',
   otros: 'Otros parámetros',
 }
@@ -499,10 +490,8 @@ const filteredParamGroups = computed(() => {
     if (!grupos.has(g)) grupos.set(g, [])
     grupos.get(g).push(p)
   }
-  const nombres = [...grupos.keys()].sort((a, b) => {
-    const ia = ORDEN_GRUPOS.indexOf(a), ib = ORDEN_GRUPOS.indexOf(b)
-    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
-  })
+  const nombres = [...grupos.keys()].sort((a, b) =>
+    tituloGrupo(a).localeCompare(tituloGrupo(b), 'es'))
   return nombres.map(n => ({
     name: n,
     params: grupos.get(n).slice().sort((a, b) => (a.visibleWhen ? 1 : 0) - (b.visibleWhen ? 1 : 0)),
@@ -721,7 +710,6 @@ const vAutogrow = {
 }
 const variantes = ref([])
 const varianteActiva = ref(null)
-const paramAAnadir = ref('')
 let _tmpSeq = 0
 
 function _aEntries(paramsObj) {
@@ -745,28 +733,23 @@ function _deEntries(entries) {
 function esJsonTexto(v) { const t = String(v ?? '').trim(); return t.startsWith('{') || t.startsWith('[') }
 function esValorLargo(v) { return String(v ?? '').length > 70 || esJsonTexto(v) }
 function tipoDe(k) { return parameters.value.find(p => p.paramName === k)?.dataType || 'string' }
-function hintDe(k) { const p = parameters.value.find(p => p.paramName === k); return p?.hint || p?.description || null }
-function enumDe(k) {
-  const ev = parameters.value.find(p => p.paramName === k)?.enumValues
-  if (!ev) return []
-  try { const arr = typeof ev === 'string' ? JSON.parse(ev) : ev; return Array.isArray(arr) ? arr : [] } catch { return [] }
+function valorVariante(pn) {
+  const e = varianteActiva.value?.entries.find(x => x.key === pn)
+  return e ? e.value : ''
 }
-function errorJsonEntrada(e) {
-  if (tipoDe(e.key) !== 'json' && !esJsonTexto(e.value)) return null
-  try { JSON.parse(e.value || '{}'); return null } catch (err) { return 'JSON inválido: ' + err.message }
+function setValorVariante(pn, v) {
+  const va = varianteActiva.value
+  if (!va) return
+  const i = va.entries.findIndex(x => x.key === pn)
+  if (v === '' || v == null) { if (i >= 0) va.entries.splice(i, 1) }
+  else if (i >= 0) va.entries[i].value = v
+  else va.entries.push({ key: pn, value: v })
 }
-const paramsDisponiblesVariante = computed(() => {
-  if (!varianteActiva.value) return []
-  const usados = new Set(varianteActiva.value.entries.map(e => e.key))
-  return parameters.value.filter(p => p.paramName && !usados.has(p.paramName))
-})
-function anadirEntrada() {
-  if (!paramAAnadir.value || !varianteActiva.value) return
-  const dt = tipoDe(paramAAnadir.value)
-  const def = parameters.value.find(p => p.paramName === paramAAnadir.value)?.defaultValue
-  varianteActiva.value.entries.push({ key: paramAAnadir.value,
-    value: def != null ? String(def) : (dt === 'boolean' ? 'false' : '') })
-  paramAAnadir.value = ''
+function errorJsonValor(param) {
+  const v = valorVariante(param.paramName)
+  if (v === '') return null
+  if (param.dataType !== 'json' && !esJsonTexto(v)) return null
+  try { JSON.parse(v); return null } catch (e) { return 'JSON inválido: ' + e.message }
 }
 function seleccionarVariante(v) { varianteActiva.value = varianteActiva.value === v ? null : v }
 function nuevaVariante() {
@@ -788,7 +771,11 @@ watch(() => props.Fetcher, (f) => {
 
 async function guardarVariante(v) {
   v._error = null
-  const conError = v.entries.find(e => errorJsonEntrada(e))
+  const conError = v.entries.find(e => {
+    const t = String(e.value ?? '').trim()
+    if (!t.startsWith('{') && !t.startsWith('[')) return false
+    try { JSON.parse(t); return false } catch { return true }
+  })
   if (conError) { v._error = `El parámetro '${conError.key}' tiene JSON inválido`; return }
   v._saving = true
   try {
