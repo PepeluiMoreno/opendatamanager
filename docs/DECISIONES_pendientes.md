@@ -120,6 +120,11 @@ Implementado: param extract_mode, variantes 'Censo documental' (🔒 censo) y
 con todo el árbol + hijos de extracción solo para los TABLA_REAL de la
 auditoría. Las recetas (8b) quedan como evolución pendiente para rescatar los
 31 informes-formulario (PMP el primero).
+**Ratificada (2026-06)**: se evaluó la vía 'param solo en el recurso, sin
+variantes' (propuesta del usuario) — funcionalmente equivalente y ya posible
+hoy. Se mantienen las dos variantes por una única razón: etiqueta veraz en el
+listado (la columna dice censo/extracción de un vistazo y el candado garantiza
+que el rótulo no miente). 'Lo dejamos como está'.
 
 ### 9. Alimentación automática de un CKAN para Jerez desde los hijos Web Tree
 **Contexto** (idea del usuario, 2026-06): aprovechar el output actual —
