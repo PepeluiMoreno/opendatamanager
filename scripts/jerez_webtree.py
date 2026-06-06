@@ -188,6 +188,8 @@ def main():
         usados = {directorio.target_table}
         for p in props:
             extraer = any(pat in p.path_template for pat in EXTRAER)
+            if not extraer:
+                continue  # sin artificios: la taxonomía se recalcula con infer() cuando haga falta
             cand = ResourceCandidate(
                 crawler_resource_id=crawler.id,
                 path_template=p.path_template, dimensions=p.dimensions,
@@ -196,8 +198,6 @@ def main():
                 status="discovered",
             )
             db.add(cand); db.flush()
-            if not extraer:
-                continue  # queda como candidata 'discovered'; el censo ya la cubre
 
             nombre = f"Jerez — {p.suggested_name}"[:96]
             base = slug(p.suggested_name)
@@ -224,9 +224,9 @@ def main():
             creados += 1
         db.commit()
 
-        print(f"[promote] {creados} hijos en 'Extracción de datos' (TABLA_REAL de la auditoría) "
-              f"+ 1 directorio-censo, bajo '{CRAWLER_NAME}'. "
-              f"{len(props) - creados} propuestas quedan como candidatas (cubiertas por el censo).")
+        print(f"[promote] {creados} hijos en 'Extracción de datos' + 1 directorio-censo, "
+              f"bajo '{CRAWLER_NAME}'. Sin candidatas residuales: la taxonomía "
+              f"({len(props) - creados} grupos) se recalcula con infer() cuando se necesite (p. ej. exportador CKAN).")
     finally:
         db.close()
 

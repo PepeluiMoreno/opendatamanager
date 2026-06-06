@@ -159,6 +159,12 @@ candidata = un package CKAN (plantilla → serie, suggested_name → título,
 dimensiones → extras, matched_urls → resources). El directorio es la cara del
 censo dentro de ODM; además sus filas llevan columna 'seccion' derivada del
 path como clasificación embebida.
+**Afinado (2026-06, 'los títulos hacen falta, pero sin artificios de más')**:
+las candidatas no-promovidas YA NO se persisten. El inferer es función pura:
+el exportador CKAN llamará a infer() en memoria sobre el censo para obtener
+los grupos con título ('Informe PMP (mensual)') en el momento de exportar.
+Títulos finos sin estado residual: solo persisten las 5 candidatas de los
+recursos promovidos.
 **Estado**: sin decidir.
 
 ---
