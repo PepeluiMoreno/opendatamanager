@@ -19,7 +19,7 @@ FETCHERS: List[Dict[str, Any]] = [
     {
         "name": "API REST",
         "class_path": "app.fetchers.rest.RestFetcher",
-        "description": "Especie REST genérica (HTTP+JSON). El recorrido del conjunto se delega en la categoría 'paginación': sin 'pagination' (o 'none') hace una sola petición; con una estrategia (query_offset, page_number, rel_next, cursor, pivot_loop) recorre y acumula los registros de 'content_field'. Unifica la familia REST (absorbe 'API REST Paginada').",
+        "description": "APIs REST que devuelven JSON. Sin paginación hace una sola petición; eligiendo una estrategia de paginación (offset, número de página, enlace siguiente, cursor o bucle de pivotes) recorre el conjunto completo y acumula los registros.",
         "params": [
             {"param_name": "url", "data_type": "string", "required": True, "group": "http"},
             {"param_name": "method", "data_type": "string", "required": False, "default_value": "GET", "group": "http"},
@@ -185,7 +185,7 @@ FETCHERS: List[Dict[str, Any]] = [
     {
         "name": "HTML (genérico)",
         "class_path": "app.fetchers.html_generic.HTMLFetcher",
-        "description": "ESPECIE genérica de scraping HTML sobre HTTP. Delega en registros: navegación (single|paged|pivot|form_pivot), extracción (fields|table, dialecto de selectores CSS) y construcción de la petición (query|form_submit). Absorbe HTML Forms, HTML Paginated y URL Loop HTML.",
+        "description": "Scraping de páginas HTML. La navegación (página única, paginada, por pivotes o rellenando formularios) y la extracción (campos por selectores o tablas) se eligen por parámetros.",
         "params": [
             {"param_name": "url", "data_type": "string", "required": False, "group": "http"},
             {"param_name": "url_template", "data_type": "string", "required": False, "group": "navegacion",
@@ -413,7 +413,7 @@ FETCHERS: List[Dict[str, Any]] = [
 # explicación y casos de uso. Marcadas como planificadas hasta implementar su clase.
 FETCHERS += [{'name': 'GraphQL',
   'class_path': 'app.fetchers.graphql.GraphQLFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Consulta declarativa sobre un único '
+  'description': 'Consulta declarativa sobre un único '
                  'endpoint: el cliente pide en el cuerpo exactamente los campos que necesita; paginación por '
                  'cursor/connections. Casos de uso: GitHub y Shopify lo popularizaron; en sector público es '
                  'emergente — algunos catálogos y portales de transparencia lo exponen junto a REST; data.europa.eu '
@@ -421,141 +421,141 @@ FETCHERS += [{'name': 'GraphQL',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'SPARQL',
   'class_path': 'app.fetchers.sparql.SparqlFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Consulta sobre datos enlazados '
+  'description': 'Consulta sobre datos enlazados '
                  '(RDF); los resultados llegan en results.bindings (JSON/XML). Casos de uso: endpoint SPARQL del '
                  'catálogo de datos.gob.es; Aragón Open Data (Linked Data); datos enlazados del BOE (legislación); '
                  'Wikidata, Europeana y el Cellar/EU Vocabularies de la Oficina de Publicaciones de la UE.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'SDMX',
   'class_path': 'app.fetchers.sdmx.SdmxFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Estándar de intercambio de datos y '
+  'description': 'Estándar de intercambio de datos y '
                  'metadatos ESTADÍSTICOS: dataflows, dimensiones y atributos en SDMX-JSON/XML. Casos de uso: INE '
                  '(API Tempus3/SDMX), Eurostat, Banco de España, Banco Central Europeo, OCDE, FMI y Banco Mundial.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'OAI-PMH',
   'class_path': 'app.fetchers.oai_pmh.OaiPmhFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Protocolo de cosecha de metadatos de '
+  'description': 'Protocolo de cosecha de metadatos de '
                  "repositorios: verbos ListRecords/ListIdentifiers encadenados por 'resumption token'. Casos de uso: "
                  'Hispana y Europeana (agregación cultural), repositorios universitarios y del CSIC (DSpace), '
                  'TESEO/tesis, Biblioteca Nacional, DataCite y OpenAIRE.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'OGC API - Features',
   'class_path': 'app.fetchers.ogc_features.OgcFeaturesFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Sucesor en JSON/GeoJSON de WFS: '
+  'description': 'Sucesor en JSON/GeoJSON de WFS: '
                  "colecciones de entidades geográficas paginadas por enlaces 'next'. Casos de uso: IGN/CNIG y la "
                  'IDEE, Dirección General del Catastro, IDEs autonómicas (ICGC de Cataluña, IDEAndalucía, '
                  'geoEuskadi) y geoportales de data.europa.eu.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'CSW',
   'class_path': 'app.fetchers.csw.CswFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Catalogue Service for the Web (OGC): '
+  'description': 'Catalogue Service for the Web (OGC): '
                  'catálogo de metadatos geográficos ISO 19139 para descubrir capas y datasets. Casos de uso: '
                  'catálogos INSPIRE del IGN y la IDEE, catálogos de las IDEs autonómicas y municipales, geoportales '
                  'europeos.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'WMTS',
   'class_path': 'app.fetchers.wmts.WmtsFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Teselas de mapa precalculadas (OGC '
+  'description': 'Teselas de mapa precalculadas (OGC '
                  'Web Map Tile Service). Casos de uso: PNOA y ortofotos del IGN, cartografía base de IDEs '
                  'autonómicas y de muchos ayuntamientos.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'WCS',
   'class_path': 'app.fetchers.wcs.WcsFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Coberturas ráster (OGC Web Coverage '
+  'description': 'Coberturas ráster (OGC Web Coverage '
                  'Service): datos continuos como elevación o temperatura. Casos de uso: modelos digitales del '
                  'terreno del IGN, mallas climáticas de AEMET y de Copernicus.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'STAC',
   'class_path': 'app.fetchers.stac.StacFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] SpatioTemporal Asset Catalog: '
+  'description': 'SpatioTemporal Asset Catalog: '
                  'catálogo de activos geoespacial-temporales (imágenes de satélite y ortofotos). Casos de uso: '
                  'Copernicus Data Space (Sentinel), PNOA histórico del IGN, y catálogos internacionales (USGS, '
                  'Microsoft Planetary Computer, AWS Open Data).',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'ArcGIS REST',
   'class_path': 'app.fetchers.arcgis.ArcGisFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] API REST de ArcGIS '
+  'description': 'API REST de ArcGIS '
                  '(FeatureServer/MapServer): query?f=json con paginación por resultOffset/resultRecordCount. Casos '
                  'de uso: ubicua en GIS público — visores urbanísticos, callejeros y equipamientos de numerosos '
                  'ayuntamientos y CCAA, y organismos estatales con infraestructura Esri.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'NGSI-LD (FIWARE)',
   'class_path': 'app.fetchers.ngsi_ld.NgsiLdFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Datos de contexto en (casi) tiempo '
+  'description': 'Datos de contexto en (casi) tiempo '
                  'real en JSON-LD a través de un Context Broker (FIWARE). Casos de uso: ciudades inteligentes '
                  'españolas sobre FIWARE — Santander, Málaga, Valencia, Sevilla — y la Red Española de Ciudades '
                  'Inteligentes (RECI).',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'Server-Sent Events',
   'class_path': 'app.fetchers.sse.SseFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Flujo unidireccional '
+  'description': 'Flujo unidireccional '
                  'servidor→cliente sobre HTTP (text/event-stream). Casos de uso: paneles y alertas en vivo, APIs de '
                  'tráfico y movilidad en tiempo real.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'WebSocket',
   'class_path': 'app.fetchers.websocket.WebSocketFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Canal bidireccional persistente para '
+  'description': 'Canal bidireccional persistente para '
                  'datos en vivo. Casos de uso: posiciones de transporte, mercados, telemetría de sensores.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'MQTT',
   'class_path': 'app.fetchers.mqtt.MqttFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Pub/sub ligero orientado a IoT '
+  'description': 'Pub/sub ligero orientado a IoT '
                  '(suscripción a topics de un broker). Casos de uso: sensórica de ciudades inteligentes y medio '
                  'ambiente (calidad del aire, aforo, ruido), habitual en plataformas FIWARE.',
   'params': [{'param_name': 'broker', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'Apache Kafka',
   'class_path': 'app.fetchers.kafka.KafkaFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Bus de eventos de alto volumen '
+  'description': 'Bus de eventos de alto volumen '
                  '(consumo de topics). Casos de uso: integración interna de grandes administraciones y plataformas '
                  'de datos en tiempo real.',
   'params': [{'param_name': 'brokers', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'GTFS-RT',
   'class_path': 'app.fetchers.gtfs_rt.GtfsRtFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Transporte público en tiempo real '
+  'description': 'Transporte público en tiempo real '
                  '(posiciones, retrasos, incidencias) en protobuf sobre HTTP. Casos de uso: EMT Madrid, TMB '
                  'Barcelona y consorcios de transporte autonómicos; estándar internacional mantenido por '
                  'MobilityData/Google.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'Webhooks entrantes',
   'class_path': 'app.fetchers.webhook_in.WebhookInFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] La fuente EMPUJA eventos a un '
+  'description': 'La fuente EMPUJA eventos a un '
                  'endpoint que tú expones (push, no pull). Casos de uso: notificaciones de cambios de catálogo y de '
                  'expedientes, integraciones evento-a-evento entre plataformas.',
   'params': [{'param_name': 'endpoint_path', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'Navegador headless',
   'class_path': 'app.fetchers.headless.HeadlessBrowserFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Renderiza páginas que cargan sus '
+  'description': 'Renderiza páginas que cargan sus '
                  'datos por JavaScript (Playwright/Chromium) cuando el scraping HTML estático no ve nada. Casos de '
                  'uso: portales públicos modernos tipo SPA (muchos visores autonómicos y municipales) y aplicaciones '
                  'con tablas alimentadas por una API interna no documentada.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'OCR PDF',
   'class_path': 'app.fetchers.ocr_pdf.OcrPdfFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Extrae texto y tablas de PDF que son '
+  'description': 'Extrae texto y tablas de PDF que son '
                  'imágenes (sin capa de texto) mediante OCR. Casos de uso: boletines y resoluciones antiguos, BOP '
                  'provinciales escaneados, expedientes digitalizados.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'Documentos ofimáticos',
   'class_path': 'app.fetchers.office_docs.OfficeDocsFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Lee tablas y texto de DOCX/XLSX/ODS '
+  'description': 'Lee tablas y texto de DOCX/XLSX/ODS '
                  'publicados como datos. Casos de uso: anexos de contratación y subvenciones en Excel (p. ej. '
                  'OrganosContratacion.xlsx de PLACSP), memorias y presupuestos en hoja de cálculo.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'Almacenamiento de objetos (S3)',
   'class_path': 'app.fetchers.s3_listing.S3ListingFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Lista y descarga volcados masivos de '
+  'description': 'Lista y descarga volcados masivos de '
                  'un bucket compatible con S3/MinIO. Casos de uso: dumps de datos abiertos en buckets públicos y '
                  'mirrors de datasets grandes (Parquet/CSV), habitual en portales internacionales y data lakes.',
   'params': [{'param_name': 'bucket_url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'FTP/SFTP/WebDAV',
   'class_path': 'app.fetchers.file_transfer.FileTransferFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] Transferencia de ficheros por FTP, '
+  'description': 'Transferencia de ficheros por FTP, '
                  'SFTP o WebDAV. Casos de uso: intercambios periódicos entre administraciones y depósitos de '
                  'ficheros estadísticos heredados.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]},
  {'name': 'gRPC',
   'class_path': 'app.fetchers.grpc.GrpcFetcher',
-  'description': '⏳ [Tecnología catalogada — implementación de clase pendiente] RPC binario de alto rendimiento '
+  'description': 'RPC binario de alto rendimiento '
                  'sobre HTTP/2 (Protocol Buffers). Casos de uso: poco frecuente en datos abiertos; común en '
                  'integraciones internas y entre servicios de plataformas tecnológicas.',
   'params': [{'param_name': 'url', 'data_type': 'string', 'required': True, 'group': 'http'}]}]
@@ -821,52 +821,52 @@ def seed() -> None:
         "Feeds ATOM/RSS": [
             {
                 "code": "PLACSP CODICE",
-                "description": "Perfil para sindicaciones CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid). Fija la paginación rel_next, el field_map CODICE y la cosecha incremental; el recurso aporta la 'url' y la ventana temporal (desde/hasta) como parámetros externos.",
+                "description": "Sindicaciones de contratación pública en CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid), con cosecha incremental. El recurso aporta la 'url' del feed y la ventana temporal (desde/hasta).",
                 "params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "dedup_key": "expediente", "dedup_order_field": "fecha", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "nif_adjudicatario": "WinningParty/PartyIdentification/ID", "resultado": "TenderResult/ResultCode", "fecha_adjudicacion": "TenderResult/AwardDate", "num_ofertas": "TenderResult/ReceivedTenderQuantity", "importe_adjudicacion": "TenderResult/AwardedTenderedProject/LegalMonetaryTotal/TaxExclusiveAmount", "fecha": "updated", "url": "link@href"}},
             },
         ],
         "API REST": [
             {
                 "code": "CKAN",
-                "description": "Catálogo de un portal CKAN vía package_search (API v3). Fija paginación start/rows y extracción de result.results; el recurso aporta la 'url' del endpoint (https://<portal>/api/3/action/package_search) y, opcionalmente, query_params con 'q' o 'fq' para acotar. Verificado contra opendata.aragon.es.",
+                "description": "Catálogo de un portal CKAN (API v3). El recurso aporta la 'url' del buscador del portal (https://<portal>/api/3/action/package_search) y, opcionalmente, una consulta para acotar. Verificado contra opendata.aragon.es.",
                 "params": {"pagination": "query_offset", "start_param": "start", "page_size_param": "rows",
                            "page_size": 100, "content_field": "result.results", "id_field": "id", "delay": 1,
                            "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
             },
             {
                 "code": "DKAN",
-                "description": "Catálogo de un portal DKAN (v2) vía metastore: /api/1/metastore/schemas/dataset/items, lista plana con limit/offset. El recurso aporta la 'url' del endpoint. Verificado contra demo.getdkan.org.",
+                "description": "Catálogo de un portal DKAN (v2). El recurso aporta la 'url' del catálogo del portal (https://<portal>/api/1/metastore/schemas/dataset/items). Verificado contra demo.getdkan.org.",
                 "params": {"pagination": "query_offset", "start_param": "offset", "page_size_param": "limit",
                            "page_size": 100, "id_field": "identifier", "delay": 1,
                            "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
             },
             {
                 "code": "OpenDataSoft",
-                "description": "Catálogo de un portal OpenDataSoft vía Explore API v2.1: /api/explore/v2.1/catalog/datasets, paginado limit/offset y registros en 'results'. El recurso aporta la 'url' del endpoint del portal. Verificado contra data.opendatasoft.com.",
+                "description": "Catálogo de un portal OpenDataSoft (Explore API v2.1). El recurso aporta la 'url' del catálogo del portal (https://<portal>/api/explore/v2.1/catalog/datasets). Verificado contra data.opendatasoft.com.",
                 "params": {"pagination": "query_offset", "start_param": "offset", "page_size_param": "limit",
                            "page_size": 100, "content_field": "results", "id_field": "dataset_id", "delay": 1,
                            "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
             },
             {
                 "code": "Socrata",
-                "description": "Catálogo de un portal Socrata vía metadata API v1 (/api/views/metadata/v1), lista plana paginada con $limit/$offset. El recurso aporta la 'url' del portal. Para datasets concretos sirve el mismo perfil contra /resource/<id>.json. Verificado contra data.cityofnewyork.us.",
+                "description": "Catálogo de un portal Socrata. El recurso aporta la 'url' del portal (https://<portal>/api/views/metadata/v1); para un dataset concreto, la misma variante sirve contra /resource/<id>.json. Verificado contra data.cityofnewyork.us.",
                 "params": {"pagination": "query_offset", "start_param": "$offset", "page_size_param": "$limit",
                            "page_size": 100, "id_field": "id", "delay": 1,
                            "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
             },
             {
                 "code": "Paginada",
-                "description": "Recorrido por número de página (page=N) hasta página vacía. Heredera de la antigua especie 'API REST Paginada': fija paginación page_number sobre petición query y extracción passthrough; el recurso aporta la 'url' y, si el API no es 1-based, su 'start_page'.",
+                "description": "Recorrido por número de página (page=N) hasta página vacía. El recurso aporta la 'url' y, si el API no empieza en la página 1, su 'start_page'.",
                 "params": {"pagination": "page_number", "request": "query", "extraction": "passthrough"},
             },
             {
                 "code": "Loop de pivotes",
-                "description": "Una petición por cada valor de una lista (provincias, códigos...) con cuerpo JSON. Heredera del antiguo 'REST Loop': fija petición json_body y paginación pivot_loop; el recurso aporta 'url', 'pivot_param' y la fuente de pivotes (pivot_values o pivot_source_resource).",
+                "description": "Una petición por cada valor de una lista (provincias, códigos...) enviada en el cuerpo JSON. El recurso aporta la 'url', el nombre del parámetro pivote y la lista de valores o el dataset del que tomarlos.",
                 "params": {"request": "json_body", "pagination": "pivot_loop", "extraction": "passthrough"},
             },
             {
                 "code": "Series temporales JSON",
-                "description": "Respuesta JSON de series temporales aplanada a formato largo. Heredera del antiguo 'JSON Time Series': fija extracción timeseries_long sin paginación; el recurso aporta 'url' y 'content_field' (raíz de las series).",
+                "description": "Respuesta JSON de series temporales aplanada a formato largo (una fila por punto de la serie). El recurso aporta la 'url' y la raíz donde viven las series.",
                 "params": {"request": "query", "pagination": "none", "extraction": "timeseries_long"},
             },
         ],
