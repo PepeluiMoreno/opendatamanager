@@ -302,7 +302,7 @@
           <div v-if="(selectedFetcher?.presets || []).length">
             <label class="block text-xs font-medium mb-1">Perfil (preset)</label>
             <select v-model="form.presetId" class="input w-full text-sm">
-              <option :value="null">— sin perfil —</option>
+              <option :value="null">Genérico</option>
               <option v-for="pr in selectedFetcher.presets" :key="pr.id" :value="pr.id">
                 {{ pr.code }}<template v-if="pr.description"> — {{ pr.description.slice(0, 80) }}</template>
               </option>
