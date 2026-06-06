@@ -9,11 +9,11 @@ Ciclo completo end-to-end (el que en producción harían el crawler + Discoverin
   4. Promueve cada candidata a un Resource hijo (auto_generated), enlazando
      promoted_resource_id — exactamente lo que hace la mutation promote_candidate.
 
-Idempotente por --reset: con --reset retira (soft-delete) los hijos y candidatos
-previos del crawler antes de volver a descubrir. Sin --reset, solo promueve las
-candidatas aún sin promover.
+Idempotente: por defecto, re-descubrir REEMPLAZA el descubrimiento anterior
+(retira con soft-delete los hijos auto-generados y candidatos previos del
+crawler). Con --append se acumula sin retirar.
 
-Uso:  DATABASE_URL=... python scripts/jerez_webtree.py [--reset] [--max-depth 2]
+Uso:  python scripts/jerez_webtree.py [--max-depth 2] [--append]
 """
 import argparse
 import re
@@ -66,7 +66,8 @@ def asegurar_crawler(db, fetcher, pub) -> Resource:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--reset", action="store_true")
+    ap.add_argument("--append", action="store_true",
+                    help="no retirar el descubrimiento anterior (por defecto, re-descubrir lo reemplaza)")
     ap.add_argument("--max-depth", type=int, default=2)
     args = ap.parse_args()
 
@@ -79,7 +80,7 @@ def main():
         crawler = asegurar_crawler(db, fetcher_row, pub)
         db.commit()
 
-        if args.reset:
+        if not args.append:
             hijos = db.query(Resource).filter(Resource.parent_resource_id == crawler.id).all()
             for h in hijos:
                 h.deleted_at = datetime.utcnow()
