@@ -185,7 +185,7 @@ RESOURCES: List[Dict[str, Any]] = [
         "params": {
             "endpoint":     "http://ovc.catastro.meh.es/INSPIRE/wfsCP.aspx",
             "typenames":    "cp:CadastralParcel",
-            "bbox":         "-6.4,36.9,-5.3,37.9",
+            "bbox":         "36.9,-6.4,37.9,-5.3",  # lat,lon: eje oficial EPSG:4326 que exige el WFS INSPIRE
             "outputFormat": "application/gml+xml; version=3.2",
             "srsName":      "EPSG:4326",
             "count":        "500",
@@ -858,8 +858,17 @@ mutation($id: String!, $input: UpdateResourceInput!) {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _contexto_admin() -> Dict[str, Any]:
+    """El seed corre desde el host como tarea administrativa, no como petición
+    de red: contexto con permisos plenos (todos los códigos que RBAC conoce)."""
+    from app.rbac import MAPA_TRANSACCIONES
+    permisos = set(MAPA_TRANSACCIONES.values())
+    return {"permisos": permisos, "usuario": "seed_resources"}
+
+
 def _execute(query: str, variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-    result = schema.execute_sync(query, variable_values=variables)
+    result = schema.execute_sync(query, variable_values=variables,
+                                 context_value=_contexto_admin())
     if result.errors:
         messages = "; ".join(str(err) for err in result.errors)
         raise RuntimeError(messages)

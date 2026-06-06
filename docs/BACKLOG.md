@@ -9,6 +9,27 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [x] **Arnés batch de pruebas de recursos** (este push): script paralelo con
+  clasificación OK/SIN FILAS/FUENTE CAÍDA/CONFIG ROTA/BUG y sello de
+  last_tested_at. Primera pasada completa sobre los 42 activos:
+  docs/INFORME_arnes_2026-06-07.md (34 OK).
+- [x] **Fuentes DIR3**: el ítem estaba desfasado — el CSV FUNCIONA (126.368
+  filas), solo era lento; timeout 240 fijado en seed. Cabecera pendiente de
+  verificar quedaba cubierta: el fetch produce las columnas esperadas.
+- [x] **Catastro Sevilla — eje del bbox**: el WFS INSPIRE exige lat,lon;
+  corregido en seed (verificado en vivo con bbox pequeño).
+
+- [ ] **Hacienda - PMP Entidades Locales**: 404; localizar la URL vigente en
+  serviciostelematicosext.hacienda.gob.es (CONPREL).
+- [ ] **Registros de la Propiedad (CORPME)**: 404; el documento de
+  registradores.org cambió de ruta.
+- [ ] **Jerez ×3 (Deuda/Morosidad/PMP)**: el portal cambió las rutas `{year}`;
+  localizar el patrón nuevo en transparencia.jerez.es.
+- [ ] **Catastro Sevilla — troceo**: la petición provincia-entera (count=500)
+  tumba el WFS (500 tras 233s); trocear por municipios o rejilla de bboxes.
+- [ ] **Geonames ES.zip**: 503 persistente hoy (throttling); reintentar y, si
+  persiste, mirror alternativo.
+
 - [x] **Sección 'Fuera del catálogo' vaciada de raíz** (este push): esas
   claves eran parámetros que las variantes usan pero la especie NO declaraba
   (¡incluidos start_param/page_size_param que lee la propia paginación!). Se
@@ -31,13 +52,6 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   184/184, incluidos los 24 que faltaban (urls de especies aspiracionales,
   broker MQTT, bootstrap de Kafka, page_param del HTML genérico...).
 
-- [ ] **Arnés batch de pruebas de recursos**: recorrer todos los recursos vivos
-  con `_preview_limit=3` y clasificar cada fallo (fuente caída / config rota /
-  bug de fetcher). Tras la racha de 6+ recursos rotos detectados a mano, es la
-  red de seguridad que falta.
-- [ ] **Fuentes DIR3 rotas**: el CSV de datos.gob.es y el XLSX del PAe
-  responden 404/HTML. Localizar las URLs vigentes y verificar la cabecera real
-  del campo (oficial: `C_ID_UD_ORGANICA`). Bloquean el puente DIR3↔BDNS.
 - [ ] **deploy-healthcheck.patch** sobre `.github/workflows/deploy.yml`: debe
   aplicarse desde el editor web de GitHub (el PAT en uso no tiene scope
   `workflow`). Sin él, los workflows salen verdes aunque el contenedor no
