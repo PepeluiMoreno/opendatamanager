@@ -303,19 +303,6 @@
             <p v-if="selectedPreset" class="text-xs text-purple-300 mt-1">
               El recurso hereda {{ Object.keys(selectedPreset.params || {}).length }} parámetro(s) del perfil; tu valor manda si rellenas el mismo campo.
             </p>
-            <details v-if="selectedPreset" class="mt-2 bg-gray-900/60 border border-purple-900/60 rounded">
-              <summary class="cursor-pointer text-xs text-purple-300 px-3 py-1.5 select-none">
-                Ver los {{ Object.keys(selectedPreset.params || {}).length }} parámetros heredados del perfil «{{ selectedPreset.code }}»
-              </summary>
-              <div class="px-3 pb-2 max-h-56 overflow-y-auto">
-                <div v-for="(v, k) in selectedPreset.params" :key="k" class="py-1 border-b border-gray-800 last:border-0">
-                  <span class="text-xs font-mono text-purple-300">{{ k }}</span>
-                  <span v-if="paramOverridden(k)" class="ml-2 text-[9px] uppercase bg-amber-900 text-amber-300 border border-amber-700 px-1 rounded"
-                        title="Has rellenado este campo en el recurso: tu valor sustituye al del perfil">sobrescrito</span>
-                  <pre class="text-[11px] text-gray-400 whitespace-pre-wrap break-all mt-0.5 mb-0">{{ formatPresetValue(v) }}</pre>
-                </div>
-              </div>
-            </details>
           </div>
 
           <div>
@@ -363,6 +350,51 @@
 
             <!-- Tab Content: Parameters -->
             <div v-if="activeParamTab === 'parameters'" class="h-[400px] overflow-y-auto pr-2">
+              <!-- Preestablecidos por el perfil: visibles, sobrescribibles -->
+              <div v-if="selectedPreset && presetSectionParams.length" class="mb-4">
+                <h4 class="text-sm font-medium mb-2 text-purple-400">
+                  Preestablecidos por el perfil «{{ selectedPreset.code }}»
+                </h4>
+                <div class="space-y-1.5">
+                  <div v-for="pp in presetSectionParams" :key="pp.paramName"
+                       class="rounded border px-3 py-2"
+                       :class="paramOverridden(pp.paramName) ? 'border-amber-700 bg-amber-950/20' : 'border-purple-900/60 bg-gray-900/40'">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-mono text-purple-300">{{ pp.paramName }}</span>
+                      <span v-if="pp.def?.required" class="text-[9px] uppercase bg-red-900 text-red-300 border border-red-700 px-1 rounded">requerido</span>
+                      <span v-if="paramOverridden(pp.paramName)"
+                            class="text-[9px] uppercase bg-amber-900 text-amber-300 border border-amber-700 px-1 rounded">sobrescrito</span>
+                      <span class="ml-auto"></span>
+                      <button v-if="!paramOverridden(pp.paramName)" type="button"
+                              @click="overridePresetParam(pp.paramName)"
+                              class="text-[10px] px-2 py-0.5 rounded border border-gray-600 text-gray-300 hover:bg-gray-700">
+                        Sobrescribir
+                      </button>
+                      <button v-else type="button"
+                              @click="revertPresetParam(pp.paramName)"
+                              class="text-[10px] px-2 py-0.5 rounded border border-gray-600 text-gray-300 hover:bg-gray-700"
+                              title="Eliminar tu valor y volver al heredado del perfil">
+                        Volver al perfil
+                      </button>
+                    </div>
+                    <!-- Heredado: solo informativo -->
+                    <pre v-if="!paramOverridden(pp.paramName)"
+                         class="text-[11px] text-gray-400 whitespace-pre-wrap break-all mt-1 mb-0">{{ presetValueFormatted(pp.inheritedValue) }}</pre>
+                    <!-- Sobrescrito: editable; tu valor manda -->
+                    <textarea v-else-if="typeof pp.inheritedValue === 'object' || String(presetValueInline(pp.inheritedValue)).length > 60"
+                              :value="getParamValue(pp.paramName)"
+                              @input="updateParamValue(pp.paramName, $event.target.value)"
+                              rows="4" class="input w-full text-xs font-mono mt-1"></textarea>
+                    <input v-else
+                           :value="getParamValue(pp.paramName)"
+                           @input="updateParamValue(pp.paramName, $event.target.value)"
+                           class="input w-full text-xs mt-1" />
+                    <p v-if="pp.def?.hint || pp.def?.description"
+                       class="text-[10px] text-gray-600 mt-1 mb-0 leading-tight">{{ pp.def.hint || pp.def.description }}</p>
+                  </div>
+                </div>
+              </div>
+
               <!-- Required Parameters (always shown) -->
             <div v-if="requiredParams.length > 0" class="mb-4">
               <h4 class="text-sm font-medium mb-2 text-red-400">Required Parameters</h4>
@@ -1355,7 +1387,10 @@ function isVisibleParam(p) {
   return true
 }
 
-const requiredParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required === true && isVisibleParam(p)) || [])
+const presetParamNames = computed(() => new Set(Object.keys(selectedPreset.value?.params || {})))
+// Categoría propia: los params preestablecidos por el perfil salen de Required/
+// Optional y se gestionan en su sección (visibles, sobrescribibles).
+const requiredParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required === true && isVisibleParam(p) && !presetParamNames.value.has(p.paramName)) || [])
 const optionalParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required !== true) || [])
 const addedOptionalParams = computed(() => { const req = requiredParams.value.map(p => p.paramName); return form.value.params.map(p => p.key).filter(k => !req.includes(k)) })
 
@@ -1364,6 +1399,7 @@ const paramGroups = computed(() => {
   const grouped = {}; const order = []
   for (const p of optionalParams.value) {
     if (!p.group) continue
+    if (presetParamNames.value.has(p.paramName)) continue
     if (!isVisibleParam(p)) continue
     if (!grouped[p.group]) { grouped[p.group] = []; order.push(p.group) }
     grouped[p.group].push(p)
@@ -1371,11 +1407,11 @@ const paramGroups = computed(() => {
   return order.map(name => ({ name, params: grouped[name] }))
 })
 
-const ungroupedOptionalParams = computed(() => selectedFetcher.value ? optionalParams.value.filter(p => !p.group) : [])
+const ungroupedOptionalParams = computed(() => selectedFetcher.value ? optionalParams.value.filter(p => !p.group && !presetParamNames.value.has(p.paramName)) : [])
 const addedUngroupedOptionalParams = computed(() => {
   const req = requiredParams.value.map(p => p.paramName)
   const grp = new Set(paramGroups.value.flatMap(g => g.params.map(p => p.paramName)))
-  return form.value.params.map(p => p.key).filter(k => !req.includes(k) && !grp.has(k))
+  return form.value.params.map(p => p.key).filter(k => !req.includes(k) && !grp.has(k) && !presetParamNames.value.has(k))
 })
 const availableUngroupedOptionalParams = computed(() => { const cur = form.value.params.map(p => p.key); return ungroupedOptionalParams.value.filter(p => !cur.includes(p.paramName)) })
 const availableOptionalParams = computed(() => { const cur = form.value.params.map(p => p.key); return optionalParams.value.filter(p => !cur.includes(p.paramName)) })
@@ -1636,6 +1672,34 @@ function origenBadge(r) {
     texto: 'descubierto', clase: 'bg-purple-900 text-purple-300 border border-purple-700',
     tooltip: 'Recurso hijo promovido automáticamente por el crawler (Web Tree, modo discover).' }
   return null
+}
+
+const presetSectionParams = computed(() => {
+  // Todos los params del perfil, con metadatos de la especie si existen.
+  const defs = selectedFetcher.value?.paramsDef || []
+  return Object.keys(selectedPreset.value?.params || {}).sort().map(k => ({
+    paramName: k,
+    def: defs.find(d => d.paramName === k) || null,
+    inheritedValue: selectedPreset.value.params[k],
+  }))
+})
+function presetValueFormatted(v) {
+  if (v === null || v === undefined) return ''
+  return typeof v === 'object' ? JSON.stringify(v, null, 1) : String(v)
+}
+function presetValueInline(v) {
+  if (v === null || v === undefined) return ''
+  return typeof v === 'object' ? JSON.stringify(v) : String(v)
+}
+function overridePresetParam(pn) {
+  // Pasar a editable: el valor del perfil se copia como punto de partida.
+  if (!form.value.params.find(p => p.key === pn)) {
+    form.value.params.push({ key: pn, value: presetValueInline(selectedPreset.value?.params?.[pn]), isExternal: false })
+  }
+}
+function revertPresetParam(pn) {
+  // Volver al perfil: se elimina el override; el fetcher usará el valor heredado.
+  form.value.params = form.value.params.filter(p => p.key !== pn)
 }
 
 function formatPresetValue(v) {
