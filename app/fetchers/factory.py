@@ -1,4 +1,6 @@
+from functools import lru_cache
 import importlib
+import importlib.util
 from typing import Dict, Optional
 from app.models import Resource
 from app.fetchers.base import BaseFetcher
@@ -15,6 +17,36 @@ class FetcherFactory:
         "API REST": "app.fetchers.rest.RestFetcher",
         "HTML (genérico)": "app.fetchers.html_generic.HTMLFetcher",
     }
+
+    @staticmethod
+    def is_implemented(class_path: Optional[str], fetcher_code: Optional[str] = None) -> bool:
+        """Predicado 'la especie tiene implementación': su class_path (o el
+        fallback de su code) resuelve a una clase importable. Cacheado: coste
+        cero en listados. Es el campo calculado 'implemented' del catálogo —
+        distingue especies operativas de las matriculadas de forma aspiracional,
+        sin depender de fechas de creación ni listas blancas."""
+        cp = class_path or FetcherFactory._FALLBACK.get(fetcher_code or "")
+        if not cp:
+            return False
+        return FetcherFactory._resolves(cp)
+
+    @staticmethod
+    @lru_cache(maxsize=256)
+    def _resolves(class_path: str) -> bool:
+        modulo, _, clase = class_path.rpartition(".")
+        if not modulo or not clase:
+            return False
+        try:
+            spec = importlib.util.find_spec(modulo)
+        except (ImportError, ValueError, ModuleNotFoundError):
+            return False
+        if spec is None:
+            return False
+        try:
+            mod = importlib.import_module(modulo)
+        except Exception:
+            return False
+        return isinstance(getattr(mod, clase, None), type)
 
     @staticmethod
     def create_from_resource(resource: Resource, execution_params: Optional[Dict] = None) -> BaseFetcher:

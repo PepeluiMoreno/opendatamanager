@@ -43,6 +43,7 @@ export const QUERIES = {
       resources(activeOnly: $activeOnly) {
         id
         name
+        lastTestedAt
         description
         publisher
         publisherId
@@ -208,6 +209,7 @@ export const QUERIES = {
         name
         code
         classPath
+        implemented
         description
         createdAt
         presetParams

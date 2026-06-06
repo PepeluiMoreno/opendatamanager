@@ -545,6 +545,11 @@ class FetcherManager:
         resource = session.query(Resource).filter(Resource.id == resource_id).first()
         if not resource:
             raise ValueError(f"Resource con id '{resource_id}' no encontrado")
+        # Sello de última prueba: se registra el INTENTO (con éxito o sin él),
+        # antes de ejecutar, para que un preview que reviente también cuente.
+        from datetime import datetime as _dt
+        resource.last_tested_at = _dt.utcnow()
+        session.commit()
         if not resource.active:
             return []
         fetcher = FetcherFactory.create_from_resource(resource)

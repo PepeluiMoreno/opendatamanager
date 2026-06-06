@@ -83,6 +83,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
             ))
 
     return FetcherType(
+        implemented=ft.implemented,
         id=str(ft.id),
         code=ft.code,
         class_path=ft.class_path,
@@ -114,6 +115,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
 def map_resource(resource: Resource) -> ResourceType:
     """Convierte modelo Resource a tipo GraphQL"""
     return ResourceType(
+        last_tested_at=getattr(resource, 'last_tested_at', None),
         id=str(resource.id),
         name=resource.name,
         publisher=resource.publisher,

@@ -15,6 +15,10 @@
           placeholder="Name or description..."
           class="input text-sm w-56"
         />
+        <label class="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap cursor-pointer">
+          <input type="checkbox" v-model="soloImplementados" class="accent-blue-600">
+          Solo implementados
+        </label>
       </div>
       <div>
         <label class="block text-xs text-gray-400 mb-1">Created from</label>
@@ -64,7 +68,10 @@
             class="hover:bg-gray-750 transition-colors"
           >
             <td class="py-1.5 px-3 font-medium text-white">
-              <span :title="f.classPath || ''" class="cursor-default">{{ f.name || f.code }}</span>
+              <span :title="f.classPath || ''" class="cursor-default" :class="{ 'text-gray-500': !f.implemented }">{{ f.name || f.code }}</span>
+              <span v-if="!f.implemented"
+                    class="ml-2 text-[10px] uppercase tracking-wide bg-gray-700 text-gray-400 border border-gray-600 px-1.5 py-0.5 rounded align-middle"
+                    title="Especie matriculada en el catálogo sin clase implementada (class_path no resuelve)">sin implementación</span>
               <span v-if="f.presets && f.presets.length"
                     class="ml-2 text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded align-middle"
                     :title="'Perfiles disponibles: ' + f.presets.map(p => p.code).join(', ')">{{ f.presets.length }} perfil{{ f.presets.length > 1 ? 'es' : '' }}</span>
@@ -229,6 +236,7 @@ const currentPage = ref(1)
 const pageSize    = ref(15)
 
 const filterText     = ref('')
+const soloImplementados = ref(false)
 const filterDateFrom = ref('')
 const filterDateTo   = ref('')
 const sortBy         = ref('name')
@@ -237,6 +245,10 @@ const sortDir        = ref('asc')
 // ── Computed ─────────────────────────────────────────────────────────────────
 const filtered = computed(() => {
   let list = Fetchers.value
+
+  if (soloImplementados.value) {
+    list = list.filter(f => f.implemented)
+  }
 
   if (filterText.value) {
     const q = filterText.value.toLowerCase()

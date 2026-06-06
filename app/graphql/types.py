@@ -14,6 +14,9 @@ class FetcherType:
     # class_path. Declararlo no-nulo tumbaba el listado (seed de arranque y
     # GetFetchers del UI) en cuanto existía una fila así.
     class_path: Optional[str] = strawberry.field(default=None, name="classPath")
+    # Campo calculado: la especie tiene implementación importable (vs. matriculada
+    # de forma aspiracional). Resuelto por FetcherFactory.is_implemented (cacheado).
+    implemented: bool = False
     description: Optional[str] = None
     params_def: List["FetcherParamType"] = strawberry.field(default_factory=list)
     name: str = strawberry.field(name="name")
@@ -230,5 +233,6 @@ class ResourceType:
     schedule: Optional[str] = None
     fetcher: FetcherType
     params: List[ResourceParamType]
+    last_tested_at: Optional[datetime] = strawberry.field(default=None, name="lastTestedAt")
 
 

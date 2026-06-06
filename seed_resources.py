@@ -138,21 +138,22 @@ RESOURCES: List[Dict[str, Any]] = [
     # ── FACE ──────────────────────────────────────────────────────────────────
     {
         "name": "FACE - Relaciones OC/OG/UT (Nacional)",
-        "fetcher_name": "API REST Paginada",
+        "fetcher_name": "API REST",
         "publisher_acronimo": "MPTFP",
         "target_table": "face_relations",
         "schedule": "0 4 * * 0",
         "params": {
             "url":             "https://proveedores.face.gob.es/api/v1/relations",
-            "method":          "GET",
-            "timeout":         "60",
+            "pagination":      "page_number",
+            # FACE es 1-based: page=0 devuelve 500 (la fusión inyectaba
+            # start_page=0 a los antiguos 'API REST Paginada' y rompía este).
+            "start_page":      "1",
             "page_param":      "page",
             "page_size_param": "limit",
             "page_size":       "1000",
             "content_field":   "items",
-            "id_field":        "",
             "headers":         '{"User-Agent": "Python/requests", "Accept": "application/json"}',
-            "page_start":      "1",
+            "timeout":         "60",
         },
     },
 

@@ -91,6 +91,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
             ))
 
     return FetcherType(
+        implemented=ft.implemented,
         id=str(ft.id),
         code=ft.code,
         class_path=ft.class_path,
@@ -149,6 +150,7 @@ def map_resource(resource: Resource) -> ResourceType:
         except Exception:
             children_list = []
     return ResourceType(
+        last_tested_at=getattr(resource, 'last_tested_at', None),
         id=str(resource.id),
         name=resource.name,
         description=resource.description,

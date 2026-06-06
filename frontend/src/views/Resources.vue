@@ -141,6 +141,10 @@
                   class="text-xs font-bold bg-blue-900 text-blue-300 border border-blue-700 px-1.5 py-0.5 rounded-full animate-pulse">
                   RUN
                 </span>
+                <span v-if="resource.lastTestedAt" class="text-[10px] text-gray-500 whitespace-nowrap"
+                      :title="'Última prueba: ' + new Date(resource.lastTestedAt + 'Z').toLocaleString()">
+                  ⏱ {{ formatTestedAt(resource.lastTestedAt) }}
+                </span>
               </div>
             </td>
             <td class="py-1.5 px-3">
@@ -1604,4 +1608,14 @@ onMounted(() => {
 onUnmounted(() => {
   clearInterval(runningPollTimer); _ro?.disconnect(); window.removeEventListener('resize', recalcPageSize)
 })
+function formatTestedAt(ts) {
+  const d = new Date(ts + 'Z')
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000)
+  if (mins < 1) return 'ahora'
+  if (mins < 60) return `hace ${mins}m`
+  const horas = Math.floor(mins / 60)
+  if (horas < 24) return `hace ${horas}h`
+  return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })
+}
+
 </script>

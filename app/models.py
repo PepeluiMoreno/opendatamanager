@@ -25,6 +25,13 @@ class Fetcher(Base):
     # mapped to DB column 'name' for backward compatibility in code.
     code = Column('name', String(50), unique=True, nullable=False)
     class_path = Column(String(255), nullable=True)
+
+    @property
+    def implemented(self) -> bool:
+        """Campo calculado: la especie tiene implementación (su class_path o el
+        fallback de su code resuelven a una clase importable)."""
+        from app.fetchers.factory import FetcherFactory
+        return FetcherFactory.is_implemented(self.class_path, self.code)
     description = Column(Text)
     # Bloque de parámetros preestablecidos que convierte a este fetcher en una
     # VARIANTE de su especie (class_path): aísla las peculiaridades de una familia
@@ -120,6 +127,8 @@ class Resource(Base):
     last_synced_hash = Column(String(64), nullable=True)    # base común para detección de conflictos
     origin = Column(String(20), default="ui", nullable=False)  # ui | manifest | seed
     source_status = Column(String(20), default="ok", nullable=False)  # ok | baja (salud del origen)
+    # Última vez que el recurso fue probado desde el UI (preview), con éxito o no.
+    last_tested_at = Column(DateTime, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
