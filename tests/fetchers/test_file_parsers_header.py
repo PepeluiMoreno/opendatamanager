@@ -56,3 +56,14 @@ def test_columnas_integramente_vacias_se_podan():
     ])
     filas = _parse_excel(contenido, {}, "xlsx")
     assert filas == [{"a": "1", "b": "2"}, {"a": "3", "b": "4"}]
+
+
+def test_fila_leyenda_de_formulas_se_filtra():
+    contenido = _xlsx([
+        ["org", "descripcion", "creditos", "total"],
+        ["", "", "( a )", "c=a+b"],
+        ["00", "Obras", "18432.44", "18432.44"],
+    ])
+    filas = _parse_excel(contenido, {}, "xlsx")
+    assert len(filas) == 1
+    assert filas[0]["org"] == "00"

@@ -35,6 +35,20 @@ _EXT_TO_FORMAT = {
 }
 
 
+_LEYENDA_RE = __import__("re").compile(
+    r"\(?\s*[a-z]\s*\)?"                                   # ( a )
+    r"|[a-z]\s*=\s*\(?[a-z0-9+\-*/() .,%]+\)?",            # c=a+b · o=(i+j+k)*100/c
+    __import__("re").IGNORECASE,
+)
+
+
+def _es_fila_leyenda(celdas) -> bool:
+    """Fila-leyenda de fórmulas bajo la cabecera (estados presupuestarios:
+    '( a )', 'c=a+b'...): ≥2 celdas pobladas y TODAS con pinta de leyenda."""
+    pobladas = [str(c).strip() for c in celdas if str(c).strip()]
+    return len(pobladas) >= 2 and all(_LEYENDA_RE.fullmatch(c) for c in pobladas)
+
+
 def _drop_empty_columns(registros):
     """Elimina columnas íntegramente vacías (márgenes fantasma de tablas PDF,
     columnas decorativas de Excel)."""
@@ -122,6 +136,8 @@ def _parse_excel(content: bytes, params: Dict[str, Any], fmt: str) -> List[Dict[
             registros = []
             for fila in rows[hdr + 1:]:
                 if not any(c for c in fila):
+                    continue
+                if _es_fila_leyenda(fila):
                     continue
                 registros.append({columns[i] if i < len(columns) else f"col_{i}": v
                                   for i, v in enumerate(fila)})
@@ -225,6 +241,8 @@ def parse_pdf_table(content: bytes, params: Dict[str, Any]) -> List[Dict[str, st
 
     records: List[Dict[str, str]] = []
     for row in filas_norm[header_row + 1:]:
+        if _es_fila_leyenda(row):
+            continue
         if not any(cell for cell in row if cell):
             continue
         padded = list(row) + [""] * max(0, len(columns) - len(row))
