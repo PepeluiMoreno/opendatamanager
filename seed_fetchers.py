@@ -413,7 +413,13 @@ FETCHERS: List[Dict[str, Any]] = [
         "description": "Crawler de portales web clásicos. En modo discover (Resource padre, parent_resource_id=NULL) recorre el árbol e infiere agrupaciones por dimensiones (year, month, quarter, ...) que el operador revisa y promueve. En modo stream (Resource hijo promovido) descarga las URLs de su ResourceCandidate enriqueciendo cada registro con las dimensiones detectadas.",
         "params": [
             {"param_name": "root_url", "data_type": "string", "required": True, "group": "navigation",
-             "description": "URL raíz del portal a crawlear. Único parámetro visible — todo lo demás (max_depth, allowed_extensions, timeouts, selectores) son defaults internos del fetcher."},
+             "hint": "URL raíz desde la que arranca el recorrido. P. ej. https://transparencia.<municipio>.es/economica/deuda."},
+            {"param_name": "path_prefix", "data_type": "string", "required": False, "group": "navigation",
+             "hint": "Acota la navegación a esta subrama del path (las páginas fuera no se siguen). Vacío = la carpeta del root_url. P. ej. /infopublica/economica/deuda."},
+            {"param_name": "include_patterns", "data_type": "json", "required": False, "group": "navigation",
+             "hint": "Lista de expresiones regulares: una hoja se conserva solo si alguna casa con su URL. Vacío = todas. P. ej. [\"/a07-economica/c-deuda/\"]."},
+            {"param_name": "exclude_patterns", "data_type": "json", "required": False, "group": "navigation",
+             "hint": "Lista de expresiones regulares: descarta páginas y hojas cuya URL case con alguna. P. ej. [\"/archivo/\", \"borrador\"]."},
         ],
     },
 ]

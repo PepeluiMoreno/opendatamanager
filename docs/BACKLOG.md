@@ -9,12 +9,14 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
-- [ ] **Web Tree — scoping del crawler** (verificado en vivo contra Jerez): el
-  crawler no puede acotarse a una rama; arrancando en /economica/deuda
-  descubrió 708 hojas del portal entero (el menú global enlaza a todo). El
-  brief original (chat.md) ya preveía include_patterns/exclude_patterns; la
-  implementación mergeada los omitió. Reponerlos como params del WebTreeFetcher
-  (filtrar páginas a seguir y/o URLs hoja a conservar por patrón de path).
+- [x] **Web Tree — scoping del crawler** (este push): repuestos path_prefix
+  (acota la navegación a una subrama) e include/exclude_patterns (filtran las
+  hojas por regex). Verificado en Jerez: de 708 hojas del portal entero a 282
+  de c-deuda, candidatos limpios.
+- [ ] **Web Tree — inferer v1: dimensiones embebidas en el nombre de fichero**:
+  el inferer reconoce dimensiones en SEGMENTOS del path, no dentro del nombre
+  (01Enero, 02Febrero... salen como propuestas distintas en vez de una con
+  dimensión 'month'). Mejorar el reconocedor para tokenizar el filename.
 
 - [x] **Arnés batch de pruebas de recursos** (este push): script paralelo con
   clasificación OK/SIN FILAS/FUENTE CAÍDA/CONFIG ROTA/BUG y sello de

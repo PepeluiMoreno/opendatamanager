@@ -44,6 +44,9 @@ _DEFAULTS: Dict[str, Any] = {
     "max_depth": 10,
     "allowed_extensions": ["pdf", "xlsx", "xls", "csv", "tsv"],
     "same_domain_only": True,
+    "path_prefix": None,        # si None se deriva del path de root_url; acota navegación y hojas a esa subrama
+    "include_patterns": None,   # regex(es): la hoja se conserva solo si alguna casa (None = todas)
+    "exclude_patterns": None,   # regex(es): la hoja/página se descarta si alguna casa
     "page_delay": 0.5,
     "file_delay": 0.0,
     "crawl_timeout": 20,
@@ -170,6 +173,38 @@ class WebTreeFetcher(BaseFetcher):
                 return False
         return True
 
+    def _patrones(self, key: str) -> List[Any]:
+        raw = self._opt(key)
+        if not raw:
+            return []
+        if isinstance(raw, str):
+            stripped = raw.strip()
+            if stripped.startswith("["):
+                import json
+                raw = json.loads(stripped)
+            else:
+                raw = [raw]
+        return [re.compile(str(p)) for p in raw]
+
+    def _path_prefix(self, root_url: str) -> str:
+        pref = self._opt("path_prefix")
+        if pref:
+            return str(pref)
+        # por defecto, la carpeta del root_url (acota la navegación a su subrama)
+        path = urlparse(root_url).path
+        return path.rsplit("/", 1)[0] + "/" if "/" in path.strip("/") else path
+
+    def _en_subrama(self, url: str, prefix: str) -> bool:
+        if not prefix or prefix == "/":
+            return True
+        return urlparse(url).path.startswith(prefix)
+
+    def _excluida(self, url: str, excludes: List[Any]) -> bool:
+        return any(rx.search(url) for rx in excludes)
+
+    def _incluida(self, url: str, includes: List[Any]) -> bool:
+        return True if not includes else any(rx.search(url) for rx in includes)
+
     def _bool(self, value: Any, default: bool) -> bool:
         if value is None:
             return default
@@ -207,6 +242,9 @@ class WebTreeFetcher(BaseFetcher):
         allowed_ext = self._allowed_extensions()
         nav_selector = str(self._opt("navigation_link_selector"))
         file_selector = str(self._opt("file_link_selector"))
+        nav_prefix = self._path_prefix(root_url)   # acota la navegación a la subrama
+        includes = self._patrones("include_patterns")  # filtra las hojas a conservar
+        excludes = self._patrones("exclude_patterns")
 
         root_netloc = urlparse(root_url).netloc
         queue: deque = deque([(root_url, 0)])
@@ -246,6 +284,8 @@ class WebTreeFetcher(BaseFetcher):
                     continue
                 if not self._file_allowed(file_url, allowed_ext):
                     continue
+                if self._excluida(file_url, excludes) or not self._incluida(file_url, includes):
+                    continue
                 visited_files.add(file_url)
                 leaves.append({
                     "url": file_url,
@@ -260,6 +300,10 @@ class WebTreeFetcher(BaseFetcher):
                     if next_url in visited_pages:
                         continue
                     if not self._page_allowed(next_url, root_netloc, same_domain_only):
+                        continue
+                    if not self._en_subrama(next_url, nav_prefix):
+                        continue
+                    if self._excluida(next_url, excludes):
                         continue
                     queue.append((next_url, depth + 1))
 
