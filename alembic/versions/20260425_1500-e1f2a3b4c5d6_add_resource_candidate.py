@@ -18,55 +18,36 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Idempotente: si una migración previa rechazada (file-granular) creó la tabla
-    # con un esquema distinto, la tiramos antes de recrearla con el esquema actual.
-    # Seguro porque entre el merge descartado y este deploy no pudo haber datos
-    # útiles persistidos.
-    op.execute("DROP TABLE IF EXISTS opendata.resource_candidate CASCADE")
-
-    op.create_table(
-        'resource_candidate',
-        sa.Column('id', UUID(as_uuid=True), primary_key=True),
-        sa.Column('execution_id', UUID(as_uuid=True),
-                  sa.ForeignKey('opendata.resource_execution.id', ondelete='SET NULL'),
-                  nullable=True),
-        sa.Column('crawler_resource_id', UUID(as_uuid=True),
-                  sa.ForeignKey('opendata.resource.id', ondelete='CASCADE'),
-                  nullable=False),
-        sa.Column('path_template', sa.Text(), nullable=False),
-        sa.Column('dimensions', JSONB(), nullable=False, server_default='[]'),
-        sa.Column('matched_urls', JSONB(), nullable=False, server_default='[]'),
-        sa.Column('file_types', JSONB(), nullable=False, server_default='{}'),
-        sa.Column('suggested_name', sa.Text(), nullable=True),
-        sa.Column('confidence', sa.Float(), nullable=True),
-        sa.Column('status', sa.String(20), nullable=False, server_default='discovered'),
-        sa.Column('promoted_resource_id', UUID(as_uuid=True),
-                  sa.ForeignKey('opendata.resource.id', ondelete='SET NULL'),
-                  nullable=True),
-        sa.Column('merged_into_id', UUID(as_uuid=True),
-                  sa.ForeignKey('opendata.resource_candidate.id', ondelete='SET NULL'),
-                  nullable=True),
-        sa.Column('split_from_id', UUID(as_uuid=True),
-                  sa.ForeignKey('opendata.resource_candidate.id', ondelete='SET NULL'),
-                  nullable=True),
-        sa.Column('detected_at', sa.DateTime(), nullable=False, server_default=sa.func.now()),
-        sa.Column('reviewed_at', sa.DateTime(), nullable=True),
-        sa.Column('reviewed_by', sa.String(200), nullable=True),
-        sa.Column('deleted_at', sa.DateTime(), nullable=True),
-        schema='opendata',
-    )
-    op.create_index(
-        'ix_resource_candidate_crawler_status',
-        'resource_candidate',
-        ['crawler_resource_id', 'status'],
-        schema='opendata',
-    )
-    op.create_index(
-        'ix_resource_candidate_execution',
-        'resource_candidate',
-        ['execution_id'],
-        schema='opendata',
-    )
+    # IDEMPOTENTE DE VERDAD (el entrypoint re-ejecuta TODAS las migraciones en
+    # cada arranque): IF NOT EXISTS puro. La versión anterior abría con un
+    # DROP TABLE CASCADE — válido una vez (limpiar el esquema rechazado del
+    # spec file-granular) pero letal después: cada redeploy vaciaba TODAS las
+    # candidatas, dejando huérfanos a los Resources hijos promovidos.
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS opendata.resource_candidate (
+            id UUID PRIMARY KEY,
+            execution_id UUID REFERENCES opendata.resource_execution(id) ON DELETE SET NULL,
+            crawler_resource_id UUID NOT NULL REFERENCES opendata.resource(id) ON DELETE CASCADE,
+            path_template TEXT NOT NULL,
+            dimensions JSONB NOT NULL DEFAULT '[]',
+            matched_urls JSONB NOT NULL DEFAULT '[]',
+            file_types JSONB NOT NULL DEFAULT '{}',
+            suggested_name TEXT,
+            confidence FLOAT,
+            status VARCHAR(20) NOT NULL DEFAULT 'discovered',
+            promoted_resource_id UUID REFERENCES opendata.resource(id) ON DELETE SET NULL,
+            merged_into_id UUID REFERENCES opendata.resource_candidate(id) ON DELETE SET NULL,
+            split_from_id UUID REFERENCES opendata.resource_candidate(id) ON DELETE SET NULL,
+            detected_at TIMESTAMP NOT NULL DEFAULT now(),
+            reviewed_at TIMESTAMP,
+            reviewed_by VARCHAR(200),
+            deleted_at TIMESTAMP
+        )
+    """)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_resource_candidate_crawler_status "
+               "ON opendata.resource_candidate (crawler_resource_id, status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_resource_candidate_execution "
+               "ON opendata.resource_candidate (execution_id)")
 
 
 def downgrade() -> None:

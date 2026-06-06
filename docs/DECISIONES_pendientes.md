@@ -31,6 +31,11 @@ Alembic; (b) mantener el borrado y el patrón idempotente como doctrina de la
 casa (está documentado en cada migración).
 **Recomendación**: (a) a medio plazo; exige verificar que el historial de
 revisiones de prod está sano antes de cambiarlo.
+**Evidencia acumulada**: segunda víctima (2026-06): la migración de
+resource_candidate abría con un DROP TABLE 'de limpieza' que, re-ejecutado en
+cada boot, vaciaba TODAS las candidatas en cada redeploy — dejando huérfanos a
+los recursos hijos del Web Tree en prod (Test y Run rotos). Una migración
+normal solo se ejecuta una vez y aquel DROP habría sido inocuo.
 **Estado**: sin decidir.
 
 ### 3. Criterio de permanencia de las variantes (en observación)
