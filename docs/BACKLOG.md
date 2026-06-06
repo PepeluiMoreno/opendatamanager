@@ -9,6 +9,11 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [ ] **Parser XLSX: filas-pancarta antes de la cabecera**: los informes PMP de
+  Jerez abren con un título fusionado ('PERIODO MEDIO DE PAGO GLOBAL...') que el
+  parser toma como datos con columnas unnamed_N. Añadir detección de cabecera
+  (primera fila mayoritariamente no vacía y única) a parse_structured_file.
+
 - [x] **Jerez — recursos Web Tree creados** (este push): scripts/jerez_webtree.py
   hace el ciclo completo (crawler padre acotado a a07-economica → discover →
   infer → persiste candidatas → promueve). Ejecutado: 3.129 hojas → 64 recursos

@@ -104,6 +104,7 @@ class FetcherFactory:
                         execution_params = dict(execution_params)
                         execution_params["_matched_urls"] = list(cand.matched_urls or [])
                         execution_params["_dimensions"] = list(cand.dimensions or [])
+                        execution_params["_path_template"] = cand.path_template
             except Exception:  # noqa: BLE001 — la inyección es best-effort; sin candidata, el fetcher fallará con su mensaje claro
                 pass
         elif getattr(resource, "parent_resource_id", None) and execution_params is None:

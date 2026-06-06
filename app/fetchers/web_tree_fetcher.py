@@ -331,7 +331,43 @@ class WebTreeFetcher(BaseFetcher):
     # STREAM mode (hijo promovido)
     # ───────────────────────────────────────────────────────────────────
 
+    @staticmethod
+    def _template_regex(path_template: str):
+        """Convierte el path_template de la candidata en una regex con grupos
+        nombrados: la primera aparición de cada {nombre} captura; las repetidas
+        del mismo nombre solo casan; {*} casa cualquier filename."""
+        partes = re.split(r"(\{[^}]+\})", path_template)
+        vistos: set = set()
+        rx = ""
+        for p in partes:
+            if p.startswith("{") and p.endswith("}"):
+                nombre = p[1:-1]
+                if nombre == "*":
+                    rx += r"[^/]+"
+                elif nombre in vistos:
+                    rx += r"(?:[^/]+?)"
+                else:
+                    vistos.add(nombre)
+                    rx += rf"(?P<{nombre}>[^/]+?)"
+            else:
+                rx += re.escape(p)
+        return re.compile("^" + rx + "$")
+
     def _extract_dim_values(self, url: str, dimensions: List[Dict[str, Any]]) -> Dict[str, str]:
+        """Valores de dimensión de una URL: casando contra el path_template de la
+        candidata (verdad reconstruible). Sin template, fallback al método por
+        índices (legado; frágil con prefijos)."""
+        template = self.params.get("_path_template")
+        if template:
+            try:
+                m = self._template_regex(str(template)).match(url)
+                if m:
+                    nombres = {d.get("name") for d in (dimensions or []) if d.get("name")}
+                    return {k: v for k, v in m.groupdict().items()
+                            if v is not None and (not nombres or k in nombres)}
+            except re.error:
+                pass
+        # ── Fallback legado por índices ──
         parsed = urlparse(url)
         segs = [s for s in parsed.path.split("/") if s]
         if not segs:

@@ -18,7 +18,7 @@ LOG_DIR = "data/logs"
 
 # Claves internas que no deben mostrarse en el título de ejecución
 _INTERNAL_PARAM_KEYS = frozenset({
-    "_resume_state", "_matched_urls", "_dimensions",
+    "_resume_state", "_matched_urls", "_dimensions", "_path_template",
     "_staging_path", "_preview_limit", "_discover_mode",
     "_dataset_type",
 })
@@ -162,6 +162,7 @@ class FetcherManager:
                     )
                 runtime_params["_matched_urls"] = list(candidate.matched_urls or [])
                 runtime_params["_dimensions"] = list(candidate.dimensions or [])
+                runtime_params["_path_template"] = candidate.path_template
 
             # Marca de agua incremental: si el recurso pide `desde=auto`, fijamos el
             # suelo temporal a partir de la última ejecución completada (con un día
