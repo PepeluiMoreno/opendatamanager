@@ -9,6 +9,15 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [x] **Sección 'Fuera del catálogo' vaciada de raíz** (este push): esas
+  claves eran parámetros que las variantes usan pero la especie NO declaraba
+  (¡incluidos start_param/page_size_param que lee la propia paginación!). Se
+  completan las definiciones de API REST (+4: start_param, page_size_param,
+  delay, id_field) y Feeds ATOM/RSS (+4: timeout, max_pages, dedup_key,
+  dedup_order_field), con hint y condición. Las variantes vuelven a fijar
+  valores 100% sobre el vocabulario de su especie; la sección queda como red
+  de seguridad que no debería verse nunca.
+
 - [x] **Despliegue progresivo en la creación del recurso** (este push): el
   árbol de decisiones arranca en la variante — la visibilidad de cada
   parámetro se evalúa contra el valor EFECTIVO (override del recurso →

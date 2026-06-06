@@ -91,6 +91,10 @@ FETCHERS: List[Dict[str, Any]] = [
             {"param_name": "query", "data_type": "string", "required": False, "group": "peticion",
              "hint": "Texto de la consulta; su lenguaje lo decide 'request' (GraphQL o SPARQL). Se valida la sintaxis al guardar el recurso.",
              "visible_when": {"param": "request", "in": ["graphql", "sparql"]}},
+            {"param_name": "start_param", "data_type": "string", "required": False, "default_value": "start_index", "group": "paginacion", "visible_when": {"param": "pagination", "in": ["query_offset"]}, "hint": "Nombre del parámetro de desplazamiento en la query. Habituales: 'start', 'offset', '$offset', 'from'."},
+            {"param_name": "page_size_param", "data_type": "string", "required": False, "default_value": "page_size", "group": "paginacion", "visible_when": {"param": "pagination", "in": ["query_offset", "page_number"]}, "hint": "Nombre del parámetro de tamaño de página. Habituales: 'rows', 'limit', '$limit', 'size', 'per_page'."},
+            {"param_name": "delay", "data_type": "number", "required": False, "default_value": 0, "group": "http", "hint": "Cortesía: segundos de espera entre peticiones consecutivas. Habituales: 0 (APIs robustas), 1–2 (portales públicos)."},
+            {"param_name": "id_field", "data_type": "string", "required": False, "group": "extraccion", "hint": "Campo identificador del registro, para deduplicar entre páginas o iteraciones. P. ej. 'id', '_about', 'identifier'. Vacío = sin deduplicación."}
         ],
     },
     {
@@ -114,7 +118,11 @@ FETCHERS: List[Dict[str, Any]] = [
              "hint": "Techo temporal de la ventana (ISO). Vacío = sin techo: cosecha hasta lo más reciente.",
              "help_md": "Para feeds en orden descendente, la paginación se detiene al alcanzar entradas anteriores. 'auto' usa la marca de agua de la ejecución previa, evitando depender de max_pages."},
             {"param_name": "date_field", "data_type": "string", "required": False, "default_value": "fecha", "group": "incremental",
-             "hint": "Campo de salida que contiene la fecha de la entrada (por defecto 'fecha')."}
+             "hint": "Campo de salida que contiene la fecha de la entrada (por defecto 'fecha')."},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 30, "group": "http", "hint": "Segundos de espera máxima por petición. Habituales: 30; feeds pesados o ZIPs anuales: 120–180."},
+            {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 0, "group": "paginacion", "hint": "Tope de páginas a recorrer por ejecución (0 = sin tope). Útil en feeds con paginación profunda."},
+            {"param_name": "dedup_key", "data_type": "string", "required": False, "group": "extraccion", "hint": "Campo por el que deduplicar el staging quedándose con la foto más reciente de cada entidad. P. ej. 'expediente'. Vacío = sin deduplicación."},
+            {"param_name": "dedup_order_field", "data_type": "string", "required": False, "group": "extraccion", "hint": "Campo (fecha) que decide cuál es la foto más reciente al deduplicar por dedup_key. P. ej. 'fecha'."}
         ],
     },
     {
