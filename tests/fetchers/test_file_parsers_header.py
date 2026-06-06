@@ -46,3 +46,13 @@ def test_header_row_explicito_manda():
     ])
     filas = _parse_excel(contenido, {"header_row": 1}, "xlsx")
     assert filas == [{"a": "1", "b": "2"}]
+
+
+def test_columnas_integramente_vacias_se_podan():
+    contenido = _xlsx([
+        ["", "a", "b", ""],
+        ["", "1", "2", ""],
+        ["", "3", "4", ""],
+    ])
+    filas = _parse_excel(contenido, {}, "xlsx")
+    assert filas == [{"a": "1", "b": "2"}, {"a": "3", "b": "4"}]

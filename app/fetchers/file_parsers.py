@@ -35,6 +35,18 @@ _EXT_TO_FORMAT = {
 }
 
 
+def _drop_empty_columns(registros):
+    """Elimina columnas íntegramente vacías (márgenes fantasma de tablas PDF,
+    columnas decorativas de Excel)."""
+    if not registros:
+        return registros
+    vacias = {k for k in registros[0]
+              if all(not str(r.get(k, "")).strip() for r in registros)}
+    if not vacias:
+        return registros
+    return [{k: v for k, v in r.items() if k not in vacias} for r in registros]
+
+
 def _normalize_col(name: str) -> str:
     """Convierte un nombre de columna a snake_case ASCII limpio."""
     name = str(name).translate(_ACCENT_MAP)
@@ -113,7 +125,7 @@ def _parse_excel(content: bytes, params: Dict[str, Any], fmt: str) -> List[Dict[
                     continue
                 registros.append({columns[i] if i < len(columns) else f"col_{i}": v
                                   for i, v in enumerate(fila)})
-            return registros
+            return _drop_empty_columns(registros)
         except Exception:
             if eng == fallback:
                 raise
@@ -217,7 +229,7 @@ def parse_pdf_table(content: bytes, params: Dict[str, Any]) -> List[Dict[str, st
             continue
         padded = list(row) + [""] * max(0, len(columns) - len(row))
         records.append({col: str(padded[i] or "").strip() for i, col in enumerate(columns)})
-    return records
+    return _drop_empty_columns(records)
 
 
 def parse_structured_file(
