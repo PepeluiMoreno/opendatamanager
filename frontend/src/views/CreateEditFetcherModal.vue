@@ -180,27 +180,37 @@
                   <span class="text-[10px] text-gray-500">({{ g.params.length }})</span>
                   <div class="flex-1 border-t border-gray-700"></div>
                 </div>
+              <template v-for="(item, ii) in g.items" :key="g.name + '-' + ii">
+              <!-- Etiqueta de rama: el valor del controlador que abre estos parámetros -->
+              <div v-if="item.tipo === 'rama'" v-show="grupoAbierto(g.name)"
+                   class="flex items-center gap-1.5 pt-1.5 pb-0.5"
+                   :class="item.nivel > 0 ? 'pl-7' : ''">
+                <span class="text-gray-600">└</span>
+                <span class="text-[10px] uppercase tracking-wide text-amber-300/90">
+                  <template v-if="item.externa">{{ item.controlador }} = </template>{{ item.etiqueta }}
+                </span>
+                <div class="flex-1 border-t border-dashed border-gray-700/70"></div>
+              </div>
               <div
-                v-for="param in g.params"
+                v-else
                 v-show="grupoAbierto(g.name)"
-                :key="`param-${parameters.indexOf(param)}`"
-                class="grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700"
-                :class="{ 'opacity-80': !!param.visibleWhen }"
+                :class="[item.nivel > 0 ? 'ml-7 border-l-2 border-l-amber-900/40' : '',
+                         'grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700']"
               >
                 <!-- Parameter Name -->
                 <div class="col-span-2 flex items-center gap-1 pt-1">
                   <input
-                    v-model="param.paramName"
+                    v-model="item.param.paramName"
                     type="text"
                     required
                     :disabled="!!varianteActiva"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono disabled:opacity-60"
                     placeholder="param_name"
                   />
-                  <div v-if="param.hint || param.description" class="relative flex-shrink-0">
+                  <div v-if="item.param.hint || item.param.description" class="relative flex-shrink-0">
                     <button
                       type="button"
-                      @click="toggleHelp(param)"
+                      @click="toggleHelp(item.param)"
                       class="text-blue-400 hover:text-blue-300 focus:outline-none"
                       title="Ver descripción"
                     >
@@ -209,10 +219,10 @@
                       </svg>
                     </button>
                     <div
-                      v-if="activeHelp === param.paramName"
+                      v-if="activeHelp === item.param.paramName"
                       class="absolute left-0 top-6 z-50 w-80 p-3 bg-gray-900 border border-blue-500 rounded shadow-lg text-xs text-gray-200 leading-relaxed"
                     >
-                      {{ param.hint || param.description }}
+                      {{ item.param.hint || item.param.description }}
                     </div>
                   </div>
                 </div>
@@ -220,11 +230,11 @@
                 <!-- Data Type -->
                 <div class="col-span-2 pt-1">
                    <select
-                     v-model="param.dataType"
+                     v-model="item.param.dataType"
                      required
                      :disabled="!!varianteActiva"
                      class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 disabled:opacity-60"
-                     @change="onDataTypeChange(param, $event)"
+                     @change="onDataTypeChange(item.param, $event)"
                    >
                      <option value="string">String</option>
                      <option value="integer">Integer</option>
@@ -236,14 +246,9 @@
                      <option value="json_filter_map">Filter Map (enum↔enum)</option>
                      <option value="overpass_query">Overpass Query Builder</option>
                    </select>
-                   <p v-if="condicionDe(param)"
-                      class="text-[10px] text-amber-400/80 mt-1 leading-tight"
-                      title="Este parámetro solo se muestra al configurar un recurso cuando se cumple la condición">
-                     {{ condicionDe(param) }}
-                   </p>
-                   <p v-if="fijadosPorVariante.has(param.paramName)"
+                   <p v-if="fijadosPorVariante.has(item.param.paramName)"
                       class="text-[10px] text-purple-300/90 mt-1 leading-tight truncate"
-                      :title="'La variante «' + varianteActiva.code + '» fija: ' + fijadosPorVariante.get(param.paramName)">
+                      :title="'La variante «' + varianteActiva.code + '» fija: ' + fijadosPorVariante.get(item.param.paramName)">
                      fijado por «{{ varianteActiva.code }}»
                    </p>
                 </div>
@@ -253,7 +258,7 @@
                   <label class="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
-                      v-model="param.required"
+                      v-model="item.param.required"
                       :disabled="!!varianteActiva"
                       class="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 disabled:opacity-60"
                     />
@@ -264,30 +269,30 @@
                 <div :class="varianteActiva ? 'col-span-3' : 'col-span-6'" class="space-y-1">
                   <!-- Enum: editar opciones como texto -->
                   <input
-                    v-if="param.dataType === 'enum'"
-                    :value="param.enumValuesString || ''"
-                    @input="updateEnumValuesString(param, $event.target.value)"
+                    v-if="item.param.dataType === 'enum'"
+                    :value="item.param.enumValuesString || ''"
+                    @input="updateEnumValuesString(item.param, $event.target.value)"
                     type="text"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono"
                     placeholder="[opcion1, opcion2, opcion3]"
                   />
                   <!-- Enum: default value select (normalizado a {value,label}) -->
                   <select
-                    v-if="param.dataType === 'enum' && param.enumValues && param.enumValues.length"
-                    v-model="param.defaultValue"
+                    v-if="item.param.dataType === 'enum' && item.param.enumValues && item.param.enumValues.length"
+                    v-model="item.param.defaultValue"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-gray-400"
                   >
                     <option value="">Default (opcional)</option>
                     <option
-                      v-for="opt in normalizeOpts(param.enumValues)"
+                      v-for="opt in normalizeOpts(item.param.enumValues)"
                       :key="opt.value"
                       :value="opt.value"
                     >{{ opt.label }}</option>
                   </select>
                   <!-- Otros tipos: campo de texto libre -->
                   <input
-                    v-else-if="param.dataType !== 'enum'"
-                    v-model="param.defaultValue"
+                    v-else-if="item.param.dataType !== 'enum'"
+                    v-model="item.param.defaultValue"
                     type="text"
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
                     placeholder="Valor por defecto (opcional)"
@@ -296,36 +301,36 @@
 
                 <!-- Valor en la variante activa (vacío = no fijado: rige el default) -->
                 <div v-if="varianteActiva" class="col-span-4 space-y-1">
-                  <select v-if="param.dataType === 'enum'"
-                          :value="valorVariante(param.paramName)"
-                          @change="setValorVariante(param.paramName, $event.target.value)"
+                  <select v-if="item.param.dataType === 'enum'"
+                          :value="valorVariante(item.param.paramName)"
+                          @change="setValorVariante(item.param.paramName, $event.target.value)"
                           class="input w-full text-xs"
-                          :class="{ 'border-purple-700': valorVariante(param.paramName) !== '' }">
+                          :class="{ 'border-purple-700': valorVariante(item.param.paramName) !== '' }">
                     <option value="">— no fijado —</option>
-                    <option v-for="o in normalizeOpts(param.enumValues)" :key="o.value" :value="o.value">{{ o.label }}</option>
+                    <option v-for="o in normalizeOpts(item.param.enumValues)" :key="o.value" :value="o.value">{{ o.label }}</option>
                   </select>
-                  <select v-else-if="param.dataType === 'boolean'"
-                          :value="valorVariante(param.paramName)"
-                          @change="setValorVariante(param.paramName, $event.target.value)"
+                  <select v-else-if="item.param.dataType === 'boolean'"
+                          :value="valorVariante(item.param.paramName)"
+                          @change="setValorVariante(item.param.paramName, $event.target.value)"
                           class="input w-full text-xs"
-                          :class="{ 'border-purple-700': valorVariante(param.paramName) !== '' }">
+                          :class="{ 'border-purple-700': valorVariante(item.param.paramName) !== '' }">
                     <option value="">— no fijado —</option>
                     <option value="true">true</option>
                     <option value="false">false</option>
                   </select>
-                  <textarea v-else-if="param.dataType === 'json' || esValorLargo(valorVariante(param.paramName))"
-                            :value="valorVariante(param.paramName)"
-                            @input="setValorVariante(param.paramName, $event.target.value)"
+                  <textarea v-else-if="item.param.dataType === 'json' || esValorLargo(valorVariante(item.param.paramName))"
+                            :value="valorVariante(item.param.paramName)"
+                            @input="setValorVariante(item.param.paramName, $event.target.value)"
                             rows="3" class="input w-full text-xs font-mono"
-                            :class="{ 'border-purple-700': valorVariante(param.paramName) !== '', 'border-red-700': !!errorJsonValor(param) }"
+                            :class="{ 'border-purple-700': valorVariante(item.param.paramName) !== '', 'border-red-700': !!errorJsonValor(item.param) }"
                             placeholder="— no fijado —"></textarea>
                   <input v-else
-                         :value="valorVariante(param.paramName)"
-                         @input="setValorVariante(param.paramName, $event.target.value)"
+                         :value="valorVariante(item.param.paramName)"
+                         @input="setValorVariante(item.param.paramName, $event.target.value)"
                          class="input w-full text-xs"
-                         :class="{ 'border-purple-700': valorVariante(param.paramName) !== '' }"
+                         :class="{ 'border-purple-700': valorVariante(item.param.paramName) !== '' }"
                          placeholder="— no fijado —" />
-                  <p v-if="errorJsonValor(param)" class="text-[10px] text-red-400">{{ errorJsonValor(param) }}</p>
+                  <p v-if="errorJsonValor(item.param)" class="text-[10px] text-red-400">{{ errorJsonValor(item.param) }}</p>
                 </div>
 
                 <!-- Actions -->
@@ -333,7 +338,7 @@
                   <button
                     v-if="!varianteActiva"
                     type="button"
-                    @click="removeParameter(parameters.indexOf(param))"
+                    @click="removeParameter(parameters.indexOf(item.param))"
                     class="text-red-400 hover:text-red-300"
                     title="Remove parameter"
                   >
@@ -343,6 +348,7 @@
                   </button>
                 </div>
               </div>
+              </template>
               </template>
             </div>
 
@@ -481,9 +487,16 @@ function toggleGrupo(n) {
   next.has(n) ? next.delete(n) : next.add(n)
   gruposColapsados.value = next
 }
+function _vw(p) {
+  if (!p.visibleWhen) return null
+  try { return typeof p.visibleWhen === 'string' ? JSON.parse(p.visibleWhen) : p.visibleWhen } catch { return null }
+}
 const filteredParamGroups = computed(() => {
-  // Misma legibilidad que el formulario del recurso: secciones por grupo, con
-  // los selectores de eje (sin visible_when) primero y los condicionales detrás.
+  // Anidamiento por controlador: dentro de cada grupo, los parámetros sin
+  // condición van al nivel raíz; los condicionales se cuelgan como RAMAS bajo
+  // su parámetro controlador, agrupados por el valor que los activa
+  // (pagination ▸ cursor ▸ cursor_param, next_cursor_field…). El árbol de
+  // decisiones se ve como árbol.
   const grupos = new Map()
   for (const p of filteredParams.value) {
     const g = p.group || 'otros'
@@ -492,19 +505,41 @@ const filteredParamGroups = computed(() => {
   }
   const nombres = [...grupos.keys()].sort((a, b) =>
     tituloGrupo(a).localeCompare(tituloGrupo(b), 'es'))
-  return nombres.map(n => ({
-    name: n,
-    params: grupos.get(n).slice().sort((a, b) => (a.visibleWhen ? 1 : 0) - (b.visibleWhen ? 1 : 0)),
-  }))
+  return nombres.map(n => {
+    const todos = grupos.get(n)
+    const raiz = todos.filter(p => !_vw(p))
+    // ramas por (controlador, valores que activan), respetando orden de aparición
+    const ramas = new Map()
+    for (const p of todos) {
+      const vw = _vw(p)
+      if (!vw || !vw.param) continue
+      const vals = vw.in || (vw.eq != null ? [vw.eq] : [])
+      const clave = vw.param + ' = ' + vals.join(' | ')
+      if (!ramas.has(clave)) ramas.set(clave, { controlador: vw.param, etiqueta: vals.join(' | '), params: [] })
+      ramas.get(clave).params.push(p)
+    }
+    // lista de render: cada raíz seguida de sus ramas; huérfanas (controlador
+    // fuera del grupo o inexistente) al final con etiqueta completa
+    const items = []
+    const colgadas = new Set()
+    for (const p of raiz) {
+      items.push({ tipo: 'param', param: p, nivel: 0 })
+      for (const [clave, rama] of ramas) {
+        if (rama.controlador === p.paramName) {
+          items.push({ tipo: 'rama', clave, controlador: rama.controlador, etiqueta: rama.etiqueta, nivel: 1 })
+          for (const hijo of rama.params) items.push({ tipo: 'param', param: hijo, nivel: 1 })
+          colgadas.add(clave)
+        }
+      }
+    }
+    for (const [clave, rama] of ramas) {
+      if (colgadas.has(clave)) continue
+      items.push({ tipo: 'rama', clave, controlador: rama.controlador, etiqueta: rama.etiqueta, externa: true, nivel: 0 })
+      for (const hijo of rama.params) items.push({ tipo: 'param', param: hijo, nivel: 1 })
+    }
+    return { name: n, params: todos, items }
+  })
 })
-function condicionDe(p) {
-  if (!p.visibleWhen) return null
-  try {
-    const vw = typeof p.visibleWhen === 'string' ? JSON.parse(p.visibleWhen) : p.visibleWhen
-    const vals = vw.in || (vw.eq != null ? [vw.eq] : [])
-    return `solo con ${vw.param} = ${vals.join(' | ')}`
-  } catch { return null }
-}
 
 const isFormValid = computed(() => {
   // Basic fields must be filled
