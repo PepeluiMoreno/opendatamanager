@@ -300,7 +300,7 @@
           </div>
 
           <div v-if="(selectedFetcher?.presets || []).length">
-            <label class="block text-xs font-medium mb-1">Perfil (preset)</label>
+            <label class="block text-xs font-medium mb-1">Variante</label>
             <select v-model="form.presetId" class="input w-full text-sm">
               <option :value="null">Genérico</option>
               <option v-for="pr in selectedFetcher.presets" :key="pr.id" :value="pr.id">
@@ -308,7 +308,7 @@
               </option>
             </select>
             <p v-if="selectedPreset" class="text-xs text-purple-300 mt-1">
-              El recurso hereda {{ Object.keys(selectedPreset.params || {}).length }} parámetro(s) del perfil; tu valor manda si rellenas el mismo campo.
+              La variante fija {{ Object.keys(selectedPreset.params || {}).length }} parámetro(s); tu valor manda si rellenas el mismo campo, y el resto de parámetros se despliega según estas decisiones.
             </p>
           </div>
 
@@ -362,7 +362,7 @@
                 <h4 class="text-sm font-medium mb-2 text-purple-400 cursor-pointer select-none flex items-center gap-1.5"
                     @click="seccionPresetAbierta = !seccionPresetAbierta">
                   <span class="text-gray-500">{{ seccionPresetAbierta ? '▾' : '▸' }}</span>
-                  Parámetros preestablecidos por el perfil «{{ selectedPreset.code }}»
+                  Parámetros de la variante «{{ selectedPreset.code }}»
                   <span class="text-xs text-gray-500 font-normal">({{ presetSectionParams.length }})</span>
                 </h4>
                 <div v-show="seccionPresetAbierta" class="space-y-1.5">
@@ -383,7 +383,7 @@
                       <button v-else type="button"
                               @click="revertPresetParam(pp.paramName)"
                               class="text-[10px] px-2 py-0.5 rounded border border-gray-600 text-gray-300 hover:bg-gray-700"
-                              title="Eliminar tu valor y volver al heredado del perfil">
+                              title="Eliminar tu valor y volver al de la variante">
                         Volver al perfil
                       </button>
                     </div>
@@ -500,7 +500,7 @@
                       v-else
                       :value="getParamValue(param.paramName)"
                       type="text"
-                      :placeholder="presetPlaceholder(param.paramName) || param.defaultValue || `Enter ${param.paramName}...`"
+                      :placeholder="param.defaultValue || `Enter ${param.paramName}...`"
                       class="input w-full text-xs"
                       @input="updateParamValue(param.paramName, $event.target.value)"
                     />
@@ -627,7 +627,7 @@
                       <input v-else
                         :value="getParamValue(param.paramName)"
                         type="text"
-                        :placeholder="presetPlaceholder(param.paramName) || (param.defaultValue != null ? String(param.defaultValue) : `Enter ${param.paramName}...`)"
+                        :placeholder="(param.defaultValue != null ? String(param.defaultValue) : `Enter ${param.paramName}...`)"
                         class="input w-full text-xs"
                         @input="updateParamValue(param.paramName, $event.target.value)"
                       />
@@ -735,7 +735,7 @@
                     <input v-else
                       :value="getParamValue(paramName)"
                       type="text"
-                      :placeholder="presetPlaceholder(paramName) || getParamDefaultValue(paramName) || `Enter ${paramName}...`"
+                      :placeholder="getParamDefaultValue(paramName) || `Enter ${paramName}...`"
                       class="input w-full text-xs"
                       @input="updateParamValue(paramName, $event.target.value)"
                     />
@@ -1393,8 +1393,12 @@ const selectedPreset = computed(() => (selectedFetcher.value?.presets || []).fin
 
 // ── Visibilidad condicional (visible_when del esquema del fetcher) ──
 function paramValueOrDefault(name) {
+  // Valor efectivo para el árbol de decisiones: lo escrito en el recurso manda;
+  // si no, lo que fija la variante elegida; si no, el default de la especie.
   const fp = form.value.params.find(p => p.key === name)
   if (fp && fp.value !== undefined && fp.value !== null && fp.value !== '') return fp.value
+  const pv = selectedPreset.value?.params?.[name]
+  if (pv !== undefined && pv !== null && pv !== '') return typeof pv === 'object' ? JSON.stringify(pv) : String(pv)
   const def = selectedFetcher.value?.paramsDef?.find(d => d.paramName === name)
   return def?.defaultValue ?? ''
 }
@@ -1515,11 +1519,6 @@ function getParamEnumValues(pn) { return optionalParams.value.find(p => p.paramN
 function getParamDescription(pn) {
   const d = selectedFetcher.value?.paramsDef?.find(p => p.paramName===pn)
   const base = d?.hint || d?.description || ''
-  const preset = selectedPreset.value?.params?.[pn]
-  if (preset !== undefined) {
-    const pv = typeof preset === 'object' ? JSON.stringify(preset) : preset
-    return `[heredado del perfil: ${pv}] ${base}`.trim()
-  }
   return base || null
 }
 function getOverpassPresets(pn) { return requiredParams.value.find(p => p.paramName===pn)?.enumValues || getParamEnumValues(pn) || {} }
@@ -1754,12 +1753,6 @@ function formatPresetValue(v) {
 }
 function paramOverridden(pn) {
   return !!(form.value.params.find(p => p.key === pn)?.value)
-}
-function presetPlaceholder(pn) {
-  const v = selectedPreset.value?.params?.[pn]
-  if (v === undefined) return null
-  const txt = typeof v === 'object' ? JSON.stringify(v) : String(v)
-  return 'heredado del perfil: ' + (txt.length > 60 ? txt.slice(0, 60) + '…' : txt)
 }
 
 function formatTestedAt(ts) {

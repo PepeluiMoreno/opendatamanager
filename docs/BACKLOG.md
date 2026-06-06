@@ -9,6 +9,14 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [x] **Despliegue progresivo en la creación del recurso** (este push): el
+  árbol de decisiones arranca en la variante — la visibilidad de cada
+  parámetro se evalúa contra el valor EFECTIVO (override del recurso →
+  variante → default), así que elegir CKAN despliega solo los parámetros de
+  sus decisiones. Fuera del formulario del recurso toda anotación de
+  mecánica ('[heredado del perfil: …]', placeholders de herencia); el
+  selector pasa a llamarse 'Variante'.
+
 - [x] **Hints en todos los parámetros** (commit en este push): cada parámetro
   del catálogo lleva un hint que explica qué es y qué valores suele tener —
   184/184, incluidos los 24 que faltaban (urls de especies aspiracionales,
