@@ -85,6 +85,32 @@ class FetcherFactory:
             params_dict.update(preset.params)
         elif resource.fetcher.preset_params:
             params_dict.update(resource.fetcher.preset_params)
+        # Hijos promovidos de un crawler Web Tree: si nadie inyectó _matched_urls
+        # (p. ej. el botón Test o el arnés, que no pasan por el FetcherManager),
+        # leerlos de su ResourceCandidate. Mantiene una sola semántica en todas
+        # las vías de construcción.
+        if getattr(resource, "parent_resource_id", None) and execution_params is not None                 and "_matched_urls" not in execution_params:
+            try:
+                from sqlalchemy.orm import object_session
+                sess = object_session(resource)
+                if sess is not None:
+                    from app.models import ResourceCandidate as _RC
+                    cand = (sess.query(_RC)
+                            .filter(_RC.promoted_resource_id == resource.id,
+                                    _RC.deleted_at.is_(None))
+                            .order_by(_RC.detected_at.desc())
+                            .first())
+                    if cand is not None:
+                        execution_params = dict(execution_params)
+                        execution_params["_matched_urls"] = list(cand.matched_urls or [])
+                        execution_params["_dimensions"] = list(cand.dimensions or [])
+            except Exception:  # noqa: BLE001 — la inyección es best-effort; sin candidata, el fetcher fallará con su mensaje claro
+                pass
+        elif getattr(resource, "parent_resource_id", None) and execution_params is None:
+            execution_params = {}
+            # reintentar por la rama anterior con dict vacío
+            return FetcherFactory.create_from_resource(resource, execution_params)
+
         # Candado selectivo (§6c): los valores que la variante marca como
         # inviolables no son pisables por el recurso ni por la ejecución.
         bloqueados = set()
