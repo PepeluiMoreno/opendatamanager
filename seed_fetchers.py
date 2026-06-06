@@ -825,6 +825,36 @@ def seed() -> None:
                 "params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "dedup_key": "expediente", "dedup_order_field": "fecha", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "nif_adjudicatario": "WinningParty/PartyIdentification/ID", "resultado": "TenderResult/ResultCode", "fecha_adjudicacion": "TenderResult/AwardDate", "num_ofertas": "TenderResult/ReceivedTenderQuantity", "importe_adjudicacion": "TenderResult/AwardedTenderedProject/LegalMonetaryTotal/TaxExclusiveAmount", "fecha": "updated", "url": "link@href"}},
             },
         ],
+        "API REST": [
+            {
+                "code": "CKAN",
+                "description": "Catálogo de un portal CKAN vía package_search (API v3). Fija paginación start/rows y extracción de result.results; el recurso aporta la 'url' del endpoint (https://<portal>/api/3/action/package_search) y, opcionalmente, query_params con 'q' o 'fq' para acotar. Verificado contra opendata.aragon.es.",
+                "params": {"pagination": "query_offset", "start_param": "start", "page_size_param": "rows",
+                           "page_size": 100, "content_field": "result.results", "id_field": "id", "delay": 1,
+                           "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
+            },
+            {
+                "code": "DKAN",
+                "description": "Catálogo de un portal DKAN (v2) vía metastore: /api/1/metastore/schemas/dataset/items, lista plana con limit/offset. El recurso aporta la 'url' del endpoint. Verificado contra demo.getdkan.org.",
+                "params": {"pagination": "query_offset", "start_param": "offset", "page_size_param": "limit",
+                           "page_size": 100, "id_field": "identifier", "delay": 1,
+                           "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
+            },
+            {
+                "code": "OpenDataSoft",
+                "description": "Catálogo de un portal OpenDataSoft vía Explore API v2.1: /api/explore/v2.1/catalog/datasets, paginado limit/offset y registros en 'results'. El recurso aporta la 'url' del endpoint del portal. Verificado contra data.opendatasoft.com.",
+                "params": {"pagination": "query_offset", "start_param": "offset", "page_size_param": "limit",
+                           "page_size": 100, "content_field": "results", "id_field": "dataset_id", "delay": 1,
+                           "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
+            },
+            {
+                "code": "Socrata",
+                "description": "Catálogo de un portal Socrata vía metadata API v1 (/api/views/metadata/v1), lista plana paginada con $limit/$offset. El recurso aporta la 'url' del portal. Para datasets concretos sirve el mismo perfil contra /resource/<id>.json. Verificado contra data.cityofnewyork.us.",
+                "params": {"pagination": "query_offset", "start_param": "$offset", "page_size_param": "$limit",
+                           "page_size": 100, "id_field": "id", "delay": 1,
+                           "headers": {"Accept": "application/json", "User-Agent": "OpenDataManager/1.0"}},
+            },
+        ],
     }
     db = _SL_P()
     try:

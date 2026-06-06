@@ -127,6 +127,23 @@ dataset versionado). Si se cruzan datasets distintos (histórico 2022 ×
 novedades), un expediente puede aparecer en ambos; el criterio del consumidor
 sigue siendo quedarse con la `fecha` mayor.
 
+## 5b. Variantes (perfiles): criterio de permanencia
+
+Una variante es una implementación concreta de la tecnología de una especie:
+fija valores sobre el vocabulario de parámetros de la especie, y los recursos
+la eligen y heredan (sobrescribiendo campo a campo si hace falta). La entidad
+está **en periodo de prueba** con criterio falsable: paga su peso si existen
+varias variantes por especie con muchos recursos detrás; si el parque se
+estabiliza con ≤1 variante por especie, se plegará a bloques compartidos de
+manifiesto y se retirará.
+
+Estado (2026-06-07): la dirección que la valida es tratar las **plataformas de
+portales de datos como dialectos REST** — variantes CKAN, DKAN, OpenDataSoft y
+Socrata bajo la especie API REST (cada una fija paginación, extracción e
+id_field de su plataforma; el recurso solo aporta la URL del portal), todas
+verificadas contra portales vivos. Junto a PLACSP CODICE bajo Feeds ATOM/RSS:
+5 variantes en 2 especies.
+
 ## 6. Recursos que usan otros recursos
 
 Tres mecanismos vivos, todos de transporte:
