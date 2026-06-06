@@ -41,9 +41,9 @@ Thumbs.db
 .dockerignore
 docker-compose*.yml
 
-# Docs y scripts que no van a producción
+# Docs no van a producción; los scripts operativos SÍ (se ejecutan en prod:
+# seed_resources, jerez_webtree, arnes_recursos, cruce_curacion...).
 docs/
-scripts/
 *.md
 config_rer.md
 
