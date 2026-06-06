@@ -61,6 +61,21 @@ def _drop_empty_columns(registros):
     return [{k: v for k, v in r.items() if k not in vacias} for r in registros]
 
 
+def _parece_tabla(registros) -> bool:
+    """¿Lo extraído es una tabla real o prosa que pdfplumber ha 'tabulado' por
+    coincidencia de maquetación? (caso Plan Estratégico: documento de prosa sin
+    tabla cuyas líneas — y los títulos partidos a dos líneas — entran como filas
+    espurias de una sola celda). Una tabla de datos tiene ≥2 columnas pobladas y
+    la mayoría de sus filas pueblan ≥2 celdas; la prosa colapsa a una columna."""
+    if not registros:
+        return False
+    if len(registros[0]) < 2:
+        return False
+    multi = sum(1 for r in registros
+                if sum(1 for v in r.values() if str(v).strip()) >= 2)
+    return multi >= len(registros) * 0.5
+
+
 def _normalize_col(name: str) -> str:
     """Convierte un nombre de columna a snake_case ASCII limpio."""
     name = str(name).translate(_ACCENT_MAP)
@@ -247,7 +262,13 @@ def parse_pdf_table(content: bytes, params: Dict[str, Any]) -> List[Dict[str, st
             continue
         padded = list(row) + [""] * max(0, len(columns) - len(row))
         records.append({col: str(padded[i] or "").strip() for i, col in enumerate(columns)})
-    return _drop_empty_columns(records)
+    records = _drop_empty_columns(records)
+    if not _parece_tabla(records):
+        logger.info(
+            "[file_parsers] PDF sin tabla real (prosa tabulada por maquetación); 0 filas."
+        )
+        return []
+    return records
 
 
 def parse_structured_file(
