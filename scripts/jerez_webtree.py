@@ -81,9 +81,20 @@ def main():
         db.commit()
 
         if not args.append:
-            hijos = db.query(Resource).filter(Resource.parent_resource_id == crawler.id).all()
-            for h in hijos:
-                h.deleted_at = datetime.utcnow()
+            hijos = db.query(Resource).filter(Resource.parent_resource_id == crawler.id,
+                                              Resource.deleted_at.is_(None)).all()
+            marca = datetime.utcnow().strftime("%y%m%d%H%M%S")
+            # sanear también retirados de pasadas antiguas que conserven su nombre
+            # (la restricción única incluye a los borrados)
+            zombis = db.query(Resource).filter(Resource.parent_resource_id == crawler.id,
+                                               Resource.deleted_at.isnot(None),
+                                               ~Resource.name.like("%~%")).all()
+            for h in hijos + zombis:
+                h.deleted_at = h.deleted_at or datetime.utcnow()
+                # la unicidad de name/target_table es global (incluye retirados):
+                # liberar los identificadores para el nuevo descubrimiento
+                h.name = f"{h.name[:85]}~{marca}"
+                h.target_table = f"{h.target_table[:50]}_{marca}"
             for c in db.query(ResourceCandidate).filter(ResourceCandidate.crawler_resource_id == crawler.id).all():
                 c.deleted_at = datetime.utcnow()
             db.commit()
@@ -112,13 +123,15 @@ def main():
             )
             db.add(cand); db.flush()
 
-            nombre = f"Jerez — {p.suggested_name}"[:100]
+            nombre = f"Jerez — {p.suggested_name}"[:96]
             base = slug(p.suggested_name)
             tt = f"jerez_{base}"
             n = 1
-            while tt in usados:
-                n += 1; tt = f"jerez_{base}_{n}"
-            usados.add(tt)
+            while tt in usados or nombre in usados:
+                n += 1
+                tt = f"jerez_{base}_{n}"
+                nombre = f"{f'Jerez — {p.suggested_name}'[:92]} #{n}"
+            usados.add(tt); usados.add(nombre)
 
             child = Resource(
                 name=nombre, fetcher_id=crawler.fetcher_id, publisher_id=crawler.publisher_id,
