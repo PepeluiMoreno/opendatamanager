@@ -21,7 +21,7 @@ import sys
 import traceback
 from datetime import datetime, timedelta
 
-sys.path.insert(0, ".")
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
 from app.database import SessionLocal  # noqa: E402
 from app.models import Resource  # noqa: E402
