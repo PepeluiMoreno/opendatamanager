@@ -61,10 +61,13 @@ def _etiqueta(texto: str) -> str:
     return " ".join(out)
 
 
-def _render_segmento(seg: str) -> str:
+def _render_segmento(seg: str, con_codigo: bool = False) -> str:
+    """El código de ordenación solo se conserva en el rótulo de sección de
+    primer nivel (la pestaña del corcho: A07); los subniveles van limpios."""
     m = _CODE_RE.match(seg)
     if m:
-        return f"{m.group(1).upper()}-{_etiqueta(m.group(2))}"
+        etiqueta = _etiqueta(m.group(2))
+        return f"{m.group(1).upper()}-{etiqueta}" if con_codigo else etiqueta
     return _etiqueta(seg)
 
 
@@ -87,7 +90,7 @@ def suggested_name(
         etiqueta_cruda = m.group(2) if m else crudo
         if crudo in _NOISE_NAME_SEGMENTS or etiqueta_cruda in _NOISE_NAME_SEGMENTS:
             continue
-        render = _render_segmento(seg)
+        render = _render_segmento(seg, con_codigo=not parts)
         # deduplicar etiquetas consecutivas (c-deuda / deuda → una sola)
         if parts and _sin_codigo(parts[-1]).casefold() == _sin_codigo(render).casefold():
             continue
