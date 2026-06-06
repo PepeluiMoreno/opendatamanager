@@ -52,6 +52,21 @@ el frontend propio; si se hace (b), aprovechar una ventana de cambios
 rompientes y hacerlo entero de una vez.
 **Estado**: sin decidir.
 
+### 6. ¿Cuánta libertad tiene el recurso sobre los valores de la variante?
+**Contexto**: el valor fijado por la variante es el default efectivo del
+recurso, pisable mediante 'Sobrescribir' (gesto deliberado que copia el valor
+heredado como punto de partida). La pregunta: ¿es demasiada libertad?
+**Opciones**:
+  (a) *Statu quo* — libertad con fricción: solo lectura + override deliberado.
+  (b) *Candado total*: lo que fija la variante no se pisa; cada desviación
+  exige variante nueva (riesgo: proliferación de variantes-de-un-portal).
+  (c) *Candado selectivo*: la variante marca parámetros inviolables (p. ej.
+  field_map en CODICE: esencia del dialecto) y deja pisables los de ajuste
+  (delay, timeout, page_size).
+**Recomendación**: (a) hoy; (c) cuando aparezca el primer abuso real — no
+construir cerraduras antes del primer robo.
+**Estado**: sin decidir.
+
 ---
 
 ## Decididas (histórico breve)
