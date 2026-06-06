@@ -446,7 +446,12 @@ class WebTreeFetcher(BaseFetcher):
             n_pref = len(comunes or [])
             for i, url in enumerate(matched_urls):
                 segs = [s for s in urlparse(url).path.split("/") if s]
-                seccion = "/".join(segs[n_pref:-1])  # carpeta relativa tras el tronco común
+                # ancla preferente: el primer segmento tipo 'a-...' (raíz temática del
+                # portal); si no existe, el tronco común del lote
+                ancla = next((k for k, s in enumerate(segs)
+                              if re.match(r"^[a-z]-", s)), None)
+                corte = ancla if ancla is not None else n_pref
+                seccion = "/".join(segs[corte:-1])
                 row = {
                     "seccion": seccion,
                     **self._extract_dim_values(url, dimensions),
