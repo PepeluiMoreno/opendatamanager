@@ -56,6 +56,7 @@ def _kill_thread(thread: threading.Thread):
     )
     return res  # 1 = success, 0 = thread not found
 from app.graphql_api.types import (
+    PresetType,
     AppConfigType,
     SetConfigInput,
     ResourceType,
@@ -82,6 +83,7 @@ from app.graphql_api.types import (
     PromoteCandidateInput,
 )
 from app.graphql_api.queries import (
+    map_preset,
     map_application, map_resource, map_fetcher, map_type_fetcher_param,
     map_derived_dataset_config, map_dataset_subscription, map_publisher,
     map_resource_candidate,
@@ -532,6 +534,90 @@ class Mutation:
         except Exception as e:
             db.rollback()
             raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
+    def create_fetcher_preset(self, fetcher_id: str, code: str,
+                              description: Optional[str] = None,
+                              params: Optional[strawberry.scalars.JSON] = None) -> PresetType:
+        """Crea un perfil (preset) bajo una especie: particularización con nombre."""
+        from app.models import FetcherPreset
+        db = get_db()
+        try:
+            fetcher = db.query(Fetcher).filter(Fetcher.id == fetcher_id,
+                                               Fetcher.deleted_at.is_(None)).first()
+            if not fetcher:
+                raise ValueError("La especie indicada no existe")
+            code = (code or "").strip()
+            if not code:
+                raise ValueError("El perfil necesita un código")
+            dup = db.query(FetcherPreset).filter(
+                FetcherPreset.fetcher_id == fetcher.id,
+                FetcherPreset.code == code,
+                FetcherPreset.deleted_at.is_(None)).first()
+            if dup:
+                raise ValueError(f"Ya existe el perfil '{code}' bajo '{fetcher.code}'")
+            preset = FetcherPreset(fetcher_id=fetcher.id, code=code,
+                                   description=description, params=params or {})
+            db.add(preset)
+            db.commit()
+            db.refresh(preset)
+            return map_preset(preset)
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
+    def update_fetcher_preset(self, id: str, code: Optional[str] = None,
+                              description: Optional[str] = None,
+                              params: Optional[strawberry.scalars.JSON] = None) -> PresetType:
+        """Actualiza un perfil. Los recursos que lo usan heredan el cambio en su
+        próxima ejecución (salvo en los campos que hayan sobrescrito)."""
+        from app.models import FetcherPreset
+        db = get_db()
+        try:
+            preset = db.query(FetcherPreset).filter(FetcherPreset.id == id,
+                                                    FetcherPreset.deleted_at.is_(None)).first()
+            if not preset:
+                raise ValueError("El perfil no existe")
+            if code is not None and code.strip() and code.strip() != preset.code:
+                dup = db.query(FetcherPreset).filter(
+                    FetcherPreset.fetcher_id == preset.fetcher_id,
+                    FetcherPreset.code == code.strip(),
+                    FetcherPreset.deleted_at.is_(None),
+                    FetcherPreset.id != preset.id).first()
+                if dup:
+                    raise ValueError(f"Ya existe el perfil '{code.strip()}' bajo esta especie")
+                preset.code = code.strip()
+            if description is not None:
+                preset.description = description
+            if params is not None:
+                preset.params = params
+            db.commit()
+            db.refresh(preset)
+            return map_preset(preset)
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
+    def delete_fetcher_preset(self, id: str) -> bool:
+        """Retira (soft-delete) un perfil. Bloqueado si algún recurso vivo lo usa."""
+        from app.models import FetcherPreset
+        db = get_db()
+        try:
+            preset = db.query(FetcherPreset).filter(FetcherPreset.id == id,
+                                                    FetcherPreset.deleted_at.is_(None)).first()
+            if not preset:
+                raise ValueError("El perfil no existe")
+            en_uso = db.query(Resource).filter(Resource.preset_id == preset.id,
+                                               Resource.deleted_at.is_(None)).count()
+            if en_uso:
+                raise ValueError(
+                    f"El perfil '{preset.code}' está en uso por {en_uso} recurso(s); "
+                    "reasígnalos antes de retirarlo")
+            preset.deleted_at = datetime.utcnow()
+            db.commit()
+            return True
         finally:
             db.close()
 

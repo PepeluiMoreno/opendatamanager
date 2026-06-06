@@ -391,6 +391,28 @@ export const MUTATIONS = {
     }
   `,
 
+  CREATE_FETCHER_PRESET: `
+    mutation CreateFetcherPreset($fetcherId: String!, $code: String!, $description: String, $params: JSON) {
+      createFetcherPreset(fetcherId: $fetcherId, code: $code, description: $description, params: $params) {
+        id code description params
+      }
+    }
+  `,
+
+  UPDATE_FETCHER_PRESET: `
+    mutation UpdateFetcherPreset($id: String!, $code: String, $description: String, $params: JSON) {
+      updateFetcherPreset(id: $id, code: $code, description: $description, params: $params) {
+        id code description params
+      }
+    }
+  `,
+
+  DELETE_FETCHER_PRESET: `
+    mutation DeleteFetcherPreset($id: String!) {
+      deleteFetcherPreset(id: $id)
+    }
+  `,
+
   CREATE_FETCHER: `
     mutation CreateFetcher($input: CreateFetcherInput!) {
       createFetcher(input: $input) {
@@ -1008,4 +1030,28 @@ export async function splitCandidate(id, groups) {
       { id, groups }
     )
   } catch (e) { handleGraphQLError(e) }
+}
+
+export async function createFetcherPreset(fetcherId, code, description, params) {
+  try {
+    return await client.request(MUTATIONS.CREATE_FETCHER_PRESET, { fetcherId, code, description, params })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function updateFetcherPreset(id, { code, description, params }) {
+  try {
+    return await client.request(MUTATIONS.UPDATE_FETCHER_PRESET, { id, code, description, params })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function deleteFetcherPreset(id) {
+  try {
+    return await client.request(MUTATIONS.DELETE_FETCHER_PRESET, { id })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
 }

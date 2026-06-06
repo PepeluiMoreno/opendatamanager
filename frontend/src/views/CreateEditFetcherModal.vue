@@ -225,6 +225,62 @@
           </div>
         </div>
 
+        <!-- Perfiles (presets) de la especie: solo en edición -->
+        <div v-if="Fetcher" class="border-t border-gray-600 pt-4">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-purple-400">Perfiles de la especie</h3>
+            <button type="button" @click="nuevoPerfil"
+                    class="text-xs px-2 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-700">
+              + Nuevo perfil
+            </button>
+          </div>
+          <p class="text-xs text-gray-500 mb-2">
+            Un perfil es una implementación concreta de esta tecnología (bloque de parámetros con nombre).
+            Los recursos lo eligen y heredan sus valores; al guardar cambios aquí, los recursos que no hayan
+            sobrescrito un campo lo heredan en su próxima ejecución.
+          </p>
+          <div v-if="!perfiles.length" class="text-xs text-gray-500 italic">Sin perfiles.</div>
+          <div v-for="pf in perfiles" :key="pf.id || pf._tmp" class="mb-2 rounded border border-purple-900/60 bg-gray-900/40">
+            <div class="flex items-center gap-2 px-3 py-2 cursor-pointer select-none" @click="pf._open = !pf._open">
+              <span class="text-xs font-mono text-purple-300">{{ pf.code || '(sin código)' }}</span>
+              <span class="text-[10px] text-gray-500 truncate">{{ pf.description }}</span>
+              <span class="ml-auto text-[10px] text-gray-500">{{ Object.keys(parseParams(pf) || {}).length }} parámetro(s)</span>
+              <span class="text-gray-500">{{ pf._open ? '▾' : '▸' }}</span>
+            </div>
+            <div v-if="pf._open" class="px-3 pb-3 space-y-2">
+              <div class="grid grid-cols-2 gap-2">
+                <div>
+                  <label class="block text-[10px] text-gray-500 mb-0.5">Código</label>
+                  <input v-model="pf.code" class="input w-full text-xs" />
+                </div>
+                <div>
+                  <label class="block text-[10px] text-gray-500 mb-0.5">Descripción</label>
+                  <input v-model="pf.description" class="input w-full text-xs" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-[10px] text-gray-500 mb-0.5">Parámetros (JSON)</label>
+                <textarea v-model="pf._paramsText" rows="6" class="input w-full text-xs font-mono"
+                          :class="{ 'border-red-700': pf._jsonError }"
+                          @input="validarJsonPerfil(pf)"></textarea>
+                <p v-if="pf._jsonError" class="text-[10px] text-red-400 mt-0.5">{{ pf._jsonError }}</p>
+              </div>
+              <div class="flex justify-end gap-2">
+                <button v-if="pf.id" type="button" @click="eliminarPerfil(pf)"
+                        class="text-xs px-2 py-1 rounded border border-red-800 text-red-400 hover:bg-red-950">
+                  Retirar
+                </button>
+                <button type="button" :disabled="!!pf._jsonError || !pf.code || pf._saving"
+                        @click="guardarPerfil(pf)"
+                        class="text-xs px-2 py-1 rounded border border-gray-600 text-gray-300 hover:bg-gray-700 disabled:opacity-40">
+                  {{ pf._saving ? 'Guardando…' : (pf.id ? 'Guardar perfil' : 'Crear perfil') }}
+                </button>
+              </div>
+              <p v-if="pf._error" class="text-[10px] text-red-400">{{ pf._error }}</p>
+            </div>
+          </div>
+        </div>
+
         <!-- Validation Error -->
         <div v-if="validationError" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm">
           {{ validationError }}
@@ -255,7 +311,10 @@ import {
   updateFetcher,
   createTypeFetcherParam,
   updateTypeFetcherParam,
-  deleteTypeFetcherParam
+  deleteTypeFetcherParam,
+  createFetcherPreset,
+  updateFetcherPreset,
+  deleteFetcherPreset
 } from '../api/graphql'
 
 const props = defineProps({
@@ -485,4 +544,57 @@ function updateEnumValuesString(param, value) {
 
   param.enumValues = values.length > 0 ? values : null
 }
+
+// ── Perfiles de la especie ────────────────────────────────────────────────────
+const perfiles = ref([])
+let _tmpSeq = 0
+
+watch(() => props.Fetcher, (f) => {
+  perfiles.value = (f?.presets || []).map(p => ({
+    id: p.id, code: p.code, description: p.description || '',
+    _paramsText: JSON.stringify(p.params || {}, null, 2),
+    _open: false, _jsonError: null, _error: null, _saving: false,
+  }))
+}, { immediate: true })
+
+function parseParams(pf) {
+  try { return JSON.parse(pf._paramsText || '{}') } catch { return null }
+}
+function validarJsonPerfil(pf) {
+  try { JSON.parse(pf._paramsText || '{}'); pf._jsonError = null }
+  catch (e) { pf._jsonError = 'JSON inválido: ' + e.message }
+}
+function nuevoPerfil() {
+  perfiles.value.push({ id: null, _tmp: ++_tmpSeq, code: '', description: '',
+    _paramsText: '{\n}', _open: true, _jsonError: null, _error: null, _saving: false })
+}
+async function guardarPerfil(pf) {
+  pf._error = null; pf._saving = true
+  try {
+    const params = parseParams(pf)
+    if (pf.id) {
+      await updateFetcherPreset(pf.id, { code: pf.code, description: pf.description, params })
+    } else {
+      const res = await createFetcherPreset(props.Fetcher.id, pf.code, pf.description, params)
+      pf.id = res.createFetcherPreset.id
+    }
+    emit('saved', `Perfil "${pf.code}" guardado`)
+  } catch (e) {
+    pf._error = e?.message || String(e)
+  } finally {
+    pf._saving = false
+  }
+}
+async function eliminarPerfil(pf) {
+  if (!confirm(`¿Retirar el perfil "${pf.code}"? Se bloqueará si algún recurso lo usa.`)) return
+  pf._error = null
+  try {
+    await deleteFetcherPreset(pf.id)
+    perfiles.value = perfiles.value.filter(x => x !== pf)
+    emit('saved', `Perfil "${pf.code}" retirado`)
+  } catch (e) {
+    pf._error = e?.message || String(e)
+  }
+}
+
 </script>
