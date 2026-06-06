@@ -13,10 +13,14 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   (acota la navegación a una subrama) e include/exclude_patterns (filtran las
   hojas por regex). Verificado en Jerez: de 708 hojas del portal entero a 282
   de c-deuda, candidatos limpios.
-- [ ] **Web Tree — inferer v1: dimensiones embebidas en el nombre de fichero**:
-  el inferer reconoce dimensiones en SEGMENTOS del path, no dentro del nombre
-  (01Enero, 02Febrero... salen como propuestas distintas en vez de una con
-  dimensión 'month'). Mejorar el reconocedor para tokenizar el filename.
+- [x] **Web Tree — inferer que funciona en portales documentales** (este push):
+  dos pasadas nuevas tras el templating — (1) consolidación: colapsa plantillas
+  hermanas que difieren en un átomo genérico (números de resolución, nombres de
+  mes embebidos) en una dimensión {code}; (2) serie-vs-pila: una serie periódica
+  (mes/trimestre) o de carpeta pequeña se conserva suelta, y una carpeta-
+  vertedero (muchas series o documentos heterogéneos) colapsa en un bundle
+  {*} por carpeta. Verificado en Jerez: deuda 282→11 propuestas, presupuesto
+  1745→16, cuenta general 818→1. Antes: ~1.595.
 
 - [x] **Arnés batch de pruebas de recursos** (este push): script paralelo con
   clasificación OK/SIN FILAS/FUENTE CAÍDA/CONFIG ROTA/BUG y sello de

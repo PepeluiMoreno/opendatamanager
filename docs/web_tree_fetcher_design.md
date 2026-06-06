@@ -207,3 +207,27 @@ Y se retira código:
 - `create_child_resources` mutation
 - `discoverArtifact` field en `ResourceType` (si existe)
 - `isDiscoverable()` función string-match en `Resources.vue`
+
+
+## Inferer: consolidación y serie-vs-pila (2026-06)
+
+La inferencia por reconocedores tipados (year/month/quarter/date) sola se ahoga
+en portales documentales: cada documento único bajo una carpeta de año produce
+su propia propuesta (cientos). Dos pasadas posteriores lo corrigen:
+
+1. **Consolidación** (`consolidation.consolidate`): colapsa plantillas hermanas
+   que difieren en un ÚNICO átomo de valor con cardinalidad ≥ 3 (números de
+   resolución, nombres de mes embebidos en el filename) en una dimensión
+   genérica `{code}`. Itera hasta punto fijo.
+2. **Serie-vs-pila** (`consolidation.bundle_residuals`):
+   - *Serie periódica* (mes/trimestre/fecha, sin `{code}`) → se conserva suelta.
+     Es el dataset limpio que se repite (PMP mensual, morosidad trimestral).
+   - *Solo-anual en carpeta pequeña* (≤ SMALL_FOLDER series distintas, sin pilas)
+     → se conserva suelta.
+   - *Resto* (carpeta con muchas series o con pilas `{code}`) → un único
+     **bundle** por carpeta, con filename `{*}`: "todos los ficheros de esta
+     carpeta, por año". El operador lo promueve como un recurso que lista/
+     concatena la carpeta, en vez de cientos de recursos de un documento.
+
+Resultado medido en transparencia.jerez.es: rama deuda 282 hojas → 11
+propuestas; presupuesto 1745 → 16; cuenta general 818 → 1. Antes: ~1.595.

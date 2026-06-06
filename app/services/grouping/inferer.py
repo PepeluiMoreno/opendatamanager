@@ -24,6 +24,7 @@ from .models import GroupingProposal
 from .naming import suggested_name
 from .scoring import confidence
 from .templating import template_filename, template_path_segments
+from .consolidation import consolidate, bundle_residuals
 
 
 def _parse_path_segments(url: str) -> List[str]:
@@ -135,6 +136,12 @@ def infer(
         key = (scheme, netloc, tuple(full_template))
         grouped[key].append(entry)
         grouped_dims[key].append(entry_dims)
+
+    # 3b. Consolidar plantillas hermanas que difieren en un único átomo genérico
+    #     (números de resolución, nombres de mes embebidos, ...): colapsan en una
+    #     plantilla con dimensión {code} en vez de una propuesta por documento.
+    grouped, grouped_dims = consolidate(grouped, grouped_dims)
+    grouped, grouped_dims = bundle_residuals(grouped, grouped_dims)
 
     # 4. Construir propuestas
     proposals: List[GroupingProposal] = []
