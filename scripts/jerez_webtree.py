@@ -1,4 +1,13 @@
-"""Crea todos los recursos posibles para el portal económico de Jerez vía Web Tree.
+"""Crea los recursos de Jerez económica vía Web Tree — versión censo+extracción.
+
+Decisión §8 (2026-06): la mayoría de los ficheros municipales no son tablas,
+así que ya NO se promueve un hijo por propuesta. El script crea:
+  1. UN recurso 'Directorio documental' en variante Censo con TODAS las hojas
+     del árbol (una fila por fichero: dimensiones+url+formato; sin descargar).
+     Es el censo completo y el insumo del CKAN (§9).
+  2. Hijos en variante 'Extracción de datos' SOLO para las series/bundles que
+     la auditoría (docs/AUDITORIA_jerez_hijos.md) clasificó TABLA_REAL.
+
 
 Ciclo completo end-to-end (el que en producción harían el crawler + Discovering.vue):
   1. Asegura el publisher de Jerez y un Resource crawler padre 'Web Tree' acotado
@@ -32,6 +41,17 @@ ROOT = "https://transparencia.jerez.es/infopublica/economica"
 PATH_PREFIX = "/infopublica/economica"
 INCLUDE = ["/a07-economica/"]
 CRAWLER_NAME = "Jerez — Económica (crawler Web Tree)"
+
+# Patrones (sobre path_template) de los hijos TABLA_REAL según la auditoría
+# 2026-06 (docs/AUDITORIA_jerez_hijos.md). Editar aquí cuando haya recetas o
+# nuevas series tabulares.
+EXTRAER = [
+    "03-ejecucionAyto",
+    "c-deuda/{year}/deuda",
+    "ContratosMenores_Publicidad",
+    "Ejecucion_Gastos",
+    "Plan_de_ajuste",
+]
 
 
 def slug(texto: str, maxlen: int = 48) -> str:
@@ -110,10 +130,43 @@ def main():
         props = infer(hojas)
         print(f"[infer] {len(hojas)} hojas → {len(props)} propuestas")
 
-        # 3+4. Persistir candidatas y promoverlas
+        # variantes
+        from app.models import FetcherPreset
+        v_censo = db.query(FetcherPreset).filter(FetcherPreset.code == "Censo documental").first()
+        v_datos = db.query(FetcherPreset).filter(FetcherPreset.code == "Extracción de datos").first()
+        if not (v_censo and v_datos):
+            raise SystemExit("Faltan las variantes Web Tree (ejecuta seed_fetchers.py)")
+
+        # 3a. EL recurso-directorio: candidata con TODAS las hojas, variante Censo
+        cand_dir = ResourceCandidate(
+            crawler_resource_id=crawler.id,
+            path_template=ROOT + "/{*}",
+            dimensions=[], matched_urls=[h["url"] for h in hojas],
+            file_types={}, suggested_name="Directorio documental (censo completo)",
+            confidence=1.0, status="discovered",
+        )
+        db.add(cand_dir); db.flush()
+        directorio = Resource(
+            name="Jerez — Económica — Directorio documental (censo)",
+            fetcher_id=crawler.fetcher_id, publisher_id=crawler.publisher_id,
+            target_table="jerez_economica_directorio", active=True,
+            enable_load=False, load_mode="upsert",
+            parent_resource_id=crawler.id, auto_generated=True,
+            preset_id=v_censo.id,
+        )
+        db.add(directorio); db.flush()
+        db.add(ResourceParam(resource_id=directorio.id, key="root_url", value=ROOT))
+        cand_dir.status = "promoted"
+        cand_dir.promoted_resource_id = directorio.id
+        cand_dir.reviewed_at = datetime.utcnow()
+        cand_dir.reviewed_by = "jerez_webtree.py"
+        print(f"[promote] directorio-censo: 1 recurso con {len(hojas)} ficheros")
+
+        # 3b. Persistir candidatas; promover en 'datos' SOLO las TABLA_REAL
         creados = 0
-        usados = set()
+        usados = {directorio.target_table}
         for p in props:
+            extraer = any(pat in p.path_template for pat in EXTRAER)
             cand = ResourceCandidate(
                 crawler_resource_id=crawler.id,
                 path_template=p.path_template, dimensions=p.dimensions,
@@ -122,6 +175,8 @@ def main():
                 status="discovered",
             )
             db.add(cand); db.flush()
+            if not extraer:
+                continue  # queda como candidata 'discovered'; el censo ya la cubre
 
             nombre = f"Jerez — {p.suggested_name}"[:96]
             base = slug(p.suggested_name)
@@ -137,6 +192,7 @@ def main():
                 name=nombre, fetcher_id=crawler.fetcher_id, publisher_id=crawler.publisher_id,
                 target_table=tt, active=True, enable_load=False, load_mode="upsert",
                 parent_resource_id=crawler.id, auto_generated=True,
+                preset_id=v_datos.id,
             )
             db.add(child); db.flush()
             db.add(ResourceParam(resource_id=child.id, key="root_url", value=ROOT))
@@ -147,10 +203,9 @@ def main():
             creados += 1
         db.commit()
 
-        series = sum(1 for p in props if not p.path_template.endswith("{*}"))
-        bundles = len(props) - series
-        print(f"[promote] {creados} recursos hijos creados ({series} series, {bundles} bundles) "
-              f"bajo el crawler '{CRAWLER_NAME}'")
+        print(f"[promote] {creados} hijos en 'Extracción de datos' (TABLA_REAL de la auditoría) "
+              f"+ 1 directorio-censo, bajo '{CRAWLER_NAME}'. "
+              f"{len(props) - creados} propuestas quedan como candidatas (cubiertas por el censo).")
     finally:
         db.close()
 

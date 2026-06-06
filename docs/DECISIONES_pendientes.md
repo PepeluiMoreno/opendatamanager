@@ -114,8 +114,12 @@ inmediato en 59/64; la extracción dirigida (b) rescataría los 31 del medio.
 **Recomendación**: variante 'Censo documental' como (a) inmediato + (b)
 recetas opt-in para series valiosas (PMP primero); (c) parseo genérico solo
 para ficheros con tabla real.
-**Estado**: sin decidir (pendiente del visto bueno del usuario a la vía
-'param + variantes' frente a 'especie nueva').
+**Estado**: DECIDIDA (2026-06, 'adelante' del usuario a la vía param+variantes).
+Implementado: param extract_mode, variantes 'Censo documental' (🔒 censo) y
+'Extracción de datos' (🔒 datos), y jerez_webtree.py v2 — UN directorio-censo
+con todo el árbol + hijos de extracción solo para los TABLA_REAL de la
+auditoría. Las recetas (8b) quedan como evolución pendiente para rescatar los
+31 informes-formulario (PMP el primero).
 
 ### 9. Alimentación automática de un CKAN para Jerez desde los hijos Web Tree
 **Contexto** (idea del usuario, 2026-06): aprovechar el output actual —

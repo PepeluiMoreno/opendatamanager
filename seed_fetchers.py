@@ -412,6 +412,8 @@ FETCHERS: List[Dict[str, Any]] = [
         "class_path": "app.fetchers.web_tree_fetcher.WebTreeFetcher",
         "description": "Crawler de portales web clásicos. En modo discover (Resource padre, parent_resource_id=NULL) recorre el árbol e infiere agrupaciones por dimensiones (year, month, quarter, ...) que el operador revisa y promueve. En modo stream (Resource hijo promovido) descarga las URLs de su ResourceCandidate enriqueciendo cada registro con las dimensiones detectadas.",
         "params": [
+            {"param_name": "extract_mode", "data_type": "string", "required": False, "group": "output",
+             "hint": "Qué produce cada fichero: 'datos' lo descarga y parsea a filas (tablas); 'censo' emite una fila por fichero con dimensiones+url+formato, sin descargar (registro documental, insumo de catálogos)."},
             {"param_name": "root_url", "data_type": "string", "required": True, "group": "navigation",
              "hint": "URL raíz desde la que arranca el recorrido. P. ej. https://transparencia.<municipio>.es/economica/deuda."},
             {"param_name": "path_prefix", "data_type": "string", "required": False, "group": "navigation",
@@ -839,6 +841,20 @@ def seed() -> None:
                 "description": "Sindicaciones de contratación pública en CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid), con cosecha incremental. El recurso aporta la 'url' del feed y la ventana temporal (desde/hasta).",
                 "params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "dedup_key": "expediente", "dedup_order_field": "fecha", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "nif_adjudicatario": "WinningParty/PartyIdentification/ID", "resultado": "TenderResult/ResultCode", "fecha_adjudicacion": "TenderResult/AwardDate", "num_ofertas": "TenderResult/ReceivedTenderQuantity", "importe_adjudicacion": "TenderResult/AwardedTenderedProject/LegalMonetaryTotal/TaxExclusiveAmount", "fecha": "updated", "url": "link@href"}},
                 "locked": ["field_map"],
+            },
+        ],
+        "Web Tree": [
+            {
+                "code": "Censo documental",
+                "description": "Registro documental del árbol: una fila por fichero con sus dimensiones, url, nombre y formato — sin descargar ni parsear nada. El modo honesto para pilas de documentos e informes no tabulares, e insumo directo de catálogos (CKAN/DCAT).",
+                "params": {"extract_mode": "censo"},
+                "locked": ["extract_mode"],
+            },
+            {
+                "code": "Extracción de datos",
+                "description": "Descarga cada fichero y lo parsea a filas con el parser tabular compartido (XLSX/CSV/PDF con tabla). Para series cuyos ficheros son tablas de verdad.",
+                "params": {"extract_mode": "datos"},
+                "locked": ["extract_mode"],
             },
         ],
         "API REST": [

@@ -43,6 +43,7 @@ logger = logging.getLogger(__name__)
 _DEFAULTS: Dict[str, Any] = {
     "max_depth": 10,
     "allowed_extensions": ["pdf", "xlsx", "xls", "csv", "tsv"],
+    "extract_mode": "datos",   # 'datos' descarga y parsea; 'censo' emite una fila por fichero (sin descargar)
     "same_domain_only": True,
     "path_prefix": None,        # si None se deriva del path de root_url; acota navegación y hojas a esa subrama
     "include_patterns": None,   # regex(es): la hoja se conserva solo si alguna casa (None = todas)
@@ -431,6 +432,31 @@ class WebTreeFetcher(BaseFetcher):
 
         producidas = 0
         buffer: List[Dict[str, Any]] = []
+
+        # ── Modo CENSO: registro documental sin descargar ni parsear ──
+        # Una fila por fichero: dimensiones + url + nombre + formato. Es el
+        # insumo natural de un catálogo (CKAN/DCAT) y el modo honesto para
+        # series no tabulares y pilas documentales.
+        if str(self._opt("extract_mode") or "datos").strip().lower() == "censo":
+            for i, url in enumerate(matched_urls):
+                row = {
+                    **self._extract_dim_values(url, dimensions),
+                    "_source_file_url": url,
+                    "_source_file_name": Path(urlparse(url).path).name,
+                    "_source_format": self._resolve_format(url),
+                }
+                buffer.append(row)
+                self.current_state = {"files_done": i + 1, "files_total": len(matched_urls), "last_url": url}
+                while len(buffer) >= batch_size:
+                    yield buffer[:batch_size]
+                    producidas += batch_size
+                    buffer = buffer[batch_size:]
+                if preview_limit is not None and producidas + len(buffer) >= preview_limit:
+                    break
+            if buffer:
+                yield buffer
+            return
+
         for i, url in enumerate(matched_urls):
             try:
                 records = self._download_and_parse(url)
