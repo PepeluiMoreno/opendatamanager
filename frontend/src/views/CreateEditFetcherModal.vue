@@ -130,11 +130,18 @@
                 <div class="col-span-1"></div>
               </div>
 
-              <!-- Rows -->
+              <!-- Rows: agrupadas por eje (peticion → paginacion → extraccion → http) -->
+              <template v-for="g in filteredParamGroups" :key="g.name">
+                <div class="flex items-center gap-2 mt-3 mb-1 px-1">
+                  <span class="text-[11px] uppercase tracking-wide font-semibold text-blue-300">{{ g.name }}</span>
+                  <span class="text-[10px] text-gray-500">({{ g.params.length }})</span>
+                  <div class="flex-1 border-t border-gray-700"></div>
+                </div>
               <div
-                v-for="(param, index) in filteredParams"
-                :key="`param-${index}`"
+                v-for="param in g.params"
+                :key="`param-${parameters.indexOf(param)}`"
                 class="grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700"
+                :class="{ 'opacity-80': !!param.visibleWhen }"
               >
                 <!-- Parameter Name -->
                 <div class="col-span-2 flex items-center gap-1 pt-1">
@@ -183,6 +190,11 @@
                      <option value="json_filter_map">Filter Map (enum↔enum)</option>
                      <option value="overpass_query">Overpass Query Builder</option>
                    </select>
+                   <p v-if="condicionDe(param)"
+                      class="text-[10px] text-amber-400/80 mt-1 leading-tight"
+                      title="Este parámetro solo se muestra al configurar un recurso cuando se cumple la condición">
+                     {{ condicionDe(param) }}
+                   </p>
                 </div>
 
                 <!-- Required Checkbox -->
@@ -244,6 +256,7 @@
                   </button>
                 </div>
               </div>
+              </template>
             </div>
           </div>
         </div>
@@ -414,6 +427,34 @@ const filteredParams = computed(() => {
   return parameters.value
 })
 
+const ORDEN_GRUPOS = ['peticion', 'paginacion', 'extraccion', 'http']
+const filteredParamGroups = computed(() => {
+  // Misma legibilidad que el formulario del recurso: secciones por grupo, con
+  // los selectores de eje (sin visible_when) primero y los condicionales detrás.
+  const grupos = new Map()
+  for (const p of filteredParams.value) {
+    const g = p.group || 'otros'
+    if (!grupos.has(g)) grupos.set(g, [])
+    grupos.get(g).push(p)
+  }
+  const nombres = [...grupos.keys()].sort((a, b) => {
+    const ia = ORDEN_GRUPOS.indexOf(a), ib = ORDEN_GRUPOS.indexOf(b)
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib)
+  })
+  return nombres.map(n => ({
+    name: n,
+    params: grupos.get(n).slice().sort((a, b) => (a.visibleWhen ? 1 : 0) - (b.visibleWhen ? 1 : 0)),
+  }))
+})
+function condicionDe(p) {
+  if (!p.visibleWhen) return null
+  try {
+    const vw = typeof p.visibleWhen === 'string' ? JSON.parse(p.visibleWhen) : p.visibleWhen
+    const vals = vw.in || (vw.eq != null ? [vw.eq] : [])
+    return `solo con ${vw.param} = ${vals.join(' | ')}`
+  } catch { return null }
+}
+
 const isFormValid = computed(() => {
   // Basic fields must be filled
   if (!formData.value.name.trim()) {
@@ -455,6 +496,8 @@ watch(() => props.Fetcher, (newFetcher) => {
         required: p.required !== undefined ? p.required : true,
         defaultValue: p.defaultValue ?? null,
         enumValues: p.enumValues || null,
+        group: p.group || null,
+        visibleWhen: p.visibleWhen || null,
         enumValuesString: p.enumValues && Array.isArray(p.enumValues)
           ? (typeof p.enumValues[0] === 'string'
               ? '[' + p.enumValues.join(', ') + ']'
