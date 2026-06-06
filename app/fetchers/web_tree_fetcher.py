@@ -228,7 +228,7 @@ class WebTreeFetcher(BaseFetcher):
     # DISCOVER mode (padre)
     # ───────────────────────────────────────────────────────────────────
 
-    def discover(self) -> List[Dict[str, Any]]:
+    def discover(self, max_files: int = 0) -> List[Dict[str, Any]]:
         """
         Recorre el árbol BFS y devuelve la lista de URLs hoja (ficheros).
         También calcula y almacena `self.profile_stats` con el histograma
@@ -288,6 +288,9 @@ class WebTreeFetcher(BaseFetcher):
                 if self._excluida(file_url, excludes) or not self._incluida(file_url, includes):
                     continue
                 visited_files.add(file_url)
+                if max_files and len(visited_files) >= max_files:
+                    queue.clear()
+                    break
                 leaves.append({
                     "url": file_url,
                     "file_type": self._resolve_format(file_url),
@@ -428,10 +431,19 @@ class WebTreeFetcher(BaseFetcher):
     def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
         matched_urls = self.params.get("_matched_urls")
         if not matched_urls:
-            raise RuntimeError(
-                "WebTreeFetcher.stream() requiere `_matched_urls` (inyectado por el "
-                "FetcherManager para Resources hijos promovidos desde una candidata)."
-            )
+            preview = self.params.get("_preview_limit")
+            if preview:
+                # Test sobre el CRAWLER padre: cata de descubrimiento — crawlea
+                # solo hasta reunir los ficheros pedidos y los emite como censo.
+                limite = max(1, int(preview))
+                hojas = self.discover(max_files=limite)
+                matched_urls = [h["url"] for h in hojas][:limite]
+            if not matched_urls:
+                raise RuntimeError(
+                    "WebTreeFetcher.stream() requiere `_matched_urls` (inyectado por el "
+                    "FetcherManager para Resources hijos promovidos desde una candidata). "
+                    "Para descubrir, ejecuta el crawler con Run (modo discover)."
+                )
         dimensions = self.params.get("_dimensions") or []
         batch_size = int(self._opt("batch_size"))
         file_delay = float(self._opt("file_delay"))
@@ -448,8 +460,12 @@ class WebTreeFetcher(BaseFetcher):
         producidas = 0
         buffer: List[Dict[str, Any]] = []
 
+        modo = str(self._opt("extract_mode") or "datos").strip().lower()
+        if self.params.get("_matched_urls") is None and matched_urls:
+            modo = "censo"  # cata de crawler: siempre censo, nunca descargas
+
         # ── Modo RECETA: extracción dirigida — una fila limpia por fichero ──
-        if str(self._opt("extract_mode") or "datos").strip().lower() == "receta":
+        if modo == "receta":
             for i, url in enumerate(matched_urls):
                 fila = self._fila_de_receta(url)
                 fila.update(self._extract_dim_values(url, dimensions))
@@ -474,7 +490,7 @@ class WebTreeFetcher(BaseFetcher):
         # Una fila por fichero: dimensiones + url + nombre + formato. Es el
         # insumo natural de un catálogo (CKAN/DCAT) y el modo honesto para
         # series no tabulares y pilas documentales.
-        if str(self._opt("extract_mode") or "datos").strip().lower() == "censo":
+        if modo == "censo":
             # prefijo común del lote, para derivar la sección de cada fichero
             comunes = None
             for u in matched_urls:
