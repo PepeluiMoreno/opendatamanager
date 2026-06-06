@@ -97,6 +97,34 @@ Web Tree + (b) opt-in por recurso para las series valiosas (PMP el primero);
 (c) solo después, y limitado a ficheros con tabla real.
 **Estado**: sin decidir.
 
+### 9. Alimentación automática de un CKAN para Jerez desde los hijos Web Tree
+**Contexto** (idea del usuario, 2026-06): aprovechar el output actual —
+directorios organizados de URLs con dimensiones — para poblar automáticamente
+un portal CKAN de Jerez. Cierra el círculo del brief germinal del Web Tree
+(chat.md: 'poblar CKAN correctamente... usar ODM como motor de ingestión') y
+convierte la debilidad en virtud: un dataset CKAN no necesita filas parseadas,
+necesita metadatos + enlaces — exactamente lo que el censo ya produce.
+**Mapeo natural**: hijo Web Tree (serie/bundle) → package CKAN (título,
+descripción, organización=Ayto. Jerez, tags por tema); cada matched_url →
+resource del package (url, formato, nombre con periodo); dimensiones → extras;
+re-discover del crawler → packages actualizados con los ficheros nuevos.
+**Opciones**:
+  (a) *Exportador batch* (scripts/publicar_ckan_jerez.py): sincroniza datasets
+  CKAN desde los hijos vía Action API (package_create/update, api key).
+  Barato, desacoplado, mismo patrón que cruce_curacion.
+  (b) *Catálogo DCAT cosechable*: ODM expone un data.json/DCAT generado de los
+  hijos y el CKAN lo cosecha con su harvester nativo. Acoplamiento cero (CKAN
+  tira), estándar, sirve también para uData/data.europa.
+  (c) *Integración de plataforma*: entidad 'destino de publicación' + sync
+  automático post-discover. Más infra; solo si esto se vuelve recurrente y
+  multi-portal.
+**Recomendación**: (a) para validar rápido con el CKAN de Jerez; evolucionar a
+(b) en cuanto funcione (DCAT es la versión 'ODM produce piezas' de esta idea:
+publicamos el catálogo, quien quiera lo cosecha). (c) solo con demanda real.
+**Dependencia**: decide junto con §8 — el censo (8a) es justo el insumo de
+este proyecto; las recetas (8b) enriquecerían los packages con datos tabulares.
+**Estado**: sin decidir.
+
 ---
 
 ## Decididas (histórico breve)
