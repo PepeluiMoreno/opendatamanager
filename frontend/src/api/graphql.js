@@ -214,7 +214,7 @@ export const QUERIES = {
         description
         createdAt
         presetParams
-        presets { id code description params }
+        presets { id code description params lockedParams }
         paramsDef {
           id
           paramName
@@ -392,16 +392,16 @@ export const MUTATIONS = {
   `,
 
   CREATE_FETCHER_PRESET: `
-    mutation CreateFetcherPreset($fetcherId: String!, $code: String!, $description: String, $params: JSON) {
-      createFetcherPreset(fetcherId: $fetcherId, code: $code, description: $description, params: $params) {
+    mutation CreateFetcherPreset($fetcherId: String!, $code: String!, $description: String, $params: JSON, $lockedParams: JSON) {
+      createFetcherPreset(fetcherId: $fetcherId, code: $code, description: $description, params: $params, lockedParams: $lockedParams) {
         id code description params
       }
     }
   `,
 
   UPDATE_FETCHER_PRESET: `
-    mutation UpdateFetcherPreset($id: String!, $code: String, $description: String, $params: JSON) {
-      updateFetcherPreset(id: $id, code: $code, description: $description, params: $params) {
+    mutation UpdateFetcherPreset($id: String!, $code: String, $description: String, $params: JSON, $lockedParams: JSON) {
+      updateFetcherPreset(id: $id, code: $code, description: $description, params: $params, lockedParams: $lockedParams) {
         id code description params
       }
     }
@@ -1032,7 +1032,7 @@ export async function splitCandidate(id, groups) {
   } catch (e) { handleGraphQLError(e) }
 }
 
-export async function createFetcherPreset(fetcherId, code, description, params) {
+export async function createFetcherPreset(fetcherId, code, description, params, lockedParams = []) {
   try {
     return await client.request(MUTATIONS.CREATE_FETCHER_PRESET, { fetcherId, code, description, params })
   } catch (error) {
@@ -1040,7 +1040,7 @@ export async function createFetcherPreset(fetcherId, code, description, params) 
   }
 }
 
-export async function updateFetcherPreset(id, { code, description, params }) {
+export async function updateFetcherPreset(id, { code, description, params, lockedParams }) {
   try {
     return await client.request(MUTATIONS.UPDATE_FETCHER_PRESET, { id, code, description, params })
   } catch (error) {

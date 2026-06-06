@@ -540,7 +540,8 @@ class Mutation:
     @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def create_fetcher_preset(self, fetcher_id: str, code: str,
                               description: Optional[str] = None,
-                              params: Optional[strawberry.scalars.JSON] = None) -> PresetType:
+                              params: Optional[strawberry.scalars.JSON] = None,
+                              locked_params: Optional[strawberry.scalars.JSON] = None) -> PresetType:
         """Crea un perfil (preset) bajo una especie: particularización con nombre."""
         from app.models import FetcherPreset
         db = get_db()
@@ -559,7 +560,8 @@ class Mutation:
             if dup:
                 raise ValueError(f"Ya existe el perfil '{code}' bajo '{fetcher.code}'")
             preset = FetcherPreset(fetcher_id=fetcher.id, code=code,
-                                   description=description, params=params or {})
+                                   description=description, params=params or {},
+                                   locked_params=[k for k in (locked_params or []) if k in (params or {})])
             db.add(preset)
             db.commit()
             db.refresh(preset)
@@ -570,7 +572,8 @@ class Mutation:
     @strawberry.mutation(permission_classes=[requiere("fetchers.gestionar")])
     def update_fetcher_preset(self, id: str, code: Optional[str] = None,
                               description: Optional[str] = None,
-                              params: Optional[strawberry.scalars.JSON] = None) -> PresetType:
+                              params: Optional[strawberry.scalars.JSON] = None,
+                              locked_params: Optional[strawberry.scalars.JSON] = None) -> PresetType:
         """Actualiza un perfil. Los recursos que lo usan heredan el cambio en su
         próxima ejecución (salvo en los campos que hayan sobrescrito)."""
         from app.models import FetcherPreset
@@ -593,6 +596,9 @@ class Mutation:
                 preset.description = description
             if params is not None:
                 preset.params = params
+            if locked_params is not None:
+                # el candado solo tiene sentido sobre valores que la variante fija
+                preset.locked_params = [k for k in locked_params if k in (preset.params or {})]
             db.commit()
             db.refresh(preset)
             return map_preset(preset)

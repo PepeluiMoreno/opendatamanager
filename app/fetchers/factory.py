@@ -85,9 +85,18 @@ class FetcherFactory:
             params_dict.update(preset.params)
         elif resource.fetcher.preset_params:
             params_dict.update(resource.fetcher.preset_params)
-        params_dict.update(FetcherFactory._build_params_dict(resource.params))
+        # Candado selectivo (§6c): los valores que la variante marca como
+        # inviolables no son pisables por el recurso ni por la ejecución.
+        bloqueados = set()
+        if preset is not None and getattr(preset, "deleted_at", None) is None:
+            bloqueados = set(getattr(preset, "locked_params", None) or [])
+        for k, v in FetcherFactory._build_params_dict(resource.params).items():
+            if k not in bloqueados:
+                params_dict[k] = v
         if execution_params:
-            params_dict.update(execution_params)
+            for k, v in execution_params.items():
+                if k not in bloqueados or k.startswith("_"):
+                    params_dict[k] = v
         return fetcher_class(params_dict)
 
     @staticmethod

@@ -52,24 +52,17 @@ el frontend propio; si se hace (b), aprovechar una ventana de cambios
 rompientes y hacerlo entero de una vez.
 **Estado**: sin decidir.
 
-### 6. ¿Cuánta libertad tiene el recurso sobre los valores de la variante?
-**Contexto**: el valor fijado por la variante es el default efectivo del
-recurso, pisable mediante 'Sobrescribir' (gesto deliberado que copia el valor
-heredado como punto de partida). La pregunta: ¿es demasiada libertad?
-**Opciones**:
-  (a) *Statu quo* — libertad con fricción: solo lectura + override deliberado.
-  (b) *Candado total*: lo que fija la variante no se pisa; cada desviación
-  exige variante nueva (riesgo: proliferación de variantes-de-un-portal).
-  (c) *Candado selectivo*: la variante marca parámetros inviolables (p. ej.
-  field_map en CODICE: esencia del dialecto) y deja pisables los de ajuste
-  (delay, timeout, page_size).
-**Recomendación**: (a) hoy; (c) cuando aparezca el primer abuso real — no
-construir cerraduras antes del primer robo.
-**Estado**: sin decidir.
-
 ---
 
 ## Decididas (histórico breve)
+
+- **2026-06-07 — Candado selectivo (§6, opción c)**: la variante puede marcar
+  parámetros como inviolables (no pisables por el recurso ni por la
+  ejecución); el resto siguen siendo defaults pisables con gesto deliberado.
+  Estreno: field_map de PLACSP CODICE. Doctrina: *ajustes pisables, esencias
+  con candado*. Implementación: fetcher_preset.locked_params, factory,
+  GraphQL, seed y UI (toggle 🔒 en el editor de la variante, chip '🔒 fijo'
+  sin Sobrescribir en el recurso).
 
 - **2026-06-07 — Árbol de decisiones en la definición: anidamiento por
   controlador (opción b)**: dentro de cada grupo, los parámetros condicionales

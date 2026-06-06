@@ -190,6 +190,8 @@ class FetcherPreset(Base):
     code = Column(String(100), nullable=False)
     description = Column(Text, nullable=True)
     params = Column(JSONB, nullable=False, default=dict)
+    # Candado selectivo (§6c): nombres de parámetros cuyo valor NO es pisable por el recurso.
+    locked_params = Column(JSONB, nullable=False, default=list, server_default='[]')
     created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 

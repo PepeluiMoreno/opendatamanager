@@ -331,6 +331,17 @@
                          :class="{ 'border-purple-700': valorVariante(item.param.paramName) !== '' }"
                          placeholder="— no fijado —" />
                   <p v-if="errorJsonValor(item.param)" class="text-[10px] text-red-400">{{ errorJsonValor(item.param) }}</p>
+                  <button v-if="valorVariante(item.param.paramName) !== ''" type="button"
+                          @click="toggleCandado(item.param.paramName)"
+                          class="text-[10px] px-1.5 py-0.5 rounded border transition-colors"
+                          :class="estaBloqueado(item.param.paramName)
+                            ? 'border-purple-700 bg-purple-950 text-purple-300'
+                            : 'border-gray-600 text-gray-500 hover:text-gray-300'"
+                          :title="estaBloqueado(item.param.paramName)
+                            ? 'Inviolable: el recurso no puede sobrescribir este valor. Clic para liberar.'
+                            : 'Pisable: el recurso puede sobrescribirlo. Clic para hacerlo inviolable.'">
+                    {{ estaBloqueado(item.param.paramName) ? '🔒 inviolable' : '🔓 pisable' }}
+                  </button>
                 </div>
 
                 <!-- Actions -->
@@ -784,6 +795,17 @@ function _deEntries(entries) {
 function esJsonTexto(v) { const t = String(v ?? '').trim(); return t.startsWith('{') || t.startsWith('[') }
 function esValorLargo(v) { return String(v ?? '').length > 70 || esJsonTexto(v) }
 function tipoDe(k) { return parameters.value.find(p => p.paramName === k)?.dataType || 'string' }
+function estaBloqueado(pn) {
+  return (varianteActiva.value?.locked || []).includes(pn)
+}
+function toggleCandado(pn) {
+  const va = varianteActiva.value
+  if (!va) return
+  va.locked = va.locked || []
+  const i = va.locked.indexOf(pn)
+  if (i >= 0) va.locked.splice(i, 1)
+  else va.locked.push(pn)
+}
 function valorVariante(pn) {
   const e = varianteActiva.value?.entries.find(x => x.key === pn)
   return e ? e.value : ''
@@ -792,7 +814,11 @@ function setValorVariante(pn, v) {
   const va = varianteActiva.value
   if (!va) return
   const i = va.entries.findIndex(x => x.key === pn)
-  if (v === '' || v == null) { if (i >= 0) va.entries.splice(i, 1) }
+  if (v === '' || v == null) {
+    if (i >= 0) va.entries.splice(i, 1)
+    const li = (va.locked || []).indexOf(pn)
+    if (li >= 0) va.locked.splice(li, 1)
+  }
   else if (i >= 0) va.entries[i].value = v
   else va.entries.push({ key: pn, value: v })
 }
@@ -804,17 +830,18 @@ function errorJsonValor(param) {
 }
 function seleccionarVariante(v) { varianteActiva.value = varianteActiva.value === v ? null : v }
 function nuevaVariante() {
-  const v = { id: null, _tmp: ++_tmpSeq, code: '', description: '', entries: [], _error: null, _saving: false }
+  const v = { id: null, _tmp: ++_tmpSeq, code: '', description: '', entries: [], locked: [], _error: null, _saving: false }
   variantes.value.push(v)
   varianteActiva.value = v
 }
 watch(() => props.Fetcher, (f) => {
   variantes.value = (f?.presets || []).map(p => {
     const entries = _aEntries(p.params)
+    const locked = [...(p.lockedParams || [])]
     return {
       id: p.id, code: p.code, description: p.description || '',
-      entries, _error: null, _saving: false,
-      _orig: { code: p.code, description: p.description || '', entries: JSON.parse(JSON.stringify(entries)) },
+      entries, locked, _error: null, _saving: false,
+      _orig: { code: p.code, description: p.description || '', entries: JSON.parse(JSON.stringify(entries)), locked: [...locked] },
     }
   })
   varianteActiva.value = null
@@ -832,12 +859,12 @@ async function guardarVariante(v) {
   try {
     const params = _deEntries(v.entries)
     if (v.id) {
-      await updateFetcherPreset(v.id, { code: v.code, description: v.description, params })
+      await updateFetcherPreset(v.id, { code: v.code, description: v.description, params, lockedParams: v.locked || [] })
     } else {
-      const res = await createFetcherPreset(props.Fetcher.id, v.code, v.description, params)
+      const res = await createFetcherPreset(props.Fetcher.id, v.code, v.description, params, v.locked || [])
       v.id = res.createFetcherPreset.id
     }
-    v._orig = { code: v.code, description: v.description, entries: JSON.parse(JSON.stringify(v.entries)) }
+    v._orig = { code: v.code, description: v.description, entries: JSON.parse(JSON.stringify(v.entries)), locked: [...(v.locked || [])] }
     emit('saved', `Variante "${v.code}" guardada`)
   } catch (e) {
     v._error = e?.message || String(e)
@@ -852,6 +879,7 @@ function cerrarVariante(v) {
     v.code = v._orig.code
     v.description = v._orig.description
     v.entries = JSON.parse(JSON.stringify(v._orig.entries))
+    v.locked = [...(v._orig.locked || [])]
     v._error = null
   } else if (!v.id) {
     variantes.value = variantes.value.filter(x => x !== v)

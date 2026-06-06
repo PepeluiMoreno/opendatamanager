@@ -832,6 +832,7 @@ def seed() -> None:
                 "code": "PLACSP CODICE",
                 "description": "Sindicaciones de contratación pública en CODICE 2.07 (PLACSP: agregadas, menores, encargos, consultas; Comunidad de Madrid), con cosecha incremental. El recurso aporta la 'url' del feed y la ventana temporal (desde/hasta).",
                 "params": {"pagination": "rel_next", "date_field": "fecha", "delay": 2, "timeout": 180, "max_pages": 6, "desde": "auto", "dedup_key": "expediente", "dedup_order_field": "fecha", "field_map": {"expediente": "ContractFolderID", "estado": "ContractFolderStatusCode", "titulo": "title", "objeto": "ProcurementProject/Name", "tipo_codigo": "ProcurementProject/TypeCode", "subtipo_codigo": "ProcurementProject/SubTypeCode", "cpv": "ItemClassificationCode", "importe": "TotalAmount", "valor_estimado": "EstimatedOverallContractAmount", "organo_contratacion": "LocatedContractingParty/PartyName/Name", "provincia": "CountrySubentity", "provincia_codigo": "CountrySubentityCode", "adjudicatario": "WinningParty/PartyName/Name", "nif_adjudicatario": "WinningParty/PartyIdentification/ID", "resultado": "TenderResult/ResultCode", "fecha_adjudicacion": "TenderResult/AwardDate", "num_ofertas": "TenderResult/ReceivedTenderQuantity", "importe_adjudicacion": "TenderResult/AwardedTenderedProject/LegalMonetaryTotal/TaxExclusiveAmount", "fecha": "updated", "url": "link@href"}},
+                "locked": ["field_map"],
             },
         ],
         "API REST": [
@@ -889,13 +890,16 @@ def seed() -> None:
                 continue
             for pdef in perfiles:
                 row = db.query(_FP_P).filter(_FP_P.fetcher_id == esp.id, _FP_P.code == pdef["code"]).first()
+                bloqueados = [k for k in pdef.get("locked", []) if k in pdef["params"]]
                 if row is None:
                     db.add(_FP_P(fetcher_id=esp.id, code=pdef["code"],
-                                 description=pdef.get("description"), params=pdef["params"]))
+                                 description=pdef.get("description"), params=pdef["params"],
+                                 locked_params=bloqueados))
                     print(f"[seed_fetchers] preset '{pdef['code']}' creado bajo '{especie_code}'")
                 else:
                     row.description = pdef.get("description")
                     row.params = pdef["params"]
+                    row.locked_params = bloqueados
                     row.deleted_at = None
         db.commit()
 

@@ -374,8 +374,11 @@
                       <span v-if="pp.def?.required" class="text-[9px] uppercase bg-red-900 text-red-300 border border-red-700 px-1 rounded">requerido</span>
                       <span v-if="paramOverridden(pp.paramName)"
                             class="text-[9px] uppercase bg-amber-900 text-amber-300 border border-amber-700 px-1 rounded">sobrescrito</span>
+                      <span v-if="paramBloqueado(pp.paramName)"
+                            class="text-[9px] uppercase bg-purple-950 text-purple-300 border border-purple-800 px-1 rounded"
+                            title="La variante fija este valor como inviolable: el recurso no puede sobrescribirlo">🔒 fijo</span>
                       <span class="ml-auto"></span>
-                      <button v-if="!paramOverridden(pp.paramName)" type="button"
+                      <button v-if="!paramOverridden(pp.paramName) && !paramBloqueado(pp.paramName)" type="button"
                               @click="overridePresetParam(pp.paramName)"
                               class="text-[10px] px-2 py-0.5 rounded border border-gray-600 text-gray-300 hover:bg-gray-700">
                         Sobrescribir
@@ -1718,6 +1721,9 @@ function origenBadge(r) {
   return null
 }
 
+function paramBloqueado(pn) {
+  return (selectedPreset.value?.lockedParams || []).includes(pn)
+}
 const presetSectionParams = computed(() => {
   // Todos los params de la variante, con metadatos de la especie si existen.
   const defs = selectedFetcher.value?.paramsDef || []

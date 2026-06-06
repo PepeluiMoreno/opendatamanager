@@ -29,12 +29,14 @@ class FetcherType:
 
 @strawberry.type
 class PresetType:
-    """Perfil (preset) de una especie de fetcher: particularización con nombre,
+    """Variante de una especie de fetcher: implementación concreta con nombre,
     elegida por recurso. No es una entrada del catálogo."""
     id: str
     code: str
     description: Optional[str] = None
     params: Optional[strawberry.scalars.JSON] = None
+    # Candado selectivo (§6c): parámetros cuyo valor no es pisable por el recurso
+    locked_params: Optional[strawberry.scalars.JSON] = None
 
 @strawberry.type
 class FetcherParamType:

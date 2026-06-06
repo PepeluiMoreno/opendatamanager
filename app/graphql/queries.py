@@ -60,7 +60,8 @@ def map_resource_param(param: ResourceParam) -> ResourceParamType:
 
 
 def map_preset(p) -> PresetType:
-    return PresetType(id=str(p.id), code=p.code, description=p.description, params=p.params)
+    return PresetType(id=str(p.id), code=p.code, description=p.description, params=p.params,
+                      locked_params=getattr(p, "locked_params", None) or [])
 
 
 def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherType:
