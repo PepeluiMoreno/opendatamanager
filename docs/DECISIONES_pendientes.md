@@ -52,6 +52,21 @@ el frontend propio; si se hace (b), aprovechar una ventana de cambios
 rompientes y hacerlo entero de una vez.
 **Estado**: sin decidir.
 
+### 7. Jerez: ¿sustituir los 3 recursos rotos por candidatos Web Tree?
+**Contexto**: Deuda anual, PMP mensual y morosidad trimestral fallaron en el
+arnés (PDF_TABLE con URLs {year} que el portal cambió). El reconocimiento
+Web Tree los reinfiere solos como candidatos con dimensiones correctas
+(DeudaFinanciera-31-12-{year}.pdf [year]; Informe_PMP_{year}_{month}.xlsx
+[year,month]; Informe_Ta_Ley_15.10-{year}-{quarter}oT.pdf [year,quarter]).
+**Opciones**: (a) arreglar a mano las URLs de los 3 recursos PDF_TABLE
+(rápido, pero frágil: el portal volverá a moverlas); (b) sembrar un crawler
+Web Tree de la rama c-deuda, promover los 3 candidatos y retirar los recursos
+manuales (robusto y mejor modelado, pero requiere antes el scoping del crawler
+—ver BACKLOG— para no descubrir el portal entero).
+**Recomendación**: (b), después del scoping. Es el primer caso de uso real del
+Web Tree y cierra 3 ítems del backlog con el mecanismo correcto.
+**Estado**: sin decidir.
+
 ---
 
 ## Decididas (histórico breve)

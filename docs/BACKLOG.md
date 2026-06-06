@@ -9,6 +9,13 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [ ] **Web Tree — scoping del crawler** (verificado en vivo contra Jerez): el
+  crawler no puede acotarse a una rama; arrancando en /economica/deuda
+  descubrió 708 hojas del portal entero (el menú global enlaza a todo). El
+  brief original (chat.md) ya preveía include_patterns/exclude_patterns; la
+  implementación mergeada los omitió. Reponerlos como params del WebTreeFetcher
+  (filtrar páginas a seguir y/o URLs hoja a conservar por patrón de path).
+
 - [x] **Arnés batch de pruebas de recursos** (este push): script paralelo con
   clasificación OK/SIN FILAS/FUENTE CAÍDA/CONFIG ROTA/BUG y sello de
   last_tested_at. Primera pasada completa sobre los 42 activos:
