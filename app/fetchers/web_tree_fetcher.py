@@ -420,6 +420,16 @@ class WebTreeFetcher(BaseFetcher):
         batch_size = int(self._opt("batch_size"))
         file_delay = float(self._opt("file_delay"))
 
+        # Preview (botón Test): cortar en cuanto haya filas suficientes — sin
+        # esto, un hijo con cientos de ficheros descarga TODOS antes de
+        # recortar y el gateway agota el tiempo (504).
+        preview_limit = self.params.get("_preview_limit")
+        try:
+            preview_limit = int(preview_limit) if preview_limit else None
+        except (TypeError, ValueError):
+            preview_limit = None
+
+        producidas = 0
         buffer: List[Dict[str, Any]] = []
         for i, url in enumerate(matched_urls):
             try:
@@ -447,7 +457,11 @@ class WebTreeFetcher(BaseFetcher):
 
             while len(buffer) >= batch_size:
                 yield buffer[:batch_size]
+                producidas += batch_size
                 buffer = buffer[batch_size:]
+
+            if preview_limit is not None and producidas + len(buffer) >= preview_limit:
+                break
 
             if file_delay > 0:
                 time.sleep(file_delay)
