@@ -209,7 +209,8 @@ def main():
         print(f"[promote] directorio-censo: 1 recurso con {len(hojas)} ficheros")
 
         # 3b. Persistir candidatas; promover en 'datos' SOLO las TABLA_REAL
-        creados = 0
+        creados_datos = 0
+        creados_receta = 0
         usados = {directorio.target_table}
         import json as _json
         for p in props:
@@ -251,10 +252,15 @@ def main():
             cand.promoted_resource_id = child.id
             cand.reviewed_at = datetime.utcnow()
             cand.reviewed_by = "jerez_webtree.py"
-            creados += 1
+            if receta:
+                creados_receta += 1
+            else:
+                creados_datos += 1
         db.commit()
 
-        print(f"[promote] {creados} hijos en 'Extracción de datos' + 1 directorio-censo, "
+        creados = creados_datos + creados_receta
+        print(f"[promote] {creados} hijos ({creados_datos} en 'Extracción de datos' + "
+              f"{creados_receta} en 'Extracción con receta') + 1 directorio-censo, "
               f"bajo '{CRAWLER_NAME}'. Sin candidatas residuales: la taxonomía "
               f"({len(props) - creados} grupos) se recalcula con infer() cuando se necesite (p. ej. exportador CKAN).")
     finally:
