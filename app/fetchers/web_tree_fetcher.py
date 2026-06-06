@@ -438,8 +438,17 @@ class WebTreeFetcher(BaseFetcher):
         # insumo natural de un catálogo (CKAN/DCAT) y el modo honesto para
         # series no tabulares y pilas documentales.
         if str(self._opt("extract_mode") or "datos").strip().lower() == "censo":
+            # prefijo común del lote, para derivar la sección de cada fichero
+            comunes = None
+            for u in matched_urls:
+                segs = [s for s in urlparse(u).path.split("/") if s][:-1]
+                comunes = segs if comunes is None else [a for a, b in zip(comunes, segs) if a == b]
+            n_pref = len(comunes or [])
             for i, url in enumerate(matched_urls):
+                segs = [s for s in urlparse(url).path.split("/") if s]
+                seccion = "/".join(segs[n_pref:-1])  # carpeta relativa tras el tronco común
                 row = {
+                    "seccion": seccion,
                     **self._extract_dim_values(url, dimensions),
                     "_source_file_url": url,
                     "_source_file_name": Path(urlparse(url).path).name,

@@ -37,10 +37,12 @@ from app.fetchers.web_tree_fetcher import WebTreeFetcher
 from app.models import Fetcher, Publisher, Resource, ResourceCandidate, ResourceParam
 from app.services.grouping.inferer import infer
 
-ROOT = "https://transparencia.jerez.es/infopublica/economica"
-PATH_PREFIX = "/infopublica/economica"
-INCLUDE = ["/a07-economica/"]
-CRAWLER_NAME = "Jerez — Económica (crawler Web Tree)"
+ROOT = "https://transparencia.jerez.es/infopublica"
+PATH_PREFIX = "/infopublica"
+INCLUDE = []  # portal completo
+CRAWLER_NAME = "Jerez — Portal de Transparencia (crawler Web Tree)"
+NOMBRE_VIEJO = "Jerez — Económica (crawler Web Tree)"
+LEGADOS = ["%Catálogo del Portal%", "%Información económica%portal%", "%Información económica%Portal%", "%Todo el Portal%"]
 
 # Patrones (sobre path_template) de los hijos TABLA_REAL según la auditoría
 # 2026-06 (docs/AUDITORIA_jerez_hijos.md). Editar aquí cuando haya recetas o
@@ -70,8 +72,19 @@ def asegurar_publisher(db) -> Publisher:
 
 
 def asegurar_crawler(db, fetcher, pub) -> Resource:
-    cr = db.query(Resource).filter(Resource.name == CRAWLER_NAME,
+    cr = db.query(Resource).filter(Resource.name.in_([CRAWLER_NAME, NOMBRE_VIEJO]),
                                    Resource.deleted_at.is_(None)).first()
+    if cr is not None:
+        cr.name = CRAWLER_NAME
+        existentes = {p.key: p for p in (cr.params or [])}
+        for k, v in {"root_url": ROOT, "path_prefix": PATH_PREFIX}.items():
+            if k in existentes:
+                existentes[k].value = v
+            else:
+                db.add(ResourceParam(resource_id=cr.id, key=k, value=v))
+        if "include_patterns" in existentes:
+            db.delete(existentes["include_patterns"])
+        db.flush()
     if cr is None:
         cr = Resource(name=CRAWLER_NAME, fetcher_id=fetcher.id, publisher_id=pub.id,
                       target_table="_crawler_jerez_economica", active=True,
@@ -88,7 +101,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--append", action="store_true",
                     help="no retirar el descubrimiento anterior (por defecto, re-descubrir lo reemplaza)")
-    ap.add_argument("--max-depth", type=int, default=2)
+    ap.add_argument("--max-depth", type=int, default=3)
     args = ap.parse_args()
 
     db = SessionLocal()
@@ -99,6 +112,14 @@ def main():
         pub = asegurar_publisher(db)
         crawler = asegurar_crawler(db, fetcher_row, pub)
         db.commit()
+
+        marca0 = datetime.utcnow().strftime("%m%d%H%M%S")
+        for patron in LEGADOS:
+            for r in db.query(Resource).filter(Resource.name.ilike(patron),
+                                               Resource.deleted_at.is_(None)).all():
+                r.deleted_at = datetime.utcnow()
+                r.name = (r.name[: 100 - len(marca0) - 2] + "~" + marca0)
+                print(f"[legado] retirado: {r.name[:70]}")
 
         if not args.append:
             hijos = db.query(Resource).filter(Resource.parent_resource_id == crawler.id,
@@ -147,9 +168,9 @@ def main():
         )
         db.add(cand_dir); db.flush()
         directorio = Resource(
-            name="Jerez — Económica — Directorio documental (censo)",
+            name="Jerez — Portal de Transparencia — Directorio documental (censo)",
             fetcher_id=crawler.fetcher_id, publisher_id=crawler.publisher_id,
-            target_table="jerez_economica_directorio", active=True,
+            target_table="jerez_portal_directorio", active=True,
             enable_load=False, load_mode="upsert",
             parent_resource_id=crawler.id, auto_generated=True,
             preset_id=v_censo.id,

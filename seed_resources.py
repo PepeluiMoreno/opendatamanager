@@ -725,65 +725,6 @@ RESOURCES: List[Dict[str, Any]] = [
             "header_row":   "0",
         },
     },
-    # ── Jerez — Catálogo del Portal de Transparencia ─────────────────────────
-    # Recorre el portal y produce un catálogo de ficheros clasificados por
-    # section_id (economica.deuda.pmp, economica.presupuesto.ejecucion…) y
-    # atributos (ejercicio, trimestre). El catálogo alimenta a los
-    # PortalFileDataFetcher hijos que descargan y parsean cada sección.
-    {
-        "name": "Jerez - Catálogo del Portal de Transparencia",
-        "fetcher_name": "Portal Files Cataloguer",
-        "publisher_acronimo": "AJFRA",
-        "target_table": "jerez_catalog",
-        "active": True,
-        "schedule": None,
-        "params": {
-            "start_url":                    "https://transparencia.jerez.es/infopublica/economica",
-            "max_depth":                    "10",
-            "same_domain_only":             "true",
-            "page_include_patterns":        '["transparencia.jerez.es/infopublica/economica"]',
-            "page_exclude_patterns":        '["buscador", "novedades", "interes", "dchoinformacion", "#", "mailto:"]',
-            "file_include_patterns":        '["/fileadmin/Documentos/Transparencia/a-infopublica/"]',
-            "allowed_extensions":           '["xlsx", "xls", "csv", "pdf"]',
-            "path_prefix_strip":            "/fileadmin/Documentos/Transparencia/a-infopublica/",
-            "segment_prefix_strip_pattern": r"^([a-z]\d*[a-z]?|\d+)-",
-            "noise_segments":               '[]',
-            "attribute_patterns":           '{"ejercicio": "^(?:19|20)\\\\d{2}$", "trimestre": "^([1-4])o?T$"}',
-            "filename_attribute_patterns":  '{"mes": "[_-](0?[1-9]|1[0-2])(?=\\\\.)"}',
-            "page_delay":                   "0.5",
-            "crawl_timeout":                "15",
-            "batch_size":                   "500",
-        },
-    },
-
-    # ── Jerez — Portal transparencia económica (XLSX/XLS/CSV) ─────────────────
-    # CESEL eliminado: cubierto por el crawler Portal Documental
-    {
-        "name": "Jerez - Información económica del Portal de Transparencia ofrecida en xlsx",
-        "fetcher_name": "Portal Documental",
-        "publisher_acronimo": "AJFRA",
-        "target_table": "jerez_transparencia_docs",
-        "active": True,
-        "schedule": None,
-        "params": {
-            "start_url":              "https://transparencia.jerez.es/infopublica/economica",
-            "max_depth":              "2",
-            "same_domain_only":       "true",
-            "page_include_patterns":  '["transparencia.jerez.es/infopublica/economica"]',
-            "page_exclude_patterns":  '["buscador", "novedades", "interes", "dchoinformacion", "#", "mailto:"]',
-            "allowed_extensions":     '["xlsx", "xls", "csv"]',
-            "navigation_link_selector": "a[href]",
-            "file_link_selector":     "a[href]",
-            "page_context_selectors": '{"seccion": ".breadcrumb li:nth-last-child(3)", "subseccion": ".breadcrumb li:nth-last-child(2)"}',
-            "page_context_url_patterns": '{"ejercicio": "/(20\\\\d{2})/"}',
-            "page_context_url_year_offsets": '{"prorroga-": 1}',
-            "page_delay":             "1.0",
-            "file_delay":             "2.0",
-            "timeout":                "90",
-            "batch_size":             "1000",
-            "common_parser_options":  '{"header_row": 0, "skip_rows": 0}',
-        },
-    },
 ]
 
 

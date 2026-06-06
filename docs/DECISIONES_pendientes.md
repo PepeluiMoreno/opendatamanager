@@ -152,6 +152,13 @@ re-discover del crawler → packages actualizados con los ficheros nuevos.
 publicamos el catálogo, quien quiera lo cosecha). (c) solo con demanda real.
 **Dependencia**: decide junto con §8 — el censo (8a) es justo el insumo de
 este proyecto; las recetas (8b) enriquecerían los packages con datos tabulares.
+**Clarificación (2026-06, duda del usuario '¿CKAN tendrá problemas para
+clasificar?')**: la clasificación NO sale del recurso-directorio único, sino
+de las CANDIDATAS del crawler, que persisten aunque no se promuevan: una
+candidata = un package CKAN (plantilla → serie, suggested_name → título,
+dimensiones → extras, matched_urls → resources). El directorio es la cara del
+censo dentro de ODM; además sus filas llevan columna 'seccion' derivada del
+path como clasificación embebida.
 **Estado**: sin decidir.
 
 ---
