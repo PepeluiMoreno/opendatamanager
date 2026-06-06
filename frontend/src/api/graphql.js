@@ -44,6 +44,7 @@ export const QUERIES = {
         id
         name
         lastTestedAt
+        origin
         description
         publisher
         publisherId

@@ -116,6 +116,8 @@ def map_resource(resource: Resource) -> ResourceType:
     """Convierte modelo Resource a tipo GraphQL"""
     return ResourceType(
         last_tested_at=getattr(resource, 'last_tested_at', None),
+        origin=getattr(resource, 'origin', None),
+        auto_generated=getattr(resource, 'auto_generated', False) or False,
         id=str(resource.id),
         name=resource.name,
         publisher=resource.publisher,

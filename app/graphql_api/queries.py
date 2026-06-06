@@ -151,6 +151,7 @@ def map_resource(resource: Resource) -> ResourceType:
             children_list = []
     return ResourceType(
         last_tested_at=getattr(resource, 'last_tested_at', None),
+        origin=getattr(resource, 'origin', None),
         id=str(resource.id),
         name=resource.name,
         description=resource.description,
