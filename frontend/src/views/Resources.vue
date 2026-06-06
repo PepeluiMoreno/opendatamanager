@@ -359,10 +359,13 @@
             <div v-if="activeParamTab === 'parameters'" class="min-h-[200px] pr-2">
               <!-- Preestablecidos por el perfil: visibles, sobrescribibles -->
               <div v-if="selectedPreset && presetSectionParams.length" class="mb-4">
-                <h4 class="text-sm font-medium mb-2 text-purple-400">
-                  Preestablecidos por el perfil «{{ selectedPreset.code }}»
+                <h4 class="text-sm font-medium mb-2 text-purple-400 cursor-pointer select-none flex items-center gap-1.5"
+                    @click="seccionPresetAbierta = !seccionPresetAbierta">
+                  <span class="text-gray-500">{{ seccionPresetAbierta ? '▾' : '▸' }}</span>
+                  Parámetros preestablecidos por el perfil «{{ selectedPreset.code }}»
+                  <span class="text-xs text-gray-500 font-normal">({{ presetSectionParams.length }})</span>
                 </h4>
-                <div class="space-y-1.5">
+                <div v-show="seccionPresetAbierta" class="space-y-1.5">
                   <div v-for="pp in presetSectionParams" :key="pp.paramName"
                        class="rounded border px-3 py-2"
                        :class="paramOverridden(pp.paramName) ? 'border-amber-700 bg-amber-950/20' : 'border-purple-900/60 bg-gray-900/40'">
@@ -404,8 +407,13 @@
 
               <!-- Required Parameters (always shown) -->
             <div v-if="requiredParams.length > 0" class="mb-4">
-              <h4 class="text-sm font-medium mb-2 text-red-400">Required Parameters</h4>
-              <div class="space-y-1">
+              <h4 class="text-sm font-medium mb-2 text-red-400 cursor-pointer select-none flex items-center gap-1.5"
+                  @click="seccionRequeridosAbierta = !seccionRequeridosAbierta">
+                <span class="text-gray-500">{{ seccionRequeridosAbierta ? '▾' : '▸' }}</span>
+                Parámetros requeridos
+                <span class="text-xs text-gray-500 font-normal">({{ requiredParams.length }})</span>
+              </h4>
+              <div v-show="seccionRequeridosAbierta" class="space-y-1">
                 <div
                   v-for="param in requiredParams"
                   :key="`req-${param.paramName}`"
@@ -653,8 +661,13 @@
 
             <!-- Added ungrouped optional params -->
             <div v-if="addedUngroupedOptionalParams.length > 0">
-              <h4 class="text-sm font-medium mb-2 text-blue-400">Optional Parameters</h4>
-              <div class="space-y-1">
+              <h4 class="text-sm font-medium mb-2 text-blue-400 cursor-pointer select-none flex items-center gap-1.5"
+                  @click="seccionOpcionalesAbierta = !seccionOpcionalesAbierta">
+                <span class="text-gray-500">{{ seccionOpcionalesAbierta ? '▾' : '▸' }}</span>
+                Parámetros opcionales
+                <span class="text-xs text-gray-500 font-normal">({{ addedUngroupedOptionalParams.length }})</span>
+              </h4>
+              <div v-show="seccionOpcionalesAbierta" class="space-y-1">
                 <div
                   v-for="paramName in addedUngroupedOptionalParams"
                   :key="`opt-${paramName}`"
@@ -1423,6 +1436,9 @@ const addedUngroupedOptionalParams = computed(() => {
 const availableUngroupedOptionalParams = computed(() => { const cur = form.value.params.map(p => p.key); return ungroupedOptionalParams.value.filter(p => !cur.includes(p.paramName)) })
 const availableOptionalParams = computed(() => { const cur = form.value.params.map(p => p.key); return optionalParams.value.filter(p => !cur.includes(p.paramName)) })
 
+const seccionPresetAbierta = ref(true)
+const seccionRequeridosAbierta = ref(true)
+const seccionOpcionalesAbierta = ref(true)
 const expandedGroups = ref(new Set())
 function isGroupEnabled(g) { return expandedGroups.value.has(g) }
 function getGroupActiveCount(g) {
@@ -1434,7 +1450,17 @@ function toggleGroupEnabled(g) {
   if (next.has(g)) { const group = paramGroups.value.find(x => x.name === g); if (group) { const names = new Set(group.params.map(p => p.paramName)); form.value.params = form.value.params.filter(p => !names.has(p.key)) }; next.delete(g) } else { next.add(g) }
   expandedGroups.value = next
 }
-const GROUP_LABELS = { url: 'URL Template', pivot_static: 'Static Pivot', pivot_source: 'ODMGR Pivot Source', extraction: 'Data Extraction', pagination: 'Pagination', behavior: 'Behavior' }
+const GROUP_LABELS = {
+  peticion: 'Parámetros de petición',
+  paginacion: 'Parámetros de paginación',
+  extraccion: 'Parámetros de extracción',
+  http: 'Parámetros HTTP (conexión)',
+  query: 'Parámetros de consulta',
+  otros: 'Otros parámetros',
+  // etiquetas heredadas de especies antiguas
+  url: 'Plantilla de URL', pivot_static: 'Pivote estático', pivot_source: 'Fuente de pivotes',
+  extraction: 'Parámetros de extracción', pagination: 'Parámetros de paginación', behavior: 'Comportamiento',
+}
 function formatGroupName(name) { return GROUP_LABELS[name] || name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) }
 function initExpandedGroups() {
   const active = new Set(form.value.params.filter(p => p.value != null && p.value !== '').map(p => p.key))

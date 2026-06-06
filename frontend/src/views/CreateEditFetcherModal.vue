@@ -147,13 +147,16 @@
 
               <!-- Rows: agrupadas por eje (peticion → paginacion → extraccion → http) -->
               <template v-for="g in filteredParamGroups" :key="g.name">
-                <div class="flex items-center gap-2 mt-3 mb-1 px-1">
-                  <span class="text-[11px] uppercase tracking-wide font-semibold text-blue-300">{{ g.name }}</span>
+                <div class="flex items-center gap-2 mt-3 mb-1 px-1 cursor-pointer select-none"
+                     @click="toggleGrupo(g.name)" :title="grupoAbierto(g.name) ? 'Colapsar' : 'Expandir'">
+                  <span class="text-gray-500 text-xs">{{ grupoAbierto(g.name) ? '▾' : '▸' }}</span>
+                  <span class="text-[11px] uppercase tracking-wide font-semibold text-blue-300">{{ tituloGrupo(g.name) }}</span>
                   <span class="text-[10px] text-gray-500">({{ g.params.length }})</span>
                   <div class="flex-1 border-t border-gray-700"></div>
                 </div>
               <div
                 v-for="param in g.params"
+                v-show="grupoAbierto(g.name)"
                 :key="`param-${parameters.indexOf(param)}`"
                 class="grid grid-cols-12 gap-2 items-start p-2 border border-gray-600 rounded hover:bg-gray-700"
                 :class="{ 'opacity-80': !!param.visibleWhen }"
@@ -471,6 +474,22 @@ const filteredParams = computed(() => {
 })
 
 const ORDEN_GRUPOS = ['peticion', 'paginacion', 'extraccion', 'http']
+const ETIQUETAS_GRUPO = {
+  peticion: 'Parámetros de petición',
+  paginacion: 'Parámetros de paginación',
+  extraccion: 'Parámetros de extracción',
+  http: 'Parámetros HTTP (conexión)',
+  query: 'Parámetros de consulta',
+  otros: 'Otros parámetros',
+}
+function tituloGrupo(n) { return ETIQUETAS_GRUPO[n] || ('Parámetros de ' + n.replace(/_/g, ' ')) }
+const gruposColapsados = ref(new Set())
+function grupoAbierto(n) { return !gruposColapsados.value.has(n) }
+function toggleGrupo(n) {
+  const next = new Set(gruposColapsados.value)
+  next.has(n) ? next.delete(n) : next.add(n)
+  gruposColapsados.value = next
+}
 const filteredParamGroups = computed(() => {
   // Misma legibilidad que el formulario del recurso: secciones por grupo, con
   // los selectores de eje (sin visible_when) primero y los condicionales detrás.
