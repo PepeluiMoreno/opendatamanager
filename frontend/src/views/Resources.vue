@@ -357,7 +357,7 @@
 
             <!-- Tab Content: Parameters -->
             <div v-if="activeParamTab === 'parameters'" class="min-h-[200px] pr-2">
-              <!-- Preestablecidos por el perfil: visibles, sobrescribibles -->
+              <!-- Parámetros fijados por la variante: visibles, sobrescribibles -->
               <div v-if="selectedPreset && presetSectionParams.length" class="mb-4">
                 <h4 class="text-sm font-medium mb-2 text-purple-400 cursor-pointer select-none flex items-center gap-1.5"
                     @click="seccionPresetAbierta = !seccionPresetAbierta">
@@ -1412,7 +1412,7 @@ function isVisibleParam(p) {
 }
 
 const presetParamNames = computed(() => new Set(Object.keys(selectedPreset.value?.params || {})))
-// Categoría propia: los params preestablecidos por el perfil salen de Required/
+// Categoría propia: los params fijados por la variante salen de Required/
 // Optional y se gestionan en su sección (visibles, sobrescribibles).
 const requiredParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required === true && isVisibleParam(p) && !presetParamNames.value.has(p.paramName)) || [])
 const optionalParams  = computed(() => selectedFetcher.value?.paramsDef?.filter(p => p.required !== true) || [])
@@ -1719,7 +1719,7 @@ function origenBadge(r) {
 }
 
 const presetSectionParams = computed(() => {
-  // Todos los params del perfil, con metadatos de la especie si existen.
+  // Todos los params de la variante, con metadatos de la especie si existen.
   const defs = selectedFetcher.value?.paramsDef || []
   return Object.keys(selectedPreset.value?.params || {}).sort().map(k => ({
     paramName: k,
@@ -1736,13 +1736,13 @@ function presetValueInline(v) {
   return typeof v === 'object' ? JSON.stringify(v) : String(v)
 }
 function overridePresetParam(pn) {
-  // Pasar a editable: el valor del perfil se copia como punto de partida.
+  // Pasar a editable: el valor de la variante se copia como punto de partida.
   if (!form.value.params.find(p => p.key === pn)) {
     form.value.params.push({ key: pn, value: presetValueInline(selectedPreset.value?.params?.[pn]), isExternal: false })
   }
 }
 function revertPresetParam(pn) {
-  // Volver al perfil: se elimina el override; el fetcher usará el valor heredado.
+  // Volver a la variante: se elimina el override; el fetcher usará el valor heredado.
   form.value.params = form.value.params.filter(p => p.key !== pn)
 }
 

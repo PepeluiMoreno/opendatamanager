@@ -127,9 +127,9 @@ dataset versionado). Si se cruzan datasets distintos (histórico 2022 ×
 novedades), un expediente puede aparecer en ambos; el criterio del consumidor
 sigue siendo quedarse con la `fecha` mayor.
 
-## 5b. Variantes (perfiles): criterio de permanencia
+## 5b. Variantes: criterio de permanencia
 
-Una variante es una implementación concreta de la tecnología de una especie:
+Una variante (en código, la entidad `FetcherPreset`) es una implementación concreta de la tecnología de una especie:
 fija valores sobre el vocabulario de parámetros de la especie, y los recursos
 la eligen y heredan (sobrescribiendo campo a campo si hace falta). La entidad
 está **en periodo de prueba** con criterio falsable: paga su peso si existen

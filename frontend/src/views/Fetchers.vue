@@ -77,7 +77,7 @@
                     title="Especie matriculada en el catálogo sin clase implementada (class_path no resuelve)">sin implementación</span>
               <span v-if="f.presets && f.presets.length"
                     class="ml-2 text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded align-middle"
-                    :title="'Perfiles disponibles: ' + f.presets.map(p => p.code).join(', ')">{{ f.presets.length }} perfil{{ f.presets.length > 1 ? 'es' : '' }}</span>
+                    :title="'Variantes: ' + f.presets.map(p => p.code).join(', ')">{{ f.presets.length }} variante{{ f.presets.length > 1 ? 's' : '' }}</span>
 
             </td>
             <td class="py-1.5 px-3 text-gray-400 hidden md:table-cell" :title="f.description">

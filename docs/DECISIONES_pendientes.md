@@ -40,6 +40,18 @@ Socrata + las tres semánticas REST heredadas + PLACSP CODICE hay 8 variantes en
 **Estado**: en observación hasta que el parque de recursos se estabilice
 (tras pasar el arnés batch); entonces se ratifica o se pliega a manifiestos.
 
+### 5. Renombrado de código: preset → variant
+**Contexto**: la terminología de usuario es ya 'variante' en todo el proyecto
+(UI, descripciones, docs), pero el código conserva FetcherPreset, preset_id,
+presetId (GraphQL) y la clave 'preset' en los manifiestos.
+**Opciones**: (a) dejar el código como está (la entidad interna no se ve);
+(b) renombrado completo: tabla+columna (migración), tipos y mutaciones GraphQL
+(rompe clientes), clave de manifiesto con alias retrocompatible.
+**Recomendación**: (a) mientras el API GraphQL no tenga más consumidores que
+el frontend propio; si se hace (b), aprovechar una ventana de cambios
+rompientes y hacerlo entero de una vez.
+**Estado**: sin decidir.
+
 ---
 
 ## Decididas (histórico breve)

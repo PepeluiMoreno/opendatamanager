@@ -821,7 +821,7 @@ def seed() -> None:
     finally:
         db.close()
 
-    # Perfiles (presets) bajo su especie: el catálogo solo contiene especies; las
+    # Variantes bajo su especie: el catálogo solo contiene especies; las
     # particularizaciones con nombre viven en fetcher_preset y se eligen por recurso.
     from app.database import SessionLocal as _SL_P
     from app.models import Fetcher as _F_P, Resource as _R_P, FetcherPreset as _FP_P

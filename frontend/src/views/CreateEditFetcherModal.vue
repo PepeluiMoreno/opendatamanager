@@ -454,21 +454,37 @@ const extrasVariante = computed(() => {
   if (!varianteActiva.value) return []
   return varianteActiva.value.entries.filter(e => e.key && !clavesBasicas.value.has(e.key))
 })
-const totalRequired = computed(() => requiredParams.value.length)
-const totalOptional = computed(() => optionalParams.value.length + extrasVariante.value.length)
-const totalAll = computed(() => parameters.value.length + extrasVariante.value.length)
+const totalRequired = computed(() => requiredParams.value.filter(visibleConVariante).length)
+const totalOptional = computed(() => optionalParams.value.filter(visibleConVariante).length + extrasVariante.value.length)
+const totalAll = computed(() => parameters.value.filter(visibleConVariante).length + extrasVariante.value.length)
 const fijadosPorVariante = computed(() => {
   if (!varianteActiva.value) return new Map()
   return new Map(varianteActiva.value.entries.filter(e => e.key).map(e => [e.key, e.value]))
 })
 
-const filteredParams = computed(() => {
-  if (activeTab.value === 'required') {
-    return requiredParams.value
-  } else if (activeTab.value === 'optional') {
-    return optionalParams.value
+function visibleConVariante(p) {
+  // En modo variante, el árbol se PODA con las decisiones que la variante toma:
+  // un parámetro condicional solo aparece si su controlador (valor de la
+  // variante, o default de la especie en su defecto) activa su rama. En modo
+  // Genérico no se poda: la definición muestra el árbol completo.
+  if (!varianteActiva.value) return true
+  const vw = _vw(p)
+  if (!vw || !vw.param) return true
+  let actual = valorVariante(vw.param)
+  if (actual === '' || actual == null) {
+    const ctrl = parameters.value.find(x => x.paramName === vw.param)
+    actual = ctrl?.defaultValue != null ? String(ctrl.defaultValue) : ''
   }
-  return parameters.value
+  const vals = vw.in || (vw.eq != null ? [vw.eq] : [])
+  return vals.map(String).includes(String(actual))
+}
+
+const filteredParams = computed(() => {
+  let base
+  if (activeTab.value === 'required') base = requiredParams.value
+  else if (activeTab.value === 'optional') base = optionalParams.value
+  else base = parameters.value
+  return base.filter(visibleConVariante)
 })
 
 const ETIQUETAS_GRUPO = {
@@ -730,7 +746,7 @@ function updateEnumValuesString(param, value) {
 }
 
 
-// ── Variants (perfiles): implementaciones concretas de la tecnología ─────────
+// ── Variantes: implementaciones concretas de la tecnología ──────────────────
 // Panel básico colapsable: abierto al crear (hay que definir params), plegado al editar
 const seccionBasicaAbierta = ref(!props.Fetcher)
 // Textareas que crecen con el contenido (sin scroll interno)
