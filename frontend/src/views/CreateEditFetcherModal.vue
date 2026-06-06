@@ -197,7 +197,7 @@
                     class="w-full px-2 py-1 text-sm bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 font-mono disabled:opacity-60"
                     placeholder="param_name"
                   />
-                  <div v-if="param.description" class="relative flex-shrink-0">
+                  <div v-if="param.hint || param.description" class="relative flex-shrink-0">
                     <button
                       type="button"
                       @click="toggleHelp(param)"
@@ -212,7 +212,7 @@
                       v-if="activeHelp === param.paramName"
                       class="absolute left-0 top-6 z-50 w-80 p-3 bg-gray-900 border border-blue-500 rounded shadow-lg text-xs text-gray-200 leading-relaxed"
                     >
-                      {{ param.description }}
+                      {{ param.hint || param.description }}
                     </div>
                   </div>
                 </div>

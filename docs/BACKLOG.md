@@ -9,6 +9,11 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [x] **Hints en todos los parámetros** (commit en este push): cada parámetro
+  del catálogo lleva un hint que explica qué es y qué valores suele tener —
+  184/184, incluidos los 24 que faltaban (urls de especies aspiracionales,
+  broker MQTT, bootstrap de Kafka, page_param del HTML genérico...).
+
 - [ ] **Arnés batch de pruebas de recursos**: recorrer todos los recursos vivos
   con `_preview_limit=3` y clasificar cada fallo (fuente caída / config rota /
   bug de fetcher). Tras la racha de 6+ recursos rotos detectados a mano, es la
