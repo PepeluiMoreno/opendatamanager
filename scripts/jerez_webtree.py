@@ -169,7 +169,21 @@ def main():
         if not (v_censo and v_datos and v_receta):
             raise SystemExit("Faltan las variantes Web Tree (ejecuta seed_fetchers.py)")
 
-        # 3a. EL recurso-directorio: candidata con TODAS las hojas, variante Censo
+        # 3a. EL recurso-directorio: candidata con TODAS las hojas, variante Censo.
+        # Singleton: liberar su nombre y su tabla de cualquier fila previa que el
+        # reset no haya barrido (p. ej. huérfanos de pasadas muertas entre
+        # redeploys), venga de donde venga.
+        NOMBRE_DIR = "Jerez — Portal de Transparencia — Directorio documental (censo)"
+        marca_dir = datetime.utcnow().strftime("%m%d%H%M%S")
+        for prev in db.query(Resource).filter(
+                (Resource.name == NOMBRE_DIR) | (Resource.target_table == "jerez_portal_directorio")).all():
+            print(f"[directorio] liberado previo: deleted={prev.deleted_at is not None}, "
+                  f"parent={'crawler' if prev.parent_resource_id == crawler.id else prev.parent_resource_id}")
+            prev.deleted_at = prev.deleted_at or datetime.utcnow()
+            prev.name = prev.name[: 100 - len(marca_dir) - 2] + "~" + marca_dir
+            prev.target_table = (prev.target_table or "")[:50] + "_x" + marca_dir
+        db.flush()
+
         cand_dir = ResourceCandidate(
             crawler_resource_id=crawler.id,
             path_template=ROOT + "/{*}",
@@ -179,7 +193,7 @@ def main():
         )
         db.add(cand_dir); db.flush()
         directorio = Resource(
-            name="Jerez — Portal de Transparencia — Directorio documental (censo)",
+            name=NOMBRE_DIR,
             fetcher_id=crawler.fetcher_id, publisher_id=crawler.publisher_id,
             target_table="jerez_portal_directorio", active=True,
             enable_load=False, load_mode="upsert",
