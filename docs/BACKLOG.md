@@ -9,6 +9,13 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [ ] **Parser PDF: prosa tomada por tabla + duplicación con títulos a dos
+  líneas** (cazado por el usuario en prod, Plan Estratégico Subvenciones): en
+  PDFs de prosa el parser toma la primera frase (partida en líneas) como
+  cabecera y cada línea envuelta como fila — duplicando contenido. Detectar
+  no-tabla (una sola columna cuyo nombre es una frase larga) y devolver 0
+  filas; y al casar celdas multilínea, no repetir el contenido por línea.
+
 - [ ] **Parser XLSX: filas-pancarta antes de la cabecera**: los informes PMP de
   Jerez abren con un título fusionado ('PERIODO MEDIO DE PAGO GLOBAL...') que el
   parser toma como datos con columnas unnamed_N. Añadir detección de cabecera
