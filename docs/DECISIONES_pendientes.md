@@ -126,6 +126,17 @@ variante 'Extracción con receta' 🔒, param `receta` por recurso. Piloto PMP
 verificado en vivo: 27 ficheros → una fila limpia por mes (2026-01: 84,89
 días...). Quedan ~30 informes-formulario esperando su receta en la whitelist
 RECETAS de jerez_webtree.py.
+**Doctrina de las recetas (2026-06, reparo del usuario sobre la generalidad)**:
+una receta es DATO declarativo del recurso (la categoría de url_template o
+field_map), nunca código; el motor de la especie es general y no sabe de
+portales. Guardarraíl contra la deriva: la gramática de capturas es
+vocabulario de la ESPECIE y solo crece por decisión de diseño deliberada
+(aquí, en DECISIONES), jamás por hack para un fichero rebelde — el fichero
+que no quepa en la gramática se queda en censo, no fuerza la gramática. El
+día que una receta necesite condicionales habrá dejado de ser dato: ese es el
+límite. (La alternativa plugeable-código existe como gancho custom_parser
+heredado y se desaconseja por recurso: convertiría 'crear un recurso' en
+'desplegar código'.)
 **Ratificada (2026-06)**: se evaluó la vía 'param solo en el recurso, sin
 variantes' (propuesta del usuario) — funcionalmente equivalente y ya posible
 hoy. Se mantienen las dos variantes por una única razón: etiqueta veraz en el
