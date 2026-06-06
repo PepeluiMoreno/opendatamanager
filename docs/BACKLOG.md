@@ -9,6 +9,15 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [ ] **Promoción manual: selector de variante** (destapado por el usuario,
+  2026-06): promote_candidate es anterior a las variantes del Web Tree — un
+  candidato promovido a mano desde Discovering nace en modo 'datos' a secas.
+  Añadir al diálogo de promoción la elección de variante (Censo documental /
+  Extracción de datos / Extracción con receta, con editor del param receta en
+  el tercer caso), y que la mutación acepte preset_id.
+- [ ] **jerez_webtree.py: el print de promoción etiqueta 'Extracción de datos'
+  también a los hijos con receta** — desglosar el recuento (datos/receta).
+
 - [ ] **Parser PDF: prosa tomada por tabla + duplicación con títulos a dos
   líneas** (cazado por el usuario en prod, Plan Estratégico Subvenciones): en
   PDFs de prosa el parser toma la primera frase (partida en líneas) como
