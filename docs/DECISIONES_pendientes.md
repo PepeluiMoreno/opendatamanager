@@ -92,10 +92,30 @@ produce es un directorio de URLs y con errores'.
   (c) *Mejorar el parseo tabular genérico* (sniffing de cabeceras, descarte de
   pancartas). Ayuda en ficheros que SÍ son tablas; en los informes-formulario
   seguiría produciendo basura mejor alineada.
-**Recomendación**: (a) como comportamiento por defecto inmediato de los hijos
-Web Tree + (b) opt-in por recurso para las series valiosas (PMP el primero);
-(c) solo después, y limitado a ficheros con tabla real.
-**Estado**: sin decidir.
+**Propuesta del usuario (2026-06)**: un fetcher tipo 'WebTreeIndexer' que no
+parsee nada y entregue las URLs (útil para CKAN), dejando Web Tree para los
+que se dejen extraer información.
+**Refinamiento propuesto por Claude**: misma idea, pero como PARÁMETRO de la
+especie en vez de especie nueva (especie = tecnología; aquí la tecnología es
+idéntica y cambia el tratamiento de la salida). Nuevo param `extract_mode`
+('datos'|'censo') materializado en DOS VARIANTES con candado:
+  - 'Web Tree — Censo documental' 🔒 extract_mode=censo → una fila por fichero
+    (dimensiones + url + nombre + formato), sin descargar ni parsear. Rápido,
+    sin basura, insumo directo del CKAN (§9).
+  - 'Web Tree — Extracción de datos' → comportamiento actual.
+Ventajas sobre la especie aparte: cero duplicación (seed/factory/promote), un
+hijo puede cambiar de variante sin recrearse (censo hoy, extracción cuando
+exista receta), y el default al promover se decide con la auditoría
+(bundle→censo, serie tabular→extracción). La distinción visible en UI la da el
+nombre de la variante.
+**Cifras de la auditoría (2026-06)**: 5 hijos tabla-real (127 ficheros), 31
+informe-formulario (819), 28 pila documental (~2.180): el censo da valor
+inmediato en 59/64; la extracción dirigida (b) rescataría los 31 del medio.
+**Recomendación**: variante 'Censo documental' como (a) inmediato + (b)
+recetas opt-in para series valiosas (PMP primero); (c) parseo genérico solo
+para ficheros con tabla real.
+**Estado**: sin decidir (pendiente del visto bueno del usuario a la vía
+'param + variantes' frente a 'especie nueva').
 
 ### 9. Alimentación automática de un CKAN para Jerez desde los hijos Web Tree
 **Contexto** (idea del usuario, 2026-06): aprovechar el output actual —
