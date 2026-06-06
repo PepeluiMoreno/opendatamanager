@@ -91,7 +91,7 @@
                     : 'text-gray-400 hover:text-gray-300'
                 ]"
               >
-                Required ({{ requiredParams.length }})
+                Required ({{ totalRequired }})
               </button>
               <button
                 type="button"
@@ -103,7 +103,7 @@
                     : 'text-gray-400 hover:text-gray-300'
                 ]"
               >
-                Optional ({{ optionalParams.length }})
+                Optional ({{ totalOptional }})
               </button>
               <button
                 type="button"
@@ -115,9 +115,15 @@
                     : 'text-gray-400 hover:text-gray-300'
                 ]"
               >
-                All ({{ parameters.length }})
+                All ({{ totalAll }})
               </button>
             </div>
+
+            <p v-if="extrasVariante.length" class="text-[11px] text-purple-300/80 mb-2">
+              Los contadores incluyen {{ extrasVariante.length }} parámetro(s) específico(s) de la variante
+              «{{ varianteActiva.code }}» fuera del catálogo básico
+              ({{ extrasVariante.map(e => e.key).join(', ') }}); se editan abajo, en Profile Parameters Definition.
+            </p>
 
             <!-- Parameters Grid -->
             <div class="space-y-2">
@@ -194,6 +200,11 @@
                       class="text-[10px] text-amber-400/80 mt-1 leading-tight"
                       title="Este parámetro solo se muestra al configurar un recurso cuando se cumple la condición">
                      {{ condicionDe(param) }}
+                   </p>
+                   <p v-if="fijadosPorVariante.has(param.paramName)"
+                      class="text-[10px] text-purple-300/90 mt-1 leading-tight truncate"
+                      :title="'La variante «' + varianteActiva.code + '» fija: ' + fijadosPorVariante.get(param.paramName)">
+                     fijado por «{{ varianteActiva.code }}»
                    </p>
                 </div>
 
@@ -416,6 +427,22 @@ const requiredParams = computed(() => {
 
 const optionalParams = computed(() => {
   return parameters.value.filter(p => !p.required)
+})
+
+// Unión básicos + específicos de la variante activa, SIN duplicar por colisión:
+// una clave fijada por la variante que ya existe en la definición básica cuenta
+// una sola vez; solo suman las claves de la variante fuera del catálogo.
+const clavesBasicas = computed(() => new Set(parameters.value.map(p => p.paramName)))
+const extrasVariante = computed(() => {
+  if (!varianteActiva.value) return []
+  return varianteActiva.value.entries.filter(e => e.key && !clavesBasicas.value.has(e.key))
+})
+const totalRequired = computed(() => requiredParams.value.length)
+const totalOptional = computed(() => optionalParams.value.length + extrasVariante.value.length)
+const totalAll = computed(() => parameters.value.length + extrasVariante.value.length)
+const fijadosPorVariante = computed(() => {
+  if (!varianteActiva.value) return new Map()
+  return new Map(varianteActiva.value.entries.filter(e => e.key).map(e => [e.key, e.value]))
 })
 
 const filteredParams = computed(() => {

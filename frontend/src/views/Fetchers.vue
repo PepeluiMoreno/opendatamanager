@@ -15,10 +15,6 @@
           placeholder="Name or description..."
           class="input text-sm w-56"
         />
-        <label class="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap cursor-pointer">
-          <input type="checkbox" v-model="soloImplementados" class="accent-blue-600">
-          Solo implementados
-        </label>
       </div>
       <div>
         <label class="block text-xs text-gray-400 mb-1">Created from</label>
@@ -28,9 +24,13 @@
         <label class="block text-xs text-gray-400 mb-1">Created to</label>
         <input v-model="filterDateTo" type="date" class="input text-sm" />
       </div>
+      <label class="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap cursor-pointer pb-2">
+        <input type="checkbox" v-model="incluirNoImplementados" class="accent-blue-600">
+        Incluir no implementados
+      </label>
       <button
-        v-if="filterText || filterDateFrom || filterDateTo"
-        @click="filterText = ''; filterDateFrom = ''; filterDateTo = ''"
+        v-if="filterText || filterDateFrom || filterDateTo || incluirNoImplementados"
+        @click="filterText = ''; filterDateFrom = ''; filterDateTo = ''; incluirNoImplementados = false"
         class="btn btn-secondary text-sm self-end"
       >Clear</button>
     </div>
@@ -45,10 +45,10 @@
       <table v-else class="w-full text-xs">
         <thead class="bg-gray-900 text-gray-400 text-xs uppercase tracking-wide">
           <tr>
-            <th class="py-1.5 px-3 text-left cursor-pointer select-none hover:text-white" @click="setSort('name')">
+            <th class="py-1.5 px-3 text-left cursor-pointer select-none hover:text-white w-64" @click="setSort('name')">
               Name <SortIcon field="name" :sortBy="sortBy" :sortDir="sortDir" />
             </th>
-            <th class="py-1.5 px-3 text-left hidden md:table-cell">Description</th>
+            <th class="py-1.5 px-3 text-left hidden md:table-cell w-auto">Description</th>
             <th class="py-1.5 px-3 text-center cursor-pointer select-none hover:text-white w-28" @click="setSort('resources')">
               Resources <SortIcon field="resources" :sortBy="sortBy" :sortDir="sortDir" />
             </th>
@@ -68,17 +68,19 @@
             class="hover:bg-gray-750 transition-colors"
           >
             <td class="py-1.5 px-3 font-medium text-white">
-              <span :title="f.classPath || ''" class="cursor-default" :class="{ 'text-gray-500': !f.implemented }">{{ f.name || f.code }}</span>
+              <span :title="(f.name || f.code) + (f.classPath ? '\n' + f.classPath : '')"
+                    class="cursor-default inline-block max-w-[11rem] truncate align-middle"
+                    :class="{ 'text-gray-500': !f.implemented }">{{ f.name || f.code }}</span>
               <span v-if="!f.implemented"
                     class="ml-2 text-[10px] uppercase tracking-wide bg-gray-700 text-gray-400 border border-gray-600 px-1.5 py-0.5 rounded align-middle"
                     title="Especie matriculada en el catálogo sin clase implementada (class_path no resuelve)">sin implementación</span>
               <span v-if="f.presets && f.presets.length"
                     class="ml-2 text-xs bg-purple-900 text-purple-300 px-1.5 py-0.5 rounded align-middle"
                     :title="'Perfiles disponibles: ' + f.presets.map(p => p.code).join(', ')">{{ f.presets.length }} perfil{{ f.presets.length > 1 ? 'es' : '' }}</span>
-              <span v-if="f.classPath" class="block text-xs text-gray-600 font-mono mt-0.5">{{ f.classPath }}</span>
+
             </td>
-            <td class="py-1.5 px-3 text-gray-400 hidden md:table-cell max-w-xs truncate" :title="f.description">
-              {{ f.description || '—' }}
+            <td class="py-1.5 px-3 text-gray-400 hidden md:table-cell" :title="f.description">
+              <span class="block overflow-hidden" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">{{ f.description || '—' }}</span>
             </td>
             <td class="py-1.5 px-3 text-center">
               <span
@@ -236,7 +238,7 @@ const currentPage = ref(1)
 const pageSize    = ref(15)
 
 const filterText     = ref('')
-const soloImplementados = ref(false)
+const incluirNoImplementados = ref(false)
 const filterDateFrom = ref('')
 const filterDateTo   = ref('')
 const sortBy         = ref('name')
@@ -246,7 +248,7 @@ const sortDir        = ref('asc')
 const filtered = computed(() => {
   let list = Fetchers.value
 
-  if (soloImplementados.value) {
+  if (!incluirNoImplementados.value) {
     list = list.filter(f => f.implemented)
   }
 
