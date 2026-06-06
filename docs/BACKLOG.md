@@ -9,6 +9,18 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 
 ## Pendiente
 
+- [x] **Jerez — recursos Web Tree creados** (este push): scripts/jerez_webtree.py
+  hace el ciclo completo (crawler padre acotado a a07-economica → discover →
+  infer → persiste candidatas → promueve). Ejecutado: 3.129 hojas → 64 recursos
+  (35 series + 29 bundles). Stream verificado end-to-end (descarga + columna de
+  dimensión + procedencia). PENDIENTE en prod: ejecutar el script allí (crea los
+  recursos en su BD).
+- [ ] **Web Tree — calidad de parseo en bundles de PDF heterogéneos**: las
+  series XLSX (PMP, deuda) parsean limpio; los bundles de PDFs de resoluciones
+  no son tabulares y el parser genérico saca filas pobres. Decidir si esos
+  bundles se tratan como 'registro documental' (lista de URLs + metadatos) en
+  vez de intentar extraer tabla.
+
 - [x] **Web Tree — scoping del crawler** (este push): repuestos path_prefix
   (acota la navegación a una subrama) e include/exclude_patterns (filtran las
   hojas por regex). Verificado en Jerez: de 708 hojas del portal entero a 282
