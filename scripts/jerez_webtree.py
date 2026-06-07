@@ -185,6 +185,17 @@ def main():
                              "include_patterns": INCLUDE})
         hojas = wt.discover()
         props = infer(hojas)
+        # §8b carve-out: el inferer sepulta el "estado de remanente de tesorería"
+        # dentro del bundle NN-liquidacionAyto, dejando inerte una receta validada.
+        # Lo re-inferimos aparte para darle serie(s) propia(s) cuyo path_template
+        # contiene 'remanente_de_tesoreria' → casa la clave RECETAS y extrae el
+        # remanente total y para gastos generales (validado contra los PDF reales;
+        # el nombre del fichero varía entre años pero el token sobrevive).
+        _rem = [h for h in hojas if "remanente_de_tesoreria" in (h.get("url") or "").lower()]
+        if _rem:
+            nuevas = infer(_rem)
+            props.extend(nuevas)
+            print(f"[carve-out] remanente de tesorería: {len(_rem)} ficheros → {len(nuevas)} serie(s) propia(s)")
         print(f"[infer] {len(hojas)} hojas → {len(props)} propuestas")
 
         # variantes
