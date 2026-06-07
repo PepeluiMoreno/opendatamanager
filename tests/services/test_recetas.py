@@ -31,3 +31,31 @@ def test_numeros_formato_espanol():
 def test_captura_sin_hallazgo_es_none():
     receta = [{"campo": "inexistente", "etiqueta": "NoEstá", "tipo": "numero"}]
     assert extraer_con_receta(GRID_PMP, receta) == {"inexistente": None}
+
+
+# ── §8b: liquidación — remanente de tesorería ────────────────────────────────
+# Rejilla calcada del PDF real (2023, 4.1_remanente_de_tesoreria_..._ical.pdf):
+# el rótulo lleva sufijo "(I - II - III)" y el valor no es adyacente (hay celdas
+# vacías intercaladas), tal como lo entrega pdfplumber. La cascada "derecha"
+# salta los vacíos y coge el primer número (el principal), no el de la última col.
+GRID_REMANENTE = [
+    ["", "I. Remanente de tesorería total (1 + 2 - 3 + 4)", "", "222.081.219,48", "", ""],
+    ["", "II. Saldos de dudoso cobro", "", "100.000.000,00", "", ""],
+    ["", "IV. Remanente de tesorería para gastos generales (I - II - III)", "", "39.677.571,37", "", "4.543.800,24"],
+]
+
+
+def test_liquidacion_remanente():
+    receta = [
+        {"campo": "remanente_tesoreria_total",
+         "etiqueta": r"Remanente de Tesorer[ií]a Total", "tipo": "numero",
+         "posicion": "derecha"},
+        {"campo": "remanente_tesoreria_gastos_generales",
+         "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero",
+         "posicion": "derecha"},
+    ]
+    assert extraer_con_receta(GRID_REMANENTE, receta) == {
+        "remanente_tesoreria_total": 222081219.48,
+        "remanente_tesoreria_gastos_generales": 39677571.37,
+    }
+
