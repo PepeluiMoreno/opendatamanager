@@ -467,7 +467,14 @@ class WebTreeFetcher(BaseFetcher):
         # ── Modo RECETA: extracción dirigida — una fila limpia por fichero ──
         if modo == "receta":
             for i, url in enumerate(matched_urls):
-                fila = self._fila_de_receta(url)
+                try:
+                    fila = self._fila_de_receta(url)
+                except Exception as exc:
+                    # Un fichero grande/corrupto/caído no debe tumbar toda la serie:
+                    # se omite y se sigue (igual que el modo datos más abajo).
+                    logger.warning("[WebTree.stream] receta: error con %s: %s — se omite", url, exc)
+                    self.current_state = {"files_done": i + 1, "files_total": len(matched_urls), "last_url": url}
+                    continue
                 fila.update(self._extract_dim_values(url, dimensions))
                 fila["_source_file_url"] = url
                 fila["_source_file_name"] = Path(urlparse(url).path).name
