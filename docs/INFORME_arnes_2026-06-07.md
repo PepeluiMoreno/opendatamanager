@@ -20,7 +20,7 @@ fijado en seed).
 ## Sin filas (4) — la fuente responde, la extracción no
 | Recurso | Diagnóstico |
 |---|---|
-| Jerez (Deuda, Morosidad, PMP) ×3 | Las URLs `{year}` devuelven 404-HTML: el portal cambió las rutas; localizar patrón nuevo |
+| Jerez (Deuda, Morosidad, PMP) ×3 | Las URLs `{year}` devuelven 404-HTML: el portal cambió las rutas. RESUELTO 2026-06-07: base movida a `/fileadmin/Documentos/Transparencia/a-infopublica/a07-economica/c-deuda/{year}/`; nombres inestables entre años → templatizar es inviable, usar el Web Tree crawler (ver BACKLOG y seed_resources.py) |
 | OSM - Inmuebles Eclesiásticos | Consulta España-entera no cabe en una preview de 60s (Overpass vivo: verificado con bbox pequeño). Limitación del arnés, no del recurso |
 
 ## Arreglado en esta pasada

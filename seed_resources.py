@@ -680,6 +680,20 @@ RESOURCES: List[Dict[str, Any]] = [
     },
 
     # ── Jerez — datos presupuestarios (PDFs) ──────────────────────────────────
+    # DIAGNÓSTICO 2026-06-07 (URLs {year} → 404-HTML): el portal (TYPO3) movió la
+    # base. Estas plantillas apuntan a la speaking-URL muerta
+    #   .../infopublica/economica/c-deuda/{year}/...        ← 404
+    # Los ficheros reales cuelgan de la ruta /fileadmin/:
+    #   .../fileadmin/Documentos/Transparencia/a-infopublica/a07-economica/c-deuda/{year}/{pmp|morosidad|deuda}/...
+    # Pero los NOMBRES no son estables entre años, así que la URL directa es
+    # inviable de templatizar:
+    #   · PMP: ahora .xlsx (no .pdf) y mes a veces sin cero (Informe_PMP_2024_5.xlsx).
+    #   · Morosidad: sufijo de fecha variable (..._{q}oT_Anexos_240418.pdf).
+    #   · Deuda: el nombre 2023 difiere del 2024 (DEUDA_FINANCIERA_31-12-2024.pdf → 200; 2023 → 404).
+    # → Fuente autoritativa: el Web Tree crawler (scripts/jerez_webtree.py) bajo
+    #   a07-economica, que ya los descubre (ver docs/AUDITORIA_jerez_hijos.md).
+    #   Este trío PDF_TABLE es candidato a la retirada del seed pendiente de "sí"
+    #   (DECISIONES, propuesta de CIERRE). Se deja activo y anotado hasta esa decisión.
     {
         "name": "Jerez - PMP Mensual (Ley 15/2010)",
         "fetcher_name": "PDF_TABLE",
