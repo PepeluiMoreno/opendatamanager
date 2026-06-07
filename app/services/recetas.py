@@ -12,7 +12,9 @@ sin distinguir mayúsculas) y se busca el valor en cascada:
   1. el resto de la propia celda (etiqueta y valor en la misma celda),
   2. las celdas a su derecha en la misma fila,
   3. la fila siguiente (formularios donde el dato vive bajo el rótulo).
-`posicion` permite forzar una de las tres ("celda" | "derecha" | "debajo").
+`posicion` permite forzar una opción ("celda" | "derecha" | "debajo" | "ultima").
+"ultima" toma el último valor convertible a la derecha (la última columna), no el
+primero — útil cuando la fila trae cifras intermedias antes del dato buscado.
 
 La gramática es única para XLSX y PDF: ambos se reducen a una rejilla de
 celdas de texto (el PDF, por su tabla extraída o, en su defecto, por líneas).
@@ -60,6 +62,18 @@ def _buscar_en(tokens: List[str], tipo: str) -> Optional[Any]:
     return None
 
 
+def _buscar_ultimo(tokens: List[str], tipo: str) -> Optional[Any]:
+    """Último convertible de la lista (no el primero). Para estados donde el
+    dato vive en la ÚLTIMA columna y la fila trae cifras intermedias (p. ej.
+    'Resultado Presupuestario Ajustado': el valor está tras derechos/obligaciones)."""
+    ultimo = None
+    for t in tokens:
+        v = _convertir(t, tipo)
+        if v is not None:
+            ultimo = v
+    return ultimo
+
+
 def extraer_con_receta(grid: List[List[str]], receta: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Aplica la receta sobre una rejilla de celdas. Devuelve {campo: valor}
     (valor None si la captura no encontró nada — el fallo es un dato)."""
@@ -84,6 +98,8 @@ def extraer_con_receta(grid: List[List[str]], receta: List[Dict[str, Any]]) -> D
                     valor = _buscar_en(fila[j + 1:], tipo)
                 if valor is None and posicion in (None, "debajo") and i + 1 < len(grid):
                     valor = _buscar_en(grid[i + 1], tipo)
+                if valor is None and posicion == "ultima":
+                    valor = _buscar_ultimo(fila[j + 1:], tipo)
                 if valor is not None:
                     break
             if valor is not None:
