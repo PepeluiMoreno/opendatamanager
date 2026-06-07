@@ -55,31 +55,31 @@ RECETAS = {
          "etiqueta": "Periodo Medio de Pago Global a Proveedores Mensual",
          "tipo": "numero"},
     ],
-    # Morosidad trimestral (Ley 15/2010). El informe es un formulario normalizado
-    # a nivel estatal: rótulos estables. Clave = substring del path_template
-    # (filename con guiones bajos: "..._Ley_15_10_{year}_{quarter}oT...").
-    # CAVEAT: confirmar la clave contra una URL real y recordar que la ruta
-    # {year} de morosidad está 404 (ver BACKLOG "Jerez ×3") — no extraerá hasta
-    # que se arregle el patrón de ruta.
-    "Ley_15": [
-        {"campo": "pmp_dias",
-         "etiqueta": r"Periodo Medio de Pago", "tipo": "numero"},
-        {"campo": "ratio_operaciones_pagadas",
-         "etiqueta": r"Ratio de(?: las)? Operaciones Pagadas", "tipo": "numero"},
-        {"campo": "ratio_operaciones_pendientes",
-         "etiqueta": r"Ratio de(?: las)? Operaciones Pendientes", "tipo": "numero"},
-    ],
-    # Carátula/resumen de la liquidación presupuestaria del Ayuntamiento.
-    # Rótulos del modelo normalizado (TRLRHL/ICAL). Clave = sección del path.
-    # CAVEAT: la familia mezcla varios documentos (auditoría: 5 ficheros,
-    # formulario); confirmar la clave y los rótulos contra una muestra real.
-    "liquidacionAyto": [
-        {"campo": "resultado_presupuestario_ajustado",
-         "etiqueta": r"Resultado Presupuestario Ajustado", "tipo": "numero"},
-        {"campo": "remanente_tesoreria_gastos_generales",
-         "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero"},
+    # Morosidad trimestral (Ley 15/2010) — SIN RECETA.
+    # Validado contra el documento real (Informe_Ta_Ley_15_10-{year}-{q}oT_Anexos):
+    # NO es un formulario de escalares sino una tabla densa multi-bloque; el PMP
+    # es el TOTAL (último token) de una columna multilínea, y no existen rótulos
+    # "Ratio de Operaciones Pagadas/Pendientes". La gramática {etiqueta→valor} no
+    # lo expresa. Queda en el censo documental hasta tener un parser a medida.
+    # (Su PMP mensual sí se cubre arriba vía Informe_PMP, que es otro fichero.)
+
+    # Liquidación presupuestaria del Ayuntamiento (carpeta NN-liquidacionAyto).
+    # Validado contra ficheros reales 2023: cada estado es su propio PDF. Solo el
+    # remanente de tesorería (4.x_remanente_de_tesoreria_...) encaja con la
+    # gramática. CLAVE ESTRECHA al fichero de remanente (no 'liquidacionAyto' de
+    # carpeta): el de resultado (2._resultado...) menciona "...remanente de
+    # tesorería para gastos generales" en prosa y daría un falso positivo; y el
+    # resultado presupuestario ajustado vive en la última columna de una megacelda,
+    # inalcanzable por la cascada. posicion="derecha": sin ello, el rótulo
+    # "...total (1 + 2 - 3 + 4)" haría pescar el "1" de la fórmula
+    # (validado en vivo: total=222.081.219,48, gastos generales=39.677.571,37).
+    "remanente_de_tesoreria": [
         {"campo": "remanente_tesoreria_total",
-         "etiqueta": r"Remanente de Tesorer[ií]a Total", "tipo": "numero"},
+         "etiqueta": r"Remanente de Tesorer[ií]a Total", "tipo": "numero",
+         "posicion": "derecha"},
+        {"campo": "remanente_tesoreria_gastos_generales",
+         "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero",
+         "posicion": "derecha"},
     ],
 }
 

@@ -33,50 +33,29 @@ def test_captura_sin_hallazgo_es_none():
     assert extraer_con_receta(GRID_PMP, receta) == {"inexistente": None}
 
 
-# ── §8b: morosidad trimestral (Ley 15/2010) ──────────────────────────────────
-GRID_MOROSIDAD = [
-    ["", "Informe Trimestral Ley 15/2010", "", "", "", ""],
-    ["Periodo Medio de Pago (PMP)", "", "", "", "", "45,20"],
-    ["Ratio de las Operaciones Pagadas", "", "", "", "", "38,10"],
-    ["Ratio de Operaciones Pendientes de Pago", "", "", "", "", "12,00"],
+# ── §8b: liquidación — remanente de tesorería ────────────────────────────────
+# Rejilla calcada del PDF real (2023, 4.1_remanente_de_tesoreria_..._ical.pdf):
+# el rótulo lleva sufijo "(I - II - III)" y el valor no es adyacente (hay celdas
+# vacías intercaladas), tal como lo entrega pdfplumber. La cascada "derecha"
+# salta los vacíos y coge el primer número (el principal), no el de la última col.
+GRID_REMANENTE = [
+    ["", "I. Remanente de tesorería total (1 + 2 - 3 + 4)", "", "222.081.219,48", "", ""],
+    ["", "II. Saldos de dudoso cobro", "", "100.000.000,00", "", ""],
+    ["", "IV. Remanente de tesorería para gastos generales (I - II - III)", "", "39.677.571,37", "", "4.543.800,24"],
 ]
 
 
-def test_morosidad_trimestral():
+def test_liquidacion_remanente():
     receta = [
-        {"campo": "pmp_dias", "etiqueta": r"Periodo Medio de Pago", "tipo": "numero"},
-        {"campo": "ratio_operaciones_pagadas",
-         "etiqueta": r"Ratio de(?: las)? Operaciones Pagadas", "tipo": "numero"},
-        {"campo": "ratio_operaciones_pendientes",
-         "etiqueta": r"Ratio de(?: las)? Operaciones Pendientes", "tipo": "numero"},
-    ]
-    assert extraer_con_receta(GRID_MOROSIDAD, receta) == {
-        "pmp_dias": 45.20,
-        "ratio_operaciones_pagadas": 38.10,
-        "ratio_operaciones_pendientes": 12.00,
-    }
-
-
-# ── §8b: carátula/resumen de la liquidación presupuestaria ────────────────────
-GRID_LIQUIDACION = [
-    ["Resultado Presupuestario del Ejercicio", "1.000.000,00"],
-    ["Resultado Presupuestario Ajustado", "1.234.567,89"],
-    ["Remanente de Tesorería para Gastos Generales", "987.654,32"],
-    ["Remanente de Tesorería Total", "2.500.000,00"],
-]
-
-
-def test_liquidacion_caratula():
-    receta = [
-        {"campo": "resultado_presupuestario_ajustado",
-         "etiqueta": r"Resultado Presupuestario Ajustado", "tipo": "numero"},
-        {"campo": "remanente_tesoreria_gastos_generales",
-         "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero"},
         {"campo": "remanente_tesoreria_total",
-         "etiqueta": r"Remanente de Tesorer[ií]a Total", "tipo": "numero"},
+         "etiqueta": r"Remanente de Tesorer[ií]a Total", "tipo": "numero",
+         "posicion": "derecha"},
+        {"campo": "remanente_tesoreria_gastos_generales",
+         "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero",
+         "posicion": "derecha"},
     ]
-    assert extraer_con_receta(GRID_LIQUIDACION, receta) == {
-        "resultado_presupuestario_ajustado": 1234567.89,
-        "remanente_tesoreria_gastos_generales": 987654.32,
-        "remanente_tesoreria_total": 2500000.00,
+    assert extraer_con_receta(GRID_REMANENTE, receta) == {
+        "remanente_tesoreria_total": 222081219.48,
+        "remanente_tesoreria_gastos_generales": 39677571.37,
     }
+
