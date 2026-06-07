@@ -81,7 +81,8 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   Los nombres no son estables entre años (PMP→.xlsx con mes irregular; morosidad
   con sufijo `_Anexos_<fecha>`; deuda 2023 ≠ 2024) → la URL directa es inviable de
   templatizar. Fuente fiable = Web Tree crawler. Trío PDF_TABLE anotado en seed y
-  candidato a retirada (CIERRE, pendiente de "sí").
+  candidato a retirada (CIERRE). RETIRADO del seed 2026-06-07 (`chore/retire-jerez-pdf-table-trio`);
+  pendiente solo la limpieza de filas/Resources ya creados en prod.
 - [ ] **Catastro Sevilla — troceo**: la petición provincia-entera (count=500)
   tumba el WFS (500 tras 233s); trocear por municipios o rejilla de bboxes.
 - [ ] **Geonames ES.zip**: 503 persistente hoy (throttling); reintentar y, si
