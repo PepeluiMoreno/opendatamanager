@@ -58,8 +58,6 @@ PUBLISHERS: List[Dict[str, Any]] = [
 #   name, target_table, active, schedule
 #   params          : dict key→value o key→{"value": ..., "is_external": True}
 
-_BASE_JEREZ = "https://transparencia.jerez.es/infopublica/economica"
-
 RESOURCES: List[Dict[str, Any]] = [
 
     # ── DIR3 ──────────────────────────────────────────────────────────────────
@@ -679,52 +677,16 @@ RESOURCES: List[Dict[str, Any]] = [
         },
     },
 
-    # ── Jerez — datos presupuestarios (PDFs) ──────────────────────────────────
-    {
-        "name": "Jerez - PMP Mensual (Ley 15/2010)",
-        "fetcher_name": "PDF_TABLE",
-        "publisher_acronimo": "AJFRA",
-        "target_table": "jerez_pmp_mensual",
-        "schedule": "0 3 10 * *",
-        "params": {
-            "url_template": f"{_BASE_JEREZ}/c-deuda/{{year}}/pmp/Informe_PMP_{{year}}_{{month}}.pdf",
-            "granularity":  "monthly",
-            "year_from":    "2020",
-            "year_to":      {"value": "2025", "is_external": True},
-            "table_index":  "0",
-            "header_row":   "0",
-        },
-    },
-    {
-        "name": "Jerez - Morosidad Trimestral (Ley 15/2010)",
-        "fetcher_name": "PDF_TABLE",
-        "publisher_acronimo": "AJFRA",
-        "target_table": "jerez_morosidad_trimestral",
-        "schedule": "0 3 15 1,4,7,10 *",
-        "params": {
-            "url_template": f"{_BASE_JEREZ}/c-deuda/{{year}}/morosidad/Informe_Ta_Ley_15_10-{{year}}-{{quarter}}oT.pdf",
-            "granularity":  "quarterly",
-            "year_from":    "2020",
-            "year_to":      {"value": "2025", "is_external": True},
-            "table_index":  "0",
-            "header_row":   "0",
-        },
-    },
-    {
-        "name": "Jerez - Deuda Financiera Anual",
-        "fetcher_name": "PDF_TABLE",
-        "publisher_acronimo": "AJFRA",
-        "target_table": "jerez_deuda_financiera",
-        "schedule": "0 3 1 7 *",
-        "params": {
-            "url_template": f"{_BASE_JEREZ}/c-deuda/{{year}}/deuda/DEUDA_FINANCIERA_31-12-{{year}}.pdf",
-            "granularity":  "annual",
-            "year_from":    "2020",
-            "year_to":      {"value": "2024", "is_external": True},
-            "table_index":  "0",
-            "header_row":   "0",
-        },
-    },
+    # ── Jerez — datos presupuestarios ────────────────────────────────────────
+    # RETIRADO 2026-06-07 (CIERRE aprobado): el trío PDF_TABLE viejo
+    # (PMP mensual / Morosidad trimestral / Deuda financiera) usaba URLs {year}
+    # directas que el portal dejó en 404 y cuyos nombres no son estables entre
+    # años (diagnóstico en docs/BACKLOG.md e INFORME_arnes_2026-06-07.md). Lo
+    # sustituye el Web Tree crawler (scripts/jerez_webtree.py) bajo a07-economica,
+    # que descubre estos ficheros y los promueve con sus variantes/recetas
+    # (PMP y morosidad vía RECETAS; ver app/services/recetas.py).
+    # Limpieza aparte: desactivar/borrar en prod los Resources ya creados
+    # 'Jerez - PMP/Morosidad/Deuda *' y sus tablas jerez_*.
 ]
 
 

@@ -75,8 +75,14 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   serviciostelematicosext.hacienda.gob.es (CONPREL).
 - [ ] **Registros de la Propiedad (CORPME)**: 404; el documento de
   registradores.org cambió de ruta.
-- [ ] **Jerez ×3 (Deuda/Morosidad/PMP)**: el portal cambió las rutas `{year}`;
-  localizar el patrón nuevo en transparencia.jerez.es.
+- [x] **Jerez ×3 (Deuda/Morosidad/PMP)**: patrón nuevo LOCALIZADO (2026-06-07).
+  El portal (TYPO3) movió la base de la speaking-URL `/infopublica/economica/c-deuda/{year}/`
+  (404) a `/fileadmin/Documentos/Transparencia/a-infopublica/a07-economica/c-deuda/{year}/`.
+  Los nombres no son estables entre años (PMP→.xlsx con mes irregular; morosidad
+  con sufijo `_Anexos_<fecha>`; deuda 2023 ≠ 2024) → la URL directa es inviable de
+  templatizar. Fuente fiable = Web Tree crawler. Trío PDF_TABLE anotado en seed y
+  candidato a retirada (CIERRE). RETIRADO del seed 2026-06-07 (`chore/retire-jerez-pdf-table-trio`);
+  pendiente solo la limpieza de filas/Resources ya creados en prod.
 - [ ] **Catastro Sevilla — troceo**: la petición provincia-entera (count=500)
   tumba el WFS (500 tras 233s); trocear por municipios o rejilla de bboxes.
 - [ ] **Geonames ES.zip**: 503 persistente hoy (throttling); reintentar y, si
