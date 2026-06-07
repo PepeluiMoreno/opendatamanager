@@ -25,6 +25,30 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   no-tabla (una sola columna cuyo nombre es una frase larga) y devolver 0
   filas; y al casar celdas multilínea, no repetir el contenido por línea.
 
+- [ ] **WebTree: cobertura completa de formatos (capacidad de motor, no por
+  cliente)** (decisión del usuario, 2026-06): el WebTree debe digerir la familia
+  entera de formatos de un árbol documental, con independencia de que un portal
+  concreto (Jerez incluido) los tenga o no. Hoy `allowed_extensions` =
+  pdf/xlsx/xls/csv/tsv y `parse_structured_file` conoce esos 5; cualquier otro
+  formato se **filtra en el descubrimiento y desaparece** (ni dato ni censo).
+  Faltan, como capacidades genéricas del motor (el cliente solo las activa vía
+  `allowed_extensions`/preset, sin lógica de portal):
+    - **Archivos** (zip/tar/tar.gz/tar.bz2/gz): tratar un archivo-hoja como
+      EXPANSIÓN — descomprimir y pasar cada fichero interno por el flujo normal
+      (recursivo: interno tabular → dato, interno prosa → censo). La capacidad de
+      abrir ya existe en `compressed_file.py`, pero extrae UNA entrada nombrada;
+      hay que generalizarla a "expandir todas las entradas".
+    - **Ofimática** (docx/doc/odt): por defecto son prosa → censo/catálogo (como
+      un PDF de prosa); hoy se filtran y se pierden, que es peor que catalogarlos.
+      Si traen TABLAS de datos, extraerlas (lector de tablas docx vía python-docx
+      en el parser).
+    - **Hojas de cálculo abiertas** (ods): el carve tabular ya la considera dato,
+      pero `parse_structured_file` no la parsea (solo xlsx/xls/csv/tsv) — añadir.
+  Nota: los audits no ven estos formatos porque el filtro los descarta antes de
+  contar; una pasada con `allowed_extensions` ampliado revelaría si un portal los
+  usa. (Sondeo superficial 2026-06: 0 zip y 0 doc(x) en 3 secciones económicas de
+  Jerez — no concluyente.)
+
 - [x] **Parser: detección de cabecera (filas-pancarta)** (este push): el sniffing
   _sniff_header_row elige como cabecera la primera fila con ≥2 celdas pobladas y
   anchura cercana a la máxima (la pancarta de celda única nunca cumple);
