@@ -11,6 +11,10 @@ services:
       ODM_ADMIN_USER: ${ODM_ADMIN_USER:-}
       ODM_ADMIN_PASSWORD: ${ODM_ADMIN_PASSWORD:-}
       ODM_SESSION_DAYS: ${ODM_SESSION_DAYS:-30}
+      # Política de clases de fuente admitidas (gobernanza). Esta instancia existe
+      # para cosechar portales públicos sin API (Jerez/TYPO3): scraping_publico
+      # se admite explícitamente. scraping_privado sigue fuera.
+      ODM_ALLOWED_SOURCE_CLASSES: ${ODM_ALLOWED_SOURCE_CLASSES:-api_abierta,publicacion_abierta,scraping_publico}
       ODM_CORS_ORIGINS: ${ODM_CORS_ORIGINS:-}
       ODM_ALLOWED_SOURCE_CLASSES: ${ODM_ALLOWED_SOURCE_CLASSES:-}
       ODM_PUBLISHER_MIN_INTERVAL_S: ${ODM_PUBLISHER_MIN_INTERVAL_S:-30}
