@@ -67,3 +67,45 @@ def test_fila_leyenda_de_formulas_se_filtra():
     filas = _parse_excel(contenido, {}, "xlsx")
     assert len(filas) == 1
     assert filas[0]["org"] == "00"
+
+
+# ── Guard anti-prosa de parse_pdf_table (_parece_tabla) ──────────────────────
+# Caso Plan Estratégico: PDF de prosa que pdfplumber 'tabula' por maquetación,
+# colapsando a una columna; los títulos partidos a dos líneas entran como filas
+# espurias. Debe dar 0 filas (no contaminar 'Extracción de datos').
+
+def test_prosa_una_columna_no_es_tabla():
+    from app.fetchers.file_parsers import _parece_tabla
+    prosa = [
+        {"col_0": "Plan Estratégico de Subvenciones 2024-2026"},
+        {"col_0": "del Ayuntamiento de Jerez de la"},
+        {"col_0": "Frontera"},
+        {"col_0": "1. Introducción"},
+    ]
+    assert _parece_tabla(prosa) is False
+
+
+def test_tabla_real_de_dos_columnas_pasa():
+    from app.fetchers.file_parsers import _parece_tabla
+    tabla = [
+        {"descripcion": "Publicidad Comunicación", "importe": "139200,00"},
+        {"descripcion": "Publicidad Presidencia", "importe": "13600,00"},
+    ]
+    assert _parece_tabla(tabla) is True
+
+
+def test_tabla_con_minoria_de_filas_pobladas_se_descarta():
+    from app.fetchers.file_parsers import _parece_tabla
+    # 1 fila tabular de 4 ⇒ prosa con un renglón que parecía datos
+    casi_prosa = [
+        {"a": "Título largo", "b": ""},
+        {"a": "segunda línea del título", "b": ""},
+        {"a": "tercera línea", "b": ""},
+        {"a": "Concepto", "b": "1000"},
+    ]
+    assert _parece_tabla(casi_prosa) is False
+
+
+def test_lista_vacia_no_es_tabla():
+    from app.fetchers.file_parsers import _parece_tabla
+    assert _parece_tabla([]) is False

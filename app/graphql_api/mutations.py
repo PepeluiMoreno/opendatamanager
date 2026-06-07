@@ -1394,6 +1394,19 @@ class Mutation:
             if not parent:
                 raise ValueError(f"Crawler padre no encontrado: {candidate.crawler_resource_id}")
 
+            # Variante opcional: resuelta por `code` bajo la especie del padre.
+            preset_id = None
+            if input.variant:
+                from app.models import FetcherPreset
+                preset = db.query(FetcherPreset).filter(
+                    FetcherPreset.code == input.variant,
+                    FetcherPreset.fetcher_id == parent.fetcher_id,
+                    FetcherPreset.deleted_at.is_(None)).first()
+                if not preset:
+                    raise ValueError(
+                        f"Variante '{input.variant}' no existe para la especie del crawler")
+                preset_id = preset.id
+
             child = Resource(
                 name=input.name,
                 fetcher_id=parent.fetcher_id,
@@ -1406,6 +1419,7 @@ class Mutation:
                 load_mode=input.load_mode or "upsert",
                 parent_resource_id=parent.id,
                 auto_generated=True,
+                preset_id=preset_id,
             )
             db.add(child)
             db.flush()

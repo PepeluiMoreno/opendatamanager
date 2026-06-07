@@ -171,6 +171,14 @@
         <label class="block text-xs text-gray-400 mb-1">target_table</label>
         <input v-model="promoteForm.targetTable" class="input w-full mb-3 text-sm font-mono" placeholder="snake_case" />
 
+        <label class="block text-xs text-gray-400 mb-1">Variante</label>
+        <select v-model="promoteForm.variant" class="input w-full mb-3 text-sm">
+          <option value="">(sin variante)</option>
+          <option value="Censo documental">Censo documental</option>
+          <option value="Extracción de datos">Extracción de datos</option>
+          <option value="Extracción con receta">Extracción con receta</option>
+        </select>
+
         <label class="block text-xs text-gray-400 mb-1">Schedule (cron, opcional)</label>
         <input v-model="promoteForm.schedule" class="input w-full mb-3 text-sm" placeholder="0 3 * * 0" />
 
@@ -278,7 +286,7 @@ const selection = ref(new Set())
 
 // Promote
 const promoteCandidate = ref(null)
-const promoteForm      = ref({ name: '', targetTable: '', schedule: '', enableLoad: false })
+const promoteForm      = ref({ name: '', targetTable: '', schedule: '', enableLoad: false, variant: '' })
 const promoting        = ref(false)
 const promoteError     = ref('')
 
@@ -425,7 +433,7 @@ function reset() {
 // ── Promote ────────────────────────────────────────────────────────────────
 function openPromote(c) {
   promoteCandidate.value = c
-  promoteForm.value = { name: c.suggestedName || '', targetTable: nameToTable(c.suggestedName || ''), schedule: '', enableLoad: false }
+  promoteForm.value = { name: c.suggestedName || '', targetTable: nameToTable(c.suggestedName || ''), schedule: '', enableLoad: false, variant: '' }
   promoteError.value = ''
 }
 
@@ -437,6 +445,7 @@ async function confirmPromote() {
     await gqlPromoteCandidate(promoteCandidate.value.id, {
       name: promoteForm.value.name, targetTable: promoteForm.value.targetTable,
       schedule: promoteForm.value.schedule || null, enableLoad: promoteForm.value.enableLoad, loadMode: 'upsert',
+      variant: promoteForm.value.variant || null,
     })
     promoteCandidate.value = null
     await loadCandidates()
