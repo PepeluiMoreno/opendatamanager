@@ -68,9 +68,8 @@ RECETAS = {
     # remanente de tesorería (4.x_remanente_de_tesoreria_...) encaja con la
     # gramática. CLAVE ESTRECHA al fichero de remanente (no 'liquidacionAyto' de
     # carpeta): el de resultado (2._resultado...) menciona "...remanente de
-    # tesorería para gastos generales" en prosa y daría un falso positivo; y el
-    # resultado presupuestario ajustado vive en la última columna de una megacelda,
-    # inalcanzable por la cascada. posicion="derecha": sin ello, el rótulo
+    # tesorería para gastos generales" en prosa y daría un falso positivo.
+    # posicion="derecha": sin ello, el rótulo
     # "...total (1 + 2 - 3 + 4)" haría pescar el "1" de la fórmula
     # (validado en vivo: total=222.081.219,48, gastos generales=39.677.571,37).
     "remanente_de_tesoreria": [
@@ -80,6 +79,15 @@ RECETAS = {
         {"campo": "remanente_tesoreria_gastos_generales",
          "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero",
          "posicion": "derecha"},
+    ],
+    # Resultado presupuestario (fichero 2._resultado_presupuestario...): el valor
+    # ajustado vive en la ÚLTIMA columna de una megacelda (tras derechos y
+    # obligaciones), así que posicion="ultima" — "derecha" pescaría el primero.
+    # Validado en vivo contra el PDF 2023: resultado_presupuestario_ajustado=6.288.438,43.
+    "resultado_presupuestario": [
+        {"campo": "resultado_presupuestario_ajustado",
+         "etiqueta": r"Resultado Presupuestario Ajustado", "tipo": "numero",
+         "posicion": "ultima"},
     ],
 }
 
@@ -185,17 +193,17 @@ def main():
                              "include_patterns": INCLUDE})
         hojas = wt.discover()
         props = infer(hojas)
-        # §8b carve-out: el inferer sepulta el "estado de remanente de tesorería"
+        # §8b carve-out: el inferer sepulta los estados-receta (remanente, resultado)
         # dentro del bundle NN-liquidacionAyto, dejando inerte una receta validada.
-        # Lo re-inferimos aparte para darle serie(s) propia(s) cuyo path_template
-        # contiene 'remanente_de_tesoreria' → casa la clave RECETAS y extrae el
-        # remanente total y para gastos generales (validado contra los PDF reales;
-        # el nombre del fichero varía entre años pero el token sobrevive).
-        _rem = [h for h in hojas if "remanente_de_tesoreria" in (h.get("url") or "").lower()]
-        if _rem:
-            nuevas = infer(_rem)
-            props.extend(nuevas)
-            print(f"[carve-out] remanente de tesorería: {len(_rem)} ficheros → {len(nuevas)} serie(s) propia(s)")
+        # Cada uno se re-infiere aparte para darle serie(s) propia(s) cuyo
+        # path_template contiene su token → casa la clave RECETAS. Validado contra
+        # los PDF reales (el nombre del fichero varía entre años; el token sobrevive).
+        for _tok in ("remanente_de_tesoreria", "resultado_presupuestario"):
+            _hs = [h for h in hojas if _tok in (h.get("url") or "").lower()]
+            if _hs:
+                _nuevas = infer(_hs)
+                props.extend(_nuevas)
+                print(f"[carve-out] {_tok}: {len(_hs)} ficheros → {len(_nuevas)} serie(s) propia(s)")
         print(f"[infer] {len(hojas)} hojas → {len(props)} propuestas")
 
         # variantes
