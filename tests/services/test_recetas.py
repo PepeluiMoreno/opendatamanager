@@ -59,3 +59,24 @@ def test_liquidacion_remanente():
         "remanente_tesoreria_gastos_generales": 39677571.37,
     }
 
+
+# ── posicion="ultima": dato en la última columna (resultado presupuestario) ──
+# El rótulo va en una megacelda y la fila trae cifras intermedias (derechos,
+# obligaciones) antes del dato. "derecha" cogería el primero (mal); "ultima",
+# el último (bien). Rejilla calcada del PDF real 2023 (2._resultado_...ical.pdf).
+GRID_RESULTADO = [
+    ["CONCEPTOS", "DERECHOS", "OBLIGACIONES", "AJUSTES", "RESULTADO"],
+    ["…I. RESULTADO PRESUPUESTARIO DEL EJERCICIO… RESULTADO PRESUPUESTARIO AJUSTADO (I+II)",
+     "232.468.641,11", "226.180.202,68", "", "6.288.438,43"],
+]
+
+
+def test_resultado_presupuestario_ultima_columna():
+    cap = {"campo": "resultado_presupuestario_ajustado",
+           "etiqueta": r"Resultado Presupuestario Ajustado", "tipo": "numero"}
+    # con "ultima" sale el valor real de la última columna
+    assert extraer_con_receta(GRID_RESULTADO, [{**cap, "posicion": "ultima"}]) == {
+        "resultado_presupuestario_ajustado": 6288438.43}
+    # con "derecha" cogería el primer número de la fila (por eso hizo falta "ultima")
+    assert extraer_con_receta(GRID_RESULTADO, [{**cap, "posicion": "derecha"}]) == {
+        "resultado_presupuestario_ajustado": 232468641.11}
