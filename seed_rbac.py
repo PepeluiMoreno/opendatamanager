@@ -47,6 +47,10 @@ ROLES = {
                  _LECTURA + ["recursos.crear", "recursos.editar", "recursos.testar"]),
     "ejecutor": ("Ejecutor", "Lectura y ejecución de recursos (lanzar/parar)",
                  _LECTURA + ["ejecuciones.lanzar", "ejecuciones.parar"]),
+    "suscriptor": ("Suscriptor", "Cuenta de servicio de aplicaciones suscriptoras "
+                   "(define recursos, lanza ejecuciones y gestiona su suscripción)",
+                   _LECTURA + ["recursos.crear", "recursos.editar",
+                               "ejecuciones.lanzar", "aplicaciones.gestionar"]),
     "administrador": ("Administrador", "Acceso total",
                       [c for c, *_ in FUNCIONALIDADES]),
 }
