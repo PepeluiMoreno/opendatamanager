@@ -55,6 +55,32 @@ RECETAS = {
          "etiqueta": "Periodo Medio de Pago Global a Proveedores Mensual",
          "tipo": "numero"},
     ],
+    # Morosidad trimestral (Ley 15/2010). El informe es un formulario normalizado
+    # a nivel estatal: rótulos estables. Clave = substring del path_template
+    # (filename con guiones bajos: "..._Ley_15_10_{year}_{quarter}oT...").
+    # CAVEAT: confirmar la clave contra una URL real y recordar que la ruta
+    # {year} de morosidad está 404 (ver BACKLOG "Jerez ×3") — no extraerá hasta
+    # que se arregle el patrón de ruta.
+    "Ley_15": [
+        {"campo": "pmp_dias",
+         "etiqueta": r"Periodo Medio de Pago", "tipo": "numero"},
+        {"campo": "ratio_operaciones_pagadas",
+         "etiqueta": r"Ratio de(?: las)? Operaciones Pagadas", "tipo": "numero"},
+        {"campo": "ratio_operaciones_pendientes",
+         "etiqueta": r"Ratio de(?: las)? Operaciones Pendientes", "tipo": "numero"},
+    ],
+    # Carátula/resumen de la liquidación presupuestaria del Ayuntamiento.
+    # Rótulos del modelo normalizado (TRLRHL/ICAL). Clave = sección del path.
+    # CAVEAT: la familia mezcla varios documentos (auditoría: 5 ficheros,
+    # formulario); confirmar la clave y los rótulos contra una muestra real.
+    "liquidacionAyto": [
+        {"campo": "resultado_presupuestario_ajustado",
+         "etiqueta": r"Resultado Presupuestario Ajustado", "tipo": "numero"},
+        {"campo": "remanente_tesoreria_gastos_generales",
+         "etiqueta": r"Remanente de Tesorer[ií]a para Gastos Generales", "tipo": "numero"},
+        {"campo": "remanente_tesoreria_total",
+         "etiqueta": r"Remanente de Tesorer[ií]a Total", "tipo": "numero"},
+    ],
 }
 
 EXTRAER = [
