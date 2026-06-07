@@ -12,5 +12,6 @@ No hay plugins ni clases — un solo algoritmo basado en:
 
 from .inferer import infer
 from .models import GroupingProposal
+from .tabular_split import carve_tabular_series
 
-__all__ = ["infer", "GroupingProposal"]
+__all__ = ["infer", "GroupingProposal", "carve_tabular_series"]

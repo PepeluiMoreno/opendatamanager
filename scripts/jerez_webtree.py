@@ -36,6 +36,7 @@ from app.database import SessionLocal
 from app.fetchers.web_tree_fetcher import WebTreeFetcher
 from app.models import Fetcher, Publisher, Resource, ResourceCandidate, ResourceParam
 from app.services.grouping.inferer import infer
+from app.services.grouping import carve_tabular_series
 
 ROOT = "https://transparencia.jerez.es/infopublica"
 PATH_PREFIX = "/infopublica"
@@ -196,6 +197,15 @@ def main():
             nuevas = infer(_rem)
             props.extend(nuevas)
             print(f"[carve-out] remanente de tesorería: {len(_rem)} ficheros → {len(nuevas)} serie(s) propia(s)")
+        # Capacidad GENÉRICA del motor: las hojas tabulares (xlsx/csv/tsv) son dato,
+        # no censo. Rescatamos las sepultadas en bundles mixtos como series propias
+        # para promoverlas como datos. El "qué es tabular" vive en el motor
+        # (app/services/grouping/tabular_split.py); aquí solo se invoca.
+        tabulares = carve_tabular_series(hojas, props)
+        if tabulares:
+            props.extend(tabulares)
+            print(f"[carve-out] tabular en bundles mixtos → {len(tabulares)} serie(s) de datos")
+        _ids_tabulares = {id(p) for p in tabulares}
         print(f"[infer] {len(hojas)} hojas → {len(props)} propuestas")
 
         # variantes
@@ -252,7 +262,8 @@ def main():
         import json as _json
         for p in props:
             receta = next((r for pat, r in RECETAS.items() if pat in p.path_template), None)
-            extraer = receta is not None or any(pat in p.path_template for pat in EXTRAER)
+            es_tabular = id(p) in _ids_tabulares  # rescatada por carve_tabular_series → datos
+            extraer = receta is not None or es_tabular or any(pat in p.path_template for pat in EXTRAER)
             if not extraer:
                 continue  # sin artificios: la taxonomía se recalcula con infer() cuando haga falta
             cand = ResourceCandidate(
