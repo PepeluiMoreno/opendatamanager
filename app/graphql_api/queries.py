@@ -339,6 +339,39 @@ class Query:
             db.close()
 
     @strawberry.field
+    def manifest_template(self, fetcher_code: str, preset_code: Optional[str] = None) -> strawberry.scalars.JSON:
+        """Devuelve un manifiesto-plantilla para un fetcher (y, opcionalmente, una
+        variante/preset), listo para descargar, rellenar e importar.
+
+        Los params del preset se incluyen como punto de partida; el bloque
+        `_plantilla` lleva las instrucciones. Protegida por la auth de /graphql.
+        """
+        from app.services.manifests import template_manifest
+        from app.models import Fetcher as FetcherM, FetcherPreset as FetcherPresetM
+        db = get_db()
+        try:
+            fetcher = db.query(FetcherM).filter(FetcherM.code == fetcher_code).first()
+            if not fetcher:
+                return {"error": f"Fetcher con code '{fetcher_code}' no encontrado"}
+            presets = (db.query(FetcherPresetM)
+                       .filter(FetcherPresetM.fetcher_id == fetcher.id,
+                               FetcherPresetM.deleted_at.is_(None)).all())
+            preset = None
+            if preset_code:
+                preset = next((p for p in presets if p.code == preset_code), None)
+                if preset is None:
+                    return {"error": f"Preset '{preset_code}' no existe bajo el fetcher '{fetcher_code}'"}
+            return template_manifest(
+                fetcher.code,
+                preset_code=preset.code if preset else None,
+                preset_params=(preset.params if preset else None),
+                locked_params=(preset.locked_params if preset else None),
+                available_presets=([p.code for p in presets] if not preset else None),
+            )
+        finally:
+            db.close()
+
+    @strawberry.field
     def fetchers(self) -> List[FetcherType]:
         """Lista todos los fetchers disponibles"""
         db = get_db()

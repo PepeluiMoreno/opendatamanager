@@ -115,6 +115,68 @@ def build_manifest(publisher, resources_with_fetchers) -> Dict[str, Any]:
     }
 
 
+def template_manifest(fetcher_code, *, preset_code=None, preset_params=None,
+                      locked_params=None, available_presets=None,
+                      resource_name=None) -> Dict[str, Any]:
+    """Esqueleto de manifiesto para que un humano lo rellene (export-as-template).
+
+    Función pura: no toca BD. Toma el `code` del fetcher y, si se indica una
+    variante, los params del preset (su bloque JSONB) y sus `locked_params`.
+    Devuelve un manifiesto-plantilla con: publisher vacío, un recurso esqueleto,
+    los params del preset como punto de partida (excluidos los bloqueados, que
+    fija el propio preset) y un bloque `_plantilla` con instrucciones. El bloque
+    `_plantilla` lo ignora el importador; el resto es importable una vez relleno.
+    """
+    preset_params = preset_params or {}
+    locked = set(locked_params or [])
+
+    def _val(v):
+        return v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+
+    editable = [
+        {"key": k, "value": _val(v), "is_external": False}
+        for k, v in sorted(preset_params.items()) if k not in locked
+    ]
+    resource: Dict[str, Any] = {
+        "name": resource_name or "<nombre único y descriptivo del recurso>",
+        "fetcher": fetcher_code,
+        "schedule": "<cron opcional, p. ej. 0 4 1 * *>",
+        "active": True,
+        "params": editable,
+    }
+    if preset_code:
+        resource["preset"] = preset_code
+
+    plantilla: Dict[str, Any] = {
+        "fetcher": fetcher_code,
+        "como_rellenar": [
+            "Rellena 'publisher': 'acronimo' es obligatorio e identifica al organismo.",
+            "Pon en el recurso un 'name' único por publisher.",
+            "Completa los valores de 'params' (los presentes vienen del preset como "
+            "punto de partida) y añade los que falten propios del recurso (p. ej. la URL raíz).",
+            "Importa con la mutation importManifest; reimportar es idempotente "
+            "(upsert por publisher+name).",
+        ],
+    }
+    if preset_code:
+        plantilla["preset"] = preset_code
+    if locked:
+        plantilla["params_fijados_por_preset"] = sorted(locked)
+    if available_presets:
+        plantilla["presets_disponibles"] = sorted(available_presets)
+    plantilla["ver_tambien"] = (
+        "query resourceManifest(id) exporta un recurso real como plantilla por ejemplo."
+    )
+
+    return {
+        "odm_manifest_version": MANIFEST_VERSION,
+        "_plantilla": plantilla,
+        "publisher": {"acronimo": "", "nombre": "", "nivel": "MUNICIPAL",
+                      "pais": "España", "portal_url": ""},
+        "resources": [resource],
+    }
+
+
 def _policy_error(publisher_nivel: Optional[str], fetcher_code: Optional[str], clase_declarada: Optional[str]) -> Optional[str]:
     """Si la gobernanza está presente, devuelve un error si la clase no se admite."""
     if _admite is None:

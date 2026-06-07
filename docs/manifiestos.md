@@ -51,3 +51,29 @@ aporte fuentes de datos abiertos y otras aplicaciones se beneficien.
 
 La lógica pura (validación y construcción) vive en `app/services/manifests.py` y
 está cubierta por `tests/services/test_manifests.py`.
+
+## Plantilla (¿quién ayuda a escribir el manifiesto?)
+
+Nadie debería escribir un manifiesto de memoria. El **preset es la plantilla**:
+es un bloque de params con nombre para una especie de fetcher, definido una vez
+por quien registra el fetcher. ODM expone dos formas de partir de él:
+
+- **Plantilla en blanco (scaffold):**
+  `query { manifestTemplate(fetcherCode: "Web Tree", presetCode: "Extracción de datos") }`
+  devuelve un manifiesto-esqueleto: `publisher` vacío para rellenar, un recurso
+  con el `fetcher` y el `preset` ya correctos, los **params del preset como punto
+  de partida** (excluidos los `locked_params`, que fija el preset) y un bloque
+  `_plantilla` con instrucciones. Ese bloque lo **ignora el importador**; el
+  resto es importable en cuanto rellenas `publisher.acronimo`, el `name` y los
+  params propios del recurso (p. ej. la URL raíz). Sin `presetCode` lista los
+  presets disponibles del fetcher.
+
+- **Plantilla por ejemplo (export):**
+  `query { resourceManifest(id: "<uuid>") }` exporta un recurso **real y
+  conocido-bueno** como manifiesto importable, con su preset. La mejor plantilla
+  suele ser un recurso que ya funciona: se exporta y se ajusta.
+
+> Nota honesta: los fetchers aún no declaran un **esquema formal de params**
+> (tipo/requerido/ayuda por campo), así que la plantilla autocompleta lo que el
+> preset sabe, no los params propios del recurso. Añadir ese esquema enriquecería
+> la plantilla y es trabajo aparte.

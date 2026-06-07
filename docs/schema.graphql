@@ -269,6 +269,7 @@ type PublisherType {
 
 type Query {
   resourceManifest(id: String!): JSON!
+  manifestTemplate(fetcherCode: String!, presetCode: String = null): JSON!
   fetchers: [FetcherType!]!
   fetcher(id: String!): FetcherType
   resources(activeOnly: Boolean! = false): [ResourceType!]!

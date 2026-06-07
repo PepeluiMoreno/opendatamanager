@@ -119,6 +119,24 @@ createResource(crawler)            # define el árbol a recorrer
 | `Extracción de datos` | datos | parsea ficheros tabulares (XLSX/CSV/PDF-tabla) a filas |
 | `Extracción con receta` | receta | captura magnitudes concretas por receta declarativa |
 
+## Manifiestos (import / export / plantilla)
+
+Un **manifiesto** es un JSON declarativo (publisher + recursos por `fetcher` y
+`preset`, ambos por *código*) para aprovisionar recursos de forma idempotente.
+
+| Operación | Firma | Permiso |
+|---|---|---|
+| Importar | `mutation { importManifest(manifest: JSON) }` → `{ ok, created, updated, skipped, conflicts, errors }` | `recursos.crear` |
+| Exportar | `query { resourceManifest(id: String!) }` → manifiesto del recurso | lectura |
+| Plantilla | `query { manifestTemplate(fetcherCode: String!, presetCode: String) }` → manifiesto-esqueleto | lectura |
+
+- **Idempotente:** publisher por `acronimo`, recurso por `(publisher, name)`; reimportar actualiza, no duplica.
+- **Seguro:** referencia fetcher/preset por *código*; prohíbe `id`/`fetcher_id`/`class_path`.
+- **Plantilla:** `manifestTemplate` arma el esqueleto desde el preset (sus params
+  como punto de partida, sin los `locked_params`) con un bloque `_plantilla` de
+  ayuda que el import ignora; `resourceManifest` exporta un recurso real como
+  plantilla por ejemplo. Detalle en [`manifiestos.md`](manifiestos.md).
+
 ## Permisos (RBAC)
 
 `recursos.crear` · `recursos.editar` · `recursos.borrar` · `ejecuciones.lanzar` ·

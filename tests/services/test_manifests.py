@@ -73,3 +73,44 @@ def test_build_manifest_roundtrip_basico():
     assert m["resources"][0]["params"][0]["key"] == "url"
     # Un manifiesto exportado debe re-validar
     assert validate_manifest(m, {"API REST"}) == []
+
+
+# --- plantilla (scaffold) -----------------------------------------------------
+
+def test_template_manifest_excluye_params_bloqueados():
+    from app.services.manifests import template_manifest, MANIFEST_VERSION
+    t = template_manifest(
+        "Web Tree", preset_code="Censo documental",
+        preset_params={"extract_mode": "censo", "max_file_mb": 50},
+        locked_params=["extract_mode"],
+    )
+    assert t["odm_manifest_version"] == MANIFEST_VERSION
+    assert "_plantilla" in t
+    r = t["resources"][0]
+    assert r["fetcher"] == "Web Tree" and r["preset"] == "Censo documental"
+    keys = {p["key"] for p in r["params"]}
+    assert "extract_mode" not in keys          # lo fija el preset → fuera de params
+    assert "max_file_mb" in keys               # editable
+    assert "extract_mode" in t["_plantilla"]["params_fijados_por_preset"]
+
+
+def test_template_manifest_se_vuelve_valido_al_rellenar():
+    from app.services.manifests import template_manifest, validate_manifest
+    t = template_manifest(
+        "Web Tree", preset_code="Extracción de datos",
+        preset_params={"extract_mode": "datos"}, locked_params=["extract_mode"],
+    )
+    # en crudo NO es válido (publisher.acronimo vacío); el _plantilla se ignora
+    assert validate_manifest(t, {"Web Tree"})
+    t["publisher"]["acronimo"] = "AYTOJEREZ"
+    t["resources"][0]["name"] = "Jerez — económica (datos)"
+    t["resources"][0]["params"].append(
+        {"key": "root_url", "value": "https://transparencia.jerez.es/...", "is_external": False})
+    assert validate_manifest(t, {"Web Tree"}) == []
+
+
+def test_template_manifest_sin_preset_lista_disponibles():
+    from app.services.manifests import template_manifest
+    t = template_manifest("Web Tree", available_presets=["Censo documental", "Extracción de datos"])
+    assert "preset" not in t["resources"][0]
+    assert t["_plantilla"]["presets_disponibles"] == ["Censo documental", "Extracción de datos"]
