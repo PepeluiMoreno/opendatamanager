@@ -123,3 +123,9 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
 ## Hecho
 
 (se irá rellenando con commit asociado)
+
+- [ ] **Auth por token de servicio (Bearer) para clientes máquina** (opción B,
+  al final de la tanda): aceptar `Authorization: Bearer <token>` en el contexto de
+  auth además de la cookie de sesión, con tokens revocables por cuenta de servicio.
+  Hoy los suscriptores (p. ej. ckan-jerez) usan cuenta de servicio + login por
+  cookie (opción A); B es lo más seguro/ortodoxo para máquina a máquina.
