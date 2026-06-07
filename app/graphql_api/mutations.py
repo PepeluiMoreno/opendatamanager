@@ -188,6 +188,9 @@ class Mutation:
             if not resource:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
 
+            from app.services.integrity import guard_resource_update
+            guard_resource_update(db, resource, input)
+
             # Actualizar campos
             if input.name is not None:
                 resource.name = input.name
@@ -270,6 +273,7 @@ class Mutation:
                 description=source.description,
                 publisher=source.publisher,
                 fetcher_id=source.fetcher_id,
+                preset_id=source.preset_id,
                 active=False,
                 enable_load=source.enable_load,
                 load_mode=source.load_mode,
@@ -312,6 +316,8 @@ class Mutation:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
 
             now = datetime.utcnow()
+            from app.services.integrity import guard_resource_delete
+            guard_resource_delete(db, resource)
             children = db.query(Resource).filter(
                 Resource.parent_resource_id == resource.id,
                 Resource.auto_generated == True,
@@ -583,6 +589,8 @@ class Mutation:
                                                     FetcherPreset.deleted_at.is_(None)).first()
             if not preset:
                 raise ValueError("El perfil no existe")
+            from app.services.integrity import guard_preset_update
+            guard_preset_update(db, preset, changing_contract=(params is not None and params != preset.params))
             if code is not None and code.strip() and code.strip() != preset.code:
                 dup = db.query(FetcherPreset).filter(
                     FetcherPreset.fetcher_id == preset.fetcher_id,

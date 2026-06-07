@@ -82,6 +82,8 @@ mutation Crear($input: CreateResourceInput!) {
 } }
 ```
 
+> **Integridad frente a suscriptores (fail-safe):** `updateResource` y `deleteResource` se **bloquean** si el recurso tiene suscripciones activas y el cambio afecta a su contrato de extracción (fetcher/preset/params) o lo elimina; la salida es `cloneResource` (clonar y aplicar el cambio al clon). Igualmente, `updateFetcherPreset` se bloquea al editar los `params` de un preset usado por recursos suscritos. Los cambios seguros (schedule, descripción, active) no se bloquean.
+
 ## Discovery (Web Tree)
 
 El discovery se dispara **ejecutando el crawler** (recurso Web Tree padre) y es
