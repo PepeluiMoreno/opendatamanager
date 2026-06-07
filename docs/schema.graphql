@@ -1,0 +1,440 @@
+type AppConfigType {
+  key: String!
+  value: JSON!
+  description: String
+  updatedAt: DateTime
+}
+
+type ApplicationNotificationType {
+  id: String!
+  applicationId: String!
+  datasetId: String
+  sentAt: DateTime!
+  statusCode: Int
+  responseBody: String
+  errorMessage: String
+}
+
+type ApplicationType {
+  id: String!
+  name: String!
+  description: String
+  modelsPath: String
+  subscribedProjects: [String!]!
+  active: Boolean!
+  webhookUrl: String
+  consumptionMode: String!
+  deletedAt: DateTime
+}
+
+input CreateApplicationInput {
+  name: String!
+  description: String = null
+  subscribedProjects: [String!]! = []
+  active: Boolean! = true
+  consumptionMode: String! = "webhook"
+  webhookUrl: String = null
+}
+
+input CreateDerivedDatasetConfigInput {
+  sourceResourceId: String!
+  targetName: String!
+  keyField: String!
+  extractFields: JSON!
+  mergeStrategy: String! = "upsert"
+  enabled: Boolean! = true
+  description: String = null
+}
+
+input CreateFetcherInput {
+  name: String!
+  classPath: String!
+  description: String = null
+}
+
+input CreatePublisherInput {
+  nombre: String!
+  nivel: String!
+  pais: String! = "España"
+  acronimo: String = null
+  comunidadAutonoma: String = null
+  provincia: String = null
+  municipio: String = null
+  portalUrl: String = null
+  email: String = null
+  telefono: String = null
+}
+
+input CreateResourceInput {
+  name: String!
+  description: String = null
+  fetcherId: String!
+  params: [ResourceParamInput!]!
+  active: Boolean! = true
+  publisher: String = null
+  publisherId: String = null
+  targetTable: String = null
+  schedule: String = null
+  presetId: String = null
+}
+
+input CreateTypeFetcherParamInput {
+  fetcherId: String!
+  paramName: String!
+  required: Boolean! = true
+  dataType: String!
+  defaultValue: JSON = null
+  enumValues: JSON = null
+  description: String = null
+  group: String = null
+  hint: String = null
+  helpMd: String = null
+  visibleWhen: JSON = null
+}
+
+type DatasetSubscriptionType {
+  id: String!
+  applicationId: String!
+  resourceId: String!
+  pinnedVersion: String
+  autoUpgrade: String!
+  currentVersion: String
+  notifiedAt: DateTime
+}
+
+type DatasetType {
+  id: String!
+  resourceId: String!
+  executionId: String
+  version: String!
+  label: String
+  majorVersion: Int!
+  minorVersion: Int!
+  patchVersion: Int!
+  schemaJson: JSON!
+  dataPath: String!
+  recordCount: Int
+  checksum: String
+  createdAt: DateTime!
+  downloadUrls: JSON!
+}
+
+"""Date with time (isoformat)"""
+scalar DateTime
+
+type DerivedDatasetConfigType {
+  id: String!
+  sourceResourceId: String!
+  targetName: String!
+  keyField: String!
+  extractFields: JSON!
+  mergeStrategy: String!
+  enabled: Boolean!
+  description: String
+  createdAt: DateTime!
+  entryCount: Int
+}
+
+type ExecutionResult {
+  success: Boolean!
+  message: String!
+  resourceId: String
+  executionId: String
+  sampleData: JSON
+}
+
+type FetcherParamType {
+  id: String!
+  paramName: String!
+  required: Boolean!
+  dataType: String!
+  defaultValue: JSON
+  enumValues: JSON
+  description: String
+  group: String
+  hint: String
+  helpMd: String
+  visibleWhen: JSON
+}
+
+type FetcherType {
+  id: String!
+  code: String!
+  classPath: String
+  implemented: Boolean!
+  description: String
+  paramsDef: [FetcherParamType!]!
+  name: String!
+  resources: [ResourceType!]
+  deletedAt: DateTime
+  createdAt: DateTime
+  presetParams: JSON
+  presets: [PresetType!]
+}
+
+type FieldMetadataType {
+  id: String!
+  tableName: String!
+  fieldName: String!
+  label: String
+  helpText: String
+  placeholder: String
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
+
+type Mutation {
+  createResource(input: CreateResourceInput!): ResourceType!
+  importManifest(manifest: JSON!): JSON!
+  updateResource(id: String!, input: UpdateResourceInput!): ResourceType!
+  cloneResource(id: String!, name: String = null): ResourceType!
+  deleteResource(id: String!, hardDelete: Boolean! = false): Boolean!
+  executeResource(id: String!, params: JSON = null): ExecutionResult!
+  executeAllResources: ExecutionResult!
+  createFetcher(input: CreateFetcherInput!): FetcherType!
+  updateFetcher(id: String!, input: UpdateFetcherInput!): FetcherType!
+  createFetcherPreset(fetcherId: String!, code: String!, description: String = null, params: JSON = null, lockedParams: JSON = null): PresetType!
+  updateFetcherPreset(id: String!, code: String = null, description: String = null, params: JSON = null, lockedParams: JSON = null): PresetType!
+  deleteFetcherPreset(id: String!): Boolean!
+  deleteFetcher(id: String!, hardDelete: Boolean! = false): Boolean!
+  createTypeFetcherParam(input: CreateTypeFetcherParamInput!): FetcherParamType!
+  updateTypeFetcherParam(id: String!, input: UpdateTypeFetcherParamInput!): FetcherParamType!
+  deleteTypeFetcherParam(id: String!): Boolean!
+  setConfig(input: SetConfigInput!): AppConfigType!
+  abortExecution(id: String!): ExecutionResult!
+  pauseExecution(id: String!): ExecutionResult!
+  resumeExecution(id: String!): ExecutionResult!
+  deleteExecution(id: String!, hardDelete: Boolean! = false): Boolean!
+  createApplication(input: CreateApplicationInput!): ApplicationType!
+  updateApplication(id: String!, input: UpdateApplicationInput!): ApplicationType!
+  deleteApplication(id: String!, hardDelete: Boolean! = false): Boolean!
+  activateApplication(id: String!, active: Boolean!): ApplicationType!
+  setApplicationWebhook(id: String!, webhookUrl: String!, webhookSecret: String!): ApplicationType!
+  removeApplicationWebhook(id: String!): ApplicationType!
+  createDerivedDatasetConfig(input: CreateDerivedDatasetConfigInput!): DerivedDatasetConfigType!
+  updateDerivedDatasetConfig(id: String!, input: UpdateDerivedDatasetConfigInput!): DerivedDatasetConfigType!
+  deleteDerivedDatasetConfig(id: String!, hardDelete: Boolean! = false): Boolean!
+  toggleDerivedDatasetConfig(id: String!, enabled: Boolean!): DerivedDatasetConfigType!
+  subscribeResource(applicationId: String!, resourceId: String!, pinnedVersion: String = null, autoUpgrade: String! = "patch"): DatasetSubscriptionType!
+  unsubscribeResource(id: String!): Boolean!
+  createPublisher(input: CreatePublisherInput!): PublisherType!
+  updatePublisher(id: String!, input: UpdatePublisherInput!): PublisherType!
+  deletePublisher(id: String!, hardDelete: Boolean! = false): Boolean!
+  restoreResource(id: String!): Boolean!
+  restoreApplication(id: String!): Boolean!
+  restorePublisher(id: String!): Boolean!
+  restoreFetcher(id: String!): Boolean!
+  restoreExecution(id: String!): Boolean!
+  promoteCandidate(id: ID!, input: PromoteCandidateInput!): ResourceType!
+  discardCandidate(id: ID!, reviewer: String = null): ResourceCandidateType!
+  mergeCandidates(sourceIds: [ID!]!, targetId: ID!): ResourceCandidateType!
+  splitCandidate(id: ID!, groups: JSON!): [ResourceCandidateType!]!
+}
+
+type PresetType {
+  id: String!
+  code: String!
+  description: String
+  params: JSON
+  lockedParams: JSON
+}
+
+input PromoteCandidateInput {
+  name: String!
+  targetTable: String!
+  schedule: String = null
+  enableLoad: Boolean = false
+  loadMode: String = "upsert"
+  variant: String = null
+}
+
+type PublisherType {
+  id: String!
+  nombre: String!
+  acronimo: String
+  nivel: String!
+  pais: String!
+  comunidadAutonoma: String
+  provincia: String
+  municipio: String
+  portalUrl: String
+  email: String
+  telefono: String
+  createdAt: DateTime
+  deletedAt: DateTime
+}
+
+type Query {
+  resourceManifest(id: String!): JSON!
+  fetchers: [FetcherType!]!
+  fetcher(id: String!): FetcherType
+  resources(activeOnly: Boolean! = false): [ResourceType!]!
+  resource(id: String!): ResourceType
+  resourcesByProject(project: String!): [ResourceType!]!
+  applications: [ApplicationType!]!
+  application(id: String!): ApplicationType
+  fieldMetadata(tableName: String!): [FieldMetadataType!]!
+  previewResourceData(id: String!, limit: Int! = 10, params: JSON = null): JSON!
+  resourceExecutions(resourceId: String = null): [ResourceExecutionType!]!
+  resourceExecution(id: String!): ResourceExecutionType
+  appConfig: [AppConfigType!]!
+  datasets(resourceId: String = null): [DatasetType!]!
+  dataset(id: String!): DatasetType
+  datasetByVersion(resourceId: String!, version: String!): DatasetType
+  datasetSubscriptions(applicationId: String = null, resourceId: String = null): [DatasetSubscriptionType!]!
+  derivedDatasetConfigs(sourceResourceId: String = null): [DerivedDatasetConfigType!]!
+  applicationNotifications(applicationId: String = null, datasetId: String = null): [ApplicationNotificationType!]!
+  publishers: [PublisherType!]!
+  publisher(id: String!): PublisherType
+  deletedResources: [ResourceType!]!
+  deletedApplications: [ApplicationType!]!
+  deletedPublishers: [PublisherType!]!
+  deletedFetchers: [FetcherType!]!
+  deletedExecutions: [ResourceExecutionType!]!
+  resourceCandidates(crawlerResourceId: ID = null, executionId: ID = null, status: String = null): [ResourceCandidateType!]!
+  resourceCandidate(id: ID!): ResourceCandidateType
+  resourceChildren(parentResourceId: ID!): [ResourceType!]!
+}
+
+type ResourceCandidateType {
+  id: String!
+  executionId: String
+  crawlerResourceId: String!
+  pathTemplate: String!
+  dimensions: JSON!
+  matchedUrls: JSON!
+  fileTypes: JSON!
+  suggestedName: String
+  confidence: Float
+  status: String!
+  promotedResourceId: String
+  mergedIntoId: String
+  splitFromId: String
+  detectedAt: DateTime
+  reviewedAt: DateTime
+  reviewedBy: String
+  deletedAt: DateTime
+}
+
+type ResourceExecutionType {
+  id: String!
+  resourceId: String!
+  resourceName: String
+  startedAt: DateTime!
+  completedAt: DateTime
+  status: String!
+  totalRecords: Int
+  recordsLoaded: Int
+  stagingPath: String
+  errorMessage: String
+  executionParams: JSON
+  pauseRequested: Boolean!
+  activeSeconds: Int
+  deletedAt: DateTime
+}
+
+input ResourceParamInput {
+  key: String!
+  value: String!
+  isExternal: Boolean! = false
+}
+
+type ResourceParamType {
+  id: String!
+  key: String!
+  value: String!
+  isExternal: Boolean!
+}
+
+type ResourceType {
+  id: String!
+  name: String!
+  description: String
+  publisher: String
+  publisherId: String
+  publisherObj: PublisherType
+  targetTable: String
+  active: Boolean!
+  schedule: String
+  fetcher: FetcherType!
+  params: [ResourceParamType!]!
+  createdAt: DateTime
+  deletedAt: DateTime
+  parentResourceId: String
+  autoGenerated: Boolean!
+  origin: String
+  children: [ResourceType!]
+  preset: PresetType
+  lastTestedAt: DateTime
+}
+
+input SetConfigInput {
+  key: String!
+  value: JSON!
+}
+
+input UpdateApplicationInput {
+  name: String = null
+  description: String = null
+  subscribedProjects: [String!] = null
+  active: Boolean = null
+  consumptionMode: String = null
+  webhookUrl: String = null
+}
+
+input UpdateDerivedDatasetConfigInput {
+  targetName: String = null
+  keyField: String = null
+  extractFields: JSON = null
+  mergeStrategy: String = null
+  enabled: Boolean = null
+  description: String = null
+}
+
+input UpdateFetcherInput {
+  name: String = null
+  classPath: String = null
+  description: String = null
+}
+
+input UpdatePublisherInput {
+  nombre: String = null
+  nivel: String = null
+  pais: String = null
+  acronimo: String = null
+  comunidadAutonoma: String = null
+  provincia: String = null
+  municipio: String = null
+  portalUrl: String = null
+  email: String = null
+  telefono: String = null
+}
+
+input UpdateResourceInput {
+  name: String = null
+  description: String = null
+  publisher: String = null
+  publisherId: String = null
+  targetTable: String = null
+  fetcherId: String = null
+  params: [ResourceParamInput!] = null
+  active: Boolean = null
+  schedule: String = null
+  presetId: String = null
+}
+
+input UpdateTypeFetcherParamInput {
+  paramName: String = null
+  required: Boolean = null
+  dataType: String = null
+  defaultValue: JSON = null
+  enumValues: JSON = null
+  description: String = null
+  group: String = null
+  hint: String = null
+  helpMd: String = null
+  visibleWhen: JSON = null
+}
