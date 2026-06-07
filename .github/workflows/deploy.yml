@@ -100,7 +100,24 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             umask 077
             printf '%s\n' "$ODMGR_ENV_PRODUCTION" > .env.production
-            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml pull
-            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
-            docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps
+            COMPOSE="docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml"
+            $COMPOSE pull
+            $COMPOSE up -d --remove-orphans
+            $COMPOSE ps
+            echo "[healthcheck] esperando a que el contenedor 'app' responda /health (uvicorn :8000)..."
+            sleep 10
+            healthy=0
+            for i in $(seq 1 40); do
+              if $COMPOSE exec -T app python -c "import sys,urllib.request,json; d=json.load(urllib.request.urlopen('http://localhost:8000/health',timeout=3)); sys.exit(0 if d.get('status')=='healthy' else 1)" >/dev/null 2>&1; then
+                healthy=1; echo "[healthcheck] OK: app saludable (intento $i)"; break
+              fi
+              echo "[healthcheck] intento $i/40: la app aún no responde healthy; reintento en 5s..."
+              sleep 5
+            done
+            if [ "$healthy" != "1" ]; then
+              echo "[healthcheck] FALLO: la app no quedó saludable (~210s). Se evita un deploy fantasma: el workflow termina en ROJO."
+              $COMPOSE ps
+              $COMPOSE logs --tail=120 app || true
+              exit 1
+            fi
             docker image prune -f
