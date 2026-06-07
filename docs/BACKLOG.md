@@ -153,3 +153,12 @@ Convención: `[ ]` pendiente · `[x]` hecho (con commit) · `[-]` descartado (co
   auth además de la cookie de sesión, con tokens revocables por cuenta de servicio.
   Hoy los suscriptores (p. ej. ckan-jerez) usan cuenta de servicio + login por
   cookie (opción A); B es lo más seguro/ortodoxo para máquina a máquina.
+- **Cuota de refresco por usuario/aplicación (anti-abuso, fase 2).** Ya existe el
+  cooldown por recurso (`execute_cooldown_minutes` en AppConfig, defecto 60 min,
+  aplicado en `executeResource`). Falta el presupuesto diario por cuenta: medir el
+  coste real de cada ejecución (instrumentar en los fetchers los bytes descargados
+  → columna `bytes_downloaded` en `ResourceExecution`), atribuir cada ejecución al
+  usuario que la lanzó (columna `launched_by`), y denegar `executeResource` cuando
+  la suma del día supere la cuota del usuario (p. ej. `quota_refresh_mb_dia` en el
+  Usuario o su rol; las ejecuciones programadas del scheduler quedan exentas).
+  Exponer `quotaStatus` (gastado/restante) por API para que los clientes lo pinten.

@@ -396,6 +396,35 @@ class Mutation:
                     message=f"Max concurrent processes reached ({running_count}/{max_concurrent}). Wait for a slot to free up.",
                     resource_id=resource_id,
                 )
+
+            # Cooldown anti-abuso: si el recurso ya se ejecutó CON ÉXITO hace poco,
+            # se rechaza el refresco (configurable; 0 desactiva).
+            cd_cfg = db.query(AppConfig).filter(AppConfig.key == "execute_cooldown_minutes").first()
+            cooldown_min = int(cd_cfg.value) if cd_cfg else 60
+            if cooldown_min > 0:
+                from datetime import timedelta
+                umbral = datetime.utcnow() - timedelta(minutes=cooldown_min)
+                reciente = (
+                    db.query(ResourceExecution)
+                    .filter(
+                        ResourceExecution.resource_id == resource.id,
+                        ResourceExecution.status == "completed",
+                        ResourceExecution.completed_at != None,
+                        ResourceExecution.completed_at >= umbral,
+                        ResourceExecution.deleted_at == None,
+                    )
+                    .order_by(ResourceExecution.completed_at.desc())
+                    .first()
+                )
+                if reciente:
+                    mins = int((datetime.utcnow() - reciente.completed_at).total_seconds() // 60)
+                    return ExecutionResult(
+                        success=False,
+                        message=(f"Cooldown: este recurso se ejecutó con éxito hace {mins} min. "
+                                 f"Se admite un refresco cada {cooldown_min} min (ajustable en "
+                                 f"AppConfig execute_cooldown_minutes)."),
+                        resource_id=resource_id,
+                    )
         except Exception as e:
             return ExecutionResult(success=False, message=str(e), resource_id=id)
         finally:
