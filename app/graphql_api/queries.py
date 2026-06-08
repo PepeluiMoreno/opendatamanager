@@ -141,6 +141,19 @@ def map_publisher(p: Publisher) -> PublisherType:
     )
 
 
+def _created_by_kind(resource: Resource) -> str:
+    """Eje humano de procedencia: quién generó el recurso.
+    - 'sistema'    : derivado automáticamente (crawler/discover).
+    - 'aplicacion' : creado programáticamente (importManifest / seed).
+    - 'usuario'    : creado a mano en la UI.
+    El antiguo 'origin' (ui|manifest|seed) queda como detalle interno del cómo."""
+    if getattr(resource, "auto_generated", False):
+        return "sistema"
+    if getattr(resource, "origin", None) in ("manifest", "seed"):
+        return "aplicacion"
+    return "usuario"
+
+
 def map_resource(resource: Resource) -> ResourceType:
     """Convierte modelo Resource a tipo GraphQL"""
     pub_obj = getattr(resource, 'publisher_obj', None)
@@ -170,6 +183,7 @@ def map_resource(resource: Resource) -> ResourceType:
         deleted_at=resource.deleted_at,
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
         auto_generated=getattr(resource, 'auto_generated', False) or False,
+        created_by_kind=_created_by_kind(resource),
         subscriber_count=getattr(resource, '_subscriber_count', 0),
         subscriber_apps=getattr(resource, '_subscriber_apps', None),
         children=children_list,
@@ -395,7 +409,8 @@ class Query:
 
     @strawberry.field
     def resources(self, info: Info, active_only: bool = False,
-                  used_by: Optional[str] = None) -> List[ResourceType]:
+                  used_by: Optional[str] = None,
+                  created_by: Optional[str] = None) -> List[ResourceType]:
         """Lista todas las fuentes de datos.
 
         `used_by`: id de una aplicación → solo los recursos a los que está suscrita
@@ -425,6 +440,8 @@ class Query:
 
             if used_by:
                 resources = [r for r in resources if used_by in ids_por_recurso.get(r.id, set())]
+            if created_by:
+                resources = [r for r in resources if _created_by_kind(r) == created_by]
 
             for r in resources:
                 nombres = nombres_por_recurso.get(r.id, [])
