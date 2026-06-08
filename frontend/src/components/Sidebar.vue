@@ -20,7 +20,6 @@
       <NavItem to="/resources" :active="$route.path.startsWith('/resources')">🔌 Resources</NavItem>
       <NavItem to="/fetchers" :active="$route.path.startsWith('/fetchers')">🔧 Fetchers</NavItem>
       <NavItem to="/processes" :active="$route.path === '/processes'">⚡ Processes</NavItem>
-      <NavItem v-if="puede('recursos.crear')" to="/candidates" :active="$route.path === '/candidates'">🗂️ Candidatos</NavItem>
       <NavItem to="/explorer" :active="$route.path === '/explorer'">🔍 Data Explorer</NavItem>
       <NavItem v-if="puede('aplicaciones.gestionar')" to="/applications" :active="$route.path === '/applications'">📦 Applications</NavItem>
       <NavItem v-if="puede('aplicaciones.gestionar')" to="/subscriptions" :active="$route.path === '/subscriptions'">🔗 Subscriptions</NavItem>

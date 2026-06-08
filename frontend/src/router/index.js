@@ -30,7 +30,7 @@ const routes = [
   { path: '/publishers',     name: 'Publishers',    component: Publishers },
   { path: '/subscriptions',  name: 'Subscriptions', component: Subscriptions, meta: { permiso: 'aplicaciones.gestionar' } },
   { path: '/trash',          name: 'Trash',         component: Trash, meta: { permiso: 'recursos.borrar' } },
-  { path: '/candidates',     name: 'Candidates',    component: Candidates, meta: { permiso: 'recursos.crear' } },
+  { path: '/resources/:id/candidates', name: 'ResourceCandidates', component: Candidates, meta: { permiso: 'recursos.crear' } },
   { path: '/usuarios',       name: 'Usuarios',      component: Usuarios, meta: { permiso: 'usuarios.gestionar' } },
 ]
 

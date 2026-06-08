@@ -160,6 +160,12 @@
                   title="Lanzar Discovery — crawlea el árbol y genera candidatos"
                 >Discover</button>
                 <button
+                  v-if="isWebTree(resource) && puede('recursos.crear')"
+                  @click="router.push('/resources/' + resource.id + '/candidates')"
+                  class="text-xs px-2 py-0.5 rounded bg-purple-900 hover:bg-purple-800 text-white"
+                  title="Ver los candidatos descubiertos por este crawler"
+                >Candidatos</button>
+                <button
                   v-if="puede('ejecuciones.lanzar')"
                   @click="openExecuteModal(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
@@ -1681,7 +1687,7 @@ async function launchDiscover(resource) {
     // La ejecución es asynchrona — errores de red se ignoran; el log de procesos los mostará
     console.warn('[launchDiscover] error al lanzar:', e)
   }
-  router.push('/candidates')
+  router.push('/resources/' + resource.id + '/candidates')
 }
 
 onMounted(() => {
