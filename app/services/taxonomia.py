@@ -109,3 +109,102 @@ def construir_taxonomia(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
     emitir((), None, 0, [])
     return salida
+
+
+def _segmentos_crudos(path_template: str) -> List[str]:
+    """Segmentos del path TAL CUAL, conservando placeholders (`{year}`, `{*}`)."""
+    try:
+        path = urlparse(path_template).path
+    except Exception:
+        path = path_template or ""
+    return [s for s in path.split("/") if s]
+
+
+def _firma_forma(segs: List[str]) -> tuple:
+    """Firma estructural: longitud + qué posiciones son placeholders (y cuál)."""
+    return tuple((i, s) for i, s in enumerate(segs) if s.startswith("{") and s.endswith("}"))
+
+
+def fundir_rama(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Funde las hojas de una rama en uno o varios recursos generalizados.
+
+    Cada hoja (candidato) aporta su `path_template`. Las hojas con la MISMA forma
+    estructural (misma longitud y placeholders en las mismas posiciones) se funden
+    en un recurso: las posiciones cuyo valor CONSTANTE varía entre hojas se abren
+    como una dimensión derivada (`kind="branch"`), además de las dimensiones ya
+    detectadas (year, ...). Hojas de formas distintas → fusiones distintas.
+
+    Devuelve, por cada forma, un dict:
+      path_template   plantilla generalizada (`.../{year}/{rama1}/{*}`)
+      dimensions      dimensiones originales alineadas + derivadas
+      matched_urls    unión de todas las hojas
+      file_types      suma de conteos
+      candidato_ids   ids fundidos
+      num_hojas       nº de hojas fundidas
+    """
+    if not items:
+        return []
+
+    # Agrupar por forma estructural.
+    grupos: Dict[tuple, List[Dict[str, Any]]] = {}
+    for it in items:
+        segs = _segmentos_crudos(it.get("path_template", ""))
+        grupos.setdefault(_firma_forma(segs), []).append(it)
+
+    fusiones: List[Dict[str, Any]] = []
+    for _firma, grupo in grupos.items():
+        seg_lists = [_segmentos_crudos(it.get("path_template", "")) for it in grupo]
+        n = len(seg_lists[0])
+        plantilla: List[str] = []
+        derivadas: List[Dict[str, Any]] = []
+        contador = 0
+        for i in range(n):
+            col = {sl[i] for sl in seg_lists}
+            tok = seg_lists[0][i]
+            if tok.startswith("{") and tok.endswith("}"):
+                plantilla.append(tok)                       # placeholder existente ({year}, {*})
+            elif len(col) == 1:
+                plantilla.append(tok)                        # constante común
+            else:
+                contador += 1
+                name = f"rama{contador}"
+                plantilla.append("{" + name + "}")           # segmento que varía → dimensión
+                derivadas.append({
+                    "kind": "branch", "name": name, "in_filename": False,
+                    "segment_index": i, "sample_values": sorted(col),
+                })
+
+        # Reconstruir path completo con el esquema+host del primero.
+        base = grupo[0].get("path_template", "")
+        try:
+            pr = urlparse(base)
+            prefijo = f"{pr.scheme}://{pr.netloc}" if pr.scheme else ""
+        except Exception:
+            prefijo = ""
+        path_template = prefijo + "/" + "/".join(plantilla)
+
+        # Dimensiones: las originales de la primera hoja (year, ...) + las derivadas.
+        dims_orig = list(grupo[0].get("dimensions") or [])
+        # Unión de URLs y file_types.
+        urls: List[str] = []
+        fts: Dict[str, int] = {}
+        ids: List[Any] = []
+        for it in grupo:
+            for u in (it.get("matched_urls") or []):
+                if u not in urls:
+                    urls.append(u)
+            for ft, c in (it.get("file_types") or {}).items():
+                fts[ft] = fts.get(ft, 0) + int(c)
+            if it.get("id") is not None:
+                ids.append(it["id"])
+
+        fusiones.append({
+            "path_template": path_template,
+            "dimensions": dims_orig + derivadas,
+            "matched_urls": urls,
+            "file_types": fts,
+            "candidato_ids": ids,
+            "num_hojas": len(grupo),
+        })
+
+    return fusiones
