@@ -16,7 +16,6 @@ services:
       # se admite explícitamente. scraping_privado sigue fuera.
       ODM_ALLOWED_SOURCE_CLASSES: ${ODM_ALLOWED_SOURCE_CLASSES:-api_abierta,publicacion_abierta,scraping_publico}
       ODM_CORS_ORIGINS: ${ODM_CORS_ORIGINS:-}
-      ODM_ALLOWED_SOURCE_CLASSES: ${ODM_ALLOWED_SOURCE_CLASSES:-}
       ODM_PUBLISHER_MIN_INTERVAL_S: ${ODM_PUBLISHER_MIN_INTERVAL_S:-30}
       ODM_SMTP_HOST: ${ODM_SMTP_HOST:-}
       ODM_SMTP_PORT: ${ODM_SMTP_PORT:-587}
