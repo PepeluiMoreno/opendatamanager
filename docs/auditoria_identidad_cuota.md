@@ -46,6 +46,31 @@ prescinde de `name` y de los campos operativos (`schedule`, `active`, `target_ta
 > Es distinto de `Resource.manifest_hash` (hash del manifiesto canónico completo,
 > usado para versionado/detección de conflictos). La huella es para *identidad*.
 
+### Params de runtime vs params de identidad
+
+ODM tiene dos canales de parámetros y solo uno es identidad:
+
+- **Estáticos (`ResourceParam`)** = la definición. Incluyen plantillas con el literal
+  `{pivot}` y la config de la fuente de pivotes. Se escriben al crear → **entran en la
+  huella**. Ojo: el literal `{pivot}` es identidad; lo que se resuelve en runtime es su
+  *valor*.
+- **De runtime (`execution_params`)** = lo que `executeResource` pasa a
+  `FetcherManager.run`: ventanas de fecha, watermark, `_resume_state`, `_matched_urls`,
+  los valores de pivote ya resueltos… Son *rebanadas/refrescos* del mismo dataset, no un
+  recurso distinto. Viven fuera de `ResourceParam` → **no entran en la huella**.
+
+Por eso, para recursos de pivote/plantilla la huella es calculable al crear (plantilla y
+fuente de pivotes son estáticas).
+
+### Identidad sin resolver: huella diferida
+
+Si un recurso se crea con algún param estático **sin acotar** (valor vacío, un borrador a
+rellenar), hashear el vacío daría una identidad falsa. En ese caso `params_hash` queda
+**NULL** ("identidad sin resolver") y el recurso **no se deduplica** hasta acotarse. La
+huella se calcula en el `update_resource` que rellena el último valor. La constraint única
+tolera múltiples NULL, así que los borradores conviven. (`params_bound()` en
+`app/core/huella.py`.)
+
 ### `create_resource` se vuelve idempotente (ensure)
 
 Al crear un recurso se calcula su huella:

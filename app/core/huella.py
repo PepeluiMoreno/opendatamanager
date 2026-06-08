@@ -35,3 +35,16 @@ def huella_params(pares: Iterable[Tuple[str, object]]) -> str:
     )
     canon = json.dumps(norm, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
+
+
+def params_bound(pares: Iterable[Tuple[str, object]]) -> bool:
+    """¿Están todos los params estáticos *acotados* (con valor)?
+
+    La identidad solo es resoluble cuando todos los params estáticos tienen valor.
+    Un valor vacío indica un parámetro sin acotar (borrador/plantilla a rellenar):
+    en ese caso NO se calcula huella todavía (params_hash = NULL) y el recurso no
+    se deduplica hasta que se acote. Nota: un literal como ``{pivot}`` SÍ está
+    acotado (es parte de la definición); lo que se resuelve en runtime es su valor,
+    que viaja por execution_params y nunca entra aquí.
+    """
+    return all((v is not None and str(v).strip() != "") for _, v in pares)

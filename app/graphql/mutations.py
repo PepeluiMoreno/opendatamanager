@@ -26,7 +26,7 @@ from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
 from datetime import datetime
 from sqlalchemy import func
-from app.core.huella import huella_params
+from app.core.huella import huella_params, params_bound
 
 
 def get_db():
@@ -59,14 +59,20 @@ class Mutation:
                 raise ValueError(f"Fetcher con id '{input.fetcher_id}' no existe")
 
             # Huella de identidad sobre los params (ver app/core/huella.py).
-            ph = huella_params((p.key, p.value) for p in (input.params or []))
-            existente = db.query(Resource).filter(
-                Resource.params_hash == ph,
-                Resource.deleted_at.is_(None),
-            ).first()
-            if existente:
-                # Ya existe: no se duplica. El llamante se suscribe al existente.
-                return map_resource(existente)
+            # Solo se deduplica si los params están acotados; si hay alguno sin
+            # valor (borrador/plantilla a rellenar), se difiere la huella (NULL).
+            pares = [(p.key, p.value) for p in (input.params or [])]
+            if params_bound(pares):
+                ph = huella_params(pares)
+                existente = db.query(Resource).filter(
+                    Resource.params_hash == ph,
+                    Resource.deleted_at.is_(None),
+                ).first()
+                if existente:
+                    # Ya existe: no se duplica. El llamante se suscribe al existente.
+                    return map_resource(existente)
+            else:
+                ph = None  # identidad sin resolver: no se deduplica todavía
 
             usuario = info.context.get("usuario") if (info and info.context) else None
 
@@ -175,20 +181,25 @@ class Mutation:
                     )
                     db.add(param)
 
-                # Recalcular la huella de identidad y comprobar colisión.
-                nph = huella_params((p.key, p.value) for p in input.params)
-                colision = db.query(Resource).filter(
-                    Resource.params_hash == nph,
-                    Resource.id != resource.id,
-                    Resource.deleted_at.is_(None),
-                ).first()
-                if colision:
-                    raise ValueError(
-                        f"Esos params coinciden con otro recurso existente ('{colision.name}'); "
-                        "editar la identidad crearía un duplicado. Crea un recurso nuevo o "
-                        "suscríbete al existente."
-                    )
-                resource.params_hash = nph
+                # Recalcular la huella de identidad (solo si los params están
+                # acotados) y comprobar colisión con otro recurso.
+                _pares = [(p.key, p.value) for p in input.params]
+                if params_bound(_pares):
+                    nph = huella_params(_pares)
+                    colision = db.query(Resource).filter(
+                        Resource.params_hash == nph,
+                        Resource.id != resource.id,
+                        Resource.deleted_at.is_(None),
+                    ).first()
+                    if colision:
+                        raise ValueError(
+                            f"Esos params coinciden con otro recurso existente ('{colision.name}'); "
+                            "editar la identidad crearía un duplicado. Crea un recurso nuevo o "
+                            "suscríbete al existente."
+                        )
+                    resource.params_hash = nph
+                else:
+                    resource.params_hash = None  # identidad sin resolver
 
             db.commit()
             db.refresh(resource)
