@@ -144,6 +144,12 @@ class Resource(AuditMixin, Base):
 
     parent_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
     auto_generated = Column(Boolean, default=False, nullable=False)
+    # Rol del recurso frente a un fetcher capaz de descubrir (p. ej. Web Tree):
+    # marca si ESTE recurso actúa como nave nodriza (descubre candidatos y los
+    # promueve) o si solo extrae un dato concreto. Capacidad (fetcher.descubre)
+    # ≠ intención: un mismo fetcher sirve para ambas. Solo las marcadas figuran
+    # como Colección. Default False: un Web Tree extrae salvo que se cualifique.
+    genera_colecciones = Column(Boolean, default=False, server_default="false", nullable=False)
 
     # Perfil (preset) de la especie aplicado a este recurso. La particularización
     # vive en el recurso, no en el catálogo de fetchers.
@@ -189,9 +195,14 @@ class Resource(AuditMixin, Base):
 
     @property
     def es_coleccion(self) -> bool:
-        """Recurso-madre: su especie declara el modo 'descubrir'. Las
-        Colecciones generan candidatos; el resto solo extraen."""
-        return bool(self.fetcher and self.fetcher.descubre and self.parent_resource_id is None)
+        """Nave nodriza: recurso CUALIFICADO como generador de colecciones.
+        Requiere capacidad (su fetcher declara 'descubrir'), ser recurso-madre
+        (sin padre) e INTENCIÓN explícita (genera_colecciones). Las Colecciones
+        descubren candidatos y los promueven; un Web Tree no cualificado solo
+        extrae su dato, aunque su fetcher fuese capaz de descubrir."""
+        return bool(self.fetcher and self.fetcher.descubre
+                    and self.parent_resource_id is None
+                    and self.genera_colecciones)
 
 
 class DatasetLease(AuditMixin, Base):
