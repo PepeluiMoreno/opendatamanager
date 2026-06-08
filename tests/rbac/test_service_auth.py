@@ -103,3 +103,47 @@ def test_emitir_token_display_once_y_hash():
     # y un Bearer con ese secreto valida contra la fila emitida (con su principal)
     fila.usuario = SimpleNamespace(is_active=True, tipo="aplicacion")
     assert sa.validar_fila(fila, secreto) is not None
+
+
+# ── Materialización del principal 'aplicacion' al aprobar (§12 Fase B) ─────
+
+class _FakeQuery:
+    def __init__(self, model, rol):
+        self.model, self.rol = model, rol
+    def filter(self, *a, **k):
+        return self
+    def first(self):
+        return self.rol if getattr(self.model, "__name__", "") == "Rol" else None
+
+
+class _FakeDBPrincipal:
+    def __init__(self, rol):
+        self.rol, self.added, self.flushed = rol, [], False
+    def query(self, model):
+        return _FakeQuery(model, self.rol)
+    def add(self, x):
+        self.added.append(x)
+    def flush(self):
+        self.flushed = True
+
+
+def test_slug_aplicacion():
+    assert sa._slug("Mi App de Datos!!") == "app-mi-app-de-datos"
+    assert sa._slug("") == "app-app"
+    assert sa._slug("ÁÉÍ 123") == "app-123"  # no-alfanum colapsa
+
+
+def test_crear_principal_aplicacion():
+    from app.models import Rol
+    rol = Rol(code="suscriptor", nombre="Suscriptor")
+    db = _FakeDBPrincipal(rol)
+    u = sa.crear_principal_aplicacion(db, "Portal X", contacto="x@example.org")
+    assert u.tipo == "aplicacion"
+    assert u.username.startswith("app-portal-x")
+    assert u.is_active is True
+    assert u.email == "x@example.org"
+    # password presente pero inservible: es un hash, no el secreto, y no vacío
+    assert u.password_hash and u.password_hash.startswith("pbkdf2_sha256$")
+    # rol suscriptor asignado
+    assert rol in u.roles
+    assert db.flushed is True

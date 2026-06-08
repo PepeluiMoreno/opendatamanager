@@ -163,6 +163,11 @@ class Resource(AuditMixin, Base):
     last_synced_hash = Column(String(64), nullable=True)    # base común para detección de conflictos
     origin = Column(String(20), default="ui", nullable=False)  # ui | manifest | seed
     source_status = Column(String(20), default="ok", nullable=False)  # ok | baja (salud del origen)
+    # §11 Gobernanza de propuestas: un recurso creado por una aplicación nace
+    # 'pendiente' y no se ejecuta hasta que un admin lo aprueba; lo creado por
+    # humanos con permiso nace 'aprobado'. 'rechazado' conserva el motivo.
+    estado_aprobacion = Column(String(20), default="aprobado", server_default="aprobado", nullable=False)
+    motivo_rechazo = Column(Text, nullable=True)
     # Última vez que el recurso fue probado desde el UI (preview), con éxito o no.
     last_tested_at = Column(DateTime, nullable=True)
 

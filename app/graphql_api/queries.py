@@ -30,6 +30,7 @@ from app.graphql_api.types import (
     DerivedDatasetConfigType,
     PublisherType,
     ResourceCandidateType,
+    SolicitudIngresoType,
 )
 
 
@@ -191,6 +192,8 @@ def map_resource(resource: Resource) -> ResourceType:
         subscriber_apps=getattr(resource, '_subscriber_apps', None),
         children=children_list,
         es_coleccion=bool(getattr(resource, 'es_coleccion', False)),
+        estado_aprobacion=getattr(resource, 'estado_aprobacion', 'aprobado') or 'aprobado',
+        motivo_rechazo=getattr(resource, 'motivo_rechazo', None),
         candidatos_pendientes=getattr(resource, '_candidatos_pendientes', 0),
         miembros=getattr(resource, '_miembros', 0),
         ultimo_descubrimiento=getattr(resource, '_ultimo_descubrimiento', None),
@@ -855,6 +858,41 @@ class Query:
                 .order_by(Resource.name)
                 .all()
             )
+            return [map_resource(r) for r in rows]
+        finally:
+            db.close()
+
+    @strawberry.field(permission_classes=[requiere("aplicaciones.aprobar")])
+    def solicitudes_ingreso(self, info: Info, solo_pendientes: bool = True) -> List[SolicitudIngresoType]:
+        """Cola de solicitudes de alta de aplicaciones (§12). Requiere
+        'aplicaciones.aprobar'."""
+        from app.models import SolicitudIngreso
+        db = SessionLocal()
+        try:
+            q = db.query(SolicitudIngreso)
+            if solo_pendientes:
+                q = q.filter(SolicitudIngreso.estado == "pendiente")
+            rows = q.order_by(SolicitudIngreso.created_at.desc()).all()
+            return [SolicitudIngresoType(
+                id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
+                estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
+                resuelta_at=s.resuelta_at,
+                usuario_id=str(s.usuario_id) if s.usuario_id else None,
+            ) for s in rows]
+        finally:
+            db.close()
+
+    @strawberry.field(permission_classes=[requiere("recursos.aprobar")])
+    def recursos_propuestos(self, info: Info) -> List[ResourceType]:
+        """Cola de recursos propuestos por aplicaciones, pendientes de
+        aprobación (§11). Requiere 'recursos.aprobar'."""
+        db = SessionLocal()
+        try:
+            rows = (db.query(Resource)
+                    .options(joinedload(Resource.publisher_obj))
+                    .filter(Resource.deleted_at == None,
+                            Resource.estado_aprobacion == "pendiente")
+                    .order_by(Resource.created_at.desc()).all())
             return [map_resource(r) for r in rows]
         finally:
             db.close()

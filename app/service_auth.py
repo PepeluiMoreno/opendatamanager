@@ -146,3 +146,44 @@ def extraer_bearer(authorization_header: Optional[str]) -> Optional[str]:
     if len(partes) != 2 or partes[0].lower() != "bearer":
         return None
     return partes[1].strip()
+
+
+# ── Materialización del principal 'aplicacion' al aprobar una solicitud ─────
+
+def _slug(nombre: str) -> str:
+    import re as _re
+    base = _re.sub(r"[^a-z0-9]+", "-", (nombre or "app").lower()).strip("-") or "app"
+    return ("app-" + base)[:60]
+
+
+def crear_principal_aplicacion(db, nombre: str, contacto: str = None):
+    """Crea (o reutiliza) el Usuario tipo='aplicacion' para una app aprobada.
+
+    Reutiliza el plumbing de usuarios: RBAC (rol 'suscriptor'), auditoría y
+    cuota. No usa contraseña (se autentica por token Bearer); el campo
+    password_hash NOT NULL se rellena con un secreto aleatorio inservible para
+    login, de modo que no exista una credencial de contraseña conocida.
+    """
+    import secrets as _secrets
+    from app.models import Usuario, Rol
+    from app.passwords import hash_password
+
+    username = _slug(nombre)
+    n = 1
+    while db.query(Usuario).filter(Usuario.username == username).first() is not None:
+        n += 1
+        username = (_slug(nombre) + f"-{n}")[:80]
+
+    usuario = Usuario(
+        username=username,
+        email=(contacto or None),
+        password_hash=hash_password(_secrets.token_urlsafe(32)),  # inservible para login
+        is_active=True,
+        tipo=PRINCIPAL_APLICACION,
+    )
+    rol = db.query(Rol).filter(Rol.code == "suscriptor").first()
+    if rol is not None:
+        usuario.roles.append(rol)
+    db.add(usuario)
+    db.flush()
+    return usuario

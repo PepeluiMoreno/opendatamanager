@@ -388,6 +388,8 @@ class ResourceType:
     preset: Optional["PresetType"] = strawberry.field(default=None)
     last_tested_at: Optional[datetime] = strawberry.field(default=None, name="lastTestedAt")
     es_coleccion: bool = strawberry.field(default=False, name="esColeccion")
+    estado_aprobacion: str = strawberry.field(default="aprobado", name="estadoAprobacion")
+    motivo_rechazo: Optional[str] = strawberry.field(default=None, name="motivoRechazo")
     candidatos_pendientes: int = strawberry.field(default=0, name="candidatosPendientes")
     miembros: int = strawberry.field(default=0, name="miembros")
     ultimo_descubrimiento: Optional[datetime] = strawberry.field(default=None, name="ultimoDescubrimiento")
@@ -429,3 +431,37 @@ class PromoteCandidateInput:
     variant: Optional[str] = None
 
 
+
+
+# ── §12 Alta de aplicaciones (M2M): solicitud → aprobación → token ──────────
+
+@strawberry.type
+class SolicitudIngresoType:
+    id: str
+    nombre: str
+    contacto: Optional[str] = None
+    proposito: Optional[str] = None
+    estado: str = "pendiente"
+    motivo: Optional[str] = None
+    created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
+    resuelta_at: Optional[datetime] = strawberry.field(default=None, name="resueltaAt")
+    usuario_id: Optional[str] = strawberry.field(default=None, name="usuarioId")
+
+
+@strawberry.input
+class CrearSolicitudIngresoInput:
+    """Solicitud self-service: una aplicación pide el alta en ODM."""
+    nombre: str
+    contacto: Optional[str] = None
+    proposito: Optional[str] = None
+
+
+@strawberry.type
+class AprobarSolicitudResult:
+    """Resultado de aprobar una solicitud. El token en claro se entrega UNA sola
+    vez aquí (display-once); en reposo solo queda su hash."""
+    solicitud: SolicitudIngresoType
+    usuario_id: str = strawberry.field(name="usuarioId")
+    username: str
+    token: str            # secreto en claro — mostrar una vez y no volver a pedir
+    token_prefix: str = strawberry.field(name="tokenPrefix")
