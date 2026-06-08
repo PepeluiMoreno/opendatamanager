@@ -81,11 +81,17 @@ app.add_middleware(
 # de usuario (sin token de administración).
 from starlette.requests import Request as _Request  # noqa: E402
 from app.auth import current_user_from_request, effective_permissions, requiere_funcionalidad  # noqa: E402
+from app.service_auth import aplicacion_por_bearer, extraer_bearer  # noqa: E402
 from app.audit import set_usuario_actual  # noqa: E402  (importarlo registra el listener before_flush de auditoría)
 
 
 async def get_graphql_context(request: _Request, db=Depends(get_db)):
+    # Humano por cookie de sesión; si no, aplicación por token Bearer (M2M, §12).
     usuario = current_user_from_request(db, request)
+    if usuario is None:
+        token = extraer_bearer(request.headers.get("authorization"))
+        if token:
+            usuario = aplicacion_por_bearer(db, token)
     permisos = effective_permissions(db, usuario)
     set_usuario_actual(usuario.id if usuario else None)
     return {"request": request, "db": db, "usuario": usuario, "permisos": permisos}

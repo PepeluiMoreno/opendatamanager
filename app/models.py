@@ -543,6 +543,10 @@ class Usuario(AuditMixin, Base):
     email = Column(String(255), unique=True, nullable=True)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Discriminador de principal (§12): 'humano' inicia sesión por cookie;
+    # 'aplicacion' es una cuenta de servicio M2M que se autentica por token
+    # Bearer (ver ServiceToken). Reutiliza el plumbing de RBAC/auditoría/cuota.
+    tipo = Column(String(20), nullable=False, default="humano", server_default="humano")
     notificar_email = Column(Boolean, default=False, nullable=False)  # avisos de novedades
     last_login_at = Column(DateTime, nullable=True)
     cuota_refrescos_diaria = Column(Integer, default=50, nullable=False)  # refrescos a demanda/día (executeResource); 0 = sin refrescos extemporáneos
@@ -589,6 +593,55 @@ class Sesion(AuditMixin, Base):
     token_hash = Column(String(64), unique=True, nullable=False, index=True)  # sha256 del token
     expires_at = Column(DateTime, nullable=False)
     last_seen_at = Column(DateTime, nullable=True)
+
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+
+
+class SolicitudIngreso(AuditMixin, Base):
+    """§12 — Solicitud self-service de una aplicación para ingresar en ODM.
+
+    No crea nada operativo por sí sola. El admin la revisa y, al aprobarla, se
+    materializa el principal 'aplicacion' (un Usuario tipo='aplicacion') y se
+    vincula aquí en ``usuario_id`` para trazabilidad.
+    """
+    __tablename__ = "solicitud_ingreso"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    nombre = Column(String(120), nullable=False)          # nombre de la aplicación
+    contacto = Column(String(255), nullable=True)         # email/responsable
+    proposito = Column(Text, nullable=True)               # para qué quiere los datos
+    ambito_solicitado = Column(JSONB, nullable=True)      # scopes/recursos pedidos
+    estado = Column(String(20), nullable=False, default="pendiente", server_default="pendiente")  # pendiente|aprobada|rechazada
+    motivo = Column(Text, nullable=True)                  # motivo de rechazo / nota de aprobación
+    resuelta_at = Column(DateTime, nullable=True)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True)
+
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
+
+
+class ServiceToken(AuditMixin, Base):
+    """§12 — Credencial Bearer de una aplicación (cuenta de servicio).
+
+    Nombrado ServiceToken (no 'ApplicationToken') a propósito: el principal es
+    un Usuario tipo='aplicacion', y ya existe una clase ``Application`` con otro
+    significado (suscripción a webhooks de datasets). El token cuelga del
+    usuario funcional. En reposo solo vive el HASH (sha256); el secreto en claro
+    se muestra una sola vez al emitirlo. Varios tokens por app → rotación sin
+    corte. ``prefix`` (visible, no secreto) permite localizar el candidato sin
+    desvelar nada y habilita el escaneo de secretos por 'odm_app_'.
+    """
+    __tablename__ = "service_token"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    usuario_id = Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="CASCADE"), nullable=False)
+    label = Column(String(120), nullable=True)            # etiqueta humana ('CI', 'prod', ...)
+    prefix = Column(String(24), nullable=False, index=True)  # 'odm_app_' + primeros chars (localización)
+    token_hash = Column(String(64), nullable=False, unique=True, index=True)  # sha256 del secreto completo
+    last_used_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)          # TTL opcional (None = sin caducidad)
+    revoked_at = Column(DateTime, nullable=True)          # revocación inmediata
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 

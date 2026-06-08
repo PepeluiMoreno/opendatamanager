@@ -34,6 +34,8 @@ FUNCIONALIDADES = [
     ("programacion.gestionar", "Programación de procesos (cron)",  "programacion", False),
     ("publishers.gestionar",  "Gestionar publishers",              "catalogos",    False),
     ("aplicaciones.gestionar", "Gestionar aplicaciones y suscripciones", "catalogos", False),
+    ("aplicaciones.aprobar",  "Aprobar solicitudes de ingreso y emitir credenciales (§12)", "aplicaciones", False),
+    ("recursos.aprobar",      "Aprobar/rechazar recursos propuestos por aplicaciones (§11)", "recursos", False),
     ("usuarios.gestionar",    "Gestionar usuarios y roles",        "usuarios",     False),
     ("settings.gestionar",    "Gestionar settings",                "settings",     False),
 ]
