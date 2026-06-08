@@ -68,7 +68,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="l in historial" :key="l.id" class="border-b border-gray-800">
+          <tr v-for="l in pagedHistorial" :key="l.id" class="border-b border-gray-800">
             <td class="py-2 pr-3 text-white">{{ l.recurso }}</td>
             <td class="py-2 pr-3 text-gray-400">{{ fecha(l.solicitado) }}</td>
             <td class="py-2 pr-3 text-gray-300">{{ l.permanente ? 'permanente' : (l.concedido_hasta ? fecha(l.concedido_hasta) : '—') }}</td>
@@ -82,12 +82,15 @@
           </tr>
         </tbody>
       </table>
+          <Paginator v-model:page="hPage" v-model:perPage="hPerPage" :total="hTotal" />
     </section>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 
 const cargando = ref(true)
 const guardando = ref(false)
@@ -95,6 +98,7 @@ const cambiandoPw = ref(false)
 const perfil = reactive({ username: '', email: '', notificar_email: false, roles: [] })
 const pw = reactive({ actual: '', nueva: '', confirmar: '' })
 const historial = ref([])
+const { page: hPage, perPage: hPerPage, total: hTotal, paged: pagedHistorial } = usePagination(historial, 25)
 const msgPerfil = ref(''); const okPerfil = ref(false)
 const msgPw = ref(''); const okPw = ref(false)
 

@@ -43,7 +43,7 @@
         </thead>
         <tbody>
           <tr
-            v-for="item in currentItems"
+            v-for="item in pagedItems"
             :key="itemId(item)"
             class="border-b border-gray-800 hover:bg-gray-800/40"
           >
@@ -68,6 +68,7 @@
           </tr>
         </tbody>
       </table>
+        <Paginator v-model:page="tPage" v-model:perPage="tPerPage" :total="tTotal" />
     </div>
 
     <!-- Hard-delete confirmation modal -->
@@ -92,6 +93,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 import {
   fetchDeletedResources, fetchDeletedApplications, fetchDeletedPublishers,
   fetchDeletedFetchers, fetchDeletedExecutions,
@@ -123,6 +126,7 @@ const data = ref({
 })
 
 const currentItems = computed(() => data.value[activeTab.value] || [])
+const { page: tPage, perPage: tPerPage, total: tTotal, paged: pagedItems } = usePagination(currentItems, 25)
 
 const counts = computed(() => {
   const c = {}

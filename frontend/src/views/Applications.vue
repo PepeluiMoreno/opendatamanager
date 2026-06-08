@@ -83,7 +83,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="sub in subsForApp(selectedApp.id)" :key="sub.id"
+              <tr v-for="sub in pagedSubs" :key="sub.id"
                   class="border-b border-gray-700 hover:bg-gray-750 transition-colors">
                 <td class="py-3 px-4">
                   <div class="text-gray-200 font-medium">{{ resourceName(sub.resourceId) }}</div>
@@ -101,6 +101,7 @@
               </tr>
             </tbody>
           </table>
+          <Paginator v-model:page="aPage" v-model:perPage="aPerPage" :total="aTotal" />
         </div>
       </template>
     </section>
@@ -208,6 +209,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 import {
   fetchApplications, createApplication, updateApplication, deleteApplication,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
@@ -242,6 +245,8 @@ const subForm = ref({ resourceId: '', pinnedVersion: '', autoUpgrade: 'patch' })
 
 const selectedApp = computed(() => applications.value.find(a => a.id === selectedAppId.value) || null)
 function subsForApp(id) { return subscriptions.value.filter(s => s.applicationId === id) }
+const subsSeleccionada = computed(() => selectedApp.value ? subsForApp(selectedApp.value.id) : [])
+const { page: aPage, perPage: aPerPage, total: aTotal, paged: pagedSubs } = usePagination(subsSeleccionada, 25)
 
 onMounted(load)
 

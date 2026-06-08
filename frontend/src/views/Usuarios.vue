@@ -22,7 +22,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="u in usuarios" :key="u.id" class="border-t border-gray-700/60 text-gray-200">
+          <tr v-for="u in pagedUsuarios" :key="u.id" class="border-t border-gray-700/60 text-gray-200">
             <td class="px-4 py-3 font-medium">{{ u.username }}</td>
             <td class="px-4 py-3 text-gray-400">{{ u.email || '—' }}</td>
             <td class="px-4 py-3">
@@ -42,6 +42,7 @@
           </tr>
         </tbody>
       </table>
+        <Paginator v-model:page="uPage" v-model:perPage="uPerPage" :total="uTotal" />
     </div>
 
     <!-- Modal crear/editar -->
@@ -94,8 +95,11 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 
 const usuarios = ref([])
+const { page: uPage, perPage: uPerPage, total: uTotal, paged: pagedUsuarios } = usePagination(usuarios, 25)
 const rolesDisponibles = ref([])
 const error = ref('')
 const form = ref(null)

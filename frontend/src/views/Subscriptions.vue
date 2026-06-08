@@ -175,6 +175,7 @@ const filtered = computed(() => subscriptions.value.filter(s => {
   if (filterResource.value && s.resourceId    !== filterResource.value) return false
   return true
 }))
+const { page: sPage, perPage: sPerPage, total: sTotal, paged: pagedSubs } = usePagination(filtered, 25)
 
 onMounted(load)
 
