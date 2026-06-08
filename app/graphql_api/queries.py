@@ -33,6 +33,7 @@ from app.graphql_api.types import (
     SolicitudIngresoType,
     AplicacionM2MType,
     ServiceTokenType,
+    TaxonomiaNodoType,
 )
 
 
@@ -810,6 +811,44 @@ class Query:
         try:
             rows = db.query(ResourceExecution).filter(ResourceExecution.deleted_at != None).order_by(ResourceExecution.deleted_at.desc()).all()
             return [map_resource_execution(e) for e in rows]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def taxonomia_crawler(self, crawler_resource_id: strawberry.ID) -> List[TaxonomiaNodoType]:
+        """Árbol de ramas (taxonomía) derivado al vuelo de los candidatos
+        `discovered` del crawler: segmentos de ruta constantes con agregados por
+        nodo. Vista para navegar el portal y promover ramas enteras de una vez,
+        en lugar de candidato a candidato. Soft-deleted excluidos."""
+        from app.services.taxonomia import construir_taxonomia
+        db = get_db()
+        try:
+            rows = (
+                db.query(ResourceCandidate)
+                .filter(
+                    ResourceCandidate.deleted_at.is_(None),
+                    ResourceCandidate.crawler_resource_id == crawler_resource_id,
+                    ResourceCandidate.status == "discovered",
+                )
+                .all()
+            )
+            items = [{
+                "id": str(r.id),
+                "path_template": r.path_template,
+                "matched_urls": r.matched_urls,
+                "file_types": r.file_types,
+                "dimensions": r.dimensions,
+                "suggested_name": r.suggested_name,
+            } for r in rows]
+            return [
+                TaxonomiaNodoType(
+                    path=n["path"], label=n["label"], parent=n["parent"], depth=n["depth"],
+                    num_candidatos=n["num_candidatos"], num_directos=n["num_directos"],
+                    num_urls=n["num_urls"], formatos=n["formatos"], dimensiones=n["dimensiones"],
+                    candidato_ids=[str(x) for x in n["candidato_ids"]],
+                )
+                for n in construir_taxonomia(items)
+            ]
         finally:
             db.close()
 

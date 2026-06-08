@@ -500,3 +500,21 @@ class TokenEmitidoResult:
     usuario_id: str = strawberry.field(name="usuarioId")
     prefix: str
     token: str   # secreto en claro — display-once
+
+
+@strawberry.type
+class TaxonomiaNodoType:
+    """Nodo del árbol de ramas derivado al vuelo de los candidatos de un crawler.
+
+    Vista plana: el cliente reconstruye el árbol por `path`/`parent`. Cada nodo
+    con `candidatoIds` no vacío es promovible como rama."""
+    path: str
+    label: str
+    parent: Optional[str] = None
+    depth: int = 0
+    num_candidatos: int = strawberry.field(default=0, name="numCandidatos")
+    num_directos: int = strawberry.field(default=0, name="numDirectos")
+    num_urls: int = strawberry.field(default=0, name="numUrls")
+    formatos: Optional[strawberry.scalars.JSON] = None
+    dimensiones: List[str] = strawberry.field(default_factory=list)
+    candidato_ids: List[str] = strawberry.field(default_factory=list, name="candidatoIds")
