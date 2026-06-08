@@ -2,11 +2,37 @@ from uuid import uuid4
 from datetime import datetime
 from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, Float, DateTime, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declared_attr
 from app.database import Base
 
 
-class AppConfig(Base):
+class AuditMixin:
+    """Autoría/auditoría común para los modelos de dominio.
+
+    Aplíquese como ``class Foo(AuditMixin, Base): ...``. Registra quién y cuándo
+    creó/actualizó la fila. ``created_by_id``/``updated_by_id`` referencian
+    ``opendata.usuario.id`` (para aplicaciones, el usuario funcional ``svr-*``).
+    ``updated_at`` se actualiza solo en cada UPDATE.
+    """
+
+    @declared_attr
+    def created_at(cls):
+        return Column(DateTime, default=datetime.utcnow, nullable=True)
+
+    @declared_attr
+    def updated_at(cls):
+        return Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=True)
+
+    @declared_attr
+    def created_by_id(cls):
+        return Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True)
+
+    @declared_attr
+    def updated_by_id(cls):
+        return Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True)
+
+
+class AppConfig(AuditMixin, Base):
     """Global application settings stored as key-value pairs."""
     __tablename__ = "app_config"
     __table_args__ = {"schema": "opendata"}
@@ -14,9 +40,8 @@ class AppConfig(Base):
     key = Column(String(100), primary_key=True)
     value = Column(JSONB, nullable=False)
     description = Column(Text, nullable=True)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class Fetcher(Base):
+class Fetcher(AuditMixin, Base):
     __tablename__ = "fetcher"
     __table_args__ = {"schema": "opendata"}
 
@@ -40,13 +65,12 @@ class Fetcher(Base):
 
     presets = relationship("FetcherPreset", back_populates="fetcher", cascade="all, delete-orphan")
     deleted_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, nullable=True)
 
     params_def = relationship("FetcherParams", back_populates="fetcher")
     resources = relationship("Resource", back_populates="fetcher")
 
 
-class FetcherParams(Base):
+class FetcherParams(AuditMixin, Base):
     __tablename__ = "type_fetcher_params"
     __table_args__ = {"schema": "opendata"}
 
@@ -66,7 +90,7 @@ class FetcherParams(Base):
     fetcher = relationship("Fetcher", back_populates="params_def")
 
 
-class Publisher(Base):
+class Publisher(AuditMixin, Base):
     """Entidad publicadora de datos abiertos (organismo, portal, administración)."""
     __tablename__ = "publisher"
     __table_args__ = {"schema": "opendata"}
@@ -82,15 +106,17 @@ class Publisher(Base):
     portal_url = Column(String(500), nullable=True)
     email = Column(String(200), nullable=True)
     telefono = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
     resources = relationship("Resource", back_populates="publisher_obj")
 
 
-class Resource(Base):
+class Resource(AuditMixin, Base):
     __tablename__ = "resource"
-    __table_args__ = {"schema": "opendata"}
+    __table_args__ = (
+        UniqueConstraint("params_hash", name="uq_resource_params_hash"),
+        {"schema": "opendata"},
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(100), unique=True, nullable=False)
@@ -130,7 +156,10 @@ class Resource(Base):
     # Última vez que el recurso fue probado desde el UI (preview), con éxito o no.
     last_tested_at = Column(DateTime, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # Identidad por contenido (huella de params; distinta de manifest_hash).
+    params_hash = Column(String(64), nullable=True, index=True)  # app/core/huella.py
+
+    # created_at / created_by_id / updated_at / updated_by_id provienen de AuditMixin.
     deleted_at = Column(DateTime, nullable=True)
 
     fetcher = relationship("Fetcher", back_populates="resources")
@@ -149,7 +178,7 @@ class Resource(Base):
                               lazy="dynamic", overlaps="dependencies")
 
 
-class DatasetLease(Base):
+class DatasetLease(AuditMixin, Base):
     """Arrendamiento de un dataset: un titular (proceso/aplicación o usuario) pide un
     recurso con una retención; ODM concede un plazo y lo conserva mientras el lease
     siga activo. Reference counting + liberación anticipada. Ver
@@ -167,14 +196,13 @@ class DatasetLease(Base):
     permanente = Column(Boolean, default=False, nullable=False)
     concedido_hasta = Column(DateTime, nullable=True)
     estado = Column(String(20), default="activo", nullable=False)  # activo | liberado | expirado
-    created_at = Column(DateTime, default=datetime.utcnow)
     released_at = Column(DateTime, nullable=True)
 
     resource = relationship("Resource")
     dataset = relationship("Dataset")
 
 
-class FetcherPreset(Base):
+class FetcherPreset(AuditMixin, Base):
     """Perfil (preset) de una especie de fetcher: bloque de parámetros con nombre
     que particulariza la especie para una familia de fuentes (p. ej. 'PLACSP
     CODICE' sobre 'Feeds ATOM/RSS'). Vive BAJO la especie y solo se materializa en
@@ -192,14 +220,13 @@ class FetcherPreset(Base):
     params = Column(JSONB, nullable=False, default=dict)
     # Candado selectivo (§6c): nombres de parámetros cuyo valor NO es pisable por el recurso.
     locked_params = Column(JSONB, nullable=False, default=list, server_default='[]')
-    created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
     fetcher = relationship("Fetcher", back_populates="presets")
     resources = relationship("Resource", back_populates="preset")
 
 
-class ResourceParam(Base):
+class ResourceParam(AuditMixin, Base):
     """Parámetros key-value para cada Resource"""
     __tablename__ = "resource_param"
     __table_args__ = (
@@ -215,7 +242,7 @@ class ResourceParam(Base):
     resource = relationship("Resource", back_populates="params")
 
 
-class ResourceCandidate(Base):
+class ResourceCandidate(AuditMixin, Base):
     """Propuesta de agrupación inferida por el GroupingInferer a partir de las
     URLs hoja descubiertas por un crawler `Web Tree`. Promover una candidata crea
     un Resource hijo (auto_generated) cuyo fetcher en modo stream descarga las
@@ -250,7 +277,7 @@ class ResourceCandidate(Base):
     execution = relationship("ResourceExecution")
 
 
-class Application(Base):
+class Application(AuditMixin, Base):
     """Aplicaciones suscritas para recibir actualizaciones automáticas de core.models"""
     __tablename__ = "application"
     __table_args__ = {"schema": "opendata"}
@@ -269,10 +296,10 @@ class Application(Base):
     consumption_mode = Column(String(20), nullable=False, default='webhook')
 
     # Relationships
-    subscriptions = relationship("DatasetSubscription", back_populates="application")
+    subscriptions = relationship("ResourceSubscription", back_populates="application")
 
 
-class FieldMetadata(Base):
+class FieldMetadata(AuditMixin, Base):
     """Metadatos de campos para tooltips y ayuda en UI"""
     __tablename__ = "field_metadata"
     __table_args__ = {"schema": "opendata"}
@@ -285,7 +312,7 @@ class FieldMetadata(Base):
     placeholder = Column(String(255))  # Placeholder del input
 
 
-class ResourceExecution(Base):
+class ResourceExecution(AuditMixin, Base):
     """Audit trail de ejecuciones de Resources"""
     __tablename__ = "resource_execution"
     __table_args__ = {"schema": "opendata"}
@@ -320,7 +347,25 @@ class ResourceExecution(Base):
     resource = relationship("Resource", back_populates="executions")
 
 
-class Dataset(Base):
+class RefrescoExtemporaneo(AuditMixin, Base):
+    """Registro de refrescos a demanda (executeResource) para auditoría y cuota.
+
+    Cada fila = un refresco extemporáneo solicitado por un usuario/aplicación.
+    La cuota diaria se cuenta sobre estas filas (por usuario y día). Los refrescos
+    PROGRAMADOS (scheduler) ejecutan FetcherManager directamente, no pasan por la
+    mutation executeResource y por tanto NO consumen cuota ni se registran aquí.
+    """
+    __tablename__ = "refresco_extemporaneo"
+    __table_args__ = {"schema": "opendata"}
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False, index=True)
+    # El actor del refresco es `created_by_id` (AuditMixin); la cuota se cuenta por (created_by_id, created_at::date).
+
+    resource = relationship("Resource")
+
+
+class Dataset(AuditMixin, Base):
     """Versioned package de datos extraídos"""
     __tablename__ = "dataset"
     __table_args__ = {"schema": "opendata"}
@@ -344,7 +389,6 @@ class Dataset(Base):
     last_served_at = Column(DateTime, nullable=True)   # rastro de acceso (demanda)
     accesos = Column(Integer, default=0, nullable=False)
     checksum = Column(String(64))
-    created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
     resource = relationship("Resource", back_populates="datasets")
@@ -355,9 +399,9 @@ class Dataset(Base):
         return f"{self.major_version}.{self.minor_version}.{self.patch_version}"
 
 
-class DatasetSubscription(Base):
+class ResourceSubscription(AuditMixin, Base):
     """Suscripciones pasivas de Applications a Resources"""
-    __tablename__ = "dataset_subscription"
+    __tablename__ = "resource_subscription"
     __table_args__ = {"schema": "opendata"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
@@ -377,7 +421,7 @@ class DatasetSubscription(Base):
     resource = relationship("Resource")
 
 
-class ResourceDependency(Base):
+class ResourceDependency(AuditMixin, Base):
     """Linaje entre recursos: el derivado depende del fuente con un rol
     ('left' | 'right' en CruceDatasets). Sincronizado automáticamente por el
     manager al ejecutar el derivado."""
@@ -392,10 +436,9 @@ class ResourceDependency(Base):
     derived_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
     source_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False)
     role = Column(String(10), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class DerivedDatasetConfig(Base):
+class DerivedDatasetConfig(AuditMixin, Base):
     """Config for extracting derived/catalog datasets as a side-product of a resource execution.
 
     Example: while fetching BDNS concesiones, also extract beneficiarios (NIF + nombre)
@@ -412,14 +455,13 @@ class DerivedDatasetConfig(Base):
     merge_strategy = Column(String(20), default="upsert", nullable=False)  # "upsert" | "insert_only"
     enabled = Column(Boolean, default=True, nullable=False)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
     deleted_at = Column(DateTime, nullable=True)
 
     source_resource = relationship("Resource", back_populates="derived_configs")
     entries = relationship("DerivedDatasetEntry", back_populates="config", cascade="all, delete-orphan")
 
 
-class DerivedDatasetEntry(Base):
+class DerivedDatasetEntry(AuditMixin, Base):
     """A single record in a derived dataset, stored as JSONB."""
     __tablename__ = "derived_dataset_entry"
     __table_args__ = (
@@ -431,12 +473,11 @@ class DerivedDatasetEntry(Base):
     config_id = Column(UUID(as_uuid=True), ForeignKey("opendata.derived_dataset_config.id", ondelete="CASCADE"), nullable=False)
     key_value = Column(String(500), nullable=False)
     data = Column(JSONB, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     config = relationship("DerivedDatasetConfig", back_populates="entries")
 
 
-class ApplicationNotification(Base):
+class ApplicationNotification(AuditMixin, Base):
     """Log de webhooks enviados"""
     __tablename__ = "application_notification"
     __table_args__ = {"schema": "opendata"}
@@ -474,7 +515,7 @@ rol_funcionalidad = Table(
 )
 
 
-class Usuario(Base):
+class Usuario(AuditMixin, Base):
     __tablename__ = "usuario"
     __table_args__ = {"schema": "opendata"}
 
@@ -484,13 +525,13 @@ class Usuario(Base):
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     notificar_email = Column(Boolean, default=False, nullable=False)  # avisos de novedades
-    created_at = Column(DateTime, default=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
+    cuota_refrescos_diaria = Column(Integer, default=50, nullable=False)  # refrescos a demanda/día (executeResource); 0 = sin refrescos extemporáneos
 
     roles = relationship("Rol", secondary=usuario_rol, back_populates="usuarios")
 
 
-class Rol(Base):
+class Rol(AuditMixin, Base):
     __tablename__ = "rol"
     __table_args__ = {"schema": "opendata"}
 
@@ -504,7 +545,7 @@ class Rol(Base):
     funcionalidades = relationship("Funcionalidad", secondary=rol_funcionalidad, back_populates="roles")
 
 
-class Funcionalidad(Base):
+class Funcionalidad(AuditMixin, Base):
     """Catálogo de transacciones/permisos (p. ej. 'recursos.crear')."""
     __tablename__ = "funcionalidad"
     __table_args__ = {"schema": "opendata"}
@@ -519,7 +560,7 @@ class Funcionalidad(Base):
     roles = relationship("Rol", secondary=rol_funcionalidad, back_populates="funcionalidades")
 
 
-class Sesion(Base):
+class Sesion(AuditMixin, Base):
     """Sesión opaca en BD (cookie httpOnly). Revocable borrando la fila."""
     __tablename__ = "sesion"
     __table_args__ = {"schema": "opendata"}
@@ -527,14 +568,13 @@ class Sesion(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="CASCADE"), nullable=False)
     token_hash = Column(String(64), unique=True, nullable=False, index=True)  # sha256 del token
-    created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
     last_seen_at = Column(DateTime, nullable=True)
 
-    usuario = relationship("Usuario")
+    usuario = relationship("Usuario", foreign_keys=[usuario_id])
 
 
-class ResourceManifestVersion(Base):
+class ResourceManifestVersion(AuditMixin, Base):
     """Historial de versiones del manifiesto canónico de un recurso.
 
     Cada cambio (por UI o por importación de manifiesto) escribe una fila, lo
@@ -550,10 +590,9 @@ class ResourceManifestVersion(Base):
     hash = Column(String(64), nullable=False)
     origin = Column(String(20), nullable=False)     # ui | manifest | seed
     author = Column(String(120), nullable=True)     # username, o 'manifest:<fichero>'
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class Evento(Base):
+class Evento(AuditMixin, Base):
     """Novedad del sistema susceptible de aviso (alta/baja de recurso, conflicto…).
     Se genera al importar manifiestos o detectar cambios de origen; el despacho
     de emails marca `notificado`."""
@@ -565,5 +604,4 @@ class Evento(Base):
     recurso_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
     titulo = Column(String(300), nullable=False)
     detalle = Column(JSONB, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
     notificado = Column(Boolean, default=False, nullable=False)

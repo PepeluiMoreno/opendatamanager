@@ -19,7 +19,7 @@ from typing import Optional, List, Dict
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, DatasetSubscription, Publisher, ApplicationNotification, Dataset
+from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, ResourceSubscription, Publisher, ApplicationNotification, Dataset
 from datetime import datetime
 import os
 
@@ -75,7 +75,7 @@ from app.graphql_api.types import (
     DerivedDatasetConfigType,
     CreateDerivedDatasetConfigInput,
     UpdateDerivedDatasetConfigInput,
-    DatasetSubscriptionType,
+    ResourceSubscriptionType,
     PublisherType,
     CreatePublisherInput,
     UpdatePublisherInput,
@@ -85,7 +85,7 @@ from app.graphql_api.types import (
 from app.graphql_api.queries import (
     map_preset,
     map_application, map_resource, map_fetcher, map_type_fetcher_param,
-    map_derived_dataset_config, map_dataset_subscription, map_publisher,
+    map_derived_dataset_config, map_resource_subscription, map_publisher,
     map_resource_candidate,
 )
 from app.manager.fetcher_manager import FetcherManager
@@ -1016,7 +1016,7 @@ class Mutation:
 
             if hard_delete:
                 db.query(ApplicationNotification).filter(ApplicationNotification.application_id == id).delete()
-                db.query(DatasetSubscription).filter(DatasetSubscription.application_id == id).delete()
+                db.query(ResourceSubscription).filter(ResourceSubscription.application_id == id).delete()
                 db.delete(application)
             else:
                 application.deleted_at = datetime.utcnow()
@@ -1195,7 +1195,7 @@ class Mutation:
         resource_id: str,
         pinned_version: Optional[str] = None,
         auto_upgrade: str = "patch",
-    ) -> DatasetSubscriptionType:
+    ) -> ResourceSubscriptionType:
         """Suscribe una Application a un Resource para recibir notificaciones de nuevos datasets."""
         db = get_db()
         try:
@@ -1203,13 +1203,13 @@ class Mutation:
                 raise ValueError(f"Application '{application_id}' no encontrada")
             if not db.query(Resource).filter(Resource.id == resource_id).first():
                 raise ValueError(f"Resource '{resource_id}' no encontrado")
-            existing = db.query(DatasetSubscription).filter(
-                DatasetSubscription.application_id == application_id,
-                DatasetSubscription.resource_id == resource_id,
+            existing = db.query(ResourceSubscription).filter(
+                ResourceSubscription.application_id == application_id,
+                ResourceSubscription.resource_id == resource_id,
             ).first()
             if existing:
                 raise ValueError("Ya existe una suscripción para esta combinación Application/Resource")
-            sub = DatasetSubscription(
+            sub = ResourceSubscription(
                 id=uuid4(),
                 application_id=application_id,
                 resource_id=resource_id,
@@ -1219,7 +1219,7 @@ class Mutation:
             db.add(sub)
             db.commit()
             db.refresh(sub)
-            return map_dataset_subscription(sub)
+            return map_resource_subscription(sub)
         except Exception as e:
             db.rollback()
             raise e
@@ -1231,7 +1231,7 @@ class Mutation:
         """Elimina una suscripción por su id."""
         db = get_db()
         try:
-            sub = db.query(DatasetSubscription).filter(DatasetSubscription.id == id).first()
+            sub = db.query(ResourceSubscription).filter(ResourceSubscription.id == id).first()
             if not sub:
                 raise ValueError(f"Suscripción '{id}' no encontrada")
             db.delete(sub)

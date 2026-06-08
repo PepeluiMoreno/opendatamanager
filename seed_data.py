@@ -10,7 +10,7 @@ Orden:
 import json
 import uuid
 from app.database import SessionLocal
-from app.models import Application, DatasetSubscription, Fetcher, FetcherParams, Publisher, Resource, ResourceParam
+from app.models import Application, ResourceSubscription, Fetcher, FetcherParams, Publisher, Resource, ResourceParam
 
 
 # ---------------------------------------------------------------------------
@@ -1121,7 +1121,7 @@ def _upsert_application(db, defn: dict, resources_by_name: dict) -> Application:
             print(f"    ⚠ resource '{resource_name}' not found — skipping subscription")
             continue
         if res.id not in existing_subs:
-            sub = DatasetSubscription(
+            sub = ResourceSubscription(
                 id=uuid.uuid4(),
                 application_id=app.id,
                 resource_id=res.id,

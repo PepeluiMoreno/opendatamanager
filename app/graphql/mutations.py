@@ -5,7 +5,7 @@ import strawberry
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application
+from app.models import Resource, ResourceParam, Fetcher, FetcherParams, Application, RefrescoExtemporaneo
 from app.graphql_api.types import (
     ResourceType,
     FetcherType,
@@ -24,6 +24,9 @@ from app.graphql_api.types import (
 from app.graphql_api.queries import map_application, map_resource, map_fetcher, map_type_fetcher_param
 from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
+from datetime import datetime
+from sqlalchemy import func
+from app.core.huella import huella_params, params_bound
 
 
 def get_db():
@@ -38,8 +41,14 @@ def get_db():
 @strawberry.type
 class Mutation:
     @strawberry.mutation
-    def create_resource(self, input: CreateResourceInput) -> ResourceType:
-        """Crea una nueva fuente de datos"""
+    def create_resource(self, input: CreateResourceInput, info: strawberry.types.Info) -> ResourceType:
+        """Crea una nueva fuente de datos.
+
+        Identidad por contenido: si ya existe un recurso con la misma huella de
+        params, NO se duplica; se devuelve el existente (quien lo pide queda como
+        suscriptor y el dueño sigue siendo quien lo creó). Si la huella es nueva,
+        se crea y el solicitante queda como dueño (created_by_id).
+        """
         db = get_db()
         try:
             # Verificar que el fetcher existe
@@ -49,6 +58,24 @@ class Mutation:
             if not fetcher:
                 raise ValueError(f"Fetcher con id '{input.fetcher_id}' no existe")
 
+            # Huella de identidad sobre los params (ver app/core/huella.py).
+            # Solo se deduplica si los params están acotados; si hay alguno sin
+            # valor (borrador/plantilla a rellenar), se difiere la huella (NULL).
+            pares = [(p.key, p.value) for p in (input.params or [])]
+            if params_bound(pares):
+                ph = huella_params(pares)
+                existente = db.query(Resource).filter(
+                    Resource.params_hash == ph,
+                    Resource.deleted_at.is_(None),
+                ).first()
+                if existente:
+                    # Ya existe: no se duplica. El llamante se suscribe al existente.
+                    return map_resource(existente)
+            else:
+                ph = None  # identidad sin resolver: no se deduplica todavía
+
+            usuario = info.context.get("usuario") if (info and info.context) else None
+
             # Crear Resource
             resource = Resource(
                 id=uuid4(),
@@ -57,6 +84,8 @@ class Mutation:
                 fetcher_id=input.fetcher_id,
                 active=input.active,
                 schedule=input.schedule,
+                params_hash=ph,
+                created_by_id=(usuario.id if usuario else None),
             )
             # Validación sintáctica de la query según su tipo (request)
             from app.services.query_validation import validar_query
@@ -89,13 +118,32 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def update_resource(self, id: str, input: UpdateResourceInput) -> ResourceType:
-        """Actualiza una fuente de datos existente"""
+    def update_resource(self, id: str, input: UpdateResourceInput, info: strawberry.types.Info) -> ResourceType:
+        """Actualiza una fuente de datos existente.
+
+        Solo el creador (created_by_id) puede cambiar el `schedule` de refresco.
+        Los suscriptores consumen la cadencia establecida o piden un refresco a
+        demanda (que consume su cuota). Si se cambian los params, se recalcula la
+        huella de identidad y se rechaza si colisiona con otro recurso.
+        """
         db = get_db()
         try:
             resource = db.query(Resource).filter(Resource.id == id).first()
             if not resource:
                 raise ValueError(f"Resource con id '{id}' no encontrado")
+
+            usuario = info.context.get("usuario") if (info and info.context) else None
+            # Autoridad del schedule: solo el creador puede cambiar la cadencia.
+            if input.schedule is not None and (input.schedule or None) != resource.schedule:
+                if resource.created_by_id is not None and (usuario is None or usuario.id != resource.created_by_id):
+                    raise ValueError(
+                        "Solo el creador del recurso puede cambiar su schedule de refresco. "
+                        "Los suscriptores consumen la cadencia establecida o piden un refresco "
+                        "a demanda (con cuota)."
+                    )
+
+            if usuario:
+                resource.updated_by_id = usuario.id
 
             # Actualizar campos
             if input.name is not None:
@@ -133,6 +181,26 @@ class Mutation:
                     )
                     db.add(param)
 
+                # Recalcular la huella de identidad (solo si los params están
+                # acotados) y comprobar colisión con otro recurso.
+                _pares = [(p.key, p.value) for p in input.params]
+                if params_bound(_pares):
+                    nph = huella_params(_pares)
+                    colision = db.query(Resource).filter(
+                        Resource.params_hash == nph,
+                        Resource.id != resource.id,
+                        Resource.deleted_at.is_(None),
+                    ).first()
+                    if colision:
+                        raise ValueError(
+                            f"Esos params coinciden con otro recurso existente ('{colision.name}'); "
+                            "editar la identidad crearía un duplicado. Crea un recurso nuevo o "
+                            "suscríbete al existente."
+                        )
+                    resource.params_hash = nph
+                else:
+                    resource.params_hash = None  # identidad sin resolver
+
             db.commit()
             db.refresh(resource)
             scheduler.sync_schedule(str(resource.id), resource.schedule)
@@ -162,7 +230,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
-    def execute_resource(self, id: str, params: Optional[strawberry.scalars.JSON] = None) -> ExecutionResult:
+    def execute_resource(self, id: str, info: strawberry.types.Info, params: Optional[strawberry.scalars.JSON] = None) -> ExecutionResult:
         """Ejecuta un Resource para actualizar sus datos.
 
         Args:
@@ -179,6 +247,24 @@ class Mutation:
                     success=False,
                     message=f"Resource con id '{id}' no encontrado"
                 )
+
+            # Refresco a demanda: requiere principal autenticado y consume cuota diaria.
+            usuario = info.context.get("usuario") if (info and info.context) else None
+            if usuario is None:
+                return ExecutionResult(success=False, resource_id=id,
+                    message="El refresco a demanda requiere autenticacion (usuario/aplicacion).")
+            cuota = getattr(usuario, "cuota_refrescos_diaria", 0) or 0
+            inicio_dia = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            usados = db.query(func.count(RefrescoExtemporaneo.id)).filter(
+                RefrescoExtemporaneo.created_by_id == usuario.id,
+                RefrescoExtemporaneo.created_at >= inicio_dia,
+            ).scalar() or 0
+            if usados >= cuota:
+                return ExecutionResult(success=False, resource_id=id,
+                    message=f"Cuota diaria de refrescos a demanda agotada ({usados}/{cuota}). "
+                            "El recurso se refresca segun su schedule; reintenta manana o solicita mas cuota.")
+            db.add(RefrescoExtemporaneo(resource_id=resource.id, created_by_id=usuario.id))
+            db.commit()
 
             # Ejecutar el fetcher con params runtime opcionales
             FetcherManager.run(db, id, execution_params=params)

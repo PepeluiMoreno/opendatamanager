@@ -9,7 +9,7 @@ import requests
 from typing import List, Dict
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.models import Dataset, DatasetSubscription, Application, ApplicationNotification
+from app.models import Dataset, ResourceSubscription, Application, ApplicationNotification
 from app.utils.versioning import compute_schema_diff
 
 
@@ -28,9 +28,9 @@ class NotificationService:
 
         # Get matching subscriptions for this resource
         subscriptions = (
-            session.query(DatasetSubscription)
+            session.query(ResourceSubscription)
             .join(Application)
-            .filter(DatasetSubscription.resource_id == dataset.resource_id)
+            .filter(ResourceSubscription.resource_id == dataset.resource_id)
             .filter(Application.active == True)
             .all()
         )
@@ -132,7 +132,7 @@ class NotificationService:
             
         return False # Default to not notifying
 
-    def _build_graphql_payload(self, session: Session, dataset: Dataset, subscription: DatasetSubscription = None) -> Dict:
+    def _build_graphql_payload(self, session: Session, dataset: Dataset, subscription: ResourceSubscription = None) -> Dict:
         """
         Payload ligero para aplicaciones que consumen datos vía GraphQL.
 
@@ -195,7 +195,7 @@ class NotificationService:
         self,
         session: Session,
         dataset: Dataset,
-        subscription: DatasetSubscription
+        subscription: ResourceSubscription
     ) -> Dict:
         """Build notification payload"""
         from app.models import Resource as ResourceModel
