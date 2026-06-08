@@ -38,6 +38,19 @@ def upgrade():
             return
         op.add_column(table, col, schema=schema)
         _cache[table].add(col.name)
+    def _has_index(table, name):
+        try: return any(i["name"] == name for i in insp.get_indexes(table, schema=SCHEMA))
+        except Exception: return False
+    def _has_uc(table, name):
+        try: return any(u["name"] == name for u in insp.get_unique_constraints(table, schema=SCHEMA))
+        except Exception: return False
+    def _has_table(name):
+        try: return insp.has_table(name, schema=SCHEMA)
+        except Exception: return False
+    def _create_index(name, table, cols):
+        if not _has_index(table, name): op.create_index(name, table, cols, schema=SCHEMA)
+    def _create_uc(name, table, cols):
+        if not _has_uc(table, name): op.create_unique_constraint(name, table, cols, schema=SCHEMA)
     _add("app_config", sa.Column("created_at", sa.DateTime(), nullable=True), schema=SCHEMA)
     _add("app_config", sa.Column("created_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True), schema=SCHEMA)
     _add("app_config", sa.Column("updated_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True), schema=SCHEMA)
@@ -122,9 +135,11 @@ def upgrade():
     _add("usuario", sa.Column("updated_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True), schema=SCHEMA)
     # Resource: huella de identidad (params_hash)
     _add("resource", sa.Column("params_hash", sa.String(length=64), nullable=True), schema=SCHEMA)
-    op.create_index("ix_resource_params_hash", "resource", ["params_hash"], schema=SCHEMA)
-    # Backfill: calcula la huella de cada recurso a partir de sus params (dedup first-wins).
-    res = bind.execute(sa.text("SELECT id FROM opendata.resource WHERE deleted_at IS NULL ORDER BY created_at NULLS FIRST, id")).fetchall()
+    _create_index("ix_resource_params_hash", "resource", ["params_hash"])
+    # Backfill (idempotente): solo si params_hash aun no esta poblada (evita chocar
+    # con la unique si create_all ya habia rellenado huellas).
+    ya_poblado = bind.execute(sa.text("SELECT 1 FROM opendata.resource WHERE params_hash IS NOT NULL LIMIT 1")).first()
+    res = [] if ya_poblado else bind.execute(sa.text("SELECT id FROM opendata.resource WHERE deleted_at IS NULL ORDER BY created_at NULLS FIRST, id")).fetchall()
     vistos = set()
     for (rid,) in res:
         prs = bind.execute(sa.text("SELECT key, value FROM opendata.resource_param WHERE resource_id = :r"), {"r": rid}).fetchall()
@@ -133,21 +148,22 @@ def upgrade():
             continue  # duplicado preexistente: se deja params_hash NULL (se deduplicará en adelante)
         vistos.add(h)
         bind.execute(sa.text("UPDATE opendata.resource SET params_hash = :h WHERE id = :r"), {"h": h, "r": rid})
-    op.create_unique_constraint("uq_resource_params_hash", "resource", ["params_hash"], schema=SCHEMA)
+    _create_uc("uq_resource_params_hash", "resource", ["params_hash"])
     # Usuario: cuota diaria de refrescos a demanda
     _add("usuario", sa.Column("cuota_refrescos_diaria", sa.Integer(), nullable=False, server_default="50"), schema=SCHEMA)
     # Ledger de refrescos a demanda (cuota/auditoría)
-    op.create_table("refresco_extemporaneo",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("resource_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(), nullable=True),
-        sa.Column("created_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True),
-        sa.Column("updated_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True),
+    if not _has_table("refresco_extemporaneo"):
+        op.create_table("refresco_extemporaneo",
+            sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+            sa.Column("resource_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=False),
+            sa.Column("created_at", sa.DateTime(), nullable=True),
+            sa.Column("updated_at", sa.DateTime(), nullable=True),
+            sa.Column("created_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True),
+            sa.Column("updated_by_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True),
         schema=SCHEMA)
-    op.create_index("ix_refresco_extemporaneo_created_by_id", "refresco_extemporaneo", ["created_by_id"], schema=SCHEMA)
-    op.create_index("ix_refresco_extemporaneo_created_at", "refresco_extemporaneo", ["created_at"], schema=SCHEMA)
-    op.create_index("ix_refresco_extemporaneo_resource_id", "refresco_extemporaneo", ["resource_id"], schema=SCHEMA)
+    _create_index("ix_refresco_extemporaneo_created_by_id", "refresco_extemporaneo", ["created_by_id"])
+    _create_index("ix_refresco_extemporaneo_created_at", "refresco_extemporaneo", ["created_at"])
+    _create_index("ix_refresco_extemporaneo_resource_id", "refresco_extemporaneo", ["resource_id"])
 
 def downgrade():
     op.drop_table("refresco_extemporaneo", schema=SCHEMA)
