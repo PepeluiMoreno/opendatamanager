@@ -158,6 +158,7 @@ class Mutation:
                 schedule=input.schedule,
                 preset_id=preset_id,
                 params_hash=ph,
+                genera_colecciones=bool(getattr(input, "genera_colecciones", False)),
             )
             db.add(resource)
             db.flush()  # Para obtener el ID
@@ -255,6 +256,8 @@ class Mutation:
                     resource.preset_id = preset.id
             if input.active is not None:
                 resource.active = input.active
+            if getattr(input, "genera_colecciones", None) is not None:
+                resource.genera_colecciones = bool(input.genera_colecciones)
             if input.schedule is not None:
                 resource.schedule = input.schedule if input.schedule != "" else None
 

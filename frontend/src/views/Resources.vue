@@ -336,12 +336,19 @@
                 {{ type.code }} - {{ type.description }}
               </option>
             </select>
-            <p v-if="selectedFetcher?.modos?.includes('descubrir')"
-               class="text-xs text-blue-300 mt-1">
-              🛰️ Esta especie <strong>descubre</strong>: el recurso será una
-              <strong>Colección</strong> (nave nodriza) y aparecerá en la sección
-              Collections, desde donde revisarás sus candidatos.
-            </p>
+            <div v-if="selectedFetcher?.modos?.includes('descubrir')"
+                 class="mt-2 p-3 rounded border border-blue-800 bg-blue-950/30">
+              <label class="flex items-start gap-2 cursor-pointer">
+                <input type="checkbox" v-model="form.generaColecciones"
+                       class="mt-0.5 accent-blue-500" />
+                <span class="text-xs text-blue-200">
+                  🛰️ Cualificar como <strong>generador de colecciones</strong> (nave
+                  nodriza). Marcado, el recurso descubre candidatos y aparece en
+                  Collections. Sin marcar, este Web Tree solo <strong>extrae</strong> su
+                  dato, aunque su especie sea capaz de descubrir.
+                </span>
+              </label>
+            </div>
           </div>
 
           <div v-if="(selectedFetcher?.presets || []).length">
@@ -1435,6 +1442,7 @@ const previewParams = ref({})
 
 const form = ref({
   name: '', description: '', publisherId: null, fetcherId: '', presetId: null, params: [], active: true, schedule: null,
+  generaColecciones: false,
   numWorkers: 1, maxConcurrentRequests: null, rateLimitPerSecond: null, requestDelayMs: null,
   retryAttempts: null, retryBackoffFactor: null, batchSize: null,
 })
@@ -1610,6 +1618,7 @@ function editResource(resource) {
     name: resource.name, description: resource.description||'', publisherId: resource.publisherId||null, fetcherId: resource.fetcher.id, presetId: resource.preset?.id || null,
     params: resource.params.filter(p=>!ck.includes(p.key)).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false})),
     active: resource.active, schedule: resource.schedule||null,
+    generaColecciones: resource.generaColecciones || false,
     numWorkers: parseInt(getParam('num_workers',1)),
     maxConcurrentRequests: getParam('max_concurrent_requests')?parseInt(getParam('max_concurrent_requests')):null,
     rateLimitPerSecond: getParam('rate_limit_per_second')?parseInt(getParam('rate_limit_per_second')):null,
@@ -1691,7 +1700,7 @@ async function submitForm() {
     const allParams = [...form.value.params.filter(p=>p.key&&p.value).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false}))]
     const cp = { 'num_workers':{value:form.value.numWorkers,default:1},'max_concurrent_requests':{value:form.value.maxConcurrentRequests,default:null},'rate_limit_per_second':{value:form.value.rateLimitPerSecond,default:null},'request_delay_ms':{value:form.value.requestDelayMs,default:null},'retry_attempts':{value:form.value.retryAttempts,default:null},'retry_backoff_factor':{value:form.value.retryBackoffFactor,default:null},'batch_size':{value:form.value.batchSize,default:null} }
     for (const [k,c] of Object.entries(cp)) { if (c.value!==null&&c.value!==c.default) allParams.push({key:k,value:String(c.value)}) }
-    const input = { name:form.value.name, description:form.value.description||null, publisherId:form.value.publisherId||null, fetcherId:form.value.fetcherId, presetId:form.value.presetId || (editingResource ? "" : null), params:allParams, active:form.value.active, schedule:form.value.schedule||null }
+    const input = { name:form.value.name, description:form.value.description||null, publisherId:form.value.publisherId||null, fetcherId:form.value.fetcherId, presetId:form.value.presetId || (editingResource ? "" : null), params:allParams, active:form.value.active, schedule:form.value.schedule||null, generaColecciones:form.value.generaColecciones || false }
     if (showCreateModal.value) await createResource(input); else await updateResource(editingResource.value.id, input)
     closeModals(); await loadData()
   } catch (e) { error.value = 'Failed to save resource: ' + e.message }
@@ -1699,7 +1708,7 @@ async function submitForm() {
 
 function closeModals() {
   showCreateModal.value=false; showEditModal.value=false; editingResource.value=null; activeParamTab.value='parameters'; expandedGroups.value=new Set(); derivedConfigs.value=[]; showAddDerivedForm.value=false; editingDerivedId.value=null
-  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
+  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, generaColecciones:false, numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
 }
 
 async function loadDerivedConfigs(id) { derivedConfigsLoading.value=true; try { const r=await fetchDerivedDatasetConfigs(id); derivedConfigs.value=r?.derivedDatasetConfigs||[] } catch {} finally { derivedConfigsLoading.value=false } }
