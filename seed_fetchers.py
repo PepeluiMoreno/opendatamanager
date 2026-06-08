@@ -1051,6 +1051,12 @@ def seed() -> None:
     db = SessionLocal()
     try:
         retirados = []
+        # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
+        _MODOS = {"Web Tree": ["extraer", "descubrir"]}
+        for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
+            _f.modos = _MODOS.get(_f.code, ["extraer"])
+        db.commit()
+
         seeded = {sp["name"] for sp in FETCHERS}
         for f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             if f.code in seeded:   # del catálogo de tecnologías → intocable

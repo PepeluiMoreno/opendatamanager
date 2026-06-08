@@ -64,6 +64,16 @@ class Fetcher(AuditMixin, Base):
     preset_params = Column(JSONB, nullable=True)  # LEGACY: sustituido por FetcherPreset; se conserva como fallback transitorio
 
     presets = relationship("FetcherPreset", back_populates="fetcher", cascade="all, delete-orphan")
+    # Capacidad declarada de la especie: qué modos de operación soporta.
+    # 'extraer' (produce dataset) y/o 'descubrir' (produce candidatos → es una
+    # nave nodriza de Colecciones). Lo que hace a Web Tree una Colección no es su
+    # tipo, sino llevar 'descubrir' aquí — y el día que otra especie lo lleve,
+    # será Colección sin tocar nada más.
+    modos = Column(JSONB, nullable=False, default=lambda: ["extraer"], server_default='["extraer"]')
+
+    @property
+    def descubre(self) -> bool:
+        return "descubrir" in (self.modos or [])
     deleted_at = Column(DateTime, nullable=True)
 
     params_def = relationship("FetcherParams", back_populates="fetcher")
@@ -176,6 +186,12 @@ class Resource(AuditMixin, Base):
                                 cascade="all, delete-orphan", lazy="dynamic")
     dependents = relationship("ResourceDependency", foreign_keys="ResourceDependency.source_resource_id",
                               lazy="dynamic", overlaps="dependencies")
+
+    @property
+    def es_coleccion(self) -> bool:
+        """Recurso-madre: su especie declara el modo 'descubrir'. Las
+        Colecciones generan candidatos; el resto solo extraen."""
+        return bool(self.fetcher and self.fetcher.descubre and self.parent_resource_id is None)
 
 
 class DatasetLease(AuditMixin, Base):

@@ -17,6 +17,7 @@ class FetcherType:
     # Campo calculado: la especie tiene implementación importable (vs. matriculada
     # de forma aspiracional). Resuelto por FetcherFactory.is_implemented (cacheado).
     implemented: bool = False
+    modos: List[str] = strawberry.field(default_factory=lambda: ["extraer"])
     description: Optional[str] = None
     params_def: List["FetcherParamType"] = strawberry.field(default_factory=list)
     name: str = strawberry.field(name="name")
