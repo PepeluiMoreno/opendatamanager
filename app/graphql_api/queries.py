@@ -170,6 +170,8 @@ def map_resource(resource: Resource) -> ResourceType:
         deleted_at=resource.deleted_at,
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
         auto_generated=getattr(resource, 'auto_generated', False) or False,
+        subscriber_count=getattr(resource, '_subscriber_count', 0),
+        subscriber_apps=getattr(resource, '_subscriber_apps', None),
         children=children_list,
     )
 
@@ -392,14 +394,43 @@ class Query:
             db.close()
 
     @strawberry.field
-    def resources(self, info: Info, active_only: bool = False) -> List[ResourceType]:
-        """Lista todas las fuentes de datos"""
+    def resources(self, info: Info, active_only: bool = False,
+                  used_by: Optional[str] = None) -> List[ResourceType]:
+        """Lista todas las fuentes de datos.
+
+        `used_by`: id de una aplicación → solo los recursos a los que está suscrita
+        (ver las aplicaciones desde los recursos, como los recursos desde las apps).
+        """
         db = get_db()
         try:
             query = db.query(Resource).options(joinedload(Resource.publisher_obj)).filter(Resource.deleted_at == None)
             if active_only:
                 query = query.filter(Resource.active == True)
             resources = query.order_by(Resource.created_at.desc()).all()
+
+            # Aplicaciones suscritas por recurso, en bloque (sin N+1): nombres
+            # para mostrar e ids para filtrar.
+            nombres_por_recurso: dict = {}
+            ids_por_recurso: dict = {}
+            subs = (
+                db.query(ResourceSubscription.resource_id, Application.id, Application.name)
+                .join(Application, Application.id == ResourceSubscription.application_id)
+                .filter(ResourceSubscription.deleted_at == None,
+                        Application.deleted_at == None)
+                .all()
+            )
+            for rid, app_id, app_name in subs:
+                nombres_por_recurso.setdefault(rid, []).append(app_name)
+                ids_por_recurso.setdefault(rid, set()).add(str(app_id))
+
+            if used_by:
+                resources = [r for r in resources if used_by in ids_por_recurso.get(r.id, set())]
+
+            for r in resources:
+                nombres = nombres_por_recurso.get(r.id, [])
+                r._subscriber_apps = nombres or None
+                r._subscriber_count = len(nombres)
+
             out = [map_resource(r) for r in resources]
             if not puede(info, "recursos.ver_sensible"):
                 for rt in out:

@@ -52,6 +52,15 @@
             </select>
           </div>
 
+          <!-- Used by (aplicaciones suscritas) -->
+          <div class="flex items-center gap-1.5">
+            <span class="text-gray-400 font-medium">Used by:</span>
+            <select v-model="selectedApp" class="input py-0.5 px-2 text-xs" style="min-width:150px">
+              <option value="">Anyone</option>
+              <option v-for="a in availableApps" :key="a" :value="a">{{ a }}</option>
+            </select>
+          </div>
+
           <!-- Level filter -->
           <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Level:</span>
@@ -101,6 +110,7 @@
           <tr class="border-b border-gray-700 text-xs text-gray-400">
             <th class="text-left py-2 px-3 font-medium">Name</th>
             <th class="text-left py-2 px-3 font-medium">Publisher</th>
+            <th class="text-left py-2 px-3 font-medium">Apps</th>
             <th class="text-left py-2 px-3 font-medium">Type</th>
             <th class="text-left py-2 px-3 font-medium">Status</th>
             <th class="text-right py-2 px-3 font-medium">Actions</th>
@@ -127,6 +137,12 @@
                 <span class="inline-flex items-center justify-center w-3 h-3 rounded-full bg-gray-600 text-gray-300 text-[9px] leading-none ml-0.5 align-middle">i</span>
               </span>
               <span v-else>{{ resource.publisherObj?.nombre || resource.publisher || '—' }}</span>
+            </td>
+            <td class="py-1.5 px-3 text-xs whitespace-nowrap">
+              <span v-if="resource.subscriberCount"
+                    class="inline-block px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300 cursor-help"
+                    :title="(resource.subscriberApps || []).join(', ')">{{ resource.subscriberCount }}</span>
+              <span v-else class="text-gray-600">—</span>
             </td>
             <td class="py-1.5 px-3 whitespace-nowrap">
               <code class="text-xs bg-gray-900 px-1.5 py-0.5 rounded text-blue-400">
@@ -1284,6 +1300,12 @@ const currentPage = ref(1)
 
 const selectedType      = ref('')
 const selectedPublisher = ref('')
+const selectedApp = ref('')
+const availableApps = computed(() => {
+  const set = new Set()
+  for (const r of (resources.value || [])) for (const a of (r.subscriberApps || [])) set.add(a)
+  return [...set].sort()
+})
 const selectedNivel     = ref('')
 const filterAllStatuses = ref(true)
 const filterStatuses    = ref([])
@@ -1304,13 +1326,14 @@ function onStatusChange() {
 }
 
 const hasActiveFilters = computed(() =>
-  !!(searchQuery.value || selectedType.value || selectedPublisher.value || selectedNivel.value || !filterAllStatuses.value)
+  !!(searchQuery.value || selectedType.value || selectedPublisher.value || selectedApp.value || selectedNivel.value || !filterAllStatuses.value)
 )
 
 function clearFilters() {
   searchQuery.value      = ''
   selectedType.value     = ''
   selectedPublisher.value = ''
+  selectedApp.value = ''
   selectedNivel.value    = ''
   filterAllStatuses.value = true
   filterStatuses.value   = []
@@ -1490,6 +1513,7 @@ const filteredResources = computed(() => {
     if (q && !r.name.toLowerCase().includes(q) && !pub.toLowerCase().includes(q)) return false
     if (selectedType.value && r.fetcher?.code !== selectedType.value) return false
     if (selectedPublisher.value && r.publisherId !== selectedPublisher.value) return false
+    if (selectedApp.value && !(r.subscriberApps || []).includes(selectedApp.value)) return false
     if (selectedNivel.value && r.publisherObj?.nivel !== selectedNivel.value) return false
     if (!filterAllStatuses.value && filterStatuses.value.length) { if (!filterStatuses.value.includes(r.active ? 'active' : 'inactive')) return false }
     return true
@@ -1498,7 +1522,7 @@ const filteredResources = computed(() => {
 
 const totalPages = computed(() => Math.ceil(filteredResources.value.length / pageSize.value))
 const pagedResources = computed(() => { const s = (currentPage.value - 1) * pageSize.value; return filteredResources.value.slice(s, s + pageSize.value) })
-watch([searchQuery, selectedType, selectedPublisher, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
+watch([searchQuery, selectedType, selectedPublisher, selectedApp, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
 
 const selectedOptionalParam = ref('')
 
