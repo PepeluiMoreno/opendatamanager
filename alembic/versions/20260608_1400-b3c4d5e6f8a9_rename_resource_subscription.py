@@ -6,6 +6,7 @@ La relación a nivel dataset (fijar/retener una versión concreta) es DatasetLea
 que es otra cosa.
 """
 from alembic import op
+import sqlalchemy as sa
 
 revision = 'b3c4d5e6f8a9'
 down_revision = 'a2b3c4d5e6f8'
@@ -15,9 +16,21 @@ depends_on = None
 SCHEMA = "opendata"
 
 
+def _has_table(insp, name):
+    try:
+        return insp.has_table(name, schema=SCHEMA)
+    except Exception:
+        return False
+
+
 def upgrade():
-    op.rename_table("dataset_subscription", "resource_subscription", schema=SCHEMA)
+    insp = sa.inspect(op.get_bind())
+    # Idempotente: el entrypoint re-aplica desde base en cada arranque.
+    if _has_table(insp, "dataset_subscription") and not _has_table(insp, "resource_subscription"):
+        op.rename_table("dataset_subscription", "resource_subscription", schema=SCHEMA)
 
 
 def downgrade():
-    op.rename_table("resource_subscription", "dataset_subscription", schema=SCHEMA)
+    insp = sa.inspect(op.get_bind())
+    if _has_table(insp, "resource_subscription") and not _has_table(insp, "dataset_subscription"):
+        op.rename_table("resource_subscription", "dataset_subscription", schema=SCHEMA)
