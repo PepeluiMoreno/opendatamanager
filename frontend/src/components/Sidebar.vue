@@ -18,6 +18,7 @@
       <NavItem to="/" :active="$route.path === '/'">📊 Dashboard</NavItem>
       <NavItem to="/publishers" :active="$route.path === '/publishers'">🏛️ Publishers</NavItem>
       <NavItem to="/resources" :active="$route.path.startsWith('/resources')">🔌 Resources</NavItem>
+      <NavItem to="/collections" :active="$route.path === '/collections'">🛰️ Collections</NavItem>
       <NavItem to="/fetchers" :active="$route.path.startsWith('/fetchers')">🔧 Fetchers</NavItem>
       <NavItem to="/processes" :active="$route.path === '/processes'">⚡ Processes</NavItem>
       <NavItem to="/explorer" :active="$route.path === '/explorer'">🔍 Data Explorer</NavItem>

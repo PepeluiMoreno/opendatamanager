@@ -105,6 +105,7 @@ def map_fetcher(ft: FetcherModel, include_resources: bool = False) -> FetcherTyp
         deleted_at=ft.deleted_at,
         created_at=ft.created_at,
         preset_params=getattr(ft, 'preset_params', None),
+        modos=getattr(ft, 'modos', None) or ["extraer"],
         presets=[map_preset(pr) for pr in (getattr(ft, 'presets', None) or []) if pr.deleted_at is None] or None,
     )
 
@@ -189,6 +190,10 @@ def map_resource(resource: Resource) -> ResourceType:
         subscriber_count=getattr(resource, '_subscriber_count', 0),
         subscriber_apps=getattr(resource, '_subscriber_apps', None),
         children=children_list,
+        es_coleccion=bool(getattr(resource, 'es_coleccion', False)),
+        candidatos_pendientes=getattr(resource, '_candidatos_pendientes', 0),
+        miembros=getattr(resource, '_miembros', 0),
+        ultimo_descubrimiento=getattr(resource, '_ultimo_descubrimiento', None),
     )
 
 
@@ -477,6 +482,39 @@ class Query:
                 r._subscriber_count = len(nombres)
 
             out = [map_resource(r) for r in resources]
+            if not puede(info, "recursos.ver_sensible"):
+                for rt in out:
+                    redactar_recurso(rt)
+            return out
+        finally:
+            db.close()
+
+    @strawberry.field
+    def collections(self, info: Info) -> List[ResourceType]:
+        """Las naves nodriza: recursos cuya especie declara el modo 'descubrir'
+        (es_coleccion). Para cada una, candidatos pendientes, miembros
+        promovidos y fecha del último rastreo."""
+        db = get_db()
+        try:
+            base = (db.query(Resource)
+                    .options(joinedload(Resource.publisher_obj))
+                    .filter(Resource.deleted_at == None,
+                            Resource.parent_resource_id == None)
+                    .order_by(Resource.created_at.desc()).all())
+            cols = [r for r in base if r.fetcher and r.fetcher.descubre]
+            for r in cols:
+                r._candidatos_pendientes = (db.query(ResourceCandidate)
+                    .filter(ResourceCandidate.crawler_resource_id == r.id,
+                            ResourceCandidate.status == "discovered").count())
+                r._miembros = (db.query(Resource)
+                    .filter(Resource.parent_resource_id == r.id,
+                            Resource.deleted_at == None).count())
+                ult = (db.query(ResourceExecution)
+                    .filter(ResourceExecution.resource_id == r.id,
+                            ResourceExecution.kind == "discovering")
+                    .order_by(ResourceExecution.started_at.desc()).first())
+                r._ultimo_descubrimiento = ult.started_at if ult else None
+            out = [map_resource(r) for r in cols]
             if not puede(info, "recursos.ver_sensible"):
                 for rt in out:
                     redactar_recurso(rt)

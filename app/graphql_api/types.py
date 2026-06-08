@@ -387,6 +387,10 @@ class ResourceType:
     children: Optional[List["ResourceType"]] = strawberry.field(default=None)
     preset: Optional["PresetType"] = strawberry.field(default=None)
     last_tested_at: Optional[datetime] = strawberry.field(default=None, name="lastTestedAt")
+    es_coleccion: bool = strawberry.field(default=False, name="esColeccion")
+    candidatos_pendientes: int = strawberry.field(default=0, name="candidatosPendientes")
+    miembros: int = strawberry.field(default=0, name="miembros")
+    ultimo_descubrimiento: Optional[datetime] = strawberry.field(default=None, name="ultimoDescubrimiento")
 
 
 @strawberry.type

@@ -47,6 +47,21 @@ export const QUERIES = {
       }
     }
   `,
+  GET_COLLECTIONS: `
+    query GetCollections {
+      collections {
+        id
+        name
+        description
+        publisher
+        publisherObj { id nombre acronimo nivel }
+        candidatosPendientes
+        miembros
+        ultimoDescubrimiento
+        fetcher { id code name }
+      }
+    }
+  `,
   GET_RESOURCES: `
     query GetResources($activeOnly: Boolean) {
       resources(activeOnly: $activeOnly) {
@@ -555,6 +570,14 @@ export const MUTATIONS = {
 }
 
 // Helper functions with error handling
+export async function fetchCollections() {
+  try {
+    return await client.request(QUERIES.GET_COLLECTIONS)
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
 export async function fetchResources(activeOnly = false) {
   try {
     return await client.request(QUERIES.GET_RESOURCES, { activeOnly })

@@ -14,11 +14,13 @@ import Publishers from '../views/Publishers.vue'
 import Trash from '../views/Trash.vue'
 import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
+import Collections from '../views/Collections.vue'
 
 const routes = [
   { path: '/mis-datos',      name: 'MisDatos',      component: MisDatos },
   { path: '/',               name: 'Dashboard',    component: Dashboard },
   { path: '/resources',      name: 'Resources',     component: Resources },
+  { path: '/collections',    name: 'Collections',   component: Collections },
   { path: '/fetchers',       name: 'Fetchers',      component: Fetchers },
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
   { path: '/applications',   name: 'Applications',  component: Applications, meta: { permiso: 'aplicaciones.gestionar' } },
