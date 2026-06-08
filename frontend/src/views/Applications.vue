@@ -253,7 +253,7 @@ async function load() {
       fetchApplications(), fetchSubscriptions(), fetchResources(),
     ])
     applications.value  = appRes?.applications        ?? []
-    subscriptions.value = subRes?.datasetSubscriptions ?? []
+    subscriptions.value = subRes?.resourceSubscriptions ?? []
     resources.value     = resRes?.resources           ?? []
     if (!selectedApp.value && applications.value.length) selectedAppId.value = applications.value[0].id
   } catch (e) {
