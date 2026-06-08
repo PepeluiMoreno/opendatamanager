@@ -285,4 +285,29 @@ Modelo (a montar):
 
 Cadena completa de vida de una aplicación: ingreso (§12) → token → propone
 recursos y schedule (§11) → el admin aprueba. RBAC: 'aplicaciones.aprobar'.
-Estado: especificado (diseño de seguridad), pendiente de montar.
+
+Decisión de nomenclatura (al montar): el principal 'aplicacion' es un
+``Usuario`` con ``tipo='aplicacion'`` (reutiliza RBAC/auditoría/cuota, como
+sugería la spec); NO una tabla nueva. El token NO se llama 'ApplicationToken'
+sino ``ServiceToken`` para no chocar con la clase ``Application`` ya existente
+(suscripción a webhooks de datasets, otro significado); cuelga de ``usuario_id``.
+
+Estado: Fase A MONTADA (rama feat/aplicaciones-m2m, sin push):
+- Modelo: ``Usuario.tipo``, ``SolicitudIngreso``, ``ServiceToken``.
+- ``app/service_auth.py``: emitir (display-once) / validar (compare_digest) /
+  revocar / rotar; rechazo uniforme; resolución por prefijo localizador.
+- Contexto GraphQL (``main.py``): cookie de humano primero, Bearer M2M como
+  fallback.
+- Migración idempotente e6f7a8b9c0d2; RBAC: 'aplicaciones.aprobar' y
+  'recursos.aprobar' sembradas. Tests tests/rbac/test_service_auth.py (8).
+PENDIENTE Fase B: mutaciones GraphQL (crear solicitud, aprobar→crea principal +
+emite token display-once, rotar/revocar) + MAPA_TRANSACCIONES + bandeja UI.
+  → MONTADA: SolicitudIngresoType/AprobarSolicitudResult; service_auth
+  .crear_principal_aplicacion (Usuario tipo='aplicacion' + rol suscriptor + token
+  inicial); query solicitudesIngreso; mutaciones crear/aprobar/rechazar solicitud.
+PENDIENTE Fase C: §11 (estado_aprobacion en Resource, gating, propuestas).
+  → MONTADA: Resource.estado_aprobacion (+motivo_rechazo), migración c7d8e9f0a1b2,
+  gating en create_resource (app→pendiente), query recursosPropuestos, mutaciones
+  aprobar/rechazar recurso. Frontend: vista Aprobaciones (dos colas, RBAC, token
+  display-once) + ruta + sidebar. Pendiente menor: gating de run/schedule para
+  recursos no aprobados; rotar/revocar token desde UI.

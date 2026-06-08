@@ -95,6 +95,7 @@ def start() -> None:
         resources = session.query(Resource).filter(
             Resource.active == True,
             Resource.schedule != None,
+            Resource.estado_aprobacion == "aprobado",
         ).all()
         for resource in resources:
             sync_schedule(str(resource.id), resource.schedule)

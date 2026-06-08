@@ -83,6 +83,10 @@ from app.graphql_api.types import (
     UpdatePublisherInput,
     ResourceCandidateType,
     PromoteCandidateInput,
+    SolicitudIngresoType,
+    CrearSolicitudIngresoInput,
+    AprobarSolicitudResult,
+    TokenEmitidoResult,
 )
 from app.graphql_api.queries import (
     map_preset,
@@ -146,6 +150,10 @@ class Mutation:
                 ph = None
 
             # Crear Resource
+            # §11: si quien crea es una aplicación (M2M), el recurso queda
+            # 'pendiente' de aprobación; un humano con permiso lo crea 'aprobado'.
+            _creador = info.context.get("usuario") if (info and info.context) else None
+            _estado = "pendiente" if (_creador is not None and getattr(_creador, "tipo", "humano") == "aplicacion") else "aprobado"
             resource = Resource(
                 id=uuid4(),
                 name=input.name,
@@ -159,6 +167,7 @@ class Mutation:
                 preset_id=preset_id,
                 params_hash=ph,
                 genera_colecciones=bool(getattr(input, "genera_colecciones", False)),
+                estado_aprobacion=_estado,
             )
             db.add(resource)
             db.flush()  # Para obtener el ID
@@ -434,6 +443,12 @@ class Mutation:
             resource = db.query(Resource).filter(Resource.id == id).first()
             if not resource:
                 return ExecutionResult(success=False, message=f"Resource con id '{id}' no encontrado")
+            if getattr(resource, "estado_aprobacion", "aprobado") != "aprobado":
+                return ExecutionResult(
+                    success=False,
+                    message=f"El recurso no está aprobado (estado={resource.estado_aprobacion}); no puede ejecutarse.",
+                    resource_id=str(resource.id),
+                )
             resource_name = resource.name
             resource_id = str(resource.id)
 
@@ -1659,5 +1674,194 @@ class Mutation:
         except Exception as e:
             db.rollback()
             raise e
+        finally:
+            db.close()
+
+    # ── §12 Alta de aplicaciones (M2M) ─────────────────────────────────────
+
+    @strawberry.mutation
+    def crear_solicitud_ingreso(self, input: CrearSolicitudIngresoInput,
+                                info: strawberry.types.Info) -> SolicitudIngresoType:
+        """Self-service: registra una solicitud de alta de aplicación. No crea
+        nada operativo; queda 'pendiente' hasta que un admin la apruebe."""
+        from app.models import SolicitudIngreso
+        db = get_db()
+        try:
+            s = SolicitudIngreso(
+                nombre=input.nombre,
+                contacto=getattr(input, "contacto", None),
+                proposito=getattr(input, "proposito", None),
+                estado="pendiente",
+            )
+            db.add(s)
+            db.commit()
+            return SolicitudIngresoType(
+                id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
+                estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
+                resuelta_at=s.resuelta_at, usuario_id=None,
+            )
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def aprobar_solicitud_ingreso(self, id: strawberry.ID,
+                                  info: strawberry.types.Info) -> AprobarSolicitudResult:
+        """Aprueba una solicitud: materializa el principal 'aplicacion' (Usuario
+        tipo='aplicacion' con rol suscriptor) y emite su primer token Bearer.
+        El token en claro se devuelve UNA sola vez."""
+        from app.models import SolicitudIngreso
+        from app.service_auth import crear_principal_aplicacion, emitir_token
+        db = get_db()
+        try:
+            s = db.query(SolicitudIngreso).filter(SolicitudIngreso.id == id).first()
+            if not s:
+                raise ValueError("Solicitud no encontrada")
+            if s.estado != "pendiente":
+                raise ValueError(f"La solicitud ya está '{s.estado}'")
+            usuario = crear_principal_aplicacion(db, s.nombre, s.contacto)
+            fila, secreto = emitir_token(db, usuario, label="inicial")
+            s.estado = "aprobada"
+            s.resuelta_at = _dt.utcnow()
+            s.usuario_id = usuario.id
+            db.commit()
+            return AprobarSolicitudResult(
+                solicitud=SolicitudIngresoType(
+                    id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
+                    estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
+                    resuelta_at=s.resuelta_at, usuario_id=str(usuario.id),
+                ),
+                usuario_id=str(usuario.id), username=usuario.username,
+                token=secreto, token_prefix=fila.prefix,
+            )
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def rechazar_solicitud_ingreso(self, id: strawberry.ID, motivo: Optional[str],
+                                   info: strawberry.types.Info) -> SolicitudIngresoType:
+        """Rechaza una solicitud con un motivo. No crea principal ni token."""
+        from app.models import SolicitudIngreso
+        db = get_db()
+        try:
+            s = db.query(SolicitudIngreso).filter(SolicitudIngreso.id == id).first()
+            if not s:
+                raise ValueError("Solicitud no encontrada")
+            if s.estado != "pendiente":
+                raise ValueError(f"La solicitud ya está '{s.estado}'")
+            s.estado = "rechazada"
+            s.motivo = motivo
+            s.resuelta_at = _dt.utcnow()
+            db.commit()
+            return SolicitudIngresoType(
+                id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
+                estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
+                resuelta_at=s.resuelta_at, usuario_id=None,
+            )
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    # ── §11 Gobernanza de recursos propuestos ──────────────────────────────
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.aprobar")])
+    def aprobar_recurso(self, id: strawberry.ID, info: strawberry.types.Info) -> ResourceType:
+        """Aprueba un recurso propuesto: pasa a 'aprobado' y queda operativo."""
+        db = get_db()
+        try:
+            r = db.query(Resource).filter(Resource.id == id).first()
+            if not r:
+                raise ValueError("Recurso no encontrado")
+            r.estado_aprobacion = "aprobado"
+            r.motivo_rechazo = None
+            db.commit()
+            # Al quedar operativo, si tiene cadencia, se registra su job.
+            if r.active and r.schedule:
+                try:
+                    scheduler.sync_schedule(str(r.id), r.schedule)
+                except Exception:
+                    pass
+            return map_resource(r)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.aprobar")])
+    def rechazar_recurso(self, id: strawberry.ID, motivo: Optional[str],
+                         info: strawberry.types.Info) -> ResourceType:
+        """Rechaza un recurso propuesto con un motivo; no se ejecutará."""
+        db = get_db()
+        try:
+            r = db.query(Resource).filter(Resource.id == id).first()
+            if not r:
+                raise ValueError("Recurso no encontrado")
+            r.estado_aprobacion = "rechazado"
+            r.motivo_rechazo = motivo
+            r.active = False
+            db.commit()
+            return map_resource(r)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    # ── §12 Gestión de tokens de aplicaciones (rotar / revocar / emitir) ────
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def emitir_token_aplicacion(self, usuario_id: strawberry.ID, label: Optional[str],
+                                info: strawberry.types.Info) -> TokenEmitidoResult:
+        """Emite un token Bearer adicional para una aplicación. El secreto en
+        claro se devuelve una sola vez."""
+        from app.models import Usuario
+        from app.service_auth import emitir_token, PRINCIPAL_APLICACION
+        db = get_db()
+        try:
+            u = db.query(Usuario).filter(Usuario.id == usuario_id,
+                                         Usuario.tipo == PRINCIPAL_APLICACION).first()
+            if not u:
+                raise ValueError("Aplicación no encontrada")
+            fila, secreto = emitir_token(db, u, label=label)
+            return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(u.id),
+                                      prefix=fila.prefix, token=secreto)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def rotar_token_aplicacion(self, token_id: strawberry.ID, label: Optional[str],
+                               info: strawberry.types.Info) -> TokenEmitidoResult:
+        """Rota un token: emite uno nuevo y revoca el anterior. Devuelve el nuevo
+        secreto una sola vez."""
+        from app.service_auth import rotar_token
+        db = get_db()
+        try:
+            res = rotar_token(db, token_id, label=label)
+            if res is None:
+                raise ValueError("Token no encontrado")
+            fila, secreto = res
+            return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(fila.usuario_id),
+                                      prefix=fila.prefix, token=secreto)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def revocar_token_aplicacion(self, token_id: strawberry.ID,
+                                 info: strawberry.types.Info) -> bool:
+        """Revoca un token de inmediato. Idempotente."""
+        from app.service_auth import revocar_token
+        db = get_db()
+        try:
+            ok = revocar_token(db, token_id)
+            return bool(ok)
+        except Exception:
+            db.rollback(); raise
         finally:
             db.close()
