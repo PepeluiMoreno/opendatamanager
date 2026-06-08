@@ -465,3 +465,35 @@ class AprobarSolicitudResult:
     username: str
     token: str            # secreto en claro — mostrar una vez y no volver a pedir
     token_prefix: str = strawberry.field(name="tokenPrefix")
+
+
+# ── §12 Gestión de credenciales de aplicaciones (cuentas de servicio) ───────
+
+@strawberry.type
+class ServiceTokenType:
+    id: str
+    label: Optional[str] = None
+    prefix: str = ""
+    last_used_at: Optional[datetime] = strawberry.field(default=None, name="lastUsedAt")
+    expires_at: Optional[datetime] = strawberry.field(default=None, name="expiresAt")
+    revoked_at: Optional[datetime] = strawberry.field(default=None, name="revokedAt")
+    activo: bool = True   # no revocado y no expirado
+
+
+@strawberry.type
+class AplicacionM2MType:
+    """Aplicación aprobada: el principal (Usuario tipo='aplicacion') y sus tokens."""
+    usuario_id: str = strawberry.field(name="usuarioId")
+    username: str
+    email: Optional[str] = None
+    is_active: bool = strawberry.field(default=True, name="isActive")
+    tokens: List[ServiceTokenType] = strawberry.field(default_factory=list)
+
+
+@strawberry.type
+class TokenEmitidoResult:
+    """Token recién emitido/rotado. El secreto en claro se entrega UNA vez."""
+    token_id: str = strawberry.field(name="tokenId")
+    usuario_id: str = strawberry.field(name="usuarioId")
+    prefix: str
+    token: str   # secreto en claro — display-once

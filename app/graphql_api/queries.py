@@ -31,6 +31,8 @@ from app.graphql_api.types import (
     PublisherType,
     ResourceCandidateType,
     SolicitudIngresoType,
+    AplicacionM2MType,
+    ServiceTokenType,
 )
 
 
@@ -894,5 +896,34 @@ class Query:
                             Resource.estado_aprobacion == "pendiente")
                     .order_by(Resource.created_at.desc()).all())
             return [map_resource(r) for r in rows]
+        finally:
+            db.close()
+
+    @strawberry.field(permission_classes=[requiere("aplicaciones.aprobar")])
+    def aplicaciones_m2m(self, info: Info) -> List[AplicacionM2MType]:
+        """Aplicaciones aprobadas (principales tipo='aplicacion') y sus tokens
+        Bearer, sin el secreto (solo metadatos). Requiere 'aplicaciones.aprobar'."""
+        from app.models import Usuario, ServiceToken
+        from app.service_auth import PRINCIPAL_APLICACION
+        db = SessionLocal()
+        try:
+            ahora = _dt.utcnow()
+            apps = (db.query(Usuario)
+                    .filter(Usuario.tipo == PRINCIPAL_APLICACION)
+                    .order_by(Usuario.username).all())
+            out = []
+            for u in apps:
+                toks = (db.query(ServiceToken)
+                        .filter(ServiceToken.usuario_id == u.id)
+                        .order_by(ServiceToken.created_at.desc()).all())
+                out.append(AplicacionM2MType(
+                    usuario_id=str(u.id), username=u.username, email=u.email, is_active=u.is_active,
+                    tokens=[ServiceTokenType(
+                        id=str(t.id), label=t.label, prefix=t.prefix,
+                        last_used_at=t.last_used_at, expires_at=t.expires_at, revoked_at=t.revoked_at,
+                        activo=(t.revoked_at is None and (t.expires_at is None or t.expires_at > ahora)),
+                    ) for t in toks],
+                ))
+            return out
         finally:
             db.close()

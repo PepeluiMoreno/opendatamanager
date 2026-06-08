@@ -86,6 +86,7 @@ from app.graphql_api.types import (
     SolicitudIngresoType,
     CrearSolicitudIngresoInput,
     AprobarSolicitudResult,
+    TokenEmitidoResult,
 )
 from app.graphql_api.queries import (
     map_preset,
@@ -439,6 +440,12 @@ class Mutation:
             resource = db.query(Resource).filter(Resource.id == id).first()
             if not resource:
                 return ExecutionResult(success=False, message=f"Resource con id '{id}' no encontrado")
+            if getattr(resource, "estado_aprobacion", "aprobado") != "aprobado":
+                return ExecutionResult(
+                    success=False,
+                    message=f"El recurso no está aprobado (estado={resource.estado_aprobacion}); no puede ejecutarse.",
+                    resource_id=str(resource.id),
+                )
             resource_name = resource.name
             resource_id = str(resource.id)
 
@@ -1769,6 +1776,12 @@ class Mutation:
             r.estado_aprobacion = "aprobado"
             r.motivo_rechazo = None
             db.commit()
+            # Al quedar operativo, si tiene cadencia, se registra su job.
+            if r.active and r.schedule:
+                try:
+                    scheduler.sync_schedule(str(r.id), r.schedule)
+                except Exception:
+                    pass
             return map_resource(r)
         except Exception:
             db.rollback(); raise
@@ -1789,6 +1802,62 @@ class Mutation:
             r.active = False
             db.commit()
             return map_resource(r)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    # ── §12 Gestión de tokens de aplicaciones (rotar / revocar / emitir) ────
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def emitir_token_aplicacion(self, usuario_id: strawberry.ID, label: Optional[str],
+                                info: strawberry.types.Info) -> TokenEmitidoResult:
+        """Emite un token Bearer adicional para una aplicación. El secreto en
+        claro se devuelve una sola vez."""
+        from app.models import Usuario
+        from app.service_auth import emitir_token, PRINCIPAL_APLICACION
+        db = get_db()
+        try:
+            u = db.query(Usuario).filter(Usuario.id == usuario_id,
+                                         Usuario.tipo == PRINCIPAL_APLICACION).first()
+            if not u:
+                raise ValueError("Aplicación no encontrada")
+            fila, secreto = emitir_token(db, u, label=label)
+            return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(u.id),
+                                      prefix=fila.prefix, token=secreto)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def rotar_token_aplicacion(self, token_id: strawberry.ID, label: Optional[str],
+                               info: strawberry.types.Info) -> TokenEmitidoResult:
+        """Rota un token: emite uno nuevo y revoca el anterior. Devuelve el nuevo
+        secreto una sola vez."""
+        from app.service_auth import rotar_token
+        db = get_db()
+        try:
+            res = rotar_token(db, token_id, label=label)
+            if res is None:
+                raise ValueError("Token no encontrado")
+            fila, secreto = res
+            return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(fila.usuario_id),
+                                      prefix=fila.prefix, token=secreto)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def revocar_token_aplicacion(self, token_id: strawberry.ID,
+                                 info: strawberry.types.Info) -> bool:
+        """Revoca un token de inmediato. Idempotente."""
+        from app.service_auth import revocar_token
+        db = get_db()
+        try:
+            ok = revocar_token(db, token_id)
+            return bool(ok)
         except Exception:
             db.rollback(); raise
         finally:

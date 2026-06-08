@@ -96,6 +96,21 @@ class FetcherManager:
         if not resource:
             raise ValueError(f"Resource con id '{resource_id}' no encontrado")
 
+        # §11: un recurso propuesto y aún no aprobado (o rechazado) no se ejecuta.
+        if getattr(resource, "estado_aprobacion", "aprobado") != "aprobado":
+            print(f"Resource '{resource.name}' no está aprobado (estado={resource.estado_aprobacion}), omitiendo...")
+            if execution_id:
+                stale = session.query(ResourceExecution).filter(
+                    ResourceExecution.id == execution_id,
+                    ResourceExecution.status == "running",
+                ).first()
+                if stale:
+                    stale.status = "failed"
+                    stale.completed_at = datetime.utcnow()
+                    stale.error_message = f"Recurso no aprobado (estado={resource.estado_aprobacion})"
+                    session.commit()
+            return None
+
         if not resource.active:
             print(f"Resource '{resource.name}' está desactivado, omitiendo...")
             if execution_id:

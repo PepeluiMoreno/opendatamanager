@@ -36,3 +36,7 @@ def test_mapa_cubre_familias_clave():
     assert MAPA_TRANSACCIONES["create_fetcher"] == "fetchers.gestionar"
     assert MAPA_TRANSACCIONES["execute_resource"] == "ejecuciones.lanzar"
     assert MAPA_TRANSACCIONES["preview_resource_data"] == "recursos.testar"
+    # §11/§12: aprobaciones y gestión de tokens
+    assert MAPA_TRANSACCIONES["aprobar_recurso"] == "recursos.aprobar"
+    assert MAPA_TRANSACCIONES["aprobar_solicitud_ingreso"] == "aplicaciones.aprobar"
+    assert MAPA_TRANSACCIONES["rotar_token_aplicacion"] == "aplicaciones.aprobar"

@@ -65,6 +65,14 @@ MAPA_TRANSACCIONES = {
     "restore_application": "aplicaciones.gestionar",
     "subscribe_resource": "aplicaciones.gestionar",
     "unsubscribe_resource": "aplicaciones.gestionar",
+    # Alta de aplicaciones M2M y gobernanza de propuestas (§11/§12)
+    "aprobar_solicitud_ingreso": "aplicaciones.aprobar",
+    "rechazar_solicitud_ingreso": "aplicaciones.aprobar",
+    "emitir_token_aplicacion": "aplicaciones.aprobar",
+    "rotar_token_aplicacion": "aplicaciones.aprobar",
+    "revocar_token_aplicacion": "aplicaciones.aprobar",
+    "aprobar_recurso": "recursos.aprobar",
+    "rechazar_recurso": "recursos.aprobar",
     # Configuración
     "set_config": "settings.gestionar",
     # Consulta de prueba (operador puede testar sin persistir)

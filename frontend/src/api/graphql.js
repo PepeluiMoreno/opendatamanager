@@ -1164,3 +1164,49 @@ export async function rechazarRecurso(id, motivo) {
   try { return await client.request(M_RECHAZAR_RECURSO, { id, motivo }) }
   catch (e) { handleGraphQLError(e) }
 }
+
+// ── §12 Gestión de aplicaciones M2M y sus tokens ──────────────────────────
+
+const Q_APLICACIONES_M2M = `
+  query AplicacionesM2M {
+    aplicacionesM2m {
+      usuarioId username email isActive
+      tokens { id label prefix lastUsedAt expiresAt revokedAt activo }
+    }
+  }`
+
+const M_EMITIR_TOKEN = `
+  mutation EmitirToken($usuarioId: ID!, $label: String) {
+    emitirTokenAplicacion(usuarioId: $usuarioId, label: $label) {
+      tokenId usuarioId prefix token
+    }
+  }`
+
+const M_ROTAR_TOKEN = `
+  mutation RotarToken($tokenId: ID!, $label: String) {
+    rotarTokenAplicacion(tokenId: $tokenId, label: $label) {
+      tokenId usuarioId prefix token
+    }
+  }`
+
+const M_REVOCAR_TOKEN = `
+  mutation RevocarToken($tokenId: ID!) {
+    revocarTokenAplicacion(tokenId: $tokenId)
+  }`
+
+export async function fetchAplicacionesM2M() {
+  try { return await client.request(Q_APLICACIONES_M2M) }
+  catch (e) { handleGraphQLError(e) }
+}
+export async function emitirTokenAplicacion(usuarioId, label) {
+  try { return await client.request(M_EMITIR_TOKEN, { usuarioId, label: label || null }) }
+  catch (e) { handleGraphQLError(e) }
+}
+export async function rotarTokenAplicacion(tokenId, label) {
+  try { return await client.request(M_ROTAR_TOKEN, { tokenId, label: label || null }) }
+  catch (e) { handleGraphQLError(e) }
+}
+export async function revocarTokenAplicacion(tokenId) {
+  try { return await client.request(M_REVOCAR_TOKEN, { tokenId }) }
+  catch (e) { handleGraphQLError(e) }
+}
