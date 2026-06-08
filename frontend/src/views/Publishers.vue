@@ -11,11 +11,28 @@
       </button>
     </div>
 
+    <!-- Filtros -->
+    <div class="card p-3 flex flex-wrap items-center gap-2">
+      <input v-model="filtroTexto" type="text" placeholder="Search name or acronym…"
+             class="input text-sm flex-1 min-w-[180px]" />
+      <select v-model="filtroNivel" class="input text-sm" style="min-width:150px">
+        <option value="">All levels</option>
+        <option v-for="n in NIVELES_FILTRO" :key="n" :value="n">{{ n }}</option>
+      </select>
+      <select v-model="filtroPais" class="input text-sm" style="min-width:150px">
+        <option value="">All countries</option>
+        <option v-for="c in paisesDisponibles" :key="c" :value="c">{{ c }}</option>
+      </select>
+      <button v-if="filtroTexto || filtroNivel || filtroPais" @click="limpiarFiltros"
+              class="text-xs text-gray-400 hover:text-white px-2 py-1">Clear</button>
+      <span class="text-xs text-gray-500 ml-auto">{{ publishersFiltrados.length }} / {{ publishers.length }}</span>
+    </div>
+
     <!-- Tabla -->
     <div class="card">
       <div v-if="loading" class="p-8 text-center text-gray-400">Loading...</div>
-      <div v-else-if="publishers.length === 0" class="p-8 text-center text-gray-400">
-        No publishers yet. Create the first one.
+      <div v-else-if="publishersFiltrados.length === 0" class="p-8 text-center text-gray-400">
+        {{ publishers.length === 0 ? 'No publishers yet. Create the first one.' : 'No publishers match the filters.' }}
       </div>
       <div v-else class="overflow-x-auto max-h-[calc(100vh-260px)] overflow-y-auto">
         <table class="w-full text-sm">
@@ -26,11 +43,11 @@
               <th class="py-3 px-4 font-medium">Scope</th>
               <th class="py-3 px-4 font-medium">Contact</th>
               <th class="py-3 px-4 font-medium">Resources</th>
-              <th class="py-3 px-4 font-medium"></th>
+              <th class="py-3 px-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in publishers" :key="p.id"
+            <tr v-for="p in publishersFiltrados" :key="p.id"
                 class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
               <td class="py-3 px-4 text-white font-medium">
                 {{ p.nombre }}
@@ -420,8 +437,26 @@ const emptyForm = () => ({
 })
 const form = ref(emptyForm())
 
-const showCcaa      = computed(() => ['AUTONOMICO', 'PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
-const showProvincia = computed(() => ['PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
+// --- Filtros de la tabla ---
+const filtroTexto = ref('')
+const filtroNivel = ref('')
+const filtroPais  = ref('')
+const NIVELES_FILTRO = ['ESTATAL','AUTONOMICO','PROVINCIAL','LOCAL','EUROPEO','INTERNACIONAL']
+const paisesDisponibles = computed(() =>
+  [...new Set(publishers.value.map(p => p.pais).filter(Boolean))].sort()
+)
+const publishersFiltrados = computed(() => {
+  const q = filtroTexto.value.trim().toLowerCase()
+  return publishers.value.filter(p => {
+    if (filtroNivel.value && p.nivel !== filtroNivel.value) return false
+    if (filtroPais.value && p.pais !== filtroPais.value) return false
+    if (q && !(`${p.nombre || ''} ${p.acronimo || ''}`.toLowerCase().includes(q))) return false
+    return true
+  })
+})
+function limpiarFiltros() { filtroTexto.value = ''; filtroNivel.value = ''; filtroPais.value = '' }
+
+const showCcaa      = computed(() => ['AUTONOMICO', 'PROVINCIAL', 'LOCAL'].includes(form.value.nivel))const showProvincia = computed(() => ['PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
 const showMunicipio = computed(() => form.value.nivel === 'LOCAL')
 
 function onNivelChange() {
