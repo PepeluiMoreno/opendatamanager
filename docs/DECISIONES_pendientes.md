@@ -238,3 +238,51 @@ Forma recomendada (a caracterizar/montar):
 - Interacción con `active`: 'active' sigue siendo el on/off una vez aprobado;
   estado_aprobacion gobierna si SIQUIERA puede activarse.
 Estado: especificado, pendiente de montar.
+
+### 12. Alta y autenticación de aplicaciones (M2M) — diseño de seguridad
+Contexto (decisión del usuario, 2026-06): una aplicación solicita su ingreso en
+ODM; el admin la da de alta y le entrega credencial. El usuario delega el diseño
+de seguridad. Encadena con §11 (la app, ya autenticada, PROPONE recursos que el
+admin aprueba).
+
+Decisión de fondo: para una aplicación, TOKEN, no contraseña. Una contraseña es
+para un humano; una máquina acaba guardándola en texto plano (config, logs,
+repos). El mecanismo correcto es una clave de API con estas propiedades:
+
+Flujo de alta:
+1. SolicitudIngreso (self-service): nombre, contacto, propósito, ámbito pedido.
+   Estado {pendiente, aprobada, rechazada}. No crea nada operativo por sí sola.
+2. El admin revisa y aprueba → se crea el PRINCIPAL 'aplicación' (identidad de
+   primera clase, distinta de un usuario humano, para que auditoría y RBAC la
+   traten como lo que es; puede reutilizar el plumbing de usuarios con
+   tipo='aplicacion').
+3. Se emite el token y se MUESTRA UNA SOLA VEZ (display-once) para entregárselo.
+   Si se pierde, no se recupera: se rota.
+
+Propiedades del token (lo que lo hace seguro):
+- Alta entropía: ≥32 bytes aleatorios (secrets.token_urlsafe), con PREFIJO
+  identificable ('odm_app_…') para escaneo de secretos y localización rápida.
+- En reposo NO se guarda el token, solo su HASH (SHA-256 sobre secreto de alta
+  entropía es suficiente y rápido; argon2id sería cinturón-y-tirantes pero
+  innecesario para secretos no-humanos). Comparación en TIEMPO CONSTANTE
+  (hmac.compare_digest) para evitar timing attacks.
+- Transporte: solo HTTPS; token en cabecera Authorization: Bearer, NUNCA en URL
+  ni query (evita fugas por logs/historial). 
+- Ciclo de vida: last_used_at, expires_at opcional (TTL), revoked_at; rotación y
+  revocación por el admin. Una revocación es inmediata.
+- Mínimo privilegio (scopes): el token solo habilita lo concedido; combinado con
+  §11, una app PROPONE recursos, no los impone, y solo sobre su ámbito.
+- Auditoría: toda acción de la app es atribuible a su principal (quién/qué/cuándo).
+
+Modelo (a montar):
+- SolicitudIngreso (metadata + estado).
+- Application (principal; tipo, estado activo/suspendido, scopes).
+- ApplicationToken (token_hash, prefix, created_at, last_used_at, expires_at?,
+  revoked_at). Varios tokens por app (para rotación sin corte).
+- Middleware de auth: Bearer → buscar por prefix → compare_digest del hash →
+  resolver principal → exigir scope. Rechazo uniforme (no filtrar si el fallo
+  fue token inexistente vs revocado).
+
+Cadena completa de vida de una aplicación: ingreso (§12) → token → propone
+recursos y schedule (§11) → el admin aprueba. RBAC: 'aplicaciones.aprobar'.
+Estado: especificado (diseño de seguridad), pendiente de montar.
