@@ -456,7 +456,8 @@ const publishersFiltrados = computed(() => {
 })
 function limpiarFiltros() { filtroTexto.value = ''; filtroNivel.value = ''; filtroPais.value = '' }
 
-const showCcaa      = computed(() => ['AUTONOMICO', 'PROVINCIAL', 'LOCAL'].includes(form.value.nivel))const showProvincia = computed(() => ['PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
+const showCcaa      = computed(() => ['AUTONOMICO', 'PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
+const showProvincia = computed(() => ['PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
 const showMunicipio = computed(() => form.value.nivel === 'LOCAL')
 
 function onNivelChange() {
