@@ -49,8 +49,19 @@
       v-if="candidates.length"
       class="flex-shrink-0 flex flex-wrap items-center gap-2 px-4 sm:px-6 py-2 bg-gray-800/60 border-b border-gray-700/50"
     >
-      <span class="text-xs text-gray-500">{{ filteredCandidates.length }} / {{ candidates.length }}</span>
-      <div class="flex gap-1 flex-wrap">
+      <!-- Vista: lista de candidatos vs árbol de ramas -->
+      <div class="flex gap-1">
+        <button @click="viewMode = 'list'"
+          class="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
+          :class="viewMode === 'list' ? 'border-purple-400 text-purple-200 bg-purple-950/40' : 'border-gray-600 text-gray-500 hover:text-gray-300'"
+        >Lista</button>
+        <button @click="viewMode = 'tree'"
+          class="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
+          :class="viewMode === 'tree' ? 'border-purple-400 text-purple-200 bg-purple-950/40' : 'border-gray-600 text-gray-500 hover:text-gray-300'"
+        >Árbol</button>
+      </div>
+      <span v-if="viewMode === 'list'" class="text-xs text-gray-500">{{ filteredCandidates.length }} / {{ candidates.length }}</span>
+      <div v-if="viewMode === 'list'" class="flex gap-1 flex-wrap">
         <button
           v-for="s in statuses" :key="s"
           @click="filterStatus = s"
@@ -60,16 +71,49 @@
             : 'border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300'"
         >{{ s }}</button>
       </div>
+      <label v-if="viewMode === 'tree'" class="text-xs text-gray-400 flex items-center gap-1">
+        Mín. series
+        <input type="number" min="1" v-model.number="taxUmbral" class="input w-16 text-xs py-0.5" />
+      </label>
       <!-- Merge action (requires ≥2 selected) -->
-      <div v-if="selection.size >= 2" class="flex items-center gap-2 ml-auto">
+      <div v-if="viewMode === 'list' && selection.size >= 2" class="flex items-center gap-2 ml-auto">
         <span class="text-xs text-gray-400">{{ selection.size }} sel.</span>
         <button @click="openMerge" class="btn btn-secondary text-xs px-3 py-1">Fundir</button>
         <button @click="selection.clear(); selection = new Set()" class="text-xs text-gray-500 hover:text-gray-300 underline">Deselect</button>
       </div>
     </div>
 
+    <!-- ── Árbol de ramas (taxonomía) ── -->
+    <div v-if="viewMode === 'tree'" class="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
+      <p v-if="loadingTax" class="text-sm text-gray-500">Calculando taxonomía…</p>
+      <p v-else-if="!visibleTaxNodes.length" class="text-sm text-gray-500">
+        Sin ramas con al menos {{ taxUmbral }} serie(s). Baja el umbral o lanza un Discovery.
+      </p>
+      <div v-else class="space-y-0.5">
+        <div v-for="n in visibleTaxNodes" :key="n.path"
+          class="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-gray-800/60"
+          :style="{ paddingLeft: (n.depth * 18 + 8) + 'px' }">
+          <button v-if="n.hasChildren" @click="toggleExpand(n.path)"
+            class="text-gray-500 hover:text-gray-200 w-4 text-xs">
+            {{ expanded.has(n.path) ? '▾' : '▸' }}
+          </button>
+          <span v-else class="w-4 text-gray-700 text-xs text-center">·</span>
+          <span class="text-sm text-gray-200 font-mono">{{ n.label }}</span>
+          <span class="text-xs text-gray-500">{{ n.numCandidatos }} series · {{ n.numUrls }} urls</span>
+          <span v-for="d in n.dimensiones" :key="d"
+            class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{{ d }}</span>
+          <button @click="onPromoverRama(n)"
+            class="ml-auto btn btn-secondary text-xs px-2.5 py-0.5"
+            :disabled="!n.numCandidatos"
+            title="Promover toda la rama como un recurso">
+            Promover rama →
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Candidate list ── -->
-    <div class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
+    <div v-if="viewMode === 'list'" class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
 
       <p v-if="!candidates.length && phase === 'idle' && selectedResourceId && !loadingResources"
          class="text-sm text-gray-500">
@@ -265,6 +309,7 @@ import {
   fetchResources,
   executeResource,
   fetchResourceCandidates,
+  fetchTaxonomiaCrawler,
   promoteCandidate as gqlPromoteCandidate,
   discardCandidate,
   mergeCandidates,
@@ -281,6 +326,13 @@ const logText           = ref('')
 const errorMsg          = ref('')
 const candidates        = ref([])
 const filterStatus      = ref('all')
+
+// ── Vista de árbol de ramas (taxonomía) ──────────────────────────────────
+const viewMode   = ref('list')          // 'list' | 'tree'
+const taxonomia  = ref([])              // nodos planos de la query taxonomiaCrawler
+const loadingTax = ref(false)
+const taxUmbral  = ref(2)               // oculta ramas con menos de N series (ruido)
+const expanded   = ref(new Set(['']))   // paths expandidos; '' = raíz
 const logEl             = ref(null)
 
 // Selection (for merge)
@@ -370,11 +422,54 @@ function toggleSelect(c) {
 watch(selectedResourceId, async (id) => {
   selection.value = new Set()
   candidates.value = id ? (await fetchResourceCandidates({ crawlerResourceId: id }))?.resourceCandidates || [] : []
+  if (viewMode.value === 'tree') loadTaxonomia()
 })
+
+watch(viewMode, (m) => { if (m === 'tree') loadTaxonomia() })
 
 async function loadCandidates() {
   if (!selectedResourceId.value) return
   candidates.value = (await fetchResourceCandidates({ crawlerResourceId: selectedResourceId.value }))?.resourceCandidates || []
+}
+
+// ── Taxonomía (árbol de ramas) ──────────────────────────────────────────────
+async function loadTaxonomia() {
+  if (!selectedResourceId.value) { taxonomia.value = []; return }
+  loadingTax.value = true
+  try {
+    taxonomia.value = (await fetchTaxonomiaCrawler(selectedResourceId.value))?.taxonomiaCrawler || []
+  } finally {
+    loadingTax.value = false
+  }
+}
+
+const visibleTaxNodes = computed(() => {
+  const nodes = taxonomia.value.filter(n => n.numCandidatos >= taxUmbral.value)
+  const byPath = new Map(nodes.map(n => [n.path, n]))
+  const childCount = {}
+  nodes.forEach(n => { if (n.parent != null) childCount[n.parent] = (childCount[n.parent] || 0) + 1 })
+  const visibleCache = new Map()
+  function isVisible(n) {
+    if (n.parent == null) return true
+    if (visibleCache.has(n.path)) return visibleCache.get(n.path)
+    let ok = expanded.value.has(n.parent)
+    if (ok) { const pn = byPath.get(n.parent); ok = pn ? isVisible(pn) : true }
+    visibleCache.set(n.path, ok)
+    return ok
+  }
+  return nodes.filter(isVisible).map(n => ({ ...n, hasChildren: (childCount[n.path] || 0) > 0 }))
+})
+
+function toggleExpand(path) {
+  const s = new Set(expanded.value)
+  s.has(path) ? s.delete(path) : s.add(path)
+  expanded.value = s
+}
+
+function onPromoverRama(n) {
+  // 1.b conectará esto a la mutación promover_rama (fusión + derivación de
+  // dimensiones + metadatos de mapeo CKAN). Por ahora informa.
+  appendLog(`» Promover rama "${n.label}" (${n.numCandidatos} series) — llega en la siguiente pieza.`)
 }
 
 // ── Discover ───────────────────────────────────────────────────────────────

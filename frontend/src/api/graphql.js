@@ -1015,6 +1015,21 @@ export async function fetchResourceCandidates({ crawlerResourceId, executionId, 
   } catch (e) { handleGraphQLError(e) }
 }
 
+export async function fetchTaxonomiaCrawler(crawlerResourceId) {
+  try {
+    return await client.request(
+      `query TaxonomiaCrawler($crawlerResourceId: ID!) {
+        taxonomiaCrawler(crawlerResourceId: $crawlerResourceId) {
+          path label parent depth
+          numCandidatos numDirectos numUrls
+          formatos dimensiones candidatoIds
+        }
+      }`,
+      { crawlerResourceId }
+    )
+  } catch (e) { handleGraphQLError(e) }
+}
+
 export async function fetchResourceChildren(parentResourceId) {
   try {
     return await client.request(
