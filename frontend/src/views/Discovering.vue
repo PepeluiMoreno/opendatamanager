@@ -260,6 +260,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   fetchResources,
   executeResource,
@@ -271,6 +272,7 @@ import {
 } from '../api/graphql'
 
 // ── State ──────────────────────────────────────────────────────────────────
+const route             = useRoute()
 const loadingResources  = ref(true)
 const allResources      = ref([])
 const selectedResourceId = ref('')
@@ -513,6 +515,8 @@ onMounted(async () => {
   try {
     const res = await fetchResources()
     allResources.value = res?.resources || []
+    // Preselecciona el recurso de la ruta (/resources/:id/candidates)
+    if (route.params.id) selectedResourceId.value = route.params.id
   } catch (e) { console.error('Discovering: error loading resources', e) }
   finally { loadingResources.value = false }
 })

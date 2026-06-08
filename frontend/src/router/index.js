@@ -11,7 +11,6 @@ import Settings from '../views/Settings.vue'
 import Schedule from '../views/Schedule.vue'
 import DataExplorer from '../views/DataExplorer.vue'
 import Publishers from '../views/Publishers.vue'
-import Subscriptions from '../views/Subscriptions.vue'
 import Trash from '../views/Trash.vue'
 import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
@@ -28,9 +27,8 @@ const routes = [
   { path: '/settings',       name: 'Settings',      component: Settings, meta: { permiso: 'settings.gestionar' } },
   { path: '/explorer',       name: 'DataExplorer',  component: DataExplorer },
   { path: '/publishers',     name: 'Publishers',    component: Publishers },
-  { path: '/subscriptions',  name: 'Subscriptions', component: Subscriptions, meta: { permiso: 'aplicaciones.gestionar' } },
   { path: '/trash',          name: 'Trash',         component: Trash, meta: { permiso: 'recursos.borrar' } },
-  { path: '/candidates',     name: 'Candidates',    component: Candidates, meta: { permiso: 'recursos.crear' } },
+  { path: '/resources/:id/candidates', name: 'ResourceCandidates', component: Candidates, meta: { permiso: 'recursos.crear' } },
   { path: '/usuarios',       name: 'Usuarios',      component: Usuarios, meta: { permiso: 'usuarios.gestionar' } },
 ]
 
