@@ -187,7 +187,7 @@ async function load() {
       fetchResources(),
       fetchApplications(),
     ])
-    subscriptions.value = subRes?.datasetSubscriptions ?? []
+    subscriptions.value = subRes?.resourceSubscriptions ?? []
     resources.value     = resRes?.resources            ?? []
     applications.value  = appRes?.applications         ?? []
   } catch (e) {

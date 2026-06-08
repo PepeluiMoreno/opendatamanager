@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Application, FieldMetadata,
-    ResourceExecution, Dataset, DatasetSubscription, ApplicationNotification, AppConfig,
+    ResourceExecution, Dataset, ResourceSubscription, ApplicationNotification, AppConfig,
     DerivedDatasetConfig, DerivedDatasetEntry, Publisher
 )
 from app.graphql_api.types import (
@@ -22,7 +22,7 @@ from app.graphql_api.types import (
     FieldMetadataType,
     ResourceExecutionType,
     DatasetType,
-    DatasetSubscriptionType,
+    ResourceSubscriptionType,
     ApplicationNotificationType,
     AppConfigType,
     DerivedDatasetConfigType,
@@ -269,9 +269,9 @@ def map_dataset(art: Dataset) -> DatasetType:
     )
 
 
-def map_dataset_subscription(sub: DatasetSubscription) -> DatasetSubscriptionType:
-    """Convierte modelo DatasetSubscription a tipo GraphQL"""
-    return DatasetSubscriptionType(
+def map_resource_subscription(sub: ResourceSubscription) -> ResourceSubscriptionType:
+    """Convierte modelo ResourceSubscription a tipo GraphQL"""
+    return ResourceSubscriptionType(
         id=str(sub.id),
         application_id=str(sub.application_id),
         resource_id=str(sub.resource_id),
@@ -575,17 +575,17 @@ class Query:
             db.close()
 
     @strawberry.field
-    def dataset_subscriptions(self, application_id: Optional[str] = None, resource_id: Optional[str] = None) -> List[DatasetSubscriptionType]:
+    def resource_subscriptions(self, application_id: Optional[str] = None, resource_id: Optional[str] = None) -> List[ResourceSubscriptionType]:
         """Lista suscripciones, filtrado por application_id o resource_id"""
         db = get_db()
         try:
-            query = db.query(DatasetSubscription).filter(DatasetSubscription.deleted_at == None)
+            query = db.query(ResourceSubscription).filter(ResourceSubscription.deleted_at == None)
             if application_id:
-                query = query.filter(DatasetSubscription.application_id == application_id)
+                query = query.filter(ResourceSubscription.application_id == application_id)
             if resource_id:
-                query = query.filter(DatasetSubscription.resource_id == resource_id)
+                query = query.filter(ResourceSubscription.resource_id == resource_id)
             subscriptions = query.all()
-            return [map_dataset_subscription(sub) for sub in subscriptions]
+            return [map_resource_subscription(sub) for sub in subscriptions]
         finally:
             db.close()
 

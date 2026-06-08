@@ -13,7 +13,7 @@ con política estática.
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from app.models import Dataset, DatasetLease, DatasetSubscription, Resource
+from app.models import Dataset, DatasetLease, ResourceSubscription, Resource
 
 ESTADO_ACTIVO = "activo"
 ESTADO_LIBERADO = "liberado"
@@ -86,9 +86,9 @@ def leases_activos(session, dataset_id, ahora: Optional[datetime] = None) -> Lis
 def _pinned(session, resource_id) -> bool:
     """¿Algún suscriptor ha fijado una versión de este recurso? (candado duro).
     Afinar más adelante: comparar el `pinned_version` con la semver del dataset."""
-    return session.query(DatasetSubscription).filter(
-        DatasetSubscription.resource_id == resource_id,
-        DatasetSubscription.pinned_version.isnot(None),
+    return session.query(ResourceSubscription).filter(
+        ResourceSubscription.resource_id == resource_id,
+        ResourceSubscription.pinned_version.isnot(None),
     ).first() is not None
 
 

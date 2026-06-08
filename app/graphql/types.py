@@ -199,7 +199,7 @@ class DatasetType:
 
 
 @strawberry.type
-class DatasetSubscriptionType:
+class ResourceSubscriptionType:
     """Suscripción pasiva de Application a Resource"""
     id: str
     application_id: str = strawberry.field(name="applicationId")

@@ -296,7 +296,7 @@ class Application(AuditMixin, Base):
     consumption_mode = Column(String(20), nullable=False, default='webhook')
 
     # Relationships
-    subscriptions = relationship("DatasetSubscription", back_populates="application")
+    subscriptions = relationship("ResourceSubscription", back_populates="application")
 
 
 class FieldMetadata(AuditMixin, Base):
@@ -399,9 +399,9 @@ class Dataset(AuditMixin, Base):
         return f"{self.major_version}.{self.minor_version}.{self.patch_version}"
 
 
-class DatasetSubscription(AuditMixin, Base):
+class ResourceSubscription(AuditMixin, Base):
     """Suscripciones pasivas de Applications a Resources"""
-    __tablename__ = "dataset_subscription"
+    __tablename__ = "resource_subscription"
     __table_args__ = {"schema": "opendata"}
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)

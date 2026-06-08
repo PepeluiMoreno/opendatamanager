@@ -240,7 +240,7 @@ export const QUERIES = {
 
   GET_SUBSCRIPTIONS: `
     query GetSubscriptions {
-      datasetSubscriptions {
+      resourceSubscriptions {
         id
         applicationId
         resourceId
