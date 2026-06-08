@@ -162,7 +162,7 @@
     <!-- ── Promote modal ── -->
     <div v-if="promoteCandidate" class="modal-overlay" @click.self="promoteCandidate = null">
       <div class="modal-card p-5 sm:p-6 w-full max-w-md mx-4">
-        <h2 class="text-base font-bold mb-1">Promover a Resource</h2>
+        <h2 class="text-base font-bold mb-1">Promover a miembro de la Colección</h2>
         <p class="text-xs font-mono text-gray-500 truncate mb-4">{{ promoteCandidate.pathTemplate }}</p>
 
         <label class="block text-xs text-gray-400 mb-1">Nombre</label>
@@ -190,7 +190,7 @@
         <div class="flex justify-end gap-2">
           <button @click="promoteCandidate = null" class="btn btn-secondary">Cancelar</button>
           <button @click="confirmPromote" :disabled="promoting" class="btn btn-primary">
-            {{ promoting ? 'Promoviendo…' : 'Promover' }}
+            {{ promoting ? 'Promoviendo…' : 'Promover a miembro' }}
           </button>
         </div>
         <p v-if="promoteError" class="text-red-400 text-xs mt-2">{{ promoteError }}</p>

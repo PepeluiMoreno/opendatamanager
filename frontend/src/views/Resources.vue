@@ -336,6 +336,12 @@
                 {{ type.code }} - {{ type.description }}
               </option>
             </select>
+            <p v-if="selectedFetcher?.modos?.includes('descubrir')"
+               class="text-xs text-blue-300 mt-1">
+              🛰️ Esta especie <strong>descubre</strong>: el recurso será una
+              <strong>Colección</strong> (nave nodriza) y aparecerá en la sección
+              Collections, desde donde revisarás sus candidatos.
+            </p>
           </div>
 
           <div v-if="(selectedFetcher?.presets || []).length">

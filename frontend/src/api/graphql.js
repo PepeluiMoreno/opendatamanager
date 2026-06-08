@@ -236,6 +236,7 @@ export const QUERIES = {
         id
         name
         code
+        modos
         classPath
         implemented
         description
