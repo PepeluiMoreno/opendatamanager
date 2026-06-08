@@ -1,6 +1,6 @@
 """resource.genera_colecciones: cualifica un recurso como nave nodriza
 
-Revision ID: a7b8c9d0e1f2
+Revision ID: b4c5d6e7f8a9
 Revises: d5e6f7a8b0c1
 Create Date: 2026-06-08
 
@@ -18,7 +18,7 @@ from typing import Union, Sequence
 from alembic import op
 
 
-revision: str = 'a7b8c9d0e1f2'
+revision: str = 'b4c5d6e7f8a9'
 down_revision: Union[str, None] = 'd5e6f7a8b0c1'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
