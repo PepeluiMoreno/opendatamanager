@@ -10,8 +10,10 @@ from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Application, FieldMetadata,
     ResourceExecution, Dataset, ResourceSubscription, ApplicationNotification, AppConfig,
-    DerivedDatasetConfig, DerivedDatasetEntry, Publisher
+    DerivedDatasetConfig, DerivedDatasetEntry, Publisher, RefrescoExtemporaneo
 )
+from datetime import datetime as _dt
+from sqlalchemy import func as _func
 from app.graphql_api.types import (
     PresetType,
     FetcherType,
@@ -330,7 +332,33 @@ def map_application_notification(notif: ApplicationNotification) -> ApplicationN
 
 
 @strawberry.type
+class CuotaRefrescos:
+    """Cuota diaria de refrescos a demanda del principal (hoy)."""
+    limite: int
+    usados_hoy: int
+    restantes: int
+
+
+@strawberry.type
 class Query:
+    @strawberry.field
+    def cuota_refrescos(self, info: Info) -> CuotaRefrescos:
+        """Cuota de refrescos a demanda del principal actual, recalculada hoy."""
+        usuario = info.context.get("usuario") if (info and info.context) else None
+        if usuario is None:
+            return CuotaRefrescos(limite=0, usados_hoy=0, restantes=0)
+        db = get_db()
+        try:
+            limite = getattr(usuario, "cuota_refrescos_diaria", 0) or 0
+            inicio = _dt.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            usados = db.query(_func.count(RefrescoExtemporaneo.id)).filter(
+                RefrescoExtemporaneo.created_by_id == usuario.id,
+                RefrescoExtemporaneo.created_at >= inicio,
+            ).scalar() or 0
+            return CuotaRefrescos(limite=limite, usados_hoy=usados, restantes=max(0, limite - usados))
+        finally:
+            db.close()
+
     @strawberry.field
     def resource_manifest(self, id: str) -> strawberry.scalars.JSON:
         """Exporta un recurso como manifiesto JSON importable.

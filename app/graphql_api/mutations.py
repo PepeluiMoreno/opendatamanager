@@ -19,7 +19,9 @@ from typing import Optional, List, Dict
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, ResourceSubscription, Publisher, ApplicationNotification, Dataset
+from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, ResourceSubscription, Publisher, ApplicationNotification, Dataset, RefrescoExtemporaneo
+from sqlalchemy import func
+from app.core.huella import huella_params, params_bound
 from datetime import datetime
 import os
 
@@ -126,6 +128,23 @@ class Mutation:
                     raise ValueError("El perfil (preset) indicado no existe bajo ese fetcher")
                 preset_id = preset.id
 
+            # Identidad por contenido (huella de params, ver app/core/huella.py).
+            # Si ya existe un recurso no borrado con la misma huella, NO se duplica:
+            # se devuelve el existente (el solicitante queda como consumidor; el
+            # dueño sigue siendo su creador). Si algún param estático está sin
+            # valor (borrador/plantilla), se difiere la huella (NULL, sin dedup).
+            pares = [(p.key, p.value) for p in (input.params or [])]
+            if params_bound(pares):
+                ph = huella_params(pares)
+                existente = db.query(Resource).filter(
+                    Resource.params_hash == ph,
+                    Resource.deleted_at.is_(None),
+                ).first()
+                if existente:
+                    return map_resource(existente)
+            else:
+                ph = None
+
             # Crear Resource
             resource = Resource(
                 id=uuid4(),
@@ -138,6 +157,7 @@ class Mutation:
                 active=input.active,
                 schedule=input.schedule,
                 preset_id=preset_id,
+                params_hash=ph,
             )
             db.add(resource)
             db.flush()  # Para obtener el ID
@@ -191,6 +211,17 @@ class Mutation:
             from app.services.integrity import guard_resource_update
             guard_resource_update(db, resource, input)
 
+            # Autoridad del schedule: solo el creador (created_by_id) puede cambiar
+            # la cadencia de refresco. Los consumidores usan la cadencia establecida
+            # o piden un refresco a demanda (que consume su cuota).
+            usuario = info.context.get("usuario") if (info and info.context) else None
+            if input.schedule is not None and (input.schedule or None) != resource.schedule:
+                if resource.created_by_id is not None and (usuario is None or usuario.id != resource.created_by_id):
+                    raise ValueError(
+                        "Solo el creador del recurso puede cambiar su schedule de refresco. "
+                        "Los consumidores usan la cadencia establecida o piden un refresco a demanda (con cuota)."
+                    )
+
             # Actualizar campos
             if input.name is not None:
                 resource.name = input.name
@@ -242,6 +273,26 @@ class Mutation:
                         is_external=param_input.is_external or False
                     )
                     db.add(param)
+
+                # Recalcular la huella de identidad (solo si los params están
+                # acotados) y rechazar si colisiona con otro recurso no borrado.
+                _pares = [(p.key, p.value) for p in input.params]
+                if params_bound(_pares):
+                    nph = huella_params(_pares)
+                    colision = db.query(Resource).filter(
+                        Resource.params_hash == nph,
+                        Resource.id != resource.id,
+                        Resource.deleted_at.is_(None),
+                    ).first()
+                    if colision:
+                        raise ValueError(
+                            f"Esos params coinciden con otro recurso existente ('{colision.name}'); "
+                            "editar la identidad crearía un duplicado. Crea un recurso nuevo o "
+                            "suscríbete al existente."
+                        )
+                    resource.params_hash = nph
+                else:
+                    resource.params_hash = None
 
             _registrar_ui(db, resource, info)
             db.commit()
@@ -366,7 +417,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("ejecuciones.lanzar")])
-    def execute_resource(self, id: str, params: Optional[strawberry.scalars.JSON] = None) -> ExecutionResult:
+    def execute_resource(self, id: str, info: strawberry.types.Info, params: Optional[strawberry.scalars.JSON] = None) -> ExecutionResult:
         """Ejecuta un Resource para actualizar sus datos.
 
         Args:
@@ -425,6 +476,25 @@ class Mutation:
                                  f"AppConfig execute_cooldown_minutes)."),
                         resource_id=resource_id,
                     )
+
+            # Cuota diaria de refrescos a demanda. Los refrescos PROGRAMADOS
+            # (scheduler -> FetcherManager) no pasan por aquí y no consumen cuota.
+            usuario = info.context.get("usuario") if (info and info.context) else None
+            if usuario is None:
+                return ExecutionResult(success=False, resource_id=resource_id,
+                    message="El refresco a demanda requiere un principal autenticado.")
+            limite = getattr(usuario, "cuota_refrescos_diaria", 0) or 0
+            inicio_dia = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            usados = db.query(func.count(RefrescoExtemporaneo.id)).filter(
+                RefrescoExtemporaneo.created_by_id == usuario.id,
+                RefrescoExtemporaneo.created_at >= inicio_dia,
+            ).scalar() or 0
+            if usados >= limite:
+                return ExecutionResult(success=False, resource_id=resource_id,
+                    message=(f"Cuota diaria de refrescos a demanda agotada ({usados}/{limite}). "
+                             "El recurso se refresca según su schedule; reintenta mañana o solicita más cuota."))
+            db.add(RefrescoExtemporaneo(resource_id=resource.id, created_by_id=usuario.id))
+            db.commit()
         except Exception as e:
             return ExecutionResult(success=False, message=str(e), resource_id=id)
         finally:

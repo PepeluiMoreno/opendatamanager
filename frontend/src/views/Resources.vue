@@ -3,7 +3,13 @@
     <template v-if="!(showCreateModal || showEditModal)">
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-2xl font-bold">Resources</h1>
-      <div class="flex gap-2">
+      <div class="flex gap-2 items-center">
+        <span v-if="cuota && puede('ejecuciones.lanzar')"
+              :title="`Refrescos a demanda consumidos hoy: ${cuota.usadosHoy} de ${cuota.limite}. Los refrescos programados (schedule) no cuentan.`"
+              :class="['text-xs px-2 py-1 rounded font-medium whitespace-nowrap',
+                       cuota.restantes > 0 ? 'bg-gray-700 text-gray-300' : 'bg-red-900 text-red-300']">
+          Refrescos hoy: {{ cuota.usadosHoy }}/{{ cuota.limite }}
+        </span>
         <button v-if="puede('recursos.crear')" @click="triggerImport" class="btn btn-secondary text-sm">
           ↑ Importar
         </button>
@@ -1244,6 +1250,7 @@ import {
   cloneResource,
   previewResourceData,
   executeResource,
+  fetchCuotaRefrescos,
   fetchAppConfig,
   fetchDerivedDatasetConfigs,
   createDerivedDatasetConfig,
@@ -1306,6 +1313,7 @@ const concurrencyLimits = computed(() => {
 })
 const loading = ref(true)
 const error = ref(null)
+const cuota = ref(null)
 const searchQuery = ref('')
 const currentPage = ref(1)
 
@@ -1552,7 +1560,13 @@ async function loadData() {
     const m = {}; rmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); pmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); fieldMetadata.value = m
     if (cd?.appConfig) { const map = {}; cd.appConfig.forEach(c => { map[c.key] = c.value }); appConfig.value = map }
     if (id) sysInfo.value = id
+    loadCuota()
   } catch (e) { error.value = 'Failed to load data: ' + e.message } finally { loading.value = false }
+}
+
+async function loadCuota() {
+  try { const c = await fetchCuotaRefrescos(); cuota.value = c?.cuotaRefrescos || null }
+  catch { cuota.value = null }
 }
 
 function getTooltip(f) { return fieldMetadata.value[f]?.helpText || '' }
@@ -1645,7 +1659,7 @@ function openExecuteModal(resource) {
 async function confirmExecute() {
   const ep = Object.keys(executeParams.value).length>0?{...executeParams.value}:null
   showExecuteModal.value = false
-  executeResource(executingResource.value.id, ep).catch(()=>{})
+  executeResource(executingResource.value.id, ep).then(()=>loadCuota()).catch(()=>{})
 }
 
 async function confirmDelete(resource) {

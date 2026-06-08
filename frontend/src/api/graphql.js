@@ -38,6 +38,15 @@ function handleGraphQLError(error) {
 
 // Queries
 export const QUERIES = {
+  GET_CUOTA_REFRESCOS: `
+    query CuotaRefrescos {
+      cuotaRefrescos {
+        limite
+        usadosHoy
+        restantes
+      }
+    }
+  `,
   GET_RESOURCES: `
     query GetResources($activeOnly: Boolean) {
       resources(activeOnly: $activeOnly) {
@@ -814,6 +823,14 @@ export async function deleteDerivedDatasetConfig(id) {
 export async function toggleDerivedDatasetConfig(id, enabled) {
   try {
     return await client.request(MUTATIONS.TOGGLE_DERIVED_DATASET_CONFIG, { id, enabled })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchCuotaRefrescos() {
+  try {
+    return await client.request(QUERIES.GET_CUOTA_REFRESCOS)
   } catch (error) {
     handleGraphQLError(error)
   }
