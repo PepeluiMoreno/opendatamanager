@@ -208,6 +208,7 @@ class ResourceExecutionType:
     resource_id: str = strawberry.field(name="resourceId")
     resource_name: Optional[str] = strawberry.field(default=None, name="resourceName")
     started_at: datetime = strawberry.field(name="startedAt")
+    kind: str = "extraccion"
     completed_at: Optional[datetime] = strawberry.field(default=None, name="completedAt")
     status: str
     total_records: Optional[int] = strawberry.field(default=None, name="totalRecords")

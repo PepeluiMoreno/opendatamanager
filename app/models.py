@@ -344,6 +344,9 @@ class ResourceExecution(AuditMixin, Base):
     started_at = Column(DateTime, default=datetime.utcnow)
     completed_at = Column(DateTime)
     status = Column(String(20))  # "running"|"completed"|"failed"|"aborted"|"paused"
+    # Tipo de proceso: 'extraccion' (produce dataset) o 'discovering' (una
+    # Colección rastreando su fuente para producir candidatos).
+    kind = Column(String(20), nullable=False, default="extraccion", server_default="extraccion")
 
     # Cooperative pause signal — set True from outside to ask the streaming loop to stop
     # gracefully at the next page boundary and save state as "paused".

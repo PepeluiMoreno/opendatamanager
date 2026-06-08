@@ -190,6 +190,9 @@ class FetcherManager:
 
             # ── DISCOVER MODE ────────────────────────────────────────────────
             if not is_child and hasattr(fetcher, "discover"):
+                if execution.kind != "discovering":
+                    execution.kind = "discovering"
+                    session.commit()
                 logger.log("[1/1] DISCOVER — Crawleando árbol sin descargar ficheros...")
                 leaf_urls = fetcher.discover()
                 logger.log(f"  {len(leaf_urls)} URLs hoja descubiertas. Inferiendo agrupaciones...")
