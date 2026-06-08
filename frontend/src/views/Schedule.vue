@@ -18,8 +18,77 @@
       </button>
     </div>
 
+    <!-- ── Scheduled tasks table ───────────────────────────────────────────── -->
+    <div v-if="loading" class="text-gray-400 text-center py-16">Loading...</div>
+
+    <div v-else-if="scheduledResources.length === 0 && !showForm"
+      class="text-center py-20 text-gray-600">
+      <p class="text-4xl mb-4">🕐</p>
+      <p class="text-lg font-medium text-gray-500 mb-1">No scheduled tasks</p>
+      <p class="text-sm mb-5">Create a schedule to automate resource dataset refresh</p>
+      <button @click="openNew"
+        class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">
+        + Create your first schedule
+      </button>
+    </div>
+
+    <div v-else-if="scheduledResources.length > 0" class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-700 bg-gray-800/50">
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Resource</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Schedule</th>
+            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Next run</th>
+            <th class="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-700/60">
+          <tr
+            v-for="res in scheduledResources" :key="res.id"
+            class="hover:bg-gray-800/40 transition-colors"
+          >
+            <td class="px-5 py-4">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-white">{{ res.name }}</span>
+                <span v-if="res.fetcher"
+                  class="text-xs bg-gray-700/80 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                  {{ res.fetcher.code }}
+                </span>
+                <span v-if="!res.active"
+                  class="text-xs bg-yellow-900/60 text-yellow-500 px-1.5 py-0.5 rounded">
+                  inactive
+                </span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5">{{ res.publisher }}</p>
+            </td>
+            <td class="px-5 py-4">
+              <p class="text-gray-200 font-medium">{{ describeCron(res.schedule) }}</p>
+              <code class="text-xs text-gray-600 mt-0.5">{{ res.schedule }}</code>
+            </td>
+            <td class="px-5 py-4">
+              <span class="text-gray-300 text-xs">{{ formatNextFull(nextRun(res.schedule)) }}</span>
+            </td>
+            <td class="px-5 py-4">
+              <div class="flex items-center justify-end gap-1">
+                <button @click="openEdit(res)"
+                  class="px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-700 rounded-md transition-colors">
+                  Edit
+                </button>
+                <button @click="confirmRemove(res)"
+                  class="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-gray-700 rounded-md transition-colors">
+                  Remove
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
     <!-- ── Create / Edit panel ─────────────────────────────────────────────── -->
-    <div v-if="showForm" class="card mb-6 p-6">
+    <div v-if="showForm" class="card mt-6 p-6">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-base font-semibold text-white">
           {{ editingId ? 'Edit schedule' : 'New schedule' }}
@@ -183,75 +252,6 @@
         </button>
       </div>
     </div>
-
-    <!-- ── Scheduled tasks table ───────────────────────────────────────────── -->
-    <div v-if="loading" class="text-gray-400 text-center py-16">Loading...</div>
-
-    <div v-else-if="scheduledResources.length === 0 && !showForm"
-      class="text-center py-20 text-gray-600">
-      <p class="text-4xl mb-4">🕐</p>
-      <p class="text-lg font-medium text-gray-500 mb-1">No scheduled tasks</p>
-      <p class="text-sm mb-5">Create a schedule to automate resource dataset refresh</p>
-      <button @click="openNew"
-        class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors">
-        + Create your first schedule
-      </button>
-    </div>
-
-    <div v-else-if="scheduledResources.length > 0" class="card overflow-hidden">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="border-b border-gray-700 bg-gray-800/50">
-            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Resource</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Schedule</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Next run</th>
-            <th class="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-700/60">
-          <tr
-            v-for="res in scheduledResources" :key="res.id"
-            class="hover:bg-gray-800/40 transition-colors"
-          >
-            <td class="px-5 py-4">
-              <div class="flex items-center gap-2">
-                <span class="font-medium text-white">{{ res.name }}</span>
-                <span v-if="res.fetcher"
-                  class="text-xs bg-gray-700/80 text-gray-400 px-1.5 py-0.5 rounded font-mono">
-                  {{ res.fetcher.code }}
-                </span>
-                <span v-if="!res.active"
-                  class="text-xs bg-yellow-900/60 text-yellow-500 px-1.5 py-0.5 rounded">
-                  inactive
-                </span>
-              </div>
-              <p class="text-xs text-gray-500 mt-0.5">{{ res.publisher }}</p>
-            </td>
-            <td class="px-5 py-4">
-              <p class="text-gray-200 font-medium">{{ describeCron(res.schedule) }}</p>
-              <code class="text-xs text-gray-600 mt-0.5">{{ res.schedule }}</code>
-            </td>
-            <td class="px-5 py-4">
-              <span class="text-gray-300 text-xs">{{ formatNextFull(nextRun(res.schedule)) }}</span>
-            </td>
-            <td class="px-5 py-4">
-              <div class="flex items-center justify-end gap-1">
-                <button @click="openEdit(res)"
-                  class="px-3 py-1.5 text-xs text-blue-400 hover:text-blue-300 hover:bg-gray-700 rounded-md transition-colors">
-                  Edit
-                </button>
-                <button @click="confirmRemove(res)"
-                  class="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-gray-700 rounded-md transition-colors">
-                  Remove
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-  </div>
 
   <!-- Confirm dialog -->
   <ConfirmDialog

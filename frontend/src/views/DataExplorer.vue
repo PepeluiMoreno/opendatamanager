@@ -65,7 +65,7 @@
           </tr>
         </thead>
         <tbody>
-          <template v-for="res in filteredTree" :key="res.nodeId">
+          <template v-for="res in pagedTree" :key="res.nodeId">
             <!-- Resource row -->
             <tr class="border-b border-gray-700/50 hover:bg-gray-800/40 cursor-pointer transition-colors"
                 :class="expandedResources.has(res.nodeId) ? 'bg-gray-800/30' : ''"
@@ -191,6 +191,7 @@
           </template>
         </tbody>
       </table>
+      <Paginator v-if="!loading && !error" v-model:page="dePage" v-model:perPage="dePerPage" :total="deTotal" />
     </div>
 
     <!-- ── Params modal ── -->
@@ -327,6 +328,8 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 import { useAuth } from '../composables/useAuth'
 
 const { puede } = useAuth()
@@ -387,6 +390,8 @@ const filteredTree = computed(() => {
   else if (filterMode.value === 'data') result = result.filter(r => r.versions[0]?.recordCount > 0)
   return result
 })
+
+const { page: dePage, perPage: dePerPage, total: deTotal, paged: pagedTree } = usePagination(filteredTree, 25)
 
 const summary = computed(() => {
   const resources = filteredTree.value.length

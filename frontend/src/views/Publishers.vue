@@ -47,7 +47,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="p in publishersFiltrados" :key="p.id"
+            <tr v-for="p in pagedPublishers" :key="p.id"
                 class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
               <td class="py-3 px-4 text-white font-medium">
                 {{ p.nombre }}
@@ -92,6 +92,7 @@
             </tr>
           </tbody>
         </table>
+        <Paginator v-model:page="pubPage" v-model:perPage="pubPerPage" :total="pubTotal" />
       </div>
     </div>
     <!-- Modal -->
@@ -284,6 +285,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { fetchPublishers, createPublisher, updatePublisher, deletePublisher, fetchResources, errorLegible } from '../api/graphql.js'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 import { useAuth } from '../composables/useAuth'
 
 const { puede } = useAuth()
@@ -455,6 +458,8 @@ const publishersFiltrados = computed(() => {
   })
 })
 function limpiarFiltros() { filtroTexto.value = ''; filtroNivel.value = ''; filtroPais.value = '' }
+
+const { page: pubPage, perPage: pubPerPage, total: pubTotal, paged: pagedPublishers } = usePagination(publishersFiltrados, 25)
 
 const showCcaa      = computed(() => ['AUTONOMICO', 'PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
 const showProvincia = computed(() => ['PROVINCIAL', 'LOCAL'].includes(form.value.nivel))

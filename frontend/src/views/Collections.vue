@@ -29,7 +29,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-700">
-          <tr v-for="c in colecciones" :key="c.id" class="hover:bg-gray-800/50">
+          <tr v-for="c in paged" :key="c.id" class="hover:bg-gray-800/50">
             <td class="px-4 py-3">
               <div class="font-medium text-gray-100">{{ c.name }}</div>
               <div class="text-xs text-gray-500">{{ c.fetcher?.code }}</div>
@@ -58,15 +58,19 @@
         </tbody>
       </table>
     </div>
+    <Paginator v-if="!cargando" v-model:page="page" v-model:perPage="perPage" :total="total" />
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { fetchCollections } from '../api/graphql.js'
+import { usePagination } from '../composables/usePagination.js'
+import Paginator from '../components/Paginator.vue'
 
 const colecciones = ref([])
 const cargando = ref(true)
+const { page, perPage, total, paged } = usePagination(colecciones, 25)
 
 function formatoFecha(iso) {
   if (!iso) return 'Nunca'
