@@ -209,3 +209,32 @@ recursos promovidos.
 - **2026-06-07 — Variantes como implementaciones concretas de la especie**:
   un único juego de parámetros fundido en el UI; las semánticas REST
   heredadas (Paginada, Loop de pivotes, Series temporales) son variantes.
+
+### 11. Recursos propuestos por aplicaciones: aprobación del admin
+Contexto (decisión del usuario, 2026-06): las aplicaciones dejan de crear
+recursos de forma autoritaria. Un recurso creado por una aplicación nace
+PROPUESTO y no se ejecuta ni se programa hasta que el admin de ODM lo aprueba;
+en el alta, la aplicación además SOLICITA un schedule, que el admin aprueba
+(o ajusta) junto con el recurso.
+
+Forma recomendada (a caracterizar/montar):
+- Resource gana un estado de aprobación explícito:
+  `estado_aprobacion` ∈ {propuesto, aprobado, rechazado} (default 'aprobado'
+  para altas de admin/UI/sistema; 'propuesto' cuando la procedencia es
+  'aplicacion'). Enum explícito —no un booleano— porque el rechazo es un
+  desenlace real y queremos auditoría (quién pidió, quién aprobó/rechazó,
+  cuándo, motivo).
+- Gating: run() y schedule SOLO operan si estado_aprobacion=='aprobado'. Un
+  recurso propuesto es inerte.
+- Schedule solicitado: el alta de la app incluye la frecuencia deseada, que se
+  guarda como SOLICITUD (p. ej. `schedule_solicitado` JSONB en el recurso o una
+  fila de schedule en estado 'pendiente'). Al aprobar, el admin confirma o
+  edita y se materializa el Schedule real.
+- UI: bandeja de PROPUESTAS para el admin (recurso + app peticionaria + schedule
+  pedido), con aprobar/rechazar. Mutaciones `aprobarRecurso(id, schedule?)` y
+  `rechazarRecurso(id, motivo)`. Permiso RBAC nuevo: 'recursos.aprobar'.
+- Disparador: procedencia 'aplicacion' → nace propuesto; usuario/sistema/ui →
+  aprobado. La mutación de creación expuesta a las apps fija estado='propuesto'.
+- Interacción con `active`: 'active' sigue siendo el on/off una vez aprobado;
+  estado_aprobacion gobierna si SIQUIERA puede activarse.
+Estado: especificado, pendiente de montar.
