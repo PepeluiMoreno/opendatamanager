@@ -134,13 +134,21 @@
           </tr>
         </thead>
         <tbody>
+          <template v-for="resource in pagedResources" :key="resource.id">
           <tr
-            v-for="resource in pagedResources"
-            :key="resource.id"
             class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
           >
             <td class="py-1.5 px-3 text-xs font-medium text-white whitespace-nowrap">
+              <button v-if="esNodriza(resource) && hijosDe(resource.id).length"
+                      @click="toggleNodriza(resource.id)"
+                      class="mr-0.5 text-purple-300 hover:text-purple-200 align-middle"
+                      :title="(expandedNodrizas.has(resource.id) ? 'Contraer' : 'Desplegar') + ' recursos descubiertos'">
+                <span class="inline-block w-3">{{ expandedNodrizas.has(resource.id) ? '▾' : '▸' }}</span>
+              </button>
+              <span v-if="esNodriza(resource)" class="mr-0.5" title="Nave nodriza (descubre recursos)">🛰️</span>
               {{ resource.name }}
+              <span v-if="esNodriza(resource) && hijosDe(resource.id).length"
+                    class="ml-1 text-[9px] text-purple-300">({{ hijosDe(resource.id).length }} descubiertos)</span>
               <span v-if="origenBadge(resource)"
                     class="ml-1.5 inline-block text-[9px] uppercase tracking-wide font-bold px-1 py-0.5 rounded cursor-help"
                     :class="origenBadge(resource).clase"
@@ -187,13 +195,13 @@
               <div class="flex justify-end gap-1">
                 <!-- Discover: solo visible en fetchers Web Tree -->
                 <button
-                  v-if="isWebTree(resource) && puede('ejecuciones.lanzar')"
+                  v-if="esNodriza(resource) && puede('ejecuciones.lanzar')"
                   @click="launchDiscover(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-purple-800 hover:bg-purple-700 text-white"
                   title="Lanzar Discovery — crawlea el árbol y genera candidatos"
                 >Discover</button>
                 <button
-                  v-if="isWebTree(resource) && puede('recursos.crear')"
+                  v-if="esNodriza(resource) && puede('recursos.crear')"
                   @click="router.push('/resources/' + resource.id + '/candidates')"
                   class="text-xs px-2 py-0.5 rounded bg-purple-900 hover:bg-purple-800 text-white"
                   title="Ver los candidatos descubiertos por este crawler"
@@ -230,6 +238,33 @@
               </div>
             </td>
           </tr>
+          <!-- Recursos descubiertos por esta nodriza (jerarquía) -->
+          <tr v-for="child in (expandedNodrizas.has(resource.id) ? hijosDe(resource.id) : [])" :key="child.id"
+              class="border-b border-gray-800 bg-gray-900/40">
+            <td class="py-1 px-3 text-xs text-gray-200 whitespace-nowrap">
+              <span class="text-gray-600 pl-5 mr-1">└─</span>{{ child.name }}
+              <span class="ml-1 text-[9px] uppercase tracking-wide font-bold px-1 py-0.5 rounded bg-purple-900/60 text-purple-300">descubierto</span>
+            </td>
+            <td class="py-1 px-3 text-xs text-gray-400 whitespace-nowrap">{{ child.publisherObj?.acronimo || child.publisherObj?.nombre || child.publisher || '—' }}</td>
+            <td class="py-1 px-3 text-xs whitespace-nowrap">
+              <span v-if="child.subscriberCount" class="inline-block px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300">{{ child.subscriberCount }}</span>
+              <span v-else class="text-gray-600">—</span>
+            </td>
+            <td class="py-1 px-3 whitespace-nowrap"><code class="text-xs bg-gray-900 px-1.5 py-0.5 rounded text-blue-400">{{ child.fetcher.code }}</code></td>
+            <td class="py-1 px-3 whitespace-nowrap">
+              <span class="inline-block h-1.5 w-1.5 rounded-full" :class="child.active ? 'bg-green-400' : 'bg-red-500'"></span>
+              <span class="text-xs ml-1" :class="child.active ? 'text-green-400' : 'text-red-400'">{{ child.active ? 'Activo' : 'Inactivo' }}</span>
+            </td>
+            <td class="py-1 px-3">
+              <div class="flex justify-end gap-1">
+                <button v-if="puede('ejecuciones.lanzar')" @click="openExecuteModal(child)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white" title="Ejecutar">Run</button>
+                <button v-if="puede('recursos.testar')" @click="showPreviewData(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Test</button>
+                <button v-if="puede('recursos.editar')" @click="editResource(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Edit</button>
+                <button v-if="puede('recursos.borrar')" @click="confirmDelete(child)" class="text-xs px-2 py-0.5 rounded bg-red-900/60 hover:bg-red-800 text-red-300">Delete</button>
+              </div>
+            </td>
+          </tr>
+          </template>
         </tbody>
       </table>
       </div>
@@ -248,8 +283,8 @@
            ref="paginEl">
         <div class="flex items-center gap-3 text-gray-400">
           <span>
-            {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, filteredResources.length) }}
-            de {{ filteredResources.length }}
+            {{ (currentPage - 1) * pageSize + 1 }}–{{ Math.min(currentPage * pageSize, topLevelResources.length) }}
+            de {{ topLevelResources.length }}
           </span>
           <div class="flex items-center gap-1">
             <span>Filas:</span>
@@ -1556,8 +1591,24 @@ const filteredResources = computed(() => {
   }).sort((a, b) => a.name.localeCompare(b.name, 'es'))
 })
 
-const totalPages = computed(() => Math.ceil(filteredResources.value.length / pageSize.value))
-const pagedResources = computed(() => { const s = (currentPage.value - 1) * pageSize.value; return filteredResources.value.slice(s, s + pageSize.value) })
+// ── Jerarquía nodriza → recursos descubiertos ───────────────────────────────
+function esNodriza(r) { return r?.generaColecciones === true }
+const expandedNodrizas = ref(new Set())
+function toggleNodriza(id) { const n = new Set(expandedNodrizas.value); n.has(id) ? n.delete(id) : n.add(id); expandedNodrizas.value = n }
+const childrenByParent = computed(() => {
+  const m = {}
+  for (const r of resources.value) { if (r.parentResourceId) (m[r.parentResourceId] || (m[r.parentResourceId] = [])).push(r) }
+  for (const k in m) m[k].sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  return m
+})
+function hijosDe(id) { return childrenByParent.value[id] || [] }
+const idsPresentes = computed(() => new Set(resources.value.map(r => r.id)))
+// Filas de nivel superior: los hijos descubiertos se anidan bajo su nodriza.
+const topLevelResources = computed(() =>
+  filteredResources.value.filter(r => !r.parentResourceId || !idsPresentes.value.has(r.parentResourceId)))
+
+const totalPages = computed(() => Math.ceil(topLevelResources.value.length / pageSize.value))
+const pagedResources = computed(() => { const s = (currentPage.value - 1) * pageSize.value; return topLevelResources.value.slice(s, s + pageSize.value) })
 watch([searchQuery, selectedType, selectedPublisher, selectedApp, selectedKind, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
 
 const selectedOptionalParam = ref('')
