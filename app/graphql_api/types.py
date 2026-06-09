@@ -421,6 +421,23 @@ class ResourceCandidateType:
 
 
 @strawberry.input
+class PromoverRamaInput:
+    """Promueve una rama entera del árbol del crawler a recurso(s) fundidos.
+
+    Funde las hojas de la rama derivando como columnas los segmentos que varían.
+    Concern de ODM puro: no hay nada de mapeo a destinos (CKAN u otros)."""
+    crawler_resource_id: strawberry.ID = strawberry.field(name="crawlerResourceId")
+    rama_path: str = strawberry.field(name="ramaPath")
+    variant: Optional[str] = None
+    name: Optional[str] = None
+    enable_load: Optional[bool] = strawberry.field(default=False, name="enableLoad")
+    schedule: Optional[str] = None
+    # Por defecto solo promueve las fusiones con patrón de serie ({*}); con esto
+    # se incluyen también las hojas sueltas (ficheros individuales).
+    incluir_no_series: Optional[bool] = strawberry.field(default=False, name="incluirNoSeries")
+
+
+@strawberry.input
 class PromoteCandidateInput:
     """Datos editables al promover una candidata a Resource hijo."""
     name: str

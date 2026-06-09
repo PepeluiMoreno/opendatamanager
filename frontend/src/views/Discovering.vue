@@ -241,6 +241,43 @@
       </div>
     </div>
 
+    <!-- ── Promover rama modal ── -->
+    <div v-if="ramaModal" class="modal-overlay" @click.self="ramaModal = null">
+      <div class="modal-card p-5 sm:p-6 w-full max-w-md mx-4">
+        <h2 class="text-base font-bold mb-1">Promover rama</h2>
+        <p class="text-xs font-mono text-gray-500 truncate mb-1">{{ ramaModal.label }}</p>
+        <p class="text-xs text-gray-500 mb-4">
+          Funde las {{ ramaModal.numCandidatos }} serie(s) de la rama en un recurso,
+          abriendo como columnas los segmentos que varían. Las hojas sueltas se omiten
+          salvo que marques lo contrario.
+        </p>
+
+        <label class="block text-xs text-gray-400 mb-1">Nombre base</label>
+        <input v-model="ramaForm.name" class="input w-full mb-3 text-sm" placeholder="nombre-unico" />
+
+        <label class="block text-xs text-gray-400 mb-1">Variante</label>
+        <select v-model="ramaForm.variant" class="input w-full mb-3 text-sm">
+          <option value="">(sin variante)</option>
+          <option value="Censo documental">Censo documental</option>
+          <option value="Extracción de datos">Extracción de datos</option>
+          <option value="Extracción con receta">Extracción con receta</option>
+        </select>
+
+        <label class="flex items-center gap-2 text-xs text-gray-400 mb-5 cursor-pointer">
+          <input type="checkbox" v-model="ramaForm.incluirNoSeries" class="accent-purple-500" />
+          Incluir hojas sueltas (no-series)
+        </label>
+
+        <div class="flex justify-end gap-2">
+          <button @click="ramaModal = null" class="btn btn-secondary">Cancelar</button>
+          <button @click="confirmPromoverRama" :disabled="ramaPromoting" class="btn btn-primary">
+            {{ ramaPromoting ? 'Promoviendo…' : 'Promover rama' }}
+          </button>
+        </div>
+        <p v-if="ramaError" class="text-red-400 text-xs mt-2">{{ ramaError }}</p>
+      </div>
+    </div>
+
     <!-- ── Merge modal ── -->
     <div v-if="mergeTarget" class="modal-overlay" @click.self="mergeTarget = null">
       <div class="modal-card p-5 sm:p-6 w-full max-w-md mx-4">
@@ -310,6 +347,7 @@ import {
   executeResource,
   fetchResourceCandidates,
   fetchTaxonomiaCrawler,
+  promoverRama as gqlPromoverRama,
   promoteCandidate as gqlPromoteCandidate,
   discardCandidate,
   mergeCandidates,
@@ -333,6 +371,10 @@ const taxonomia  = ref([])              // nodos planos de la query taxonomiaCra
 const loadingTax = ref(false)
 const taxUmbral  = ref(2)               // oculta ramas con menos de N series (ruido)
 const expanded   = ref(new Set(['']))   // paths expandidos; '' = raíz
+const ramaModal     = ref(null)         // nodo de la rama a promover (truthy = modal abierto)
+const ramaForm      = ref({ name: '', variant: '', incluirNoSeries: false })
+const ramaPromoting = ref(false)
+const ramaError     = ref('')
 const logEl             = ref(null)
 
 // Selection (for merge)
@@ -467,9 +509,33 @@ function toggleExpand(path) {
 }
 
 function onPromoverRama(n) {
-  // 1.b conectará esto a la mutación promover_rama (fusión + derivación de
-  // dimensiones + metadatos de mapeo CKAN). Por ahora informa.
-  appendLog(`» Promover rama "${n.label}" (${n.numCandidatos} series) — llega en la siguiente pieza.`)
+  ramaModal.value = n
+  ramaForm.value = { name: n.label.split('/').pop(), variant: '', incluirNoSeries: false }
+  ramaError.value = ''
+}
+
+async function confirmPromoverRama() {
+  if (!ramaModal.value) return
+  ramaPromoting.value = true
+  ramaError.value = ''
+  try {
+    const res = await gqlPromoverRama({
+      crawlerResourceId: selectedResourceId.value,
+      ramaPath: ramaModal.value.path,
+      variant: ramaForm.value.variant || null,
+      name: ramaForm.value.name || null,
+      incluirNoSeries: ramaForm.value.incluirNoSeries,
+    })
+    const creados = res?.promoverRama || []
+    appendLog(`✓ Rama promovida: ${creados.length} recurso(s) — ${creados.map(r => r.name).join(', ')}`)
+    ramaModal.value = null
+    await loadCandidates()
+    await loadTaxonomia()
+  } catch (e) {
+    ramaError.value = e?.message || 'Error al promover la rama'
+  } finally {
+    ramaPromoting.value = false
+  }
 }
 
 // ── Discover ───────────────────────────────────────────────────────────────
