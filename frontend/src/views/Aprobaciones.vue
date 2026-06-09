@@ -1,7 +1,7 @@
 <template>
   <div class="p-6 space-y-6" style="min-height:100%">
     <div>
-      <h1 class="text-2xl font-bold text-white">Aprobaciones</h1>
+      <h1 class="text-2xl font-bold text-white">Approvals</h1>
       <p class="text-gray-400 text-sm mt-1">
         Bandeja de administración: solicitudes de alta de aplicaciones y recursos
         propuestos por ellas, pendientes de autorizar o rechazar.
@@ -43,7 +43,7 @@
                 <td class="py-2 px-4 text-gray-400">{{ fecha(s.createdAt) }}</td>
                 <td class="py-2 px-4 text-right whitespace-nowrap">
                   <button @click="aprobarSol(s)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
-                  <button @click="rechazarSol(s)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                  <button @click="rechazarSol(s)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg></button>
                 </td>
               </tr>
             </tbody>
@@ -76,7 +76,7 @@
                 <td class="py-2 px-4 text-gray-400">{{ fecha(r.createdAt) }}</td>
                 <td class="py-2 px-4 text-right whitespace-nowrap">
                   <button @click="aprobarRec(r)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
-                  <button @click="rechazarRec(r)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+                  <button @click="rechazarRec(r)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg></button>
                 </td>
               </tr>
             </tbody>
@@ -130,6 +130,17 @@
       </div>
     </section>
   </div>
+    <div v-if="rechazo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="cerrarRechazo">
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
+        <h3 class="text-lg font-bold text-white mb-1">Rechazar</h3>
+        <p class="text-sm text-gray-300 mb-3">Vas a rechazar «{{ rechazo.nombre }}». Indica el motivo (opcional):</p>
+        <textarea v-model="rechazo.motivo" rows="3" class="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-200" placeholder="Motivo del rechazo…"></textarea>
+        <div class="flex justify-end gap-2 mt-4">
+          <button @click="cerrarRechazo" class="btn btn-secondary">Cancelar</button>
+          <button @click="confirmarRechazo" class="btn btn-danger">Rechazar</button>
+        </div>
+      </div>
+    </div>
     <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
       :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
       @confirm="okConfirm" @cancel="cerrarConfirm" />
@@ -139,6 +150,13 @@
 import { ref, onMounted } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 const confirmar = ref(null)
+const rechazo = ref(null)
+function cerrarRechazo() { rechazo.value = null }
+function confirmarRechazo() {
+  const r = rechazo.value; rechazo.value = null
+  if (!r) return
+  if (r.tipo === 'sol') _rechazarSol(r.id, r.motivo); else _rechazarRec(r.id, r.motivo)
+}
 function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
 function cerrarConfirm() { confirmar.value = null }
 
@@ -184,20 +202,18 @@ async function aprobarSol(s) {
   if (r) tokenEmitido.value = { username: r.username, token: r.token }
   await cargarSolicitudes()
 }
-async function rechazarSol(s) {
-  const motivo = window.prompt(`Motivo del rechazo de «${s.nombre}»:`, '')
-  if (motivo === null) return
-  await rechazarSolicitudIngreso(s.id, motivo || null)
+function rechazarSol(s) { rechazo.value = { tipo: 'sol', id: s.id, nombre: s.nombre, motivo: '' } }
+async function _rechazarSol(s_id, motivo) {
+  await rechazarSolicitudIngreso(s_id, motivo || null)
   await cargarSolicitudes()
 }
 async function aprobarRec(r) {
   await aprobarRecurso(r.id)
   await cargarRecursos()
 }
-async function rechazarRec(r) {
-  const motivo = window.prompt(`Motivo del rechazo de «${r.name}»:`, '')
-  if (motivo === null) return
-  await rechazarRecurso(r.id, motivo || null)
+function rechazarRec(r) { rechazo.value = { tipo: 'rec', id: r.id, nombre: r.name, motivo: '' } }
+async function _rechazarRec(r_id, motivo) {
+  await rechazarRecurso(r_id, motivo || null)
   await cargarRecursos()
 }
 
