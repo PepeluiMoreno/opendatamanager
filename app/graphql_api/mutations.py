@@ -83,6 +83,7 @@ from app.graphql_api.types import (
     UpdatePublisherInput,
     ResourceCandidateType,
     PromoteCandidateInput,
+    PromoverRamaInput,
     SolicitudIngresoType,
     CrearSolicitudIngresoInput,
     AprobarSolicitudResult,
@@ -1563,6 +1564,121 @@ class Mutation:
             child_obj = db.query(Resource).filter(Resource.id == child.id).first()
             return map_resource(child_obj)
 
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
+    def promover_rama(self, input: PromoverRamaInput) -> List[ResourceType]:
+        """Promueve una rama del árbol del crawler: funde sus hojas en recurso(s),
+        derivando como columnas los segmentos que varían. Por defecto solo las
+        fusiones con patrón de serie ({*}); las hojas sueltas se omiten salvo
+        `incluirNoSeries`. Generaliza promote_candidate a una rama entera.
+
+        Por cada fusión crea un ResourceCandidate generalizado (status promoted)
+        que alimentará al hijo en ejecución, y deja las hojas fuente en `merged`."""
+        from app.services.taxonomia import segmentos_constantes, fundir_rama
+        from datetime import datetime as _dt
+        db = get_db()
+        try:
+            parent = db.query(Resource).filter(Resource.id == input.crawler_resource_id).first()
+            if not parent:
+                raise ValueError("Crawler no encontrado")
+            rama_segs = segmentos_constantes(input.rama_path)
+            if not rama_segs:
+                raise ValueError("ramaPath vacío")
+
+            cands = (
+                db.query(ResourceCandidate)
+                .filter(
+                    ResourceCandidate.crawler_resource_id == parent.id,
+                    ResourceCandidate.deleted_at.is_(None),
+                    ResourceCandidate.status.in_(["discovered", "reviewed"]),
+                )
+                .all()
+            )
+            bajo = [c for c in cands
+                    if segmentos_constantes(c.path_template)[:len(rama_segs)] == rama_segs]
+            if not bajo:
+                raise ValueError("La rama no tiene candidatos promovibles")
+
+            items = [{
+                "id": str(c.id), "path_template": c.path_template,
+                "matched_urls": c.matched_urls, "file_types": c.file_types,
+                "dimensions": c.dimensions,
+            } for c in bajo]
+            fusiones = fundir_rama(items)
+            if not input.incluir_no_series:
+                fusiones = [f for f in fusiones if f["path_template"].rstrip("/").endswith("{*}")]
+            if not fusiones:
+                raise ValueError("No hay series promovibles en la rama (usa incluirNoSeries para las hojas sueltas)")
+
+            preset_id = None
+            if input.variant:
+                from app.models import FetcherPreset
+                preset = db.query(FetcherPreset).filter(
+                    FetcherPreset.code == input.variant,
+                    FetcherPreset.fetcher_id == parent.fetcher_id,
+                    FetcherPreset.deleted_at.is_(None)).first()
+                if not preset:
+                    raise ValueError(f"Variante '{input.variant}' no existe para la especie del crawler")
+                preset_id = preset.id
+
+            root_url = next((p.value for p in (parent.params or []) if p.key == "root_url"), None)
+            base = input.name or rama_segs[-1]
+            by_id = {str(c.id): c for c in bajo}
+
+            creados = []
+            for idx, f in enumerate(fusiones):
+                sufijo = "" if len(fusiones) == 1 else f" #{idx + 1}"
+                nombre = f"{base}{sufijo}"
+                if db.query(Resource).filter(Resource.name == nombre).first():
+                    nombre = f"{nombre} [{str(parent.id)[:6]}]"
+
+                fundido = ResourceCandidate(
+                    crawler_resource_id=parent.id,
+                    path_template=f["path_template"],
+                    dimensions=f["dimensions"],
+                    matched_urls=f["matched_urls"],
+                    file_types=f["file_types"],
+                    suggested_name=nombre,
+                    confidence=1.0,
+                    status="promoted",
+                )
+                db.add(fundido)
+                db.flush()
+
+                child = Resource(
+                    name=nombre,
+                    fetcher_id=parent.fetcher_id,
+                    publisher=parent.publisher,
+                    publisher_id=parent.publisher_id,
+                    active=True,
+                    schedule=input.schedule,
+                    enable_load=bool(input.enable_load),
+                    parent_resource_id=parent.id,
+                    auto_generated=True,
+                    preset_id=preset_id,
+                )
+                db.add(child)
+                db.flush()
+                if root_url:
+                    db.add(ResourceParam(resource_id=child.id, key="root_url", value=root_url))
+
+                fundido.promoted_resource_id = child.id
+                for cid in f["candidato_ids"]:
+                    src = by_id.get(str(cid))
+                    if src:
+                        src.status = "merged"
+                        src.merged_into_id = fundido.id
+                        src.reviewed_at = _dt.utcnow()
+                creados.append(child.id)
+
+            db.commit()
+            objs = db.query(Resource).filter(Resource.id.in_(creados)).all()
+            return [map_resource(o) for o in objs]
         except Exception as e:
             db.rollback()
             raise e

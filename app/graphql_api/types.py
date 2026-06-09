@@ -421,6 +421,23 @@ class ResourceCandidateType:
 
 
 @strawberry.input
+class PromoverRamaInput:
+    """Promueve una rama entera del árbol del crawler a recurso(s) fundidos.
+
+    Funde las hojas de la rama derivando como columnas los segmentos que varían.
+    Concern de ODM puro: no hay nada de mapeo a destinos (CKAN u otros)."""
+    crawler_resource_id: strawberry.ID = strawberry.field(name="crawlerResourceId")
+    rama_path: str = strawberry.field(name="ramaPath")
+    variant: Optional[str] = None
+    name: Optional[str] = None
+    enable_load: Optional[bool] = strawberry.field(default=False, name="enableLoad")
+    schedule: Optional[str] = None
+    # Por defecto solo promueve las fusiones con patrón de serie ({*}); con esto
+    # se incluyen también las hojas sueltas (ficheros individuales).
+    incluir_no_series: Optional[bool] = strawberry.field(default=False, name="incluirNoSeries")
+
+
+@strawberry.input
 class PromoteCandidateInput:
     """Datos editables al promover una candidata a Resource hijo."""
     name: str
@@ -500,3 +517,21 @@ class TokenEmitidoResult:
     usuario_id: str = strawberry.field(name="usuarioId")
     prefix: str
     token: str   # secreto en claro — display-once
+
+
+@strawberry.type
+class TaxonomiaNodoType:
+    """Nodo del árbol de ramas derivado al vuelo de los candidatos de un crawler.
+
+    Vista plana: el cliente reconstruye el árbol por `path`/`parent`. Cada nodo
+    con `candidatoIds` no vacío es promovible como rama."""
+    path: str
+    label: str
+    parent: Optional[str] = None
+    depth: int = 0
+    num_candidatos: int = strawberry.field(default=0, name="numCandidatos")
+    num_directos: int = strawberry.field(default=0, name="numDirectos")
+    num_urls: int = strawberry.field(default=0, name="numUrls")
+    formatos: Optional[strawberry.scalars.JSON] = None
+    dimensiones: List[str] = strawberry.field(default_factory=list)
+    candidato_ids: List[str] = strawberry.field(default_factory=list, name="candidatoIds")
