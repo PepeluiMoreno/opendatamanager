@@ -21,27 +21,40 @@
           Actualizar
         </button>
       </div>
-      <div class="flex items-center gap-3 flex-wrap">
-        <div class="relative flex-1 min-w-48">
-          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
-          </svg>
-          <input v-model="search" type="text" placeholder="Buscar recurso…"
-            class="w-full bg-gray-700 border border-gray-600 rounded-md pl-8 pr-8 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"/>
-          <button v-if="search" @click="search = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs leading-none">✕</button>
+      <div class="space-y-2">
+        <!-- Línea 1: búsqueda + publisher + rango de fechas -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="relative w-56">
+            <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
+            </svg>
+            <input v-model="search" type="text" placeholder="Buscar recurso…"
+              class="w-full bg-gray-700 border border-gray-600 rounded-md pl-8 pr-8 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"/>
+            <button v-if="search" @click="search = ''" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 text-xs leading-none">✕</button>
+          </div>
+          <select v-model="pubFilter" class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
+            <option value="">Publisher: todos</option>
+            <option v-for="p in publishersDisponibles" :key="p" :value="p">{{ p }}</option>
+          </select>
+          <label class="text-xs text-gray-500 flex items-center gap-1">Desde
+            <input type="date" v-model="desde" class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500"></label>
+          <label class="text-xs text-gray-500 flex items-center gap-1">Hasta
+            <input type="date" v-model="hasta" class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1 text-xs text-white focus:outline-none focus:border-blue-500"></label>
+          <button v-if="pubFilter||desde||hasta" @click="pubFilter='';desde='';hasta=''" class="text-xs text-gray-500 hover:text-gray-300 px-1">limpiar</button>
         </div>
-        <div class="flex items-center gap-2">
+        <!-- Línea 2: expandir/colapsar + mostrar + solo recientes -->
+        <div class="flex items-center gap-2 flex-wrap">
           <button @click="expandAll" class="text-xs text-gray-400 hover:text-white px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600">Expandir todo</button>
           <button @click="collapseAll" class="text-xs text-gray-400 hover:text-white px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600">Colapsar todo</button>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-500">Mostrar:</span>
+          <span class="text-xs text-gray-500 ml-2">Mostrar:</span>
           <button @click="filterMode = filterMode === 'empty' ? '' : 'empty'"
             class="text-xs px-2.5 py-1 rounded-full border transition-colors"
             :class="filterMode === 'empty' ? 'bg-amber-600/30 border-amber-500 text-amber-300' : 'border-gray-600 text-gray-400 hover:border-gray-400'">Sin datos</button>
           <button @click="filterMode = filterMode === 'data' ? '' : 'data'"
             class="text-xs px-2.5 py-1 rounded-full border transition-colors"
             :class="filterMode === 'data' ? 'bg-green-600/30 border-green-500 text-green-300' : 'border-gray-600 text-gray-400 hover:border-gray-400'">Con datos</button>
+          <label class="text-xs flex items-center gap-1.5 ml-2 cursor-pointer" :class="soloRecientes ? 'text-blue-300' : 'text-gray-400'">
+            <input type="checkbox" v-model="soloRecientes" class="accent-blue-500"> Solo los más recientes</label>
         </div>
       </div>
     </div>
@@ -84,7 +97,7 @@
                   </svg>
                   <span class="font-medium text-white">{{ res.displayName }}</span>
                   <span class="text-xs text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded-full">
-                    {{ res.versions.length }} {{ res.versions.length === 1 ? 'versión' : 'versiones' }}
+                    {{ visibleVersions(res).length }} {{ visibleVersions(res).length === 1 ? 'versión' : 'versiones' }}
                   </span>
                 </div>
               </td>
@@ -120,7 +133,8 @@
 
             <!-- Version rows -->
             <template v-if="expandedResources.has(res.nodeId)">
-              <tr v-for="ver in res.versions" :key="ver.datasetId"
+              <!-- soloRecientes: filtra a la versión latest -->
+              <tr v-for="ver in visibleVersions(res)" :key="ver.datasetId"
                 class="border-b border-gray-700/30 hover:bg-gray-800/20 transition-colors">
                 <td class="px-4 py-2.5">
                   <div class="flex items-center justify-center">
@@ -339,6 +353,10 @@ const loading = ref(true)
 const error = ref(null)
 const search = ref('')
 const filterMode = ref('')
+const pubFilter = ref('')
+const desde = ref('')
+const hasta = ref('')
+const soloRecientes = ref(false)
 const expandedResources = ref(new Set())
 const expandedDataset = ref(null)
 const paramsModal = ref(null)
@@ -380,12 +398,31 @@ async function loadTree() {
 
 onMounted(loadTree)
 
+const publishersDisponibles = computed(() =>
+  [...new Set((tree.value || []).map(r => r.publisher).filter(Boolean))].sort()
+)
+function visibleVersions(res) {
+  return soloRecientes.value ? (res.versions || []).filter(v => v.isLatest) : res.versions
+}
 const filteredTree = computed(() => {
   let result = tree.value
   if (search.value.trim()) {
     const q = search.value.toLowerCase()
     result = result.filter(r => r.displayName.toLowerCase().includes(q))
   }
+  if (pubFilter.value) result = result.filter(r => r.publisher === pubFilter.value)
+  const d = desde.value ? new Date(desde.value + 'T00:00:00') : null
+  const h = hasta.value ? new Date(hasta.value + 'T23:59:59') : null
+  if (d || h) {
+    result = result.filter(r => (r.versions || []).some(v => {
+      if (!v.createdAt) return false
+      const t = new Date(v.createdAt)
+      if (d && t < d) return false
+      if (h && t > h) return false
+      return true
+    }))
+  }
+  if (soloRecientes.value) result = result.filter(r => (r.versions || []).some(v => v.isLatest))
   if (filterMode.value === 'empty') result = result.filter(r => !r.versions[0]?.recordCount)
   else if (filterMode.value === 'data') result = result.filter(r => r.versions[0]?.recordCount > 0)
   return result

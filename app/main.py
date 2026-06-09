@@ -216,6 +216,9 @@ async def datasets_tree():
                     "label": label,
                     "targetTable": res.target_table,
                     "active": res.active,
+                    "publisher": getattr(res, "publisher", None),
+                    "parentResourceId": str(res.parent_resource_id) if getattr(res, "parent_resource_id", None) else None,
+                    "generaColecciones": bool(getattr(res, "genera_colecciones", False)),
                     "resourceParams": resource_params,
                     "versions": versions,
                 })
