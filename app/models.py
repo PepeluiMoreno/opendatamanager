@@ -632,6 +632,10 @@ class SolicitudIngreso(AuditMixin, Base):
     motivo = Column(Text, nullable=True)                  # motivo de rechazo / nota de aprobación
     resuelta_at = Column(DateTime, nullable=True)
     usuario_id = Column(UUID(as_uuid=True), ForeignKey("opendata.usuario.id", ondelete="SET NULL"), nullable=True)
+    # §12 push: callback al que ODM empuja la resolución (la app aún no tiene
+    # webhook propio cuando solicita). El secreto lo aporta el solicitante.
+    callback_url = Column(String(500), nullable=True)
+    callback_secret = Column(String(200), nullable=True)
 
     usuario = relationship("Usuario", foreign_keys=[usuario_id])
 

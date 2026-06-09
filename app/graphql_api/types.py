@@ -474,6 +474,8 @@ class CrearSolicitudIngresoInput:
     nombre: str
     contacto: Optional[str] = None
     proposito: Optional[str] = None
+    callback_url: Optional[str] = None      # callbackUrl: push de la resolución
+    callback_secret: Optional[str] = None   # callbackSecret: firma del webhook
 
 
 @strawberry.type

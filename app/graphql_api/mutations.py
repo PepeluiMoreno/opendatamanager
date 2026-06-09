@@ -108,6 +108,46 @@ def get_db():
         pass
 
 
+def _push_solicitud_resuelta(s) -> None:
+    """Webhook best-effort de resolución de solicitud (sin token en el payload)."""
+    try:
+        url = getattr(s, "callback_url", None)
+        if not url:
+            return
+        from app.services.webhook_push import post_webhook
+        post_webhook(url, getattr(s, "callback_secret", None), {
+            "evento": "solicitud_resuelta",
+            "solicitudId": str(s.id), "nombre": s.nombre,
+            "estado": s.estado, "motivo": s.motivo,
+            "resueltaAt": s.resuelta_at.isoformat() if s.resuelta_at else None,
+        })
+    except Exception:
+        pass
+
+
+def _push_recurso_resuelto(db, r) -> None:
+    """Webhook best-effort al app que propuso el recurso (resuelto)."""
+    try:
+        if not getattr(r, "created_by_id", None):
+            return
+        from app.models import Usuario, Application
+        from app.services.webhook_push import post_webhook
+        u = db.query(Usuario).filter(Usuario.id == r.created_by_id).first()
+        if not u:
+            return
+        app_row = (db.query(Application).filter(Application.name == u.username).first()
+                   or db.query(Application).filter(Application.name.ilike(u.username)).first())
+        if not app_row or not app_row.webhook_url:
+            return
+        post_webhook(app_row.webhook_url, app_row.webhook_secret, {
+            "evento": "recurso_resuelto",
+            "resourceId": str(r.id), "name": r.name,
+            "estadoAprobacion": r.estado_aprobacion, "motivoRechazo": r.motivo_rechazo,
+        })
+    except Exception:
+        pass
+
+
 @strawberry.type
 class Mutation:
     @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
@@ -1803,14 +1843,25 @@ class Mutation:
         from app.models import SolicitudIngreso
         db = get_db()
         try:
-            s = SolicitudIngreso(
-                nombre=input.nombre,
-                contacto=getattr(input, "contacto", None),
-                proposito=getattr(input, "proposito", None),
-                estado="pendiente",
-            )
-            db.add(s)
-            db.commit()
+            # §9 anti-duplicados: si ya hay una pendiente con el mismo nombre, se
+            # devuelve esa (idempotente) en vez de crear otra.
+            existente = db.query(SolicitudIngreso).filter(
+                SolicitudIngreso.nombre == input.nombre,
+                SolicitudIngreso.estado == "pendiente",
+            ).first()
+            if existente is not None:
+                s = existente
+            else:
+                s = SolicitudIngreso(
+                    nombre=input.nombre,
+                    contacto=getattr(input, "contacto", None),
+                    proposito=getattr(input, "proposito", None),
+                    estado="pendiente",
+                    callback_url=getattr(input, "callback_url", None),
+                    callback_secret=getattr(input, "callback_secret", None),
+                )
+                db.add(s)
+                db.commit()
             return SolicitudIngresoType(
                 id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
                 estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
@@ -1842,6 +1893,7 @@ class Mutation:
             s.resuelta_at = _dt.utcnow()
             s.usuario_id = usuario.id
             db.commit()
+            _push_solicitud_resuelta(s)
             return AprobarSolicitudResult(
                 solicitud=SolicitudIngresoType(
                     id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
@@ -1872,6 +1924,7 @@ class Mutation:
             s.motivo = motivo
             s.resuelta_at = _dt.utcnow()
             db.commit()
+            _push_solicitud_resuelta(s)
             return SolicitudIngresoType(
                 id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
                 estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
@@ -1895,6 +1948,7 @@ class Mutation:
             r.estado_aprobacion = "aprobado"
             r.motivo_rechazo = None
             db.commit()
+            _push_recurso_resuelto(db, r)
             # Al quedar operativo, si tiene cadencia, se registra su job.
             if r.active and r.schedule:
                 try:
@@ -1920,6 +1974,7 @@ class Mutation:
             r.motivo_rechazo = motivo
             r.active = False
             db.commit()
+            _push_recurso_resuelto(db, r)
             return map_resource(r)
         except Exception:
             db.rollback(); raise

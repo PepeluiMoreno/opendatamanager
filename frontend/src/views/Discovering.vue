@@ -115,7 +115,11 @@
     <!-- ── Candidate list ── -->
     <div v-if="viewMode === 'list'" class="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
 
-      <p v-if="!candidates.length && phase === 'idle' && selectedResourceId && !loadingResources"
+      <p v-if="loadingCandidates && selectedResourceId"
+         class="text-sm text-gray-500">
+        Consultando candidatos…
+      </p>
+      <p v-else-if="!candidates.length && phase === 'idle' && selectedResourceId && !loadingResources"
          class="text-sm text-gray-500">
         Sin candidatos aún para este crawler. Lanza un Discovery.
       </p>
@@ -360,6 +364,7 @@ const loadingResources  = ref(true)
 const allResources      = ref([])
 const selectedResourceId = ref('')
 const phase             = ref('idle')   // idle | running | error
+const loadingCandidates = ref(false)
 const logText           = ref('')
 const errorMsg          = ref('')
 const candidates        = ref([])
@@ -463,7 +468,11 @@ function toggleSelect(c) {
 // ── Data loading ───────────────────────────────────────────────────────────
 watch(selectedResourceId, async (id) => {
   selection.value = new Set()
-  candidates.value = id ? (await fetchResourceCandidates({ crawlerResourceId: id }))?.resourceCandidates || [] : []
+  if (!id) { candidates.value = []; return }
+  loadingCandidates.value = true
+  try {
+    candidates.value = (await fetchResourceCandidates({ crawlerResourceId: id }))?.resourceCandidates || []
+  } finally { loadingCandidates.value = false }
   if (viewMode.value === 'tree') loadTaxonomia()
 })
 
@@ -471,7 +480,10 @@ watch(viewMode, (m) => { if (m === 'tree') loadTaxonomia() })
 
 async function loadCandidates() {
   if (!selectedResourceId.value) return
-  candidates.value = (await fetchResourceCandidates({ crawlerResourceId: selectedResourceId.value }))?.resourceCandidates || []
+  loadingCandidates.value = true
+  try {
+    candidates.value = (await fetchResourceCandidates({ crawlerResourceId: selectedResourceId.value }))?.resourceCandidates || []
+  } finally { loadingCandidates.value = false }
 }
 
 // ── Taxonomía (árbol de ramas) ──────────────────────────────────────────────

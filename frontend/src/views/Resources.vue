@@ -146,6 +146,7 @@
                 <span class="inline-block w-3">{{ expandedNodrizas.has(resource.id) ? '▾' : '▸' }}</span>
               </button>
               <span v-if="esNodriza(resource)" class="mr-0.5" title="Nave nodriza (descubre recursos)">🛰️</span>
+              <span v-else class="mr-0.5 opacity-70" title="Recurso (hoja)">📄</span>
               {{ resource.name }}
               <span v-if="esNodriza(resource) && hijosDe(resource.id).length"
                     class="ml-1 text-[9px] text-purple-300">({{ hijosDe(resource.id).length }} descubiertos)</span>
@@ -201,12 +202,6 @@
                   title="Lanzar Discovery — crawlea el árbol y genera candidatos"
                 >Discover</button>
                 <button
-                  v-if="esNodriza(resource) && puede('recursos.crear')"
-                  @click="router.push('/resources/' + resource.id + '/candidates')"
-                  class="text-xs px-2 py-0.5 rounded bg-purple-900 hover:bg-purple-800 text-white"
-                  title="Ver los candidatos descubiertos por este crawler"
-                >Candidatos</button>
-                <button
                   v-if="puede('ejecuciones.lanzar')"
                   @click="openExecuteModal(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
@@ -231,7 +226,7 @@
                 <button
                   v-if="puede('recursos.borrar')"
                   @click="confirmDelete(resource)"
-                  class="text-xs px-2 py-0.5 rounded bg-red-900/60 hover:bg-red-800 text-red-300"
+                  class="text-xs px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white"
                 >
                   Delete
                 </button>
@@ -260,7 +255,7 @@
                 <button v-if="puede('ejecuciones.lanzar')" @click="openExecuteModal(child)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white" title="Ejecutar">Run</button>
                 <button v-if="puede('recursos.testar')" @click="showPreviewData(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Test</button>
                 <button v-if="puede('recursos.editar')" @click="editResource(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Edit</button>
-                <button v-if="puede('recursos.borrar')" @click="confirmDelete(child)" class="text-xs px-2 py-0.5 rounded bg-red-900/60 hover:bg-red-800 text-red-300">Delete</button>
+                <button v-if="puede('recursos.borrar')" @click="confirmDelete(child)" class="text-xs px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white">Delete</button>
               </div>
             </td>
           </tr>
@@ -1088,6 +1083,23 @@
             </Tooltip>
           </div>
 
+          <!-- #4 Maestro-detalle: recursos descubiertos por esta nodriza -->
+          <div v-if="showEditModal && editingResource && esNodriza(editingResource)" class="pt-3 border-t border-gray-700">
+            <h3 class="text-xs font-semibold text-purple-300 mb-2">🛰️ Recursos descubiertos por esta nodriza ({{ hijosDe(editingResource.id).length }})</h3>
+            <div v-if="!hijosDe(editingResource.id).length" class="text-xs text-gray-500">Aún no hay recursos descubiertos. Lanza un Discovery.</div>
+            <table v-else class="w-full text-xs">
+              <thead><tr class="text-gray-400 border-b border-gray-700"><th class="text-left py-1 px-2 font-medium">Nombre</th><th class="text-left py-1 px-2 font-medium">Tipo</th><th class="text-left py-1 px-2 font-medium">Estado</th><th class="text-right py-1 px-2 font-medium">Acción</th></tr></thead>
+              <tbody>
+                <tr v-for="h in hijosDe(editingResource.id)" :key="h.id" class="border-b border-gray-800">
+                  <td class="py-1 px-2 text-gray-200">📄 {{ h.name }}</td>
+                  <td class="py-1 px-2"><code class="bg-gray-900 px-1 rounded text-blue-400">{{ h.fetcher.code }}</code></td>
+                  <td class="py-1 px-2"><span :class="h.active ? 'text-green-400' : 'text-red-400'">{{ h.active ? 'Activo' : 'Inactivo' }}</span></td>
+                  <td class="py-1 px-2 text-right"><button type="button" v-if="puede('recursos.editar')" @click="editResource(h)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Editar</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div class="flex justify-end space-x-2 pt-3 border-t border-gray-700">
             <button type="button" @click="testResource" class="btn btn-secondary text-sm">
               Test
@@ -1378,9 +1390,11 @@ const selectedNivel     = ref('')
 const filterAllStatuses = ref(true)
 const filterStatuses    = ref([])
 
-const availableTypes = computed(() =>
-  [...new Set(resources.value.map(r => r.fetcher?.code).filter(Boolean))].sort()
-)
+const availableTypes = computed(() => {
+  const s = new Set(fetchers.value.map(f => f.code).filter(Boolean))
+  resources.value.forEach(r => { if (r.fetcher?.code) s.add(r.fetcher.code) })
+  return [...s].sort()
+})
 const availablePublishers = computed(() => publishers.value)
 const availableNiveles = computed(() =>
   [...new Set(publishers.value.map(p => p.nivel).filter(Boolean))].sort()
