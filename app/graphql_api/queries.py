@@ -354,6 +354,14 @@ class CuotaRefrescos:
 
 
 @strawberry.type
+class UsoMensualAplicacion:
+    """Uso de refrescos a demanda de una aplicación en el mes en curso."""
+    usados: int
+    periodo: str
+    cuota_diaria: int = strawberry.field(name="cuotaDiaria")
+
+
+@strawberry.type
 class Query:
     @strawberry.field
     def cuota_refrescos(self, info: Info) -> CuotaRefrescos:
@@ -370,6 +378,29 @@ class Query:
                 RefrescoExtemporaneo.created_at >= inicio,
             ).scalar() or 0
             return CuotaRefrescos(limite=limite, usados_hoy=usados, restantes=max(0, limite - usados))
+        finally:
+            db.close()
+
+    @strawberry.field
+    def uso_mensual_aplicacion(self, application_id: str) -> UsoMensualAplicacion:
+        """Refrescos a demanda consumidos por la aplicación en el mes en curso.
+        Resuelve el principal por nombre (Application.name == Usuario.username)."""
+        from app.models import Application, Usuario, RefrescoExtemporaneo
+        db = get_db()
+        now = _dt.utcnow()
+        periodo = now.strftime("%Y-%m")
+        try:
+            inicio = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            app_row = db.query(Application).filter(Application.id == application_id).first()
+            u = db.query(Usuario).filter(Usuario.username == app_row.name).first() if app_row else None
+            if u is None:
+                return UsoMensualAplicacion(usados=0, periodo=periodo, cuota_diaria=0)
+            usados = db.query(_func.count(RefrescoExtemporaneo.id)).filter(
+                RefrescoExtemporaneo.created_by_id == u.id,
+                RefrescoExtemporaneo.created_at >= inicio,
+            ).scalar() or 0
+            cuota = getattr(u, "cuota_refrescos_diaria", 0) or 0
+            return UsoMensualAplicacion(usados=usados, periodo=periodo, cuota_diaria=cuota)
         finally:
             db.close()
 

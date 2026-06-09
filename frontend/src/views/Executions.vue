@@ -64,9 +64,7 @@
       </div>
     </div>
 
-    <div v-if="loading && executions.length === 0" class="text-gray-400 text-center py-16">
-      Loading...
-    </div>
+    <div v-if="loading && executions.length === 0" class="py-16"><Spinner /></div>
 
     <div v-else-if="filteredExecutions.length === 0" class="text-gray-400 text-center py-16">
       {{ executions.length === 0 ? 'No executions yet. Run a resource to see it here.' : 'No processes match this filter.' }}
@@ -398,6 +396,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'
 import { useAuth } from '../composables/useAuth'
 

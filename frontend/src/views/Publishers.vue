@@ -30,7 +30,7 @@
 
     <!-- Tabla -->
     <div class="card">
-      <div v-if="loading" class="p-8 text-center text-gray-400">Loading...</div>
+      <div v-if="loading" class="p-8"><Spinner /></div>
       <div v-else-if="publishersFiltrados.length === 0" class="p-8 text-center text-gray-400">
         {{ publishers.length === 0 ? 'No publishers yet. Create the first one.' : 'No publishers match the filters.' }}
       </div>
@@ -284,6 +284,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
 import { fetchPublishers, createPublisher, updatePublisher, deletePublisher, fetchResources, errorLegible } from '../api/graphql.js'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'

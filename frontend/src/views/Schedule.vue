@@ -19,7 +19,7 @@
     </div>
 
     <!-- ── Scheduled tasks table ───────────────────────────────────────────── -->
-    <div v-if="loading" class="text-gray-400 text-center py-16">Loading...</div>
+    <div v-if="loading" class="py-16"><Spinner /></div>
 
     <div v-else-if="scheduledResources.length === 0 && !showForm"
       class="text-center py-20 text-gray-600">
@@ -267,6 +267,7 @@
 
 <script setup>
 import { ref, reactive, computed, watch, onMounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
 import { fetchResources, updateResource } from '../api/graphql.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 

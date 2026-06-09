@@ -36,7 +36,7 @@
 
     <!-- Table -->
     <div class="flex-1 overflow-auto rounded-xl border border-gray-700 bg-gray-800 min-h-0">
-      <div v-if="loading" class="flex items-center justify-center h-40 text-gray-400">Loading...</div>
+      <div v-if="loading" class="flex items-center justify-center h-40"><Spinner /></div>
       <div v-else-if="!filtered.length" class="flex flex-col items-center justify-center h-40 text-gray-500 gap-2">
         <span>No subscriptions found.</span>
         <button @click="openNew" class="text-blue-400 hover:underline text-sm">Create one</button>
@@ -145,10 +145,19 @@
     </div>
 
   </div>
+    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
+      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
+      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+const confirmar = ref(null)
+function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
+function cerrarConfirm() { confirmar.value = null }
+
 import {
   fetchSubscriptions,
   subscribeResource,
@@ -226,12 +235,10 @@ async function submitNew() {
 async function confirmDelete(sub) {
   const aName = appName(sub.applicationId)
   const rName = resourceName(sub.resourceId)
-  if (!confirm(`Delete subscription: "${aName}" → "${rName}"?`)) return
-  try {
-    await unsubscribeResource(sub.id)
-    await load()
-  } catch (e) {
-    error.value = e.message || 'Error deleting subscription'
+  confirmar.value = {
+    title: 'Borrar suscripción',
+    message: `Quitar la suscripción de «${aName}» a «${rName}».`,
+    onConfirm: async () => { try { await unsubscribeResource(sub.id); await load() } catch (e) { error.value = e.message || 'Error deleting subscription' } },
   }
 }
 

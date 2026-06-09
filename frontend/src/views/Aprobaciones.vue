@@ -130,10 +130,18 @@
       </div>
     </section>
   </div>
+    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
+      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
+      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+const confirmar = ref(null)
+function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
+function cerrarConfirm() { confirmar.value = null }
+
 import { useAuth } from '../composables/useAuth'
 import {
   fetchSolicitudesIngreso, aprobarSolicitudIngreso, rechazarSolicitudIngreso,
@@ -209,16 +217,18 @@ async function emitirToken(app) {
   await cargarAplicaciones()
 }
 async function rotarToken(app, tok) {
-  if (!window.confirm(`Rotar el token ${tok.prefix}…? El actual quedará revocado de inmediato.`)) return
-  const d = await rotarTokenAplicacion(tok.id, tok.label || null)
-  const r = d?.rotarTokenAplicacion
-  if (r) tokenEmitido.value = { username: app.username, token: r.token }
-  await cargarAplicaciones()
+  confirmar.value = {
+    title: 'Rotar token', confirmText: 'Rotar',
+    message: `Rotar el token ${tok.prefix}… El token actual quedará revocado de inmediato.`,
+    onConfirm: async () => { const d = await rotarTokenAplicacion(tok.id, tok.label || null); const r = d?.rotarTokenAplicacion; if (r) tokenEmitido.value = { username: app.username, token: r.token }; await cargarAplicaciones() },
+  }
 }
 async function revocarToken(tok) {
-  if (!window.confirm(`Revocar el token ${tok.prefix}…? Esta acción es inmediata e irreversible.`)) return
-  await revocarTokenAplicacion(tok.id)
-  await cargarAplicaciones()
+  confirmar.value = {
+    title: 'Revocar token', confirmText: 'Revocar',
+    message: `Revocar el token ${tok.prefix}… Es inmediato e irreversible.`,
+    onConfirm: async () => { await revocarTokenAplicacion(tok.id); await cargarAplicaciones() },
+  }
 }
 
 onMounted(() => { cargarSolicitudes(); cargarRecursos(); cargarAplicaciones() })

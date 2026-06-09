@@ -408,10 +408,17 @@
        </form>
      </div>
    </div>
+    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
+      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
+      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+const confirmar = ref(null)
+function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
+function cerrarConfirm() { confirmar.value = null }
 import {
   createFetcher,
   updateFetcher,
@@ -887,15 +894,18 @@ function cerrarVariante(v) {
   varianteActiva.value = null
 }
 async function retirarVariante(v) {
-  if (!confirm(`¿Retirar la variante "${v.code}"? Se bloqueará si algún recurso la usa.`)) return
-  v._error = null
-  try {
-    await deleteFetcherPreset(v.id)
-    variantes.value = variantes.value.filter(x => x !== v)
-    varianteActiva.value = null
-    emit('saved', `Variante "${v.code}" retirada`)
-  } catch (e) {
-    v._error = e?.message || String(e)
+  confirmar.value = {
+    title: 'Retirar variante', confirmText: 'Retirar',
+    message: `¿Retirar la variante «${v.code}»? Se bloqueará si algún recurso la usa.`,
+    onConfirm: async () => {
+      v._error = null
+      try {
+        await deleteFetcherPreset(v.id)
+        variantes.value = variantes.value.filter(x => x !== v)
+        varianteActiva.value = null
+        emit('saved', `Variante "${v.code}" retirada`)
+      } catch (e) { v._error = e?.message || String(e) }
+    },
   }
 }
 

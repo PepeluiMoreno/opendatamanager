@@ -853,6 +853,17 @@ export async function toggleDerivedDatasetConfig(id, enabled) {
   }
 }
 
+export async function fetchUsoMensualAplicacion(applicationId) {
+  try {
+    return await client.request(
+      `query UsoMensual($applicationId: String!) {
+        usoMensualAplicacion(applicationId: $applicationId) { usados periodo cuotaDiaria }
+      }`, { applicationId })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
 export async function fetchCuotaRefrescos() {
   try {
     return await client.request(QUERIES.GET_CUOTA_REFRESCOS)

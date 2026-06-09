@@ -36,7 +36,7 @@
         <span class="text-xs text-gray-600">{{ resourceStats.length }} resources</span>
       </div>
 
-      <div v-if="loadingStats" class="text-center py-10 text-gray-500 text-sm">Loading…</div>
+      <div v-if="loadingStats" class="py-10"><Spinner /></div>
 
       <div v-else-if="resourceStats.length === 0" class="text-center py-10 text-gray-600 text-sm">
         No executions yet.
@@ -128,6 +128,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
 
 const resourceStats = ref([])
 const loadingStats  = ref(true)

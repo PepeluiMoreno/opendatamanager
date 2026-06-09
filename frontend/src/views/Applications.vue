@@ -65,6 +65,15 @@
           </div>
         </div>
 
+        <!-- #19 Cuota mensual de uso -->
+        <div class="px-4 py-3 border-b border-gray-700 flex items-center gap-3 text-sm flex-shrink-0">
+          <span class="text-gray-400">Uso del mes<span v-if="usoMensual"> ({{ usoMensual.periodo }})</span>:</span>
+          <span v-if="usoMensual" class="text-white font-medium">{{ usoMensual.usados }} refrescos a demanda</span>
+          <span v-else class="text-gray-600">—</span>
+          <span v-if="usoMensual" class="text-xs text-gray-500 ml-1">· cuota diaria {{ usoMensual.cuotaDiaria }}/día</span>
+        </div>
+        <div class="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-gray-500 font-medium flex-shrink-0">Recursos autorizados</div>
+
         <!-- Tabla de suscripciones -->
         <div class="flex-1 overflow-auto min-h-0">
           <div v-if="subsForApp(selectedApp.id).length === 0" class="flex flex-col items-center justify-center h-40 text-gray-500 gap-2">
@@ -205,14 +214,22 @@
     </div>
 
   </div>
+    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
+      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
+      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+const confirmar = ref(null)
+function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
+function cerrarConfirm() { confirmar.value = null }
+
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
 import {
-  fetchApplications, createApplication, updateApplication, deleteApplication,
+  fetchApplications, createApplication, updateApplication, deleteApplication, fetchUsoMensualAplicacion,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
 } from '../api/graphql'
 
@@ -244,6 +261,13 @@ const subModalError = ref(null)
 const subForm = ref({ resourceId: '', pinnedVersion: '', autoUpgrade: 'patch' })
 
 const selectedApp = computed(() => applications.value.find(a => a.id === selectedAppId.value) || null)
+const usoMensual = ref(null)
+watch(selectedAppId, async (id) => {
+  usoMensual.value = null
+  if (!id) return
+  const d = await fetchUsoMensualAplicacion(id)
+  usoMensual.value = d?.usoMensualAplicacion || null
+})
 function subsForApp(id) { return subscriptions.value.filter(s => s.applicationId === id) }
 const subsSeleccionada = computed(() => selectedApp.value ? subsForApp(selectedApp.value.id) : [])
 const { page: aPage, perPage: aPerPage, total: aTotal, paged: pagedSubs } = usePagination(subsSeleccionada, 25)
@@ -327,9 +351,11 @@ async function submitSub() {
   finally { saving.value = false }
 }
 async function confirmDeleteSub(sub) {
-  if (!confirm(`Delete subscription: "${selectedApp.value?.name}" → "${resourceName(sub.resourceId)}"?`)) return
-  try { await unsubscribeResource(sub.id); await load() }
-  catch (e) { error.value = e.message || 'Error deleting subscription' }
+  confirmar.value = {
+    title: 'Borrar suscripción',
+    message: `Quitar la suscripción de «${selectedApp.value?.name}» a «${resourceName(sub.resourceId)}».`,
+    onConfirm: async () => { try { await unsubscribeResource(sub.id); await load() } catch (e) { error.value = e.message || 'Error deleting subscription' } },
+  }
 }
 
 // ── Lookups / format ──

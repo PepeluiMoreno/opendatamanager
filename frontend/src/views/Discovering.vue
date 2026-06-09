@@ -341,10 +341,18 @@
     </div>
 
   </div>
+    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
+      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
+      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
+const confirmar = ref(null)
+function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
+function cerrarConfirm() { confirmar.value = null }
+
 import { useRoute } from 'vue-router'
 import {
   fetchResources,
@@ -630,9 +638,11 @@ async function confirmPromote() {
 
 // ── Discard ────────────────────────────────────────────────────────────────
 async function discard(c) {
-  if (!confirm(`¿Descartar "${c.suggestedName || c.pathTemplate}"?`)) return
-  await discardCandidate(c.id)
-  await loadCandidates()
+  confirmar.value = {
+    title: 'Descartar candidato',
+    message: `¿Descartar «${c.suggestedName || c.pathTemplate}»? No se promoverá a recurso.`,
+    onConfirm: async () => { await discardCandidate(c.id); await loadCandidates() },
+  }
 }
 
 // ── Merge ──────────────────────────────────────────────────────────────────

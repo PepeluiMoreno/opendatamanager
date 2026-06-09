@@ -61,10 +61,11 @@
 
     <!-- ── Tree table ── -->
     <div class="flex-1 overflow-auto">
-      <div v-if="loading" class="flex items-center justify-center h-32 text-gray-400 text-sm">Cargando…</div>
+      <div v-if="loading" class="flex items-center justify-center h-32"><Spinner /></div>
       <div v-else-if="error" class="flex items-center justify-center h-32 text-red-400 text-sm">{{ error }}</div>
-      <div v-else-if="filteredTree.length === 0" class="flex items-center justify-center h-32 text-gray-500 text-sm">
-        {{ tree.length === 0 ? 'No hay datasets. Ejecuta algún resource primero.' : 'Sin resultados.' }}
+      <div v-else-if="filteredTree.length === 0" class="flex flex-col items-center justify-center h-32 text-gray-500 text-sm gap-2">
+        <span>{{ tree.length === 0 ? 'No hay datasets. Ejecuta algún resource primero.' : 'Sin resultados con los filtros actuales.' }}</span>
+        <button v-if="tree.length > 0" @click="limpiarFiltros" class="text-xs text-yellow-400 hover:text-yellow-300 underline">Limpiar filtros</button>
       </div>
       <table v-else class="w-full text-xs">
         <thead class="sticky top-0 bg-gray-800 z-10">
@@ -133,12 +134,55 @@
                 </div>
               </td>
             </tr>
+            <tr v-if="detalle && detalle.key === res.nodeId" class="bg-gray-900/30">
+              <td colspan="6" class="px-4 pb-3"><div class="rounded-lg border border-gray-700 bg-gray-900/60">
+                <div class="flex gap-2 px-4 pt-2 border-b border-gray-700">
+                  <button @click="detalleTab='params'" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors" :class="detalleTab==='params' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Parámetros</button>
+                  <button @click="verMuestra" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors" :class="detalleTab==='muestra' ? 'border-green-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Muestra de Resultados</button>
+                  <span v-if="detalle.version" class="ml-auto text-xs text-gray-500 self-center">v{{ detalle.version }}<span v-if="detalle.isLatest" class="ml-1.5 bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span></span>
+                </div>
+                <div v-if="detalleTab==='params'" class="px-4 py-3 space-y-4">
+                  <div v-if="detalle.version">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros de ejecución</p>
+                    <div v-if="visibleExecutionParams(detalle.executionParams).length" class="space-y-1.5">
+                      <div v-for="[k, v] in visibleExecutionParams(detalle.executionParams)" :key="k" class="flex items-start gap-3 bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2">
+                        <span class="font-mono text-blue-300 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
+                        <span class="text-white text-xs break-all font-medium">{{ v }}</span>
+                      </div>
+                    </div>
+                    <p v-else class="text-xs text-gray-600 italic">Sin parámetros de ejecución visibles.</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros del recurso</p>
+                    <div v-if="detalle.resourceParams && Object.keys(detalle.resourceParams).length" class="space-y-1.5">
+                      <div v-for="k in Object.keys(detalle.resourceParams).sort()" :key="k" class="flex items-start gap-3 bg-gray-700/50 rounded-lg px-3 py-2">
+                        <span class="font-mono text-gray-400 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
+                        <span class="text-gray-200 text-xs break-all">{{ detalle.resourceParams[k] }}</span>
+                      </div>
+                    </div>
+                    <p v-else class="text-xs text-gray-600 italic">Sin parámetros configurados.</p>
+                  </div>
+                </div>
+                <div v-else class="flex flex-col">
+                  <div class="px-4 py-2 text-xs text-gray-500 border-b border-gray-800">
+                    <template v-if="jsonViewer">{{ jsonViewer.records.length.toLocaleString() }} de {{ (jsonViewer.recordCount ?? 0).toLocaleString() }} registros<span v-if="jsonViewer.error" class="text-red-400 ml-2">{{ jsonViewer.error }}</span></template>
+                    <template v-else>Loading…</template>
+                  </div>
+                  <pre class="max-h-80 overflow-auto text-xs text-green-200/90 font-mono p-3 bg-gray-950/60">{{ jsonViewerTexto }}</pre>
+                  <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-700">
+                    <button v-if="jsonViewer && !jsonViewer.fin" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded disabled:opacity-50" :disabled="jsonViewer.cargando" @click="cargarMasJson">{{ jsonViewer && jsonViewer.cargando ? 'Loading…' : 'Cargar más' }}</button>
+                    <button class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded" @click="copiarJson">{{ copiado ? '✓ Copiado' : 'Copiar' }}</button>
+                    <a v-if="jsonViewer" :href="`/api/datasets/${jsonViewer.datasetId}/data.jsonl`" download class="text-xs text-blue-400 hover:text-blue-300 underline ml-auto">Descargar JSONL completo</a>
+                  </div>
+                </div>
+              </div></td>
+            </tr>
 
             <!-- Version rows -->
             <template v-if="expandedResources.has(res.nodeId)">
               <!-- soloRecientes: filtra a la versión latest -->
-              <tr v-for="ver in visibleVersions(res)" :key="ver.datasetId"
-                class="border-b border-gray-700/30 hover:bg-gray-800/20 transition-colors">
+              <template v-for="ver in visibleVersions(res)" :key="ver.datasetId">
+              <tr class="border-b border-gray-700/30 hover:bg-gray-800/20 transition-colors">
                 <td class="px-4 py-2.5">
                   <div class="flex items-center justify-center">
                     <div class="w-px h-4 bg-gray-600 mr-1"></div>
@@ -186,6 +230,50 @@
                   </div>
                 </td>
               </tr>
+              <tr v-if="detalle && detalle.key === ver.datasetId" class="bg-gray-900/30">
+                <td colspan="6" class="px-4 pb-3"><div class="rounded-lg border border-gray-700 bg-gray-900/60">
+                <div class="flex gap-2 px-4 pt-2 border-b border-gray-700">
+                  <button @click="detalleTab='params'" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors" :class="detalleTab==='params' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Parámetros</button>
+                  <button @click="verMuestra" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors" :class="detalleTab==='muestra' ? 'border-green-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Muestra de Resultados</button>
+                  <span v-if="detalle.version" class="ml-auto text-xs text-gray-500 self-center">v{{ detalle.version }}<span v-if="detalle.isLatest" class="ml-1.5 bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span></span>
+                </div>
+                <div v-if="detalleTab==='params'" class="px-4 py-3 space-y-4">
+                  <div v-if="detalle.version">
+                    <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros de ejecución</p>
+                    <div v-if="visibleExecutionParams(detalle.executionParams).length" class="space-y-1.5">
+                      <div v-for="[k, v] in visibleExecutionParams(detalle.executionParams)" :key="k" class="flex items-start gap-3 bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2">
+                        <span class="font-mono text-blue-300 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
+                        <span class="text-white text-xs break-all font-medium">{{ v }}</span>
+                      </div>
+                    </div>
+                    <p v-else class="text-xs text-gray-600 italic">Sin parámetros de ejecución visibles.</p>
+                  </div>
+                  <div>
+                    <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros del recurso</p>
+                    <div v-if="detalle.resourceParams && Object.keys(detalle.resourceParams).length" class="space-y-1.5">
+                      <div v-for="k in Object.keys(detalle.resourceParams).sort()" :key="k" class="flex items-start gap-3 bg-gray-700/50 rounded-lg px-3 py-2">
+                        <span class="font-mono text-gray-400 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
+                        <span class="text-gray-200 text-xs break-all">{{ detalle.resourceParams[k] }}</span>
+                      </div>
+                    </div>
+                    <p v-else class="text-xs text-gray-600 italic">Sin parámetros configurados.</p>
+                  </div>
+                </div>
+                <div v-else class="flex flex-col">
+                  <div class="px-4 py-2 text-xs text-gray-500 border-b border-gray-800">
+                    <template v-if="jsonViewer">{{ jsonViewer.records.length.toLocaleString() }} de {{ (jsonViewer.recordCount ?? 0).toLocaleString() }} registros<span v-if="jsonViewer.error" class="text-red-400 ml-2">{{ jsonViewer.error }}</span></template>
+                    <template v-else>Loading…</template>
+                  </div>
+                  <pre class="max-h-80 overflow-auto text-xs text-green-200/90 font-mono p-3 bg-gray-950/60">{{ jsonViewerTexto }}</pre>
+                  <div class="flex items-center gap-2 px-4 py-2 border-t border-gray-700">
+                    <button v-if="jsonViewer && !jsonViewer.fin" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded disabled:opacity-50" :disabled="jsonViewer.cargando" @click="cargarMasJson">{{ jsonViewer && jsonViewer.cargando ? 'Loading…' : 'Cargar más' }}</button>
+                    <button class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded" @click="copiarJson">{{ copiado ? '✓ Copiado' : 'Copiar' }}</button>
+                    <a v-if="jsonViewer" :href="`/api/datasets/${jsonViewer.datasetId}/data.jsonl`" download class="text-xs text-blue-400 hover:text-blue-300 underline ml-auto">Descargar JSONL completo</a>
+                  </div>
+                </div>
+              </div></td>
+              </tr>
+              </template>
 
               <!-- Fields expand row -->
               <tr v-if="expandedDataset && res.versions.some(v => v.datasetId === expandedDataset) && expandedResources.has(res.nodeId)"
@@ -205,65 +293,6 @@
         </tbody>
       </table>
       <Paginator v-if="!loading && !error" v-model:page="dePage" v-model:perPage="dePerPage" :total="deTotal" />
-    </div>
-
-    <!-- ── Detalle: Parámetros + Muestra de Resultados ── -->
-    <div v-if="detalle" class="modal-overlay" @click.self="closeDetalle">
-      <div class="modal-card">
-        <div class="flex items-start justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
-          <div>
-            <h3 class="text-sm font-semibold text-white">{{ detalle.resourceName }}</h3>
-            <p v-if="detalle.version" class="text-xs text-gray-400 mt-0.5">Dataset v{{ detalle.version }}
-              <span v-if="detalle.isLatest" class="ml-1.5 bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span></p>
-          </div>
-          <button @click="closeDetalle" class="text-gray-500 hover:text-gray-300 p-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div class="flex gap-2 px-5 pt-3 border-b border-gray-700 flex-shrink-0">
-          <button @click="detalleTab='params'" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors"
-            :class="detalleTab==='params' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Parámetros</button>
-          <button @click="verMuestra" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors"
-            :class="detalleTab==='muestra' ? 'border-green-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Muestra de Resultados</button>
-        </div>
-        <div v-if="detalleTab==='params'" class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
-          <div v-if="detalle.version">
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros de ejecución</p>
-            <div v-if="visibleExecutionParams(detalle.executionParams).length" class="space-y-1.5">
-              <div v-for="[k, v] in visibleExecutionParams(detalle.executionParams)" :key="k"
-                class="flex items-start gap-3 bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2">
-                <span class="font-mono text-blue-300 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
-                <span class="text-white text-xs break-all font-medium">{{ v }}</span>
-              </div>
-            </div>
-            <p v-else class="text-xs text-gray-600 italic">Sin parámetros de ejecución visibles.</p>
-          </div>
-          <div>
-            <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros del recurso</p>
-            <div v-if="detalle.resourceParams && Object.keys(detalle.resourceParams).length" class="space-y-1.5">
-              <div v-for="k in Object.keys(detalle.resourceParams).sort()" :key="k"
-                class="flex items-start gap-3 bg-gray-700/50 rounded-lg px-3 py-2">
-                <span class="font-mono text-gray-400 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
-                <span class="text-gray-200 text-xs break-all">{{ detalle.resourceParams[k] }}</span>
-              </div>
-            </div>
-            <p v-else class="text-xs text-gray-600 italic">Sin parámetros configurados.</p>
-          </div>
-        </div>
-        <div v-else class="flex-1 flex flex-col min-h-0">
-          <div class="px-5 py-2 text-xs text-gray-500 border-b border-gray-800 flex-shrink-0">
-            <template v-if="jsonViewer">{{ jsonViewer.records.length.toLocaleString() }} de {{ (jsonViewer.recordCount ?? 0).toLocaleString() }} registros<span v-if="jsonViewer.error" class="text-red-400 ml-2">{{ jsonViewer.error }}</span></template>
-            <template v-else>Cargando muestra…</template>
-          </div>
-          <pre class="flex-1 overflow-auto text-xs text-green-200/90 font-mono p-4 bg-gray-950/60">{{ jsonViewerTexto }}</pre>
-          <div class="flex items-center gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0">
-            <button v-if="jsonViewer && !jsonViewer.fin" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded disabled:opacity-50"
-              :disabled="jsonViewer.cargando" @click="cargarMasJson">{{ jsonViewer && jsonViewer.cargando ? 'Cargando…' : 'Cargar más' }}</button>
-            <button class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded" @click="copiarJson">{{ copiado ? '✓ Copiado' : 'Copiar' }}</button>
-            <a v-if="jsonViewer" :href="`/api/datasets/${jsonViewer.datasetId}/data.jsonl`" download class="text-xs text-blue-400 hover:text-blue-300 underline ml-auto">Descargar JSONL completo</a>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- ── Delete single dataset ── -->
@@ -327,9 +356,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
+import Spinner from '../components/Spinner.vue'
 import { useAuth } from '../composables/useAuth'
 
 const { puede } = useAuth()
@@ -389,6 +419,7 @@ onMounted(loadTree)
 const publishersDisponibles = computed(() =>
   [...new Set((tree.value || []).map(r => r.publisher).filter(Boolean))].sort()
 )
+watch(publishersDisponibles, (pubs) => { if (pubFilter.value && !pubs.includes(pubFilter.value)) pubFilter.value = '' })
 function visibleVersions(res) {
   return soloRecientes.value ? (res.versions || []).filter(v => v.isLatest) : res.versions
 }
@@ -456,9 +487,11 @@ function formatDate(iso) {
 }
 
 function openDetalle(res, ver) {
+  const key = ver ? ver.datasetId : res.nodeId
+  if (detalle.value && detalle.value.key === key) { closeDetalle(); return }  // toggle (no modal)
   const v = ver || (res.versions || []).find(x => x.isLatest) || (res.versions || [])[0] || null
   detalle.value = {
-    res, ver: v,
+    key, res, ver: v,
     resourceName: res.resourceName,
     resourceParams: res.resourceParams || {},
     version: v?.version ?? null,
@@ -468,6 +501,7 @@ function openDetalle(res, ver) {
   detalleTab.value = 'params'
   jsonViewer.value = null
 }
+function limpiarFiltros() { search.value=''; pubFilter.value=''; desde.value=''; hasta.value=''; filterMode.value=''; soloRecientes.value=false }
 function verMuestra() {
   detalleTab.value = 'muestra'
   const v = detalle.value?.ver

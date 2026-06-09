@@ -6,9 +6,7 @@
       </router-link>
     </div>
 
-    <div v-if="loading" class="text-gray-400 text-center py-8">
-      Loading resource details...
-    </div>
+    <div v-if="loading" class="py-8"><Spinner /></div>
 
     <div v-else-if="error" class="p-4 bg-red-900 border border-red-700 rounded text-red-200">
       {{ error }}
@@ -130,9 +128,7 @@
           </button>
         </div>
 
-        <div v-if="loadingDatasets" class="text-gray-400 text-center py-8">
-          Loading datasets...
-        </div>
+        <div v-if="loadingDatasets" class="py-8"><Spinner /></div>
 
         <div v-else-if="datasets.length === 0" class="text-gray-400 text-center py-8">
           No datasets yet. Execute this resource to generate the first dataset.
@@ -262,6 +258,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import Spinner from '../components/Spinner.vue'
 import { useRoute } from 'vue-router'
 import { fetchResource, executeResource, fetchDatasets } from '../api/graphql'
 import ExecutionStatus from '../components/ExecutionStatus.vue'

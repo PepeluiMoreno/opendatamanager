@@ -5,7 +5,7 @@
     <!-- Datos personales -->
     <section class="bg-gray-800 rounded-lg p-5 border border-gray-700">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-4">Datos personales</h2>
-      <div v-if="cargando" class="text-gray-500 text-sm">Cargando…</div>
+      <div v-if="cargando" class="py-8"><Spinner /></div>
       <div v-else class="space-y-4">
         <div>
           <label class="block text-xs text-gray-400 mb-1">Usuario</label>
@@ -89,6 +89,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
 

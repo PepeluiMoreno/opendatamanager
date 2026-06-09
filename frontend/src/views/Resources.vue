@@ -21,9 +21,7 @@
     </div>
 
 
-    <div v-if="loading" class="text-gray-400 text-center py-8">
-      Loading...
-    </div>
+    <div v-if="loading" class="py-8"><Spinner /></div>
 
     <div v-else-if="error" class="p-4 bg-red-900 border border-red-700 rounded text-red-200">
       {{ error }}
@@ -1259,6 +1257,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import Spinner from '../components/Spinner.vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 

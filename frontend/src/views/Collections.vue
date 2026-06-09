@@ -4,20 +4,26 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-white">Collections</h1>
-        <p class="text-gray-400 text-sm mt-1">
-          Naves nodriza: recursos que <strong>descubren</strong> otros recursos. Cada
-          Colección rastrea su fuente (proceso de <em>discovering</em>), propone
-          <strong>candidatos</strong> y, al promoverlos, gana <strong>miembros</strong>.
-        </p>
       </div>
+    </div>
+
+    <!-- Filtro (son recursos de recursos) -->
+    <div class="flex items-center gap-3 flex-wrap">
+      <input v-model="search" type="text" placeholder="Buscar por nombre o publisher…" class="flex-1 min-w-48 bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"/>
+      <select v-model="tipoFilter" class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+        <option value="">Tipo: todos</option>
+        <option v-for="t in tiposDisponibles" :key="t" :value="t">{{ t }}</option>
+      </select>
+      <button v-if="search || tipoFilter" @click="search='';tipoFilter=''" class="text-xs text-yellow-400 hover:text-yellow-300 underline">Limpiar filtros</button>
+      <span class="text-xs text-gray-500 ml-auto">{{ filtered.length }} / {{ colecciones.length }}</span>
     </div>
 
     <!-- Tabla -->
     <div class="card">
-      <div v-if="cargando" class="p-8 text-center text-gray-400">Cargando colecciones…</div>
-      <div v-else-if="colecciones.length === 0" class="p-8 text-center text-gray-400">
-        Aún no hay colecciones. Un recurso se vuelve Colección cuando su especie
-        declara el modo «descubrir» (hoy, Web Tree).
+      <div v-if="cargando" class="p-8"><Spinner /></div>
+      <div v-else-if="filtered.length === 0" class="p-8 text-center text-gray-400">
+        <template v-if="colecciones.length === 0">Aún no hay colecciones. Un recurso se vuelve Colección cuando su especie declara el modo «descubrir» (hoy, Web Tree).</template>
+        <template v-else>Sin resultados. <button @click="search='';tipoFilter=''" class="text-yellow-400 hover:text-yellow-300 underline">Limpiar filtros</button></template>
       </div>
       <div v-else class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -71,14 +77,29 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { fetchCollections } from '../api/graphql.js'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
+import Spinner from '../components/Spinner.vue'
 
 const colecciones = ref([])
 const cargando = ref(true)
-const { page, perPage, total, paged } = usePagination(colecciones, 25)
+const search = ref('')
+const tipoFilter = ref('')
+const tiposDisponibles = computed(() => [...new Set(colecciones.value.map(c => c.fetcher?.code).filter(Boolean))].sort())
+const filtered = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  return colecciones.value.filter(c => {
+    if (tipoFilter.value && c.fetcher?.code !== tipoFilter.value) return false
+    if (q) {
+      const pub = c.publisherObj?.acronimo || c.publisherObj?.nombre || c.publisher || ''
+      if (!(`${c.name||''} ${pub}`.toLowerCase().includes(q))) return false
+    }
+    return true
+  })
+})
+const { page, perPage, total, paged } = usePagination(filtered, 25)
 
 function formatoFecha(iso) {
   if (!iso) return 'Nunca'
