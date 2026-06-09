@@ -13,7 +13,7 @@
     </div>
 
     <!-- Filters -->
-    <FilterBar :canClear="!!(filterApp || filterResource)" :count="filtered.length" :total="subscriptions.length" @clear="filterApp = ''; filterResource = ''">
+    <FilterBar :canClear="!!(filterApp || filterResource)" :count="filtered.length" :total="subscriptions.length" @clear="filterApp=''; filterResource=''">
       <select v-model="filterApp" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 min-w-[180px]">
         <option value="">Aplicación: todas</option>
         <option v-for="a in applications" :key="a.id" :value="a.id">{{ a.name }}</option>
@@ -29,7 +29,7 @@
 
     <!-- Table -->
     <div class="flex-1 overflow-auto rounded-xl border border-gray-700 bg-gray-800 min-h-0">
-      <div v-if="loading" class="flex items-center justify-center h-40"><Spinner /></div>
+      <div v-if="loading" class="flex items-center justify-center h-40 text-gray-400">Loading...</div>
       <div v-else-if="!filtered.length" class="flex flex-col items-center justify-center h-40 text-gray-500 gap-2">
         <span>No subscriptions found.</span>
         <button @click="openNew" class="text-blue-400 hover:underline text-sm">Create one</button>
@@ -69,8 +69,10 @@
             <td class="py-3 px-4 text-gray-400 font-mono text-xs">{{ sub.currentVersion || '—' }}</td>
             <td class="py-3 px-4 text-gray-400 text-xs">{{ formatDate(sub.notifiedAt) }}</td>
             <td class="py-3 px-4 text-right">
-              <button @click="confirmDelete(sub)" title="Borrar suscripción"
-                class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              <button @click="confirmDelete(sub)"
+                class="px-3 py-1 bg-red-700 hover:bg-red-600 text-white rounded text-xs font-medium transition-colors">
+                Delete
+              </button>
             </td>
           </tr>
         </tbody>
@@ -136,20 +138,11 @@
     </div>
 
   </div>
-    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
-      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
-      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
-import Spinner from '../components/Spinner.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
-const confirmar = ref(null)
-function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
-function cerrarConfirm() { confirmar.value = null }
-
 import {
   fetchSubscriptions,
   subscribeResource,
@@ -227,10 +220,12 @@ async function submitNew() {
 async function confirmDelete(sub) {
   const aName = appName(sub.applicationId)
   const rName = resourceName(sub.resourceId)
-  confirmar.value = {
-    title: 'Borrar suscripción',
-    message: `Quitar la suscripción de «${aName}» a «${rName}».`,
-    onConfirm: async () => { try { await unsubscribeResource(sub.id); await load() } catch (e) { error.value = e.message || 'Error deleting subscription' } },
+  if (!confirm(`Delete subscription: "${aName}" → "${rName}"?`)) return
+  try {
+    await unsubscribeResource(sub.id)
+    await load()
+  } catch (e) {
+    error.value = e.message || 'Error deleting subscription'
   }
 }
 

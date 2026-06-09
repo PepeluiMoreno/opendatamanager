@@ -7,11 +7,10 @@
     </div>
 
     <!-- Filters -->
-    <FilterBar :canClear="!!(filterText || filterDateFrom || filterDateTo || incluirNoImplementados)" :count="filtered.length"
-      @clear="filterText = ''; filterDateFrom = ''; filterDateTo = ''; incluirNoImplementados = false">
+    <FilterBar :canClear="!!(filterText || filterDateFrom || filterDateTo || incluirNoImplementados)" @clear="filterText=''; filterDateFrom=''; filterDateTo=''; incluirNoImplementados=false">
       <input v-model="filterText" type="text" placeholder="Buscar nombre o descripción…" class="input text-sm w-56" />
-      <label class="flex items-center gap-1 text-xs text-gray-400">Desde<input v-model="filterDateFrom" type="date" class="input text-sm" /></label>
-      <label class="flex items-center gap-1 text-xs text-gray-400">Hasta<input v-model="filterDateTo" type="date" class="input text-sm" /></label>
+      <label class="text-xs text-gray-400 flex items-center gap-1">Desde<input v-model="filterDateFrom" type="date" class="input text-sm" /></label>
+      <label class="text-xs text-gray-400 flex items-center gap-1">Hasta<input v-model="filterDateTo" type="date" class="input text-sm" /></label>
       <label class="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap cursor-pointer">
         <input type="checkbox" v-model="incluirNoImplementados" class="accent-blue-600"> Incluir no implementados
       </label>
@@ -19,7 +18,7 @@
 
     <!-- Table -->
     <div class="card p-0 overflow-hidden">
-      <div v-if="loading" class="py-10"><Spinner /></div>
+      <div v-if="loading" class="text-center py-10 text-gray-400">Loading fetchers...</div>
       <div v-else-if="error" class="text-center py-10 text-red-400">{{ error }}</div>
       <div v-else-if="filtered.length === 0" class="text-center py-10 text-gray-500">
         No fetchers match the current filters.
@@ -189,7 +188,6 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
-import Spinner from '../components/Spinner.vue'
 import { fetchFetchers, deleteFetcher as deleteFetcherAPI } from '../api/graphql'
 import { useAuth } from '../composables/useAuth'
 
