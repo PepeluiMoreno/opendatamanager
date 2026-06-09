@@ -328,7 +328,7 @@ def map_derived_dataset_config(cfg: DerivedDatasetConfig, entry_count: int = Non
     )
 
 
-def map_application_notification(notif: ApplicationNotification) -> ApplicationNotificationType:
+def map_application_notification(notif: ApplicationNotification, publisher=None, dataset_name=None) -> ApplicationNotificationType:
     """Convierte modelo ApplicationNotification a tipo GraphQL"""
     return ApplicationNotificationType(
         id=str(notif.id),
@@ -337,7 +337,9 @@ def map_application_notification(notif: ApplicationNotification) -> ApplicationN
         sent_at=notif.sent_at,
         status_code=notif.status_code,
         response_body=notif.response_body,
-        error_message=notif.error_message
+        error_message=notif.error_message,
+        publisher=publisher,
+        dataset_name=dataset_name,
     )
 
 
@@ -741,7 +743,16 @@ class Query:
             if dataset_id:
                 query = query.filter(ApplicationNotification.dataset_id == dataset_id)
             notifications = query.order_by(ApplicationNotification.sent_at.desc()).all()
-            return [map_application_notification(notif) for notif in notifications]
+            # Enriquecer con publisher/nombre del dataset (para filtrar en el consumidor)
+            ds_ids = {n.dataset_id for n in notifications if n.dataset_id}
+            info = {}
+            if ds_ids:
+                from app.models import Dataset, Resource
+                for did, pub, rname in (db.query(Dataset.id, Resource.publisher, Resource.name)
+                                          .join(Resource, Dataset.resource_id == Resource.id)
+                                          .filter(Dataset.id.in_(ds_ids)).all()):
+                    info[str(did)] = (pub, rname)
+            return [map_application_notification(n, *info.get(str(n.dataset_id), (None, None))) for n in notifications]
         finally:
             db.close()
 

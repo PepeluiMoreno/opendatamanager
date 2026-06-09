@@ -91,11 +91,14 @@
                 </svg>
               </td>
               <td class="px-3 py-3">
-                <div class="flex items-center gap-2">
-                  <svg class="w-3.5 h-3.5 flex-shrink-0" :class="res.label ? 'text-purple-400' : 'text-blue-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="flex items-center gap-2" :style="res._depth ? 'padding-left:1.5rem' : ''">
+                  <span v-if="res._depth" class="text-gray-600">└─</span>
+                  <span v-if="res.generaColecciones" title="Nave nodriza (descubre recursos)">🛰️</span>
+                  <svg v-else class="w-3.5 h-3.5 flex-shrink-0" :class="res.label ? 'text-purple-400' : 'text-blue-400'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z"/>
                   </svg>
                   <span class="font-medium text-white">{{ res.displayName }}</span>
+                  <span v-if="res._depth" class="text-[10px] bg-purple-900/50 text-purple-300 border border-purple-700/40 px-1.5 py-0.5 rounded">descubierto</span>
                   <span class="text-xs text-gray-500 bg-gray-700 px-1.5 py-0.5 rounded-full">
                     {{ visibleVersions(res).length }} {{ visibleVersions(res).length === 1 ? 'versión' : 'versiones' }}
                   </span>
@@ -114,7 +117,7 @@
               </td>
               <td class="px-4 py-3 text-center" @click.stop>
                 <div class="flex items-center justify-center gap-1">
-                  <button @click="openParams(res, null)" title="Ver parámetros"
+                  <button @click="openDetalle(res, null)" title="Ver detalle (parámetros y muestra)"
                     class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -167,11 +170,7 @@
                 </td>
                 <td class="px-4 py-2.5 text-center" @click.stop>
                   <div class="flex items-center justify-center gap-1">
-                    <button v-if="ver.recordCount" @click="openJsonViewer(res, ver)" title="Ver JSON"
-                      class="p-1.5 rounded text-gray-500 hover:text-green-300 hover:bg-green-900/30 transition-colors font-mono text-xs leading-none">
-                      {&hairsp;}
-                    </button>
-                    <button @click="openParams(res, ver)" title="Ver parámetros"
+                    <button @click="openDetalle(res, ver)" title="Ver detalle (parámetros y muestra)"
                       class="p-1.5 rounded text-gray-500 hover:text-purple-300 hover:bg-purple-900/30 transition-colors">
                       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -208,29 +207,30 @@
       <Paginator v-if="!loading && !error" v-model:page="dePage" v-model:perPage="dePerPage" :total="deTotal" />
     </div>
 
-    <!-- ── Params modal ── -->
-    <div v-if="paramsModal" class="modal-overlay" @click.self="paramsModal = null">
+    <!-- ── Detalle: Parámetros + Muestra de Resultados ── -->
+    <div v-if="detalle" class="modal-overlay" @click.self="closeDetalle">
       <div class="modal-card">
         <div class="flex items-start justify-between px-5 py-4 border-b border-gray-700 flex-shrink-0">
           <div>
-            <h3 class="text-sm font-semibold text-white">{{ paramsModal.resourceName }}</h3>
-            <p v-if="paramsModal.version" class="text-xs text-gray-400 mt-0.5">
-              Dataset v{{ paramsModal.version }}
-              <span v-if="paramsModal.isLatest" class="ml-1.5 bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span>
-            </p>
-            <p v-else class="text-xs text-gray-400 mt-0.5">Parámetros de configuración</p>
+            <h3 class="text-sm font-semibold text-white">{{ detalle.resourceName }}</h3>
+            <p v-if="detalle.version" class="text-xs text-gray-400 mt-0.5">Dataset v{{ detalle.version }}
+              <span v-if="detalle.isLatest" class="ml-1.5 bg-blue-700/50 text-blue-300 border border-blue-600/40 px-1.5 py-0.5 rounded">latest</span></p>
           </div>
-          <button @click="paramsModal = null" class="text-gray-500 hover:text-gray-300 p-1">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
+          <button @click="closeDetalle" class="text-gray-500 hover:text-gray-300 p-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <div class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
-          <div v-if="paramsModal.version">
+        <div class="flex gap-2 px-5 pt-3 border-b border-gray-700 flex-shrink-0">
+          <button @click="detalleTab='params'" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors"
+            :class="detalleTab==='params' ? 'border-blue-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Parámetros</button>
+          <button @click="verMuestra" class="px-3 py-1.5 text-xs border-b-2 -mb-px transition-colors"
+            :class="detalleTab==='muestra' ? 'border-green-500 text-white' : 'border-transparent text-gray-400 hover:text-gray-200'">Muestra de Resultados</button>
+        </div>
+        <div v-if="detalleTab==='params'" class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+          <div v-if="detalle.version">
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros de ejecución</p>
-            <div v-if="visibleExecutionParams(paramsModal.executionParams).length" class="space-y-1.5">
-              <div v-for="[k, v] in visibleExecutionParams(paramsModal.executionParams)" :key="k"
+            <div v-if="visibleExecutionParams(detalle.executionParams).length" class="space-y-1.5">
+              <div v-for="[k, v] in visibleExecutionParams(detalle.executionParams)" :key="k"
                 class="flex items-start gap-3 bg-blue-900/20 border border-blue-700/30 rounded-lg px-3 py-2">
                 <span class="font-mono text-blue-300 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
                 <span class="text-white text-xs break-all font-medium">{{ v }}</span>
@@ -240,14 +240,27 @@
           </div>
           <div>
             <p class="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Parámetros del recurso</p>
-            <div v-if="paramsModal.resourceParams && Object.keys(paramsModal.resourceParams).length" class="space-y-1.5">
-              <div v-for="k in Object.keys(paramsModal.resourceParams).sort()" :key="k"
+            <div v-if="detalle.resourceParams && Object.keys(detalle.resourceParams).length" class="space-y-1.5">
+              <div v-for="k in Object.keys(detalle.resourceParams).sort()" :key="k"
                 class="flex items-start gap-3 bg-gray-700/50 rounded-lg px-3 py-2">
                 <span class="font-mono text-gray-400 text-xs min-w-32 flex-shrink-0">{{ k }}</span>
-                <span class="text-gray-200 text-xs break-all">{{ paramsModal.resourceParams[k] }}</span>
+                <span class="text-gray-200 text-xs break-all">{{ detalle.resourceParams[k] }}</span>
               </div>
             </div>
             <p v-else class="text-xs text-gray-600 italic">Sin parámetros configurados.</p>
+          </div>
+        </div>
+        <div v-else class="flex-1 flex flex-col min-h-0">
+          <div class="px-5 py-2 text-xs text-gray-500 border-b border-gray-800 flex-shrink-0">
+            <template v-if="jsonViewer">{{ jsonViewer.records.length.toLocaleString() }} de {{ (jsonViewer.recordCount ?? 0).toLocaleString() }} registros<span v-if="jsonViewer.error" class="text-red-400 ml-2">{{ jsonViewer.error }}</span></template>
+            <template v-else>Cargando muestra…</template>
+          </div>
+          <pre class="flex-1 overflow-auto text-xs text-green-200/90 font-mono p-4 bg-gray-950/60">{{ jsonViewerTexto }}</pre>
+          <div class="flex items-center gap-2 px-5 py-3 border-t border-gray-700 flex-shrink-0">
+            <button v-if="jsonViewer && !jsonViewer.fin" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded disabled:opacity-50"
+              :disabled="jsonViewer.cargando" @click="cargarMasJson">{{ jsonViewer && jsonViewer.cargando ? 'Cargando…' : 'Cargar más' }}</button>
+            <button class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded" @click="copiarJson">{{ copiado ? '✓ Copiado' : 'Copiar' }}</button>
+            <a v-if="jsonViewer" :href="`/api/datasets/${jsonViewer.datasetId}/data.jsonl`" download class="text-xs text-blue-400 hover:text-blue-300 underline ml-auto">Descargar JSONL completo</a>
           </div>
         </div>
       </div>
@@ -311,33 +324,6 @@
     </div>
 
   </div>
-  <!-- Visor de JSON del dataset -->
-  <div v-if="jsonViewer" class="fixed inset-0 z-[9500] flex items-center justify-center bg-black/70 p-4" @click.self="jsonViewer = null">
-    <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-4xl max-h-[85vh] flex flex-col">
-      <div class="flex items-center justify-between px-5 py-3 border-b border-gray-700">
-        <div>
-          <h3 class="text-sm font-semibold text-gray-100">{{ jsonViewer.resourceName }} <span class="font-mono text-gray-400">v{{ jsonViewer.version }}</span></h3>
-          <p class="text-xs text-gray-500">
-            {{ jsonViewer.records.length.toLocaleString() }} de {{ (jsonViewer.recordCount ?? 0).toLocaleString() }} registros cargados
-            <span v-if="jsonViewer.error" class="text-red-400 ml-2">{{ jsonViewer.error }}</span>
-          </p>
-        </div>
-        <button class="text-gray-400 hover:text-white text-lg" @click="jsonViewer = null">✕</button>
-      </div>
-      <pre class="flex-1 overflow-auto text-xs text-green-200/90 font-mono p-4 bg-gray-950/60">{{ jsonViewerTexto }}</pre>
-      <div class="flex items-center gap-2 px-5 py-3 border-t border-gray-700">
-        <button v-if="!jsonViewer.fin" class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-3 py-1.5 rounded disabled:opacity-50"
-          :disabled="jsonViewer.cargando" @click="cargarMasJson">
-          {{ jsonViewer.cargando ? 'Cargando…' : 'Cargar más' }}
-        </button>
-        <button class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 px-3 py-1.5 rounded" @click="copiarJson">
-          {{ copiado ? '✓ Copiado' : 'Copiar' }}
-        </button>
-        <a :href="`/api/datasets/${jsonViewer.datasetId}/data.jsonl`" download
-          class="text-xs text-blue-400 hover:text-blue-300 underline ml-auto">Descargar JSONL completo</a>
-      </div>
-    </div>
-  </div>
 </template>
 
 <script setup>
@@ -360,6 +346,8 @@ const soloRecientes = ref(false)
 const expandedResources = ref(new Set())
 const expandedDataset = ref(null)
 const paramsModal = ref(null)
+const detalle = ref(null)
+const detalleTab = ref('params')
 const toDelete = ref(null)
 const toDeleteHard = ref(false)
 const deleting = ref(false)
@@ -428,7 +416,23 @@ const filteredTree = computed(() => {
   return result
 })
 
-const { page: dePage, perPage: dePerPage, total: deTotal, paged: pagedTree } = usePagination(filteredTree, 25)
+const orderedTree = computed(() => {
+  const nodes = filteredTree.value
+  const nodrizaIds = new Set(nodes.filter(n => n.generaColecciones).map(n => n.resourceId))
+  const out = [], seen = new Set()
+  for (const n of nodes) {
+    if (seen.has(n.nodeId)) continue
+    if (n.parentResourceId && nodrizaIds.has(n.parentResourceId)) continue
+    out.push({ ...n, _depth: 0 }); seen.add(n.nodeId)
+    if (n.generaColecciones) {
+      for (const c of nodes.filter(x => x.parentResourceId === n.resourceId)) {
+        if (!seen.has(c.nodeId)) { out.push({ ...c, _depth: 1 }); seen.add(c.nodeId) }
+      }
+    }
+  }
+  return out
+})
+const { page: dePage, perPage: dePerPage, total: deTotal, paged: pagedTree } = usePagination(orderedTree, 25)
 
 const summary = computed(() => {
   const resources = filteredTree.value.length
@@ -450,6 +454,26 @@ function formatDate(iso) {
   return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })
     + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
 }
+
+function openDetalle(res, ver) {
+  const v = ver || (res.versions || []).find(x => x.isLatest) || (res.versions || [])[0] || null
+  detalle.value = {
+    res, ver: v,
+    resourceName: res.resourceName,
+    resourceParams: res.resourceParams || {},
+    version: v?.version ?? null,
+    isLatest: v?.isLatest ?? false,
+    executionParams: v?.executionParams ?? null,
+  }
+  detalleTab.value = 'params'
+  jsonViewer.value = null
+}
+function verMuestra() {
+  detalleTab.value = 'muestra'
+  const v = detalle.value?.ver
+  if (v && (!jsonViewer.value || jsonViewer.value.datasetId !== v.datasetId)) openJsonViewer(detalle.value.res, v)
+}
+function closeDetalle() { detalle.value = null; jsonViewer.value = null; detalleTab.value = 'params' }
 
 function openParams(res, ver) {
   paramsModal.value = {

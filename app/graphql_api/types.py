@@ -264,6 +264,8 @@ class ApplicationNotificationType:
     status_code: Optional[int] = strawberry.field(default=None, name="statusCode")
     response_body: Optional[str] = strawberry.field(default=None, name="responseBody")
     error_message: Optional[str] = strawberry.field(default=None, name="errorMessage")
+    publisher: Optional[str] = strawberry.field(default=None, name="publisher")
+    dataset_name: Optional[str] = strawberry.field(default=None, name="datasetName")
 
 
 @strawberry.type

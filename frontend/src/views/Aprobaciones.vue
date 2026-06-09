@@ -42,8 +42,8 @@
                 <td class="py-2 px-4 text-gray-400">{{ s.proposito || '—' }}</td>
                 <td class="py-2 px-4 text-gray-400">{{ fecha(s.createdAt) }}</td>
                 <td class="py-2 px-4 text-right whitespace-nowrap">
-                  <button @click="aprobarSol(s)" class="text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1">Aprobar</button>
-                  <button @click="rechazarSol(s)" class="text-red-400 hover:text-red-300 text-xs px-2 py-1">Rechazar</button>
+                  <button @click="aprobarSol(s)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
+                  <button @click="rechazarSol(s)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
                 </td>
               </tr>
             </tbody>
@@ -75,8 +75,8 @@
                 <td class="py-2 px-4 text-gray-400">{{ r.fetcher?.code || '—' }}</td>
                 <td class="py-2 px-4 text-gray-400">{{ fecha(r.createdAt) }}</td>
                 <td class="py-2 px-4 text-right whitespace-nowrap">
-                  <button @click="aprobarRec(r)" class="text-emerald-400 hover:text-emerald-300 text-xs px-2 py-1">Aprobar</button>
-                  <button @click="rechazarRec(r)" class="text-red-400 hover:text-red-300 text-xs px-2 py-1">Rechazar</button>
+                  <button @click="aprobarRec(r)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
+                  <button @click="rechazarRec(r)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
                 </td>
               </tr>
             </tbody>
@@ -119,8 +119,8 @@
                     <span v-else class="text-yellow-400">expirado</span>
                   </td>
                   <td class="py-1 text-right whitespace-nowrap">
-                    <button v-if="t.activo" @click="rotarToken(app, t)" class="text-blue-400 hover:text-blue-300 px-2">Rotar</button>
-                    <button v-if="t.activo" @click="revocarToken(t)" class="text-red-400 hover:text-red-300 px-2">Revocar</button>
+                    <button v-if="t.activo" @click="rotarToken(app, t)" title="Rotar" class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+                    <button v-if="t.activo" @click="revocarToken(t)" title="Revocar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/></svg></button>
                   </td>
                 </tr>
               </tbody>
