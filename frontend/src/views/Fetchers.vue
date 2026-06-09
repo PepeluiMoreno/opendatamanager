@@ -7,34 +7,15 @@
     </div>
 
     <!-- Filters -->
-    <div class="card mb-4 flex flex-wrap gap-4 items-end">
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Search</label>
-        <input
-          v-model="filterText"
-          type="text"
-          placeholder="Name or description..."
-          class="input text-sm w-56"
-        />
-      </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Created from</label>
-        <input v-model="filterDateFrom" type="date" class="input text-sm" />
-      </div>
-      <div>
-        <label class="block text-xs text-gray-400 mb-1">Created to</label>
-        <input v-model="filterDateTo" type="date" class="input text-sm" />
-      </div>
-      <label class="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap cursor-pointer pb-2">
-        <input type="checkbox" v-model="incluirNoImplementados" class="accent-blue-600">
-        Incluir no implementados
+    <FilterBar :canClear="!!(filterText || filterDateFrom || filterDateTo || incluirNoImplementados)" :count="filtered.length"
+      @clear="filterText = ''; filterDateFrom = ''; filterDateTo = ''; incluirNoImplementados = false">
+      <input v-model="filterText" type="text" placeholder="Buscar nombre o descripción…" class="input text-sm w-56" />
+      <label class="flex items-center gap-1 text-xs text-gray-400">Desde<input v-model="filterDateFrom" type="date" class="input text-sm" /></label>
+      <label class="flex items-center gap-1 text-xs text-gray-400">Hasta<input v-model="filterDateTo" type="date" class="input text-sm" /></label>
+      <label class="flex items-center gap-1.5 text-xs text-gray-400 whitespace-nowrap cursor-pointer">
+        <input type="checkbox" v-model="incluirNoImplementados" class="accent-blue-600"> Incluir no implementados
       </label>
-      <button
-        v-if="filterText || filterDateFrom || filterDateTo || incluirNoImplementados"
-        @click="filterText = ''; filterDateFrom = ''; filterDateTo = ''; incluirNoImplementados = false"
-        class="btn btn-secondary text-sm self-end"
-      >Clear</button>
-    </div>
+    </FilterBar>
 
     <!-- Table -->
     <div class="card p-0 overflow-hidden">
@@ -207,6 +188,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchFetchers, deleteFetcher as deleteFetcherAPI } from '../api/graphql'
 import { useAuth } from '../composables/useAuth'

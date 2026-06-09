@@ -13,23 +13,16 @@
     </div>
 
     <!-- Filters -->
-    <div class="flex gap-3 flex-shrink-0 flex-wrap">
-      <select v-model="filterApp" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 min-w-[180px]">
-        <option value="">All applications</option>
+    <FilterBar :canClear="!!(filterApp || filterResource)" :count="filtered.length" :total="subscriptions.length" @clear="filterApp = ''; filterResource = ''">
+      <select v-model="filterApp" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 min-w-[180px]">
+        <option value="">Aplicación: todas</option>
         <option v-for="a in applications" :key="a.id" :value="a.id">{{ a.name }}</option>
       </select>
-      <select v-model="filterResource" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 min-w-[200px]">
-        <option value="">All resources</option>
+      <select v-model="filterResource" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 min-w-[200px]">
+        <option value="">Recurso: todos</option>
         <option v-for="r in resources" :key="r.id" :value="r.id">{{ r.name }}</option>
       </select>
-      <button v-if="filterApp || filterResource" @click="filterApp = ''; filterResource = ''"
-        class="px-3 py-2 text-xs bg-yellow-600 hover:bg-yellow-500 text-white rounded-lg transition-colors">
-        Clear
-      </button>
-      <span class="ml-auto self-center text-gray-400 text-sm tabular-nums">
-        {{ filtered.length }} / {{ subscriptions.length }}
-      </span>
-    </div>
+    </FilterBar>
 
     <!-- Error -->
     <div v-if="error" class="flex-shrink-0 p-3 bg-red-900 border border-red-700 rounded-lg text-red-200 text-sm">{{ error }}</div>
@@ -150,6 +143,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import FilterBar from '../components/FilterBar.vue'
 import Spinner from '../components/Spinner.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 const confirmar = ref(null)
