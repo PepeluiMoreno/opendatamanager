@@ -2080,7 +2080,7 @@ class Mutation:
         """Elimina una aplicación (principal). Sus recursos NO se borran: pasan
         a 'sistema' (auto_generated=True). Sus tokens caen en cascada (revocados
         de hecho)."""
-        from app.models import Usuario, Resource, ServiceToken, SolicitudIngreso
+        from app.models import Usuario, Resource, ServiceToken, SolicitudIngreso, Application
         from app.service_auth import PRINCIPAL_APLICACION
         db = get_db()
         try:
@@ -2103,6 +2103,17 @@ class Mutation:
             # Tokens revocados de hecho (se borran al borrar el principal; explícito).
             db.query(ServiceToken).filter(
                 ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
+            # Soft-delete de la(s) Application(s) (suscripción webhook) ligadas por
+            # nombre o autoría, para que el cliente deje de verse "registrado".
+            from sqlalchemy import or_ as _or
+            _conds = [Application.created_by_id == u.id]
+            _nombres = [s.nombre for s in sols]
+            if _nombres:
+                _conds.append(Application.name.in_(_nombres))
+            for _app in db.query(Application).filter(
+                    Application.deleted_at == None, _or(*_conds)).all():
+                _app.deleted_at = _dt.utcnow()
+                _app.active = False
             db.delete(u)
             db.commit()
             # Push de des-registro inmediato al callback de cada solicitud (estado=anulada).
