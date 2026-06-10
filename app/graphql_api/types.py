@@ -151,8 +151,8 @@ class UpdateTypeFetcherParamInput:
     visible_when: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="visibleWhen")
 
 
-@strawberry.type
-class ApplicationType:
+@strawberry.type(name="ApplicationType")
+class SubscriberType:
     """Aplicación suscrita al sistema"""
     id: str
     name: str
@@ -169,8 +169,8 @@ class ApplicationType:
     proposito: Optional[str] = None
     deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
-@strawberry.input
-class CreateApplicationInput:
+@strawberry.input(name="CreateApplicationInput")
+class CreateSubscriberInput:
     name: str
     description: Optional[str] = None
     subscribed_projects: List[str] = strawberry.field(default_factory=list, name="subscribedProjects")
@@ -183,8 +183,8 @@ class CreateApplicationInput:
     github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
     proposito: Optional[str] = None
 
-@strawberry.input
-class UpdateApplicationInput:
+@strawberry.input(name="UpdateApplicationInput")
+class UpdateSubscriberInput:
     name: Optional[str] = None
     description: Optional[str] = None
     subscribed_projects: Optional[List[str]] = strawberry.field(default=None, name="subscribedProjects")
@@ -259,7 +259,7 @@ class DatasetType:
 
 @strawberry.type
 class ResourceSubscriptionType:
-    """Suscripción pasiva de Application a Resource"""
+    """Suscripción pasiva de Subscriber a Resource"""
     id: str
     application_id: str = strawberry.field(name="applicationId")
     resource_id: str = strawberry.field(name="resourceId")
@@ -269,8 +269,8 @@ class ResourceSubscriptionType:
     notified_at: Optional[datetime] = strawberry.field(default=None, name="notifiedAt")
 
 
-@strawberry.type
-class ApplicationNotificationType:
+@strawberry.type(name="ApplicationNotificationType")
+class SubscriberNotificationType:
     """Log de webhooks enviados"""
     id: str
     application_id: str = strawberry.field(name="applicationId")

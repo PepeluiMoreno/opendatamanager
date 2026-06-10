@@ -309,7 +309,7 @@ class ResourceCandidate(AuditMixin, Base):
     execution = relationship("ResourceExecution")
 
 
-class Application(AuditMixin, Base):
+class Subscriber(AuditMixin, Base):
     """Aplicaciones suscritas para recibir actualizaciones automáticas de core.models"""
     __tablename__ = "application"
     __table_args__ = {"schema": "opendata"}
@@ -440,7 +440,7 @@ class Dataset(AuditMixin, Base):
 
 
 class ResourceSubscription(AuditMixin, Base):
-    """Suscripciones pasivas de Applications a Resources"""
+    """Suscripciones pasivas de Subscribers a Resources"""
     __tablename__ = "resource_subscription"
     __table_args__ = {"schema": "opendata"}
 
@@ -457,7 +457,7 @@ class ResourceSubscription(AuditMixin, Base):
     notified_at = Column(DateTime)
     deleted_at = Column(DateTime, nullable=True)
 
-    application = relationship("Application", back_populates="subscriptions")
+    application = relationship("Subscriber", back_populates="subscriptions")
     resource = relationship("Resource")
 
 
@@ -517,7 +517,7 @@ class DerivedDatasetEntry(AuditMixin, Base):
     config = relationship("DerivedDatasetConfig", back_populates="entries")
 
 
-class ApplicationNotification(AuditMixin, Base):
+class SubscriberNotification(AuditMixin, Base):
     """Log de webhooks enviados"""
     __tablename__ = "application_notification"
     __table_args__ = {"schema": "opendata"}
@@ -531,7 +531,7 @@ class ApplicationNotification(AuditMixin, Base):
     response_body = Column(Text)
     error_message = Column(Text)
 
-    application = relationship("Application")
+    application = relationship("Subscriber")
     dataset = relationship("Dataset")
 
 
@@ -655,7 +655,7 @@ class ServiceToken(AuditMixin, Base):
     """§12 — Credencial Bearer de una aplicación (cuenta de servicio).
 
     Nombrado ServiceToken (no 'ApplicationToken') a propósito: el principal es
-    un Usuario tipo='aplicacion', y ya existe una clase ``Application`` con otro
+    un Usuario tipo='aplicacion', y ya existe una clase ``Subscriber`` con otro
     significado (suscripción a webhooks de datasets). El token cuelga del
     usuario funcional. En reposo solo vive el HASH (sha256); el secreto en claro
     se muestra una sola vez al emitirlo. Varios tokens por app → rotación sin

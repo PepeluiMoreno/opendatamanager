@@ -9,7 +9,7 @@ import requests
 from typing import List, Dict
 from datetime import datetime
 from sqlalchemy.orm import Session
-from app.models import Dataset, ResourceSubscription, Application, ApplicationNotification
+from app.models import Dataset, ResourceSubscription, Subscriber, SubscriberNotification
 from app.utils.versioning import compute_schema_diff
 
 
@@ -29,9 +29,9 @@ class NotificationService:
         # Get matching subscriptions for this resource
         subscriptions = (
             session.query(ResourceSubscription)
-            .join(Application)
+            .join(Subscriber)
             .filter(ResourceSubscription.resource_id == dataset.resource_id)
-            .filter(Application.active == True)
+            .filter(Subscriber.active == True)
             .all()
         )
 
@@ -44,7 +44,7 @@ class NotificationService:
             mode = app.consumption_mode or "webhook"
 
             if mode in ("webhook", "both") and not app.webhook_url:
-                print(f"    Application '{app.name}' has no webhook_url — skipping")
+                print(f"    Subscriber '{app.name}' has no webhook_url — skipping")
                 continue
 
             if mode == "graphql":
@@ -92,7 +92,7 @@ class NotificationService:
                 )
 
                 # Log notification
-                notification = ApplicationNotification(
+                notification = SubscriberNotification(
                     application_id=app.id,
                     dataset_id=dataset.id,
                     sent_at=datetime.utcnow(),
@@ -105,7 +105,7 @@ class NotificationService:
 
             except Exception as e:
                 # Log error
-                notification = ApplicationNotification(
+                notification = SubscriberNotification(
                     application_id=app.id,
                     dataset_id=dataset.id,
                     sent_at=datetime.utcnow(),

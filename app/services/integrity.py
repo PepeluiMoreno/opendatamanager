@@ -17,15 +17,15 @@ from typing import Any
 
 
 def active_subscription_count(session, resource_id) -> int:
-    """Nº de suscripciones vivas (no borradas) de Applications activas a un recurso."""
-    from app.models import Application, ResourceSubscription
+    """Nº de suscripciones vivas (no borradas) de Subscribers activas a un recurso."""
+    from app.models import Subscriber, ResourceSubscription
     return (
         session.query(ResourceSubscription)
-        .join(Application, Application.id == ResourceSubscription.application_id)
+        .join(Subscriber, Subscriber.id == ResourceSubscription.application_id)
         .filter(
             ResourceSubscription.resource_id == resource_id,
             ResourceSubscription.deleted_at.is_(None),
-            Application.active.is_(True),
+            Subscriber.active.is_(True),
         )
         .count()
     )

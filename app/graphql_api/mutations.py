@@ -19,7 +19,7 @@ from typing import Optional, List, Dict
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Application, ResourceExecution, AppConfig, DerivedDatasetConfig, ResourceSubscription, Publisher, ApplicationNotification, Dataset, RefrescoExtemporaneo
+from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, FetcherParams, Subscriber, ResourceExecution, AppConfig, DerivedDatasetConfig, ResourceSubscription, Publisher, SubscriberNotification, Dataset, RefrescoExtemporaneo
 from sqlalchemy import func
 from app.core.huella import huella_params, params_bound
 from datetime import datetime
@@ -65,15 +65,15 @@ from app.graphql_api.types import (
     ResourceType,
     FetcherType,
     FetcherParamType,
-    ApplicationType,
+    SubscriberType,
     CreateResourceInput,
     UpdateResourceInput,
     CreateFetcherInput,
     UpdateFetcherInput,
     CreateTypeFetcherParamInput,
     UpdateTypeFetcherParamInput,
-    CreateApplicationInput,
-    UpdateApplicationInput,
+    CreateSubscriberInput,
+    UpdateSubscriberInput,
     ExecutionResult,
     DerivedDatasetConfigType,
     CreateDerivedDatasetConfigInput,
@@ -134,12 +134,12 @@ def _push_solicitud_resuelta(s, token=None, username=None) -> None:
 
 
 def _aplicacion_de_principal(db, usuario):
-    """Application (entidad webhook) vinculada a un principal, casando el slug del
+    """Subscriber (entidad webhook) vinculada a un principal, casando el slug del
     nombre con el username del principal (app-<slug>)."""
     try:
-        from app.models import Application
+        from app.models import Subscriber
         from app.service_auth import _slug
-        for a in db.query(Application).filter(Application.deleted_at.is_(None)).all():
+        for a in db.query(Subscriber).filter(Subscriber.deleted_at.is_(None)).all():
             if _slug(a.name) == usuario.username:
                 return a
     except Exception:
@@ -150,7 +150,7 @@ def _aplicacion_de_principal(db, usuario):
 def _autorizado_sub(info, db, application_id) -> bool:
     """¿Puede el llamante gestionar suscripciones de `application_id`?
     Sí si tiene 'aplicaciones.gestionar' (admin/gestor) o si es el principal
-    'aplicacion' dueño de esa Application (auto-servicio del consumidor)."""
+    'aplicacion' dueño de esa Subscriber (auto-servicio del consumidor)."""
     ctx = info.context if info is not None else None
     permisos = (ctx.get("permisos", set()) if isinstance(ctx, dict)
                 else getattr(ctx, "permisos", set())) or set()
@@ -170,10 +170,10 @@ def _autorizado_sub(info, db, application_id) -> bool:
 
 
 def _push_token_a_aplicacion(db, usuario, token) -> None:
-    """Best-effort: entrega el token recien emitido al webhook de la Application
+    """Best-effort: entrega el token recien emitido al webhook de la Subscriber
     vinculada (si tiene url+secret), reutilizando el evento que el consumidor ya
     procesa (solicitud_resuelta/aprobada). Asi emitir/rotar/crear desde la vista
-    Applications deja operativo al consumidor sin copiar/pegar."""
+    Subscribers deja operativo al consumidor sin copiar/pegar."""
     try:
         app = _aplicacion_de_principal(db, usuario)
         if not app or not getattr(app, "webhook_url", None) or not getattr(app, "webhook_secret", None):
@@ -192,13 +192,13 @@ def _push_recurso_resuelto(db, r) -> None:
     try:
         if not getattr(r, "created_by_id", None):
             return
-        from app.models import Usuario, Application
+        from app.models import Usuario, Subscriber
         from app.services.webhook_push import post_webhook
         u = db.query(Usuario).filter(Usuario.id == r.created_by_id).first()
         if not u:
             return
-        app_row = (db.query(Application).filter(Application.name == u.username).first()
-                   or db.query(Application).filter(Application.name.ilike(u.username)).first())
+        app_row = (db.query(Subscriber).filter(Subscriber.name == u.username).first()
+                   or db.query(Subscriber).filter(Subscriber.name.ilike(u.username)).first())
         if not app_row or not app_row.webhook_url:
             return
         post_webhook(app_row.webhook_url, app_row.webhook_secret, {
@@ -1141,11 +1141,11 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def create_application(self, input: CreateApplicationInput) -> ApplicationType:                
-        """Crea una nueva Application"""
+    def create_application(self, input: CreateSubscriberInput) -> SubscriberType:                
+        """Crea una nueva Subscriber"""
         db = get_db()
         try:
-            application = Application(
+            application = Subscriber(
                 id=uuid4(),
                 name=input.name,
                 description=input.description,
@@ -1170,13 +1170,13 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def update_application(self, id: str, input: UpdateApplicationInput) -> ApplicationType :           
-        """Actualiza una Application existente"""
+    def update_application(self, id: str, input: UpdateSubscriberInput) -> SubscriberType :           
+        """Actualiza una Subscriber existente"""
         db = get_db()
         try:
-            application = db.query(Application).filter(Application.id == id).first()
+            application = db.query(Subscriber).filter(Subscriber.id == id).first()
             if not application:
-                raise ValueError(f"Application con id '{id}' no encontrada")
+                raise ValueError(f"Subscriber con id '{id}' no encontrada")
 
             # Actualizar campos
             if input.name is not None:
@@ -1208,17 +1208,17 @@ class Mutation:
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def delete_application(self, id: str, hard_delete: bool = False) -> bool:
         """Ruta ÚNICA de borrado. Elimina la aplicación por completo: borra la
-        Application (webhook) y su principal+tokens, desvincula recursos (que
+        Subscriber (webhook) y su principal+tokens, desvincula recursos (que
         pasan a 'sistema'), anula sus solicitudes y avisa al consumidor
         (estado=anulada) para que deje de estar operativo y vuelva al alta."""
         from app.models import (Usuario, Resource, ServiceToken, SolicitudIngreso,
-                                 ResourceSubscription, ApplicationNotification)
+                                 ResourceSubscription, SubscriberNotification)
         from app.service_auth import PRINCIPAL_APLICACION, _slug
         db = get_db()
         try:
-            application = db.query(Application).filter(Application.id == id).first()
+            application = db.query(Subscriber).filter(Subscriber.id == id).first()
             if not application:
-                raise ValueError(f"Application with id '{id}' not found")
+                raise ValueError(f"Subscriber with id '{id}' not found")
             _wh_url = getattr(application, "webhook_url", None)
             _wh_secret = getattr(application, "webhook_secret", None)
             _name = application.name
@@ -1241,8 +1241,8 @@ class Mutation:
                 db.query(ServiceToken).filter(
                     ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
 
-            db.query(ApplicationNotification).filter(
-                ApplicationNotification.application_id == id).delete(synchronize_session=False)
+            db.query(SubscriberNotification).filter(
+                SubscriberNotification.application_id == id).delete(synchronize_session=False)
             db.query(ResourceSubscription).filter(
                 ResourceSubscription.application_id == id).delete(synchronize_session=False)
             if hard_delete:
@@ -1274,13 +1274,13 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def activate_application(self, id: str, active: bool) -> ApplicationType:          
-        """Activa o desactiva una Application"""
+    def activate_application(self, id: str, active: bool) -> SubscriberType:          
+        """Activa o desactiva una Subscriber"""
         db = get_db()
         try:
-            application = db.query(Application).filter(Application.id == id).first()
+            application = db.query(Subscriber).filter(Subscriber.id == id).first()
             if not application:
-                raise ValueError(f"Application con id '{id}' no encontrada")
+                raise ValueError(f"Subscriber con id '{id}' no encontrada")
 
             application.active = active
             db.commit()
@@ -1293,13 +1293,13 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def set_application_webhook(self, id: str, webhook_url: str, webhook_secret: str) -> ApplicationType:          
-        """Configura el webhook de una Application"""
+    def set_application_webhook(self, id: str, webhook_url: str, webhook_secret: str) -> SubscriberType:          
+        """Configura el webhook de una Subscriber"""
         db = get_db()
         try:
-            application = db.query(Application).filter(Application.id == id).first()
+            application = db.query(Subscriber).filter(Subscriber.id == id).first()
             if not application:
-                raise ValueError(f"Application con id '{id}' no encontrada")
+                raise ValueError(f"Subscriber con id '{id}' no encontrada")
 
             application.webhook_url = webhook_url
             application.webhook_secret = webhook_secret
@@ -1313,13 +1313,13 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def remove_application_webhook(self, id: str) -> ApplicationType:
-        """Elimina el webhook de una Application"""
+    def remove_application_webhook(self, id: str) -> SubscriberType:
+        """Elimina el webhook de una Subscriber"""
         db = get_db()
         try:
-            application = db.query(Application).filter(Application.id == id).first()
+            application = db.query(Subscriber).filter(Subscriber.id == id).first()
             if not application:
-                raise ValueError(f"Application con id '{id}' no encontrada")
+                raise ValueError(f"Subscriber con id '{id}' no encontrada")
 
             application.webhook_url = None
             application.webhook_secret = None
@@ -1443,15 +1443,15 @@ class Mutation:
         auto_upgrade: str = "patch",
         retencion_solicitada_dias: Optional[int] = None,
     ) -> ResourceSubscriptionType:
-        """Suscribe una Application a un Resource. Permitido al admin
-        (aplicaciones.gestionar) o al propio principal dueño de la Application."""
+        """Suscribe una Subscriber a un Resource. Permitido al admin
+        (aplicaciones.gestionar) o al propio principal dueño de la Subscriber."""
         db = get_db()
         try:
             if not _autorizado_sub(info, db, application_id):
                 raise PermissionError("No autorizado para suscribir esta aplicación")
-            app_obj = db.query(Application).filter(Application.id == application_id).first()
+            app_obj = db.query(Subscriber).filter(Subscriber.id == application_id).first()
             if not app_obj:
-                raise ValueError(f"Application '{application_id}' no encontrada")
+                raise ValueError(f"Subscriber '{application_id}' no encontrada")
             resource_obj = db.query(Resource).filter(Resource.id == resource_id).first()
             if not resource_obj:
                 raise ValueError(f"Resource '{resource_id}' no encontrado")
@@ -1460,7 +1460,7 @@ class Mutation:
                 ResourceSubscription.resource_id == resource_id,
             ).first()
             if existing:
-                raise ValueError("Ya existe una suscripción para esta combinación Application/Resource")
+                raise ValueError("Ya existe una suscripción para esta combinación Subscriber/Resource")
             sub = ResourceSubscription(
                 id=uuid4(),
                 application_id=application_id,
@@ -1470,7 +1470,7 @@ class Mutation:
             )
             db.add(sub)
             # Exigencia de frescura: si se pide retención, se concede un lease
-            # (titular = la propia Application) que ODM renueva antes de caducar.
+            # (titular = la propia Subscriber) que ODM renueva antes de caducar.
             if retencion_solicitada_dias:
                 from app.services.leases import conceder_lease
                 conceder_lease(db, resource_obj, titular_tipo="application",
@@ -1488,7 +1488,7 @@ class Mutation:
     @strawberry.mutation
     def unsubscribe_resource(self, id: str, info: strawberry.types.Info) -> bool:
         """Elimina una suscripción. Permitido al admin (aplicaciones.gestionar)
-        o al propio principal dueño de la Application de la suscripción."""
+        o al propio principal dueño de la Subscriber de la suscripción."""
         db = get_db()
         try:
             sub = db.query(ResourceSubscription).filter(ResourceSubscription.id == id).first()
@@ -1610,9 +1610,9 @@ class Mutation:
     def restore_application(self, id: str) -> bool:
         db = get_db()
         try:
-            a = db.query(Application).filter(Application.id == id).first()
+            a = db.query(Subscriber).filter(Subscriber.id == id).first()
             if not a:
-                raise ValueError(f"Application '{id}' not found")
+                raise ValueError(f"Subscriber '{id}' not found")
             a.deleted_at = None
             db.commit()
             return True
@@ -1983,10 +1983,10 @@ class Mutation:
             raise ValueError("Faltan campos obligatorios: " + ", ".join(_faltan))
         db = get_db()
         try:
-            # Identidad: si ya hay una Application activa con este nombre, el secreto
+            # Identidad: si ya hay una Subscriber activa con este nombre, el secreto
             # de webhook debe coincidir (mismo consumidor re-llaveando tras perder el
             # token). Si no coincide, es otro reclamando el nombre -> rechazar.
-            from app.models import Application as _App
+            from app.models import Subscriber as _App
             _app_exist = db.query(_App).filter(
                 _App.name == input.nombre, _App.deleted_at.is_(None)).first()
             if _app_exist is not None and getattr(_app_exist, "webhook_secret", None):
@@ -2068,14 +2068,14 @@ class Mutation:
             s.usuario_id = usuario.id
             db.commit()
             _push_solicitud_resuelta(s, token=secreto, username=usuario.username)
-            # Persistir secreto/URL del consumidor en su Application (entidad webhook)
-            # para que futuras emisiones/rotaciones desde Applications auto-entreguen el token.
+            # Persistir secreto/URL del consumidor en su Subscriber (entidad webhook)
+            # para que futuras emisiones/rotaciones desde Subscribers auto-entreguen el token.
             try:
-                from app.models import Application as _App
+                from app.models import Subscriber as _App
                 _appent = db.query(_App).filter(_App.name == s.nombre,
                                                 _App.deleted_at.is_(None)).first()
                 if _appent is None:
-                    # Crear la Application del consumidor al aprobar: queda registrada
+                    # Crear la Subscriber del consumidor al aprobar: queda registrada
                     # en ODM (aparece en el listado) y podrá suscribirse a recursos.
                     _appent = _App(
                         id=uuid4(),

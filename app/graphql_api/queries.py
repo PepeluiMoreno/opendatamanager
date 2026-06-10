@@ -8,8 +8,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session, joinedload
 from app.database import SessionLocal
 from app.models import (
-    Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Application, FieldMetadata,
-    ResourceExecution, Dataset, ResourceSubscription, ApplicationNotification, AppConfig,
+    Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Subscriber, FieldMetadata,
+    ResourceExecution, Dataset, ResourceSubscription, SubscriberNotification, AppConfig,
     DerivedDatasetConfig, DerivedDatasetEntry, Publisher, RefrescoExtemporaneo
 )
 from datetime import datetime as _dt
@@ -20,12 +20,12 @@ from app.graphql_api.types import (
     ResourceType,
     FetcherParamType,
     ResourceParamType,
-    ApplicationType,
+    SubscriberType,
     FieldMetadataType,
     ResourceExecutionType,
     DatasetType,
     ResourceSubscriptionType,
-    ApplicationNotificationType,
+    SubscriberNotificationType,
     AppConfigType,
     DerivedDatasetConfigType,
     PublisherType,
@@ -204,9 +204,9 @@ def map_resource(resource: Resource) -> ResourceType:
     )
 
 
-def map_application(app: Application) -> ApplicationType:
-    """Convierte modelo Application a tipo GraphQL"""
-    return ApplicationType(
+def map_application(app: Subscriber) -> SubscriberType:
+    """Convierte modelo Subscriber a tipo GraphQL"""
+    return SubscriberType(
         id=str(app.id),
         name=app.name,
         description=app.description,
@@ -333,9 +333,9 @@ def map_derived_dataset_config(cfg: DerivedDatasetConfig, entry_count: int = Non
     )
 
 
-def map_application_notification(notif: ApplicationNotification, publisher=None, dataset_name=None) -> ApplicationNotificationType:
-    """Convierte modelo ApplicationNotification a tipo GraphQL"""
-    return ApplicationNotificationType(
+def map_application_notification(notif: SubscriberNotification, publisher=None, dataset_name=None) -> SubscriberNotificationType:
+    """Convierte modelo SubscriberNotification a tipo GraphQL"""
+    return SubscriberNotificationType(
         id=str(notif.id),
         application_id=str(notif.application_id),
         dataset_id=str(notif.dataset_id) if notif.dataset_id else None,
@@ -400,14 +400,14 @@ class Query:
     @strawberry.field
     def uso_mensual_aplicacion(self, application_id: str) -> UsoMensualAplicacion:
         """Refrescos a demanda consumidos por la aplicación en el mes en curso.
-        Resuelve el principal por nombre (Application.name == Usuario.username)."""
-        from app.models import Application, Usuario, RefrescoExtemporaneo
+        Resuelve el principal por nombre (Subscriber.name == Usuario.username)."""
+        from app.models import Subscriber, Usuario, RefrescoExtemporaneo
         db = get_db()
         now = _dt.utcnow()
         periodo = now.strftime("%Y-%m")
         try:
             inicio = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            app_row = db.query(Application).filter(Application.id == application_id).first()
+            app_row = db.query(Subscriber).filter(Subscriber.id == application_id).first()
             u = db.query(Usuario).filter(Usuario.username == app_row.name).first() if app_row else None
             if u is None:
                 return UsoMensualAplicacion(usados=0, periodo=periodo, cuota_diaria=0)
@@ -517,10 +517,10 @@ class Query:
             nombres_por_recurso: dict = {}
             ids_por_recurso: dict = {}
             subs = (
-                db.query(ResourceSubscription.resource_id, Application.id, Application.name)
-                .join(Application, Application.id == ResourceSubscription.application_id)
+                db.query(ResourceSubscription.resource_id, Subscriber.id, Subscriber.name)
+                .join(Subscriber, Subscriber.id == ResourceSubscription.application_id)
                 .filter(ResourceSubscription.deleted_at == None,
-                        Application.deleted_at == None)
+                        Subscriber.deleted_at == None)
                 .all()
             )
             for rid, app_id, app_name in subs:
@@ -607,21 +607,21 @@ class Query:
             db.close()
 
     @strawberry.field
-    def applications(self) -> List[ApplicationType]:
+    def applications(self) -> List[SubscriberType]:
         """Lista todas las aplicaciones suscritas"""
         db = get_db()
         try:
-            apps = db.query(Application).filter(Application.deleted_at == None).all()
+            apps = db.query(Subscriber).filter(Subscriber.deleted_at == None).all()
             return [map_application(app) for app in apps]
         finally:
             db.close()
 
     @strawberry.field
-    def application(self, id: str) -> Optional[ApplicationType]:
-        """Obtiene una Application por ID"""
+    def application(self, id: str) -> Optional[SubscriberType]:
+        """Obtiene una Subscriber por ID"""
         db = get_db()
         try:
-            app = db.query(Application).filter(Application.id == id, Application.deleted_at == None).first()
+            app = db.query(Subscriber).filter(Subscriber.id == id, Subscriber.deleted_at == None).first()
             return map_application(app) if app else None
         finally:
             db.close()
@@ -780,16 +780,16 @@ class Query:
             db.close()
 
     @strawberry.field
-    def application_notifications(self, application_id: Optional[str] = None, dataset_id: Optional[str] = None) -> List[ApplicationNotificationType]:
+    def application_notifications(self, application_id: Optional[str] = None, dataset_id: Optional[str] = None) -> List[SubscriberNotificationType]:
         """Lista notificaciones enviadas, filtrado por application_id o dataset_id"""
         db = get_db()
         try:
-            query = db.query(ApplicationNotification)
+            query = db.query(SubscriberNotification)
             if application_id:
-                query = query.filter(ApplicationNotification.application_id == application_id)
+                query = query.filter(SubscriberNotification.application_id == application_id)
             if dataset_id:
-                query = query.filter(ApplicationNotification.dataset_id == dataset_id)
-            notifications = query.order_by(ApplicationNotification.sent_at.desc()).all()
+                query = query.filter(SubscriberNotification.dataset_id == dataset_id)
+            notifications = query.order_by(SubscriberNotification.sent_at.desc()).all()
             # Enriquecer con publisher/nombre del dataset (para filtrar en el consumidor)
             ds_ids = {n.dataset_id for n in notifications if n.dataset_id}
             info = {}
@@ -837,10 +837,10 @@ class Query:
             db.close()
 
     @strawberry.field
-    def deleted_applications(self) -> List[ApplicationType]:
+    def deleted_applications(self) -> List[SubscriberType]:
         db = get_db()
         try:
-            rows = db.query(Application).filter(Application.deleted_at != None).order_by(Application.deleted_at.desc()).all()
+            rows = db.query(Subscriber).filter(Subscriber.deleted_at != None).order_by(Subscriber.deleted_at.desc()).all()
             return [map_application(a) for a in rows]
         finally:
             db.close()
@@ -974,7 +974,7 @@ class Query:
             if solo_pendientes:
                 q = q.filter(SolicitudIngreso.estado == "pendiente")
             rows = q.order_by(SolicitudIngreso.created_at.desc()).all()
-            from app.models import Application as _App
+            from app.models import Subscriber as _App
             _names = {r[0] for r in db.query(_App.name).filter(_App.deleted_at == None).all()}
             return [SolicitudIngresoType(
                 id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,

@@ -10,7 +10,7 @@ Orden:
 import json
 import uuid
 from app.database import SessionLocal
-from app.models import Application, ResourceSubscription, Fetcher, FetcherParams, Publisher, Resource, ResourceParam
+from app.models import Subscriber, ResourceSubscription, Fetcher, FetcherParams, Publisher, Resource, ResourceParam
 
 
 # ---------------------------------------------------------------------------
@@ -1094,11 +1094,11 @@ def _upsert_resource(db, defn: dict, fetchers: dict, publishers: dict) -> Resour
     return res
 
 
-def _upsert_application(db, defn: dict, resources_by_name: dict) -> Application:
-    """Create or update an Application and its resource subscriptions."""
-    app = db.query(Application).filter(Application.name == defn["name"]).first()
+def _upsert_application(db, defn: dict, resources_by_name: dict) -> Subscriber:
+    """Create or update an Subscriber and its resource subscriptions."""
+    app = db.query(Subscriber).filter(Subscriber.name == defn["name"]).first()
     if not app:
-        app = Application(id=uuid.uuid4(), name=defn["name"])
+        app = Subscriber(id=uuid.uuid4(), name=defn["name"])
         db.add(app)
 
     app.description = defn.get("description")

@@ -9,16 +9,16 @@ Uso:
 import argparse
 import os
 from app.database import SessionLocal
-from app.models import Application
+from app.models import Subscriber
 from app.refresh.model_generator import ModelGenerator
 
 
-def refresh_application(app: Application, api_url: str) -> None:
+def refresh_application(app: Subscriber, api_url: str) -> None:
     """
     Refresca los modelos de una aplicación específica.
 
     Args:
-        app: Instancia de Application
+        app: Instancia de Subscriber
         api_url: URL de la API GraphQL
     """
     print(f"\n{'='*60}")
@@ -55,8 +55,8 @@ def main():
     with SessionLocal() as session:
         if args.app_id:
             # Refrescar solo una aplicación
-            app = session.query(Application).filter(
-                Application.id == args.app_id
+            app = session.query(Subscriber).filter(
+                Subscriber.id == args.app_id
             ).first()
 
             if not app:
@@ -70,8 +70,8 @@ def main():
             refresh_application(app, api_url)
         else:
             # Refrescar todas las aplicaciones activas
-            apps = session.query(Application).filter(
-                Application.active == True
+            apps = session.query(Subscriber).filter(
+                Subscriber.active == True
             ).all()
 
             if not apps:
