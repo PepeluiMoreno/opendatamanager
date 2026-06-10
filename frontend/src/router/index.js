@@ -16,6 +16,7 @@ import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
 import Collections from '../views/Collections.vue'
 import Aprobaciones from '../views/Aprobaciones.vue'
+import Subscribers from '../views/Subscribers.vue'
 
 const routes = [
   { path: '/mis-datos',      name: 'MisDatos',      component: MisDatos },
@@ -24,8 +25,9 @@ const routes = [
   { path: '/collections',    name: 'Collections',   component: Collections },
   { path: '/fetchers',       name: 'Fetchers',      component: Fetchers },
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
-  { path: '/applications',   name: 'Applications',  component: Applications, meta: { permiso: 'aplicaciones.gestionar' } },
-  { path: '/aprobaciones',   name: 'Aprobaciones',  component: Aprobaciones, meta: { permiso: 'aplicaciones.aprobar' } },
+  { path: '/subscribers',    name: 'Subscribers',   component: Subscribers },
+  { path: '/applications',   redirect: '/subscribers' },
+  { path: '/aprobaciones',   redirect: '/subscribers' },
   { path: '/processes',      name: 'Processes',     component: Executions },
   { path: '/schedule',       name: 'Schedule',      component: Schedule, meta: { permiso: 'programacion.gestionar' } },
   { path: '/settings',       name: 'Settings',      component: Settings, meta: { permiso: 'settings.gestionar' } },

@@ -2,9 +2,8 @@
   <div class="p-6 flex flex-col lg:flex-row gap-6 h-full">
 
     <!-- ── Maestro: aplicaciones ───────────────────────────────────────── -->
-    <aside class="lg:w-1/3 flex flex-col min-h-0">
-      <div class="flex items-center justify-between mb-3">
-        <h1 class="text-xl font-bold text-white">Applications</h1>
+    <aside class="lg:w-72 lg:flex-shrink-0 flex flex-col min-h-0">
+      <div class="flex items-center justify-end mb-3">
         <button @click="openCreateApp" class="btn btn-primary text-sm py-1 px-3">+ New</button>
       </div>
 
@@ -63,6 +62,7 @@
             </div>
           </div>
           <div class="flex gap-2 flex-shrink-0">
+            <button @click="toggleActive(selectedApp)" class="btn text-sm py-1 px-3" :class="selectedApp.active ? 'btn-secondary' : 'bg-emerald-600 hover:bg-emerald-500 text-white'">{{ selectedApp.active ? 'Desactivar' : 'Activar' }}</button>
             <button @click="openEditApp(selectedApp)" class="btn btn-secondary text-sm py-1 px-3">Edit app</button>
             <button @click="confirmDeleteApp(selectedApp)" class="btn btn-danger text-sm py-1 px-3">Delete app</button>
             <button @click="openNewSub" class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">+ Subscription</button>
@@ -282,7 +282,7 @@ import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
 import FilterBar from '../components/FilterBar.vue'
 import {
-  fetchApplications, createApplication, updateApplication, deleteApplication, fetchUsoMensualAplicacion,
+  fetchApplications, createApplication, updateApplication, deleteApplication, activateApplication, fetchUsoMensualAplicacion,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
   fetchAplicacionesM2M, crearAplicacion, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion,
 } from '../api/graphql'
@@ -387,6 +387,11 @@ async function submitApp() {
   } catch (e) { appModalError.value = e.message || 'Failed to save application' }
 }
 function confirmDeleteApp(app) { appToDelete.value = app; hardDeleteFlag.value = false; showDeleteAppModal.value = true }
+async function toggleActive(app) {
+  const nuevo = !app.active
+  try { await activateApplication(app.id, nuevo); app.active = nuevo } catch (e) { /* graphql.js maneja el error */ }
+}
+
 async function handleDeleteApp() {
   try {
     await deleteApplication(appToDelete.value.id, hardDeleteFlag.value)

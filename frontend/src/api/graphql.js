@@ -380,6 +380,11 @@ export const MUTATIONS = {
       deleteApplication(id: $id, hardDelete: $hardDelete)
     }
   `,
+  ACTIVATE_APPLICATION: `
+    mutation ActivateApplication($id: String!, $active: Boolean!) {
+      activateApplication(id: $id, active: $active) { id active }
+    }
+  `,
 
 
   DELETE_EXECUTION: `
@@ -732,6 +737,14 @@ export async function createApplication(input) {
 export async function updateApplication(id, input) {
   try {
     return await client.request(MUTATIONS.UPDATE_APPLICATION, { id, input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function activateApplication(id, active) {
+  try {
+    return await client.request(MUTATIONS.ACTIVATE_APPLICATION, { id, active })
   } catch (error) {
     handleGraphQLError(error)
   }

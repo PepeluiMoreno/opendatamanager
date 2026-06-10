@@ -22,8 +22,7 @@
       <NavItem to="/fetchers" :active="$route.path.startsWith('/fetchers')">🔧 Fetchers</NavItem>
       <NavItem to="/processes" :active="$route.path === '/processes'">⚡ Processes</NavItem>
       <NavItem to="/explorer" :active="$route.path === '/explorer'">🔍 Data Explorer</NavItem>
-      <NavItem v-if="puede('aplicaciones.gestionar')" to="/applications" :active="$route.path === '/applications'">📦 Applications</NavItem>
-      <NavItem v-if="puede('aplicaciones.aprobar') || puede('recursos.aprobar')" to="/aprobaciones" :active="$route.path === '/aprobaciones'">✅ Approvals</NavItem>
+      <NavItem v-if="puede('aplicaciones.gestionar') || puede('aplicaciones.aprobar') || puede('recursos.aprobar')" to="/subscribers" :active="$route.path === '/subscribers'">📦 Subscribers</NavItem>
       <NavItem v-if="puede('programacion.gestionar')" to="/schedule" :active="$route.path === '/schedule'">🕐 Schedule</NavItem>
       <NavItem v-if="puede('settings.gestionar')" to="/settings" :active="$route.path === '/settings'">⚙️ Settings</NavItem>
       <NavItem v-if="puede('recursos.borrar')" to="/trash" :active="$route.path === '/trash'">🗑️ Trash</NavItem>
@@ -96,7 +95,7 @@
       </div>
       <div class="text-sm text-gray-300 space-y-3 leading-relaxed">
         <p><b>OpenDataManager</b> es el <b>productor</b>: cosecha y versiona datos y los expone por GraphQL y webhooks. Las aplicaciones <b>consumidoras</b> (p. ej. ckan-jerez) se dan de alta, se suscriben a recursos y pueden proponer nuevos.</p>
-        <p class="text-gray-200 font-medium">Gobernanza (pestaña «Approvals»)</p>
+        <p class="text-gray-200 font-medium">Gobernanza (Subscribers → Pendientes)</p>
         <ol class="list-decimal ml-5 space-y-1">
           <li><b>Solicitudes de alta</b>: una aplicación pide ingresar. Al <b>aprobarla</b> se materializa su principal y se emite un <b>token</b> (visible una sola vez).</li>
           <li><b>Recursos propuestos</b>: lo creado por una aplicación nace <i>pendiente</i> y no se ejecuta hasta que un administrador lo <b>aprueba</b> (o lo rechaza con motivo).</li>
