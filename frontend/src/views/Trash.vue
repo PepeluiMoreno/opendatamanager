@@ -96,15 +96,15 @@ import { ref, computed, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
 import {
-  fetchDeletedResources, fetchDeletedApplications, fetchDeletedPublishers,
+  fetchDeletedResources, fetchDeletedSubscribers, fetchDeletedPublishers,
   fetchDeletedFetchers, fetchDeletedExecutions,
-  restoreResource, restoreApplication, restorePublisher, restoreFetcher, restoreExecution,
-  deleteResource, deleteApplication, deletePublisher, deleteFetcher, deleteExecution,
+  restoreResource, restoreSubscriber, restorePublisher, restoreFetcher, restoreExecution,
+  deleteResource, deleteSubscriber, deletePublisher, deleteFetcher, deleteExecution,
 } from '../api/graphql'
 
 const tabs = [
   { key: 'resources',    label: 'Resources' },
-  { key: 'applications', label: 'Applications' },
+  { key: 'subscribers', label: 'Subscribers' },
   { key: 'publishers',   label: 'Publishers' },
   { key: 'fetchers',     label: 'Fetchers' },
   { key: 'executions',   label: 'Processes' },
@@ -118,7 +118,7 @@ const itemToDelete = ref(null)
 
 const data = ref({
   resources: [],
-  applications: [],
+  subscribers: [],
   publishers: [],
   fetchers: [],
   executions: [],
@@ -163,7 +163,7 @@ async function load() {
     error.value = null
     const [res, apps, pubs, fetchers, execs, datasets] = await Promise.all([
       fetchDeletedResources(),
-      fetchDeletedApplications(),
+      fetchDeletedSubscribers(),
       fetchDeletedPublishers(),
       fetchDeletedFetchers(),
       fetchDeletedExecutions(),
@@ -171,7 +171,7 @@ async function load() {
     ])
     data.value = {
       resources:    res.deletedResources    || [],
-      applications: apps.deletedApplications || [],
+      subscribers: apps.deletedSubscribers || [],
       publishers:   pubs.deletedPublishers   || [],
       fetchers:     fetchers.deletedFetchers  || [],
       executions:   execs.deletedExecutions   || [],
@@ -192,7 +192,7 @@ async function restore(item) {
     } else {
       const fn = {
         resources:    restoreResource,
-        applications: restoreApplication,
+        subscribers: restoreSubscriber,
         publishers:   restorePublisher,
         fetchers:     restoreFetcher,
         executions:   restoreExecution,
@@ -217,7 +217,7 @@ async function hardDelete() {
     } else {
       const fn = {
         resources:    (id) => deleteResource(id, true),
-        applications: (id) => deleteApplication(id, true),
+        subscribers: (id) => deleteSubscriber(id, true),
         publishers:   (id) => deletePublisher(id, true),
         fetchers:     (id) => deleteFetcher(id, true),
         executions:   (id) => deleteExecution(id, true),

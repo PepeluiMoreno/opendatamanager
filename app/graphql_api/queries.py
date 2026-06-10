@@ -607,7 +607,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def applications(self) -> List[SubscriberType]:
+    def subscribers(self) -> List[SubscriberType]:
         """Lista todas las aplicaciones suscritas"""
         db = get_db()
         try:
@@ -617,7 +617,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def application(self, id: str) -> Optional[SubscriberType]:
+    def subscriber(self, id: str) -> Optional[SubscriberType]:
         """Obtiene una Subscriber por ID"""
         db = get_db()
         try:
@@ -780,7 +780,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def application_notifications(self, application_id: Optional[str] = None, dataset_id: Optional[str] = None) -> List[SubscriberNotificationType]:
+    def subscriber_notifications(self, application_id: Optional[str] = None, dataset_id: Optional[str] = None) -> List[SubscriberNotificationType]:
         """Lista notificaciones enviadas, filtrado por application_id o dataset_id"""
         db = get_db()
         try:
@@ -837,7 +837,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def deleted_applications(self) -> List[SubscriberType]:
+    def deleted_subscribers(self) -> List[SubscriberType]:
         db = get_db()
         try:
             rows = db.query(Subscriber).filter(Subscriber.deleted_at != None).order_by(Subscriber.deleted_at.desc()).all()

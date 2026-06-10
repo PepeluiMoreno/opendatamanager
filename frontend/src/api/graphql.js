@@ -142,7 +142,7 @@ export const QUERIES = {
 
   GET_APPLICATIONS: `
     query GetApplications {
-      applications {
+      subscribers {
         id
         name
         description
@@ -356,8 +356,8 @@ export const MUTATIONS = {
   `,
 
   CREATE_APPLICATION: `
-    mutation CreateApplication($input: CreateApplicationInput!) {
-      createApplication(input: $input) {
+    mutation CreateApplication($input: CreateSubscriberInput!) {
+      createSubscriber(input: $input) {
         id
         name
         consumptionMode
@@ -366,8 +366,8 @@ export const MUTATIONS = {
   `,
 
   UPDATE_APPLICATION: `
-    mutation UpdateApplication($id: String!, $input: UpdateApplicationInput!) {
-      updateApplication(id: $id, input: $input) {
+    mutation UpdateApplication($id: String!, $input: UpdateSubscriberInput!) {
+      updateSubscriber(id: $id, input: $input) {
         id
         name
         consumptionMode
@@ -377,12 +377,12 @@ export const MUTATIONS = {
 
   DELETE_APPLICATION: `
     mutation DeleteApplication($id: String!, $hardDelete: Boolean) {
-      deleteApplication(id: $id, hardDelete: $hardDelete)
+      deleteSubscriber(id: $id, hardDelete: $hardDelete)
     }
   `,
   ACTIVATE_APPLICATION: `
     mutation ActivateApplication($id: String!, $active: Boolean!) {
-      activateApplication(id: $id, active: $active) { id active }
+      activateSubscriber(id: $id, active: $active) { id active }
     }
   `,
 
@@ -662,7 +662,7 @@ export async function deleteTypeFetcherParam(id) {
   }
 }
 
-export async function fetchApplications() {
+export async function fetchSubscribers() {
   try {
     return await client.request(QUERIES.GET_APPLICATIONS)
   } catch (error) {
@@ -726,7 +726,7 @@ export async function executeAllResources() {
   }
 }
 
-export async function createApplication(input) {
+export async function createSubscriber(input) {
   try {
     return await client.request(MUTATIONS.CREATE_APPLICATION, { input })
   } catch (error) {
@@ -734,7 +734,7 @@ export async function createApplication(input) {
   }
 }
 
-export async function updateApplication(id, input) {
+export async function updateSubscriber(id, input) {
   try {
     return await client.request(MUTATIONS.UPDATE_APPLICATION, { id, input })
   } catch (error) {
@@ -742,7 +742,7 @@ export async function updateApplication(id, input) {
   }
 }
 
-export async function activateApplication(id, active) {
+export async function activateSubscriber(id, active) {
   try {
     return await client.request(MUTATIONS.ACTIVATE_APPLICATION, { id, active })
   } catch (error) {
@@ -750,7 +750,7 @@ export async function activateApplication(id, active) {
   }
 }
 
-export async function deleteApplication(id, hardDelete = false) {
+export async function deleteSubscriber(id, hardDelete = false) {
   try {
     return await client.request(MUTATIONS.DELETE_APPLICATION, { id, hardDelete })
   } catch (error) {
@@ -970,9 +970,9 @@ export async function fetchDeletedResources() {
   } catch (e) { handleGraphQLError(e) }
 }
 
-export async function fetchDeletedApplications() {
+export async function fetchDeletedSubscribers() {
   try {
-    return await client.request(`query { deletedApplications { id name description deletedAt } }`)
+    return await client.request(`query { deletedSubscribers { id name description deletedAt } }`)
   } catch (e) { handleGraphQLError(e) }
 }
 
@@ -1001,8 +1001,8 @@ export async function restoreResource(id) {
   catch (e) { handleGraphQLError(e) }
 }
 
-export async function restoreApplication(id) {
-  try { return await client.request(`mutation { restoreApplication(id: "${id}") }`) }
+export async function restoreSubscriber(id) {
+  try { return await client.request(`mutation { restoreSubscriber(id: "${id}") }`) }
   catch (e) { handleGraphQLError(e) }
 }
 

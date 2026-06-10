@@ -3,7 +3,7 @@
 
     <!-- ── Maestro: suscriptores (FilterBar + datatable) ──────────────── -->
     <div class="flex flex-col min-h-0">
-      <FilterBar :canClear="!!q || estadoFiltro !== 'todos'" :count="filteredApps.length" :total="applications.length"
+      <FilterBar :canClear="!!q || estadoFiltro !== 'todos'" :count="filteredApps.length" :total="subscribers.length"
                  @clear="q=''; estadoFiltro='todos'">
         <input v-model="q" type="text" placeholder="Buscar suscriptor…" class="input text-sm flex-1 min-w-[200px]" />
         <select v-model="estadoFiltro" class="input text-sm">
@@ -15,7 +15,7 @@
 
       <div v-if="loading" class="text-gray-400 text-center py-8">Loading…</div>
       <div v-else-if="error" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm">{{ error }}</div>
-      <div v-else-if="applications.length === 0" class="text-gray-400 text-sm py-8 text-center">
+      <div v-else-if="subscribers.length === 0" class="text-gray-400 text-sm py-8 text-center">
         Aún no hay suscriptores. Pulsa «New».
       </div>
 
@@ -282,12 +282,12 @@ import Paginator from '../components/Paginator.vue'
 import FilterBar from '../components/FilterBar.vue'
 import Hint from '../components/Hint.vue'
 import {
-  fetchApplications, createApplication, updateApplication, deleteApplication, activateApplication, fetchUsoMensualAplicacion,
+  fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber, activateSubscriber, fetchUsoMensualAplicacion,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
   fetchAplicacionesM2M, crearAplicacion, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion,
 } from '../api/graphql'
 
-const applications  = ref([])
+const subscribers  = ref([])
 const subscriptions = ref([])
 const resources     = ref([])
 const loading       = ref(true)
@@ -318,7 +318,7 @@ const saving        = ref(false)
 const subModalError = ref(null)
 const subForm = ref({ resourceId: '', pinnedVersion: '', autoUpgrade: 'patch', retencionDias: null })
 
-const selectedApp = computed(() => applications.value.find(a => a.id === selectedAppId.value) || null)
+const selectedApp = computed(() => subscribers.value.find(a => a.id === selectedAppId.value) || null)
 const usoMensual = ref(null)
 watch(selectedAppId, async (id) => {
   usoMensual.value = null
@@ -339,9 +339,9 @@ async function load() {
   error.value = null
   try {
     const [appRes, subRes, resRes, accRes] = await Promise.all([
-      fetchApplications(), fetchSubscriptions(), fetchResources(), fetchAplicacionesM2M(),
+      fetchSubscribers(), fetchSubscriptions(), fetchResources(), fetchAplicacionesM2M(),
     ])
-    applications.value  = appRes?.applications        ?? []
+    subscribers.value  = appRes?.subscribers        ?? []
     subscriptions.value = subRes?.resourceSubscriptions ?? []
     resources.value     = resRes?.resources           ?? []
     aplicaciones.value  = accRes?.aplicacionesM2m     ?? []
@@ -383,8 +383,8 @@ async function submitApp() {
       personaContacto: f.persona_contacto || null, email: f.email || null,
       telefono: f.telefono || null, githubUrl: f.github_url || null, proposito: f.proposito || null,
     }
-    if (editingApp.value) await updateApplication(editingApp.value.id, input)
-    else                  await createApplication(input)
+    if (editingApp.value) await updateSubscriber(editingApp.value.id, input)
+    else                  await createSubscriber(input)
     closeAppModal()
     await load()
   } catch (e) { appModalError.value = e.message || 'Failed to save subscriber' }
@@ -392,12 +392,12 @@ async function submitApp() {
 function confirmDeleteApp(app) { appToDelete.value = app; hardDeleteFlag.value = false; showDeleteAppModal.value = true }
 async function toggleActive(app) {
   const nuevo = !app.active
-  try { await activateApplication(app.id, nuevo); app.active = nuevo } catch (e) { /* graphql.js maneja el error */ }
+  try { await activateSubscriber(app.id, nuevo); app.active = nuevo } catch (e) { /* graphql.js maneja el error */ }
 }
 
 async function handleDeleteApp() {
   try {
-    await deleteApplication(appToDelete.value.id, hardDeleteFlag.value)
+    await deleteSubscriber(appToDelete.value.id, hardDeleteFlag.value)
     if (selectedAppId.value === appToDelete.value.id) selectedAppId.value = ''
     showDeleteAppModal.value = false
     appToDelete.value = null
@@ -458,7 +458,7 @@ const principalSel = computed(() => {
 })
 const filteredApps = computed(() => {
   const s = q.value.trim().toLowerCase()
-  return applications.value.filter(a => {
+  return subscribers.value.filter(a => {
     if (estadoFiltro.value === 'activos' && !a.active) return false
     if (estadoFiltro.value === 'inactivos' && a.active) return false
     if (!s) return true

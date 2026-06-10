@@ -151,7 +151,7 @@ class UpdateTypeFetcherParamInput:
     visible_when: Optional[strawberry.scalars.JSON] = strawberry.field(default=None, name="visibleWhen")
 
 
-@strawberry.type(name="ApplicationType")
+@strawberry.type
 class SubscriberType:
     """Aplicación suscrita al sistema"""
     id: str
@@ -169,7 +169,7 @@ class SubscriberType:
     proposito: Optional[str] = None
     deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
-@strawberry.input(name="CreateApplicationInput")
+@strawberry.input
 class CreateSubscriberInput:
     name: str
     description: Optional[str] = None
@@ -183,7 +183,7 @@ class CreateSubscriberInput:
     github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
     proposito: Optional[str] = None
 
-@strawberry.input(name="UpdateApplicationInput")
+@strawberry.input
 class UpdateSubscriberInput:
     name: Optional[str] = None
     description: Optional[str] = None
@@ -269,7 +269,7 @@ class ResourceSubscriptionType:
     notified_at: Optional[datetime] = strawberry.field(default=None, name="notifiedAt")
 
 
-@strawberry.type(name="ApplicationNotificationType")
+@strawberry.type
 class SubscriberNotificationType:
     """Log de webhooks enviados"""
     id: str

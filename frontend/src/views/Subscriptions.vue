@@ -5,7 +5,7 @@
     <div class="flex items-center justify-between flex-shrink-0">
       <div>
         <h2 class="text-2xl font-bold text-white">Subscriptions</h2>
-        <p class="text-gray-400 text-sm mt-1">Manage which applications consume each resource</p>
+        <p class="text-gray-400 text-sm mt-1">Manage which subscribers consume each resource</p>
       </div>
       <button @click="openNew" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">
         + New subscription
@@ -16,7 +16,7 @@
     <FilterBar :canClear="!!(filterApp || filterResource)" :count="filtered.length" :total="subscriptions.length" @clear="filterApp=''; filterResource=''">
       <select v-model="filterApp" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 min-w-[180px]">
         <option value="">Aplicación: todas</option>
-        <option v-for="a in applications" :key="a.id" :value="a.id">{{ a.name }}</option>
+        <option v-for="a in subscribers" :key="a.id" :value="a.id">{{ a.name }}</option>
       </select>
       <select v-model="filterResource" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-blue-500 min-w-[200px]">
         <option value="">Recurso: todos</option>
@@ -89,7 +89,7 @@
             <label class="block text-sm text-gray-300 mb-1">Application <span class="text-red-400">*</span></label>
             <select v-model="form.applicationId" class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
               <option value="">Select application…</option>
-              <option v-for="a in applications" :key="a.id" :value="a.id">
+              <option v-for="a in subscribers" :key="a.id" :value="a.id">
                 {{ a.name }} ({{ a.consumptionMode }})
               </option>
             </select>
@@ -148,12 +148,12 @@ import {
   subscribeResource,
   unsubscribeResource,
   fetchResources,
-  fetchApplications,
+  fetchSubscribers,
 } from '../api/graphql'
 
 const subscriptions = ref([])
 const resources     = ref([])
-const applications  = ref([])
+const subscribers  = ref([])
 const loading       = ref(true)
 const error         = ref(null)
 const showModal     = ref(false)
@@ -180,11 +180,11 @@ async function load() {
     const [subRes, resRes, appRes] = await Promise.all([
       fetchSubscriptions(),
       fetchResources(),
-      fetchApplications(),
+      fetchSubscribers(),
     ])
     subscriptions.value = subRes?.resourceSubscriptions ?? []
     resources.value     = resRes?.resources            ?? []
-    applications.value  = appRes?.applications         ?? []
+    subscribers.value  = appRes?.subscribers         ?? []
   } catch (e) {
     error.value = e.message || 'Error loading data'
   } finally {
@@ -230,8 +230,8 @@ async function confirmDelete(sub) {
 }
 
 // Lookups
-function appName(id)          { return applications.value.find(a => a.id === id)?.name          ?? id }
-function appMode(id)          { return applications.value.find(a => a.id === id)?.consumptionMode ?? '' }
+function appName(id)          { return subscribers.value.find(a => a.id === id)?.name          ?? id }
+function appMode(id)          { return subscribers.value.find(a => a.id === id)?.consumptionMode ?? '' }
 function resourceName(id)     { return resources.value.find(r => r.id === id)?.name             ?? id }
 function resourcePublisher(id){ return resources.value.find(r => r.id === id)?.publisher        ?? '' }
 

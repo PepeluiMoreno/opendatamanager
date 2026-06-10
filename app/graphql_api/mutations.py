@@ -1141,7 +1141,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def create_application(self, input: CreateSubscriberInput) -> SubscriberType:                
+    def create_subscriber(self, input: CreateSubscriberInput) -> SubscriberType:                
         """Crea una nueva Subscriber"""
         db = get_db()
         try:
@@ -1170,7 +1170,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def update_application(self, id: str, input: UpdateSubscriberInput) -> SubscriberType :           
+    def update_subscriber(self, id: str, input: UpdateSubscriberInput) -> SubscriberType :           
         """Actualiza una Subscriber existente"""
         db = get_db()
         try:
@@ -1206,7 +1206,7 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def delete_application(self, id: str, hard_delete: bool = False) -> bool:
+    def delete_subscriber(self, id: str, hard_delete: bool = False) -> bool:
         """Ruta ÚNICA de borrado. Elimina la aplicación por completo: borra la
         Subscriber (webhook) y su principal+tokens, desvincula recursos (que
         pasan a 'sistema'), anula sus solicitudes y avisa al consumidor
@@ -1274,7 +1274,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def activate_application(self, id: str, active: bool) -> SubscriberType:          
+    def activate_subscriber(self, id: str, active: bool) -> SubscriberType:          
         """Activa o desactiva una Subscriber"""
         db = get_db()
         try:
@@ -1293,7 +1293,7 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def set_application_webhook(self, id: str, webhook_url: str, webhook_secret: str) -> SubscriberType:          
+    def set_subscriber_webhook(self, id: str, webhook_url: str, webhook_secret: str) -> SubscriberType:          
         """Configura el webhook de una Subscriber"""
         db = get_db()
         try:
@@ -1313,7 +1313,7 @@ class Mutation:
             db.close()      
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def remove_application_webhook(self, id: str) -> SubscriberType:
+    def remove_subscriber_webhook(self, id: str) -> SubscriberType:
         """Elimina el webhook de una Subscriber"""
         db = get_db()
         try:
@@ -1607,7 +1607,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def restore_application(self, id: str) -> bool:
+    def restore_subscriber(self, id: str) -> bool:
         db = get_db()
         try:
             a = db.query(Subscriber).filter(Subscriber.id == id).first()
