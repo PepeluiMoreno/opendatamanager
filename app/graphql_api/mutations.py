@@ -23,6 +23,7 @@ from app.models import Resource, ResourceCandidate, ResourceParam, Fetcher, Fetc
 from sqlalchemy import func
 from app.core.huella import huella_params, params_bound
 from datetime import datetime
+_dt = datetime  # alias usado por varias mutaciones (aprobar/rechazar/revisar)
 import os
 
 # Global registry: execution_id (str) → Thread
