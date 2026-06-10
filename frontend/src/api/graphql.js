@@ -1234,6 +1234,16 @@ const M_REVOCAR_TOKEN = `
     revocarTokenAplicacion(tokenId: $tokenId)
   }`
 
+const M_ELIMINAR_SOLICITUD = `
+  mutation EliminarSolicitud($id: ID!) {
+    eliminarSolicitudIngreso(id: $id)
+  }`
+
+const M_ELIMINAR_APLICACION = `
+  mutation EliminarAplicacion($usuarioId: ID!) {
+    eliminarAplicacion(usuarioId: $usuarioId)
+  }`
+
 export async function fetchAplicacionesM2M() {
   try { return await client.request(Q_APLICACIONES_M2M) }
   catch (e) { handleGraphQLError(e) }
@@ -1248,5 +1258,13 @@ export async function rotarTokenAplicacion(tokenId, label) {
 }
 export async function revocarTokenAplicacion(tokenId) {
   try { return await client.request(M_REVOCAR_TOKEN, { tokenId }) }
+  catch (e) { handleGraphQLError(e) }
+}
+export async function eliminarSolicitudIngreso(id) {
+  try { return await client.request(M_ELIMINAR_SOLICITUD, { id }) }
+  catch (e) { handleGraphQLError(e) }
+}
+export async function eliminarAplicacion(usuarioId) {
+  try { return await client.request(M_ELIMINAR_APLICACION, { usuarioId }) }
   catch (e) { handleGraphQLError(e) }
 }

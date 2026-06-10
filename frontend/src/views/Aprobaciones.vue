@@ -29,26 +29,40 @@
 
     <!-- §12 Solicitudes de alta de aplicaciones -->
     <section v-if="puede('aplicaciones.aprobar')">
-      <h2 class="text-lg font-semibold text-white mb-2">Solicitudes de alta de aplicaciones</h2>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-semibold text-white">Solicitudes de alta de aplicaciones</h2>
+        <select v-model="estadoFiltro" class="bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-2 py-1 text-xs">
+          <option value="">Todas</option>
+          <option value="pendiente">Pendientes</option>
+          <option value="aprobada">Admitidas</option>
+          <option value="rechazada">Rechazadas</option>
+        </select>
+      </div>
       <div class="card">
         <div v-if="cargandoSol" class="p-6 text-center text-gray-400">Cargando…</div>
-        <div v-else-if="solicitudes.length === 0" class="p-6 text-center text-gray-400">No hay solicitudes pendientes.</div>
+        <div v-else-if="solicitudesFiltradas.length === 0" class="p-6 text-center text-gray-400">No hay solicitudes.</div>
         <div v-else class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-left text-gray-400 border-b border-gray-700">
               <tr><th class="py-2 px-4 font-medium">Aplicación</th><th class="py-2 px-4 font-medium">Contacto</th>
                 <th class="py-2 px-4 font-medium">Propósito</th><th class="py-2 px-4 font-medium">Solicitada</th>
+                <th class="py-2 px-4 font-medium">Estado</th>
                 <th class="py-2 px-4 font-medium text-right">Acciones</th></tr>
             </thead>
             <tbody>
-              <tr v-for="s in solicitudes" :key="s.id" class="border-b border-gray-700/50 hover:bg-gray-700/30">
+              <tr v-for="s in solicitudesFiltradas" :key="s.id" class="border-b border-gray-700/50 hover:bg-gray-700/30">
                 <td class="py-2 px-4 text-white font-medium">{{ s.nombre }}</td>
                 <td class="py-2 px-4 text-gray-300">{{ s.contacto || '—' }}</td>
                 <td class="py-2 px-4 text-gray-400">{{ s.proposito || '—' }}</td>
                 <td class="py-2 px-4 text-gray-400">{{ fecha(s.createdAt) }}</td>
+                <td class="py-2 px-4">
+                  <span :class="s.estado==='aprobada' ? 'text-emerald-400' : s.estado==='rechazada' ? 'text-red-400' : 'text-yellow-400'">{{ estadoLabel(s.estado) }}</span>
+                  <span v-if="s.estado==='rechazada' && s.motivo" class="block text-xs text-gray-500">{{ s.motivo }}</span>
+                </td>
                 <td class="py-2 px-4 text-right whitespace-nowrap">
-                  <button @click="aprobarSol(s)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
-                  <button @click="rechazarSol(s)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg></button>
+                  <button v-if="(s.estado || 'pendiente')==='pendiente'" @click="aprobarSol(s)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
+                  <button v-if="(s.estado || 'pendiente')==='pendiente'" @click="rechazarSol(s)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg></button>
+                  <button @click="eliminarSol(s)" title="Eliminar" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                 </td>
               </tr>
             </tbody>
@@ -105,6 +119,7 @@
                 <span v-if="app.email" class="ml-2 text-xs text-gray-500">{{ app.email }}</span>
               </div>
               <button @click="emitirToken(app)" class="btn text-xs">Emitir token</button>
+              <button @click="eliminarApp(app)" title="Eliminar aplicación" class="ml-1 p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
             </div>
             <div v-if="app.tokens.length === 0" class="text-xs text-gray-500">Sin tokens.</div>
             <table v-else class="w-full text-xs">
@@ -151,7 +166,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 const confirmar = ref(null)
 const rechazo = ref(null)
@@ -175,6 +190,7 @@ import {
   fetchSolicitudesIngreso, aprobarSolicitudIngreso, rechazarSolicitudIngreso,
   fetchRecursosPropuestos, aprobarRecurso, rechazarRecurso,
   fetchAplicacionesM2M, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion,
+  eliminarSolicitudIngreso, eliminarAplicacion,
 } from '../api/graphql'
 
 const { puede } = useAuth()
@@ -186,7 +202,22 @@ const cargandoSol = ref(false)
 const cargandoRec = ref(false)
 const cargandoApp = ref(false)
 const tokenEmitido = ref(null)
+const estadoFiltro = ref('pendiente')
+const solicitudesFiltradas = computed(() => estadoFiltro.value ? solicitudes.value.filter(x => (x.estado || 'pendiente') === estadoFiltro.value) : solicitudes.value)
 
+function estadoLabel(e) { return e === 'aprobada' ? 'Admitida' : e === 'rechazada' ? 'Rechazada' : 'Pendiente' }
+async function eliminarSol(s) {
+  if (!window.confirm(`¿Eliminar la solicitud de «${s.nombre}»?`)) return
+  accionError.value = ''
+  try { await eliminarSolicitudIngreso(s.id); solicitudes.value = solicitudes.value.filter(x => x.id !== s.id) }
+  catch (e) { accionError.value = 'No se pudo eliminar la solicitud: ' + (e?.message || e) }
+}
+async function eliminarApp(app) {
+  if (!window.confirm(`¿Eliminar la aplicación «${app.username}»? Su token quedará revocado y sus recursos pasarán a sistema.`)) return
+  accionError.value = ''
+  try { await eliminarAplicacion(app.usuarioId); await cargarAplicaciones() }
+  catch (e) { accionError.value = 'No se pudo eliminar la aplicación: ' + (e?.message || e) }
+}
 function fecha(s) {
   if (!s) return '—'
   try { return new Date(s).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return s }
@@ -196,7 +227,7 @@ function copiar(t) { try { navigator.clipboard?.writeText(t) } catch { /* no-op 
 async function cargarSolicitudes() {
   if (!puede('aplicaciones.aprobar')) return
   cargandoSol.value = true
-  try { const d = await fetchSolicitudesIngreso(true); solicitudes.value = d?.solicitudesIngreso || [] }
+  try { const d = await fetchSolicitudesIngreso(false); solicitudes.value = d?.solicitudesIngreso || [] }
   finally { cargandoSol.value = false }
 }
 async function cargarRecursos() {

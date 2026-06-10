@@ -2057,3 +2057,48 @@ class Mutation:
             db.rollback(); raise
         finally:
             db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def eliminar_solicitud_ingreso(self, id: strawberry.ID,
+                                   info: strawberry.types.Info) -> bool:
+        """Elimina una solicitud de la cola (cualquier estado). Idempotente."""
+        from app.models import SolicitudIngreso
+        db = get_db()
+        try:
+            n = db.query(SolicitudIngreso).filter(
+                SolicitudIngreso.id == id).delete(synchronize_session=False)
+            db.commit()
+            return n > 0
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
+    def eliminar_aplicacion(self, usuario_id: strawberry.ID,
+                            info: strawberry.types.Info) -> bool:
+        """Elimina una aplicación (principal). Sus recursos NO se borran: pasan
+        a 'sistema' (auto_generated=True). Sus tokens caen en cascada (revocados
+        de hecho)."""
+        from app.models import Usuario, Resource, ServiceToken
+        from app.service_auth import PRINCIPAL_APLICACION
+        db = get_db()
+        try:
+            u = db.query(Usuario).filter(
+                Usuario.id == usuario_id,
+                Usuario.tipo == PRINCIPAL_APLICACION).first()
+            if not u:
+                raise ValueError("Aplicación no encontrada")
+            # Reasignar sus recursos a 'sistema' ANTES de borrar el principal.
+            db.query(Resource).filter(
+                Resource.created_by_id == u.id).update(
+                {"auto_generated": True}, synchronize_session=False)
+            db.query(ServiceToken).filter(
+                ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
+            db.delete(u)
+            db.commit()
+            return True
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
