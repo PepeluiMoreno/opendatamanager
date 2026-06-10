@@ -226,12 +226,20 @@
                 <option value="minor">minor — latest minor</option>
                 <option value="none">none — pin to version</option>
               </select>
+              <p class="text-xs text-gray-500 mt-1">Hasta dónde adoptas versiones nuevas solo: «patch» = siempre la última; «minor» = sigue las menores pero frena antes de un cambio mayor (puede romper esquema); «none» = no te mueve (usa la versión fijada).</p>
             </div>
             <div>
               <label class="block text-sm text-gray-300 mb-1">Pinned version</label>
               <input v-model="subForm.pinnedVersion" type="text" placeholder="e.g. 1.2.* or empty"
                 class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+              <p class="text-xs text-gray-500 mt-1">A qué versión(es) te ciñes («1.2.*», «1.*» o «1.2.3»). Vacío = sigues la política de auto-upgrade sobre la última.</p>
             </div>
+          </div>
+          <div>
+            <label class="block text-sm text-gray-300 mb-1">Freshness — retention before renewal (days)</label>
+            <input v-model.number="subForm.retencionDias" type="number" min="1" placeholder="e.g. 30 — empty = resource default"
+              class="w-full bg-gray-700 border border-gray-600 text-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500" />
+            <p class="text-xs text-gray-500 mt-1">Días que toleras el dataset sin renovar antes de pedir una re-extracción. ODM concede el plazo y ordena la renovación antes de que caduque. Vacío = sin exigencia explícita (retención por defecto del recurso).</p>
           </div>
         </div>
         <div v-if="subModalError" class="mt-3 p-2 bg-red-900 border border-red-700 rounded text-red-200 text-xs">{{ subModalError }}</div>
@@ -305,7 +313,7 @@ const appForm = ref({ name: '', description: '', webhookUrl: '', consumptionMode
 const showSubModal  = ref(false)
 const saving        = ref(false)
 const subModalError = ref(null)
-const subForm = ref({ resourceId: '', pinnedVersion: '', autoUpgrade: 'patch' })
+const subForm = ref({ resourceId: '', pinnedVersion: '', autoUpgrade: 'patch', retencionDias: null })
 
 const selectedApp = computed(() => applications.value.find(a => a.id === selectedAppId.value) || null)
 const usoMensual = ref(null)
@@ -394,7 +402,7 @@ async function handleDeleteApp() {
 
 // ── Subscriptions ──
 function openNewSub() {
-  subForm.value = { resourceId: '', pinnedVersion: '', autoUpgrade: 'patch' }
+  subForm.value = { resourceId: '', pinnedVersion: '', autoUpgrade: 'patch', retencionDias: null }
   subModalError.value = null
   showSubModal.value = true
 }
@@ -402,7 +410,7 @@ async function submitSub() {
   saving.value = true
   subModalError.value = null
   try {
-    await subscribeResource(selectedAppId.value, subForm.value.resourceId, subForm.value.pinnedVersion || null, subForm.value.autoUpgrade)
+    await subscribeResource(selectedAppId.value, subForm.value.resourceId, subForm.value.pinnedVersion || null, subForm.value.autoUpgrade, subForm.value.retencionDias || null)
     showSubModal.value = false
     await load()
   } catch (e) { subModalError.value = e.message || 'Error creating subscription' }

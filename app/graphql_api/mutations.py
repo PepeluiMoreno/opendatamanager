@@ -1441,6 +1441,7 @@ class Mutation:
         info: strawberry.types.Info,
         pinned_version: Optional[str] = None,
         auto_upgrade: str = "patch",
+        retencion_solicitada_dias: Optional[int] = None,
     ) -> ResourceSubscriptionType:
         """Suscribe una Application a un Resource. Permitido al admin
         (aplicaciones.gestionar) o al propio principal dueño de la Application."""
@@ -1448,9 +1449,11 @@ class Mutation:
         try:
             if not _autorizado_sub(info, db, application_id):
                 raise PermissionError("No autorizado para suscribir esta aplicación")
-            if not db.query(Application).filter(Application.id == application_id).first():
+            app_obj = db.query(Application).filter(Application.id == application_id).first()
+            if not app_obj:
                 raise ValueError(f"Application '{application_id}' no encontrada")
-            if not db.query(Resource).filter(Resource.id == resource_id).first():
+            resource_obj = db.query(Resource).filter(Resource.id == resource_id).first()
+            if not resource_obj:
                 raise ValueError(f"Resource '{resource_id}' no encontrado")
             existing = db.query(ResourceSubscription).filter(
                 ResourceSubscription.application_id == application_id,
@@ -1466,6 +1469,13 @@ class Mutation:
                 auto_upgrade=auto_upgrade,
             )
             db.add(sub)
+            # Exigencia de frescura: si se pide retención, se concede un lease
+            # (titular = la propia Application) que ODM renueva antes de caducar.
+            if retencion_solicitada_dias:
+                from app.services.leases import conceder_lease
+                conceder_lease(db, resource_obj, titular_tipo="application",
+                               titular_id=app_obj.id,
+                               solicitada_dias=int(retencion_solicitada_dias))
             db.commit()
             db.refresh(sub)
             return map_resource_subscription(sub)

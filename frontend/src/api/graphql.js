@@ -561,8 +561,8 @@ export const MUTATIONS = {
   `,
 
   SUBSCRIBE_RESOURCE: `
-    mutation SubscribeResource($applicationId: String!, $resourceId: String!, $pinnedVersion: String, $autoUpgrade: String) {
-      subscribeResource(applicationId: $applicationId, resourceId: $resourceId, pinnedVersion: $pinnedVersion, autoUpgrade: $autoUpgrade) {
+    mutation SubscribeResource($applicationId: String!, $resourceId: String!, $pinnedVersion: String, $autoUpgrade: String, $retencionSolicitadaDias: Int) {
+      subscribeResource(applicationId: $applicationId, resourceId: $resourceId, pinnedVersion: $pinnedVersion, autoUpgrade: $autoUpgrade, retencionSolicitadaDias: $retencionSolicitadaDias) {
         id
         applicationId
         resourceId
@@ -898,9 +898,9 @@ export async function fetchSubscriptions() {
   }
 }
 
-export async function subscribeResource(applicationId, resourceId, pinnedVersion = null, autoUpgrade = 'patch') {
+export async function subscribeResource(applicationId, resourceId, pinnedVersion = null, autoUpgrade = 'patch', retencionSolicitadaDias = null) {
   try {
-    return await client.request(MUTATIONS.SUBSCRIBE_RESOURCE, { applicationId, resourceId, pinnedVersion, autoUpgrade })
+    return await client.request(MUTATIONS.SUBSCRIBE_RESOURCE, { applicationId, resourceId, pinnedVersion, autoUpgrade, retencionSolicitadaDias })
   } catch (error) {
     handleGraphQLError(error)
   }
