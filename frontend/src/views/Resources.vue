@@ -359,7 +359,7 @@
             <select v-model="form.fetcherId" required class="input w-full text-sm">
               <option value="">Select a type...</option>
               <option
-                v-for="type in fetchers"
+                v-for="type in fetchersOrdenados"
                 :key="type.id"
                 :value="type.id"
               >
@@ -1348,6 +1348,9 @@ let _ro = null
 
 const resources = ref([])
 const fetchers = ref([])
+const fetchersOrdenados = computed(() =>
+  [...fetchers.value].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'es', { sensitivity: 'base' }))
+)
 const publishers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
 const appConfig = ref({})  // key→value map
