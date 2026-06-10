@@ -147,6 +147,28 @@ def _aplicacion_de_principal(db, usuario):
     return None
 
 
+def _autorizado_sub(info, db, application_id) -> bool:
+    """¿Puede el llamante gestionar suscripciones de `application_id`?
+    Sí si tiene 'aplicaciones.gestionar' (admin/gestor) o si es el principal
+    'aplicacion' dueño de esa Application (auto-servicio del consumidor)."""
+    ctx = info.context if info is not None else None
+    permisos = (ctx.get("permisos", set()) if isinstance(ctx, dict)
+                else getattr(ctx, "permisos", set())) or set()
+    if "aplicaciones.gestionar" in permisos:
+        return True
+    usuario = None
+    if ctx is not None:
+        usuario = ctx.get("usuario") if isinstance(ctx, dict) else getattr(ctx, "usuario", None)
+    try:
+        from app.service_auth import PRINCIPAL_APLICACION
+    except Exception:
+        PRINCIPAL_APLICACION = "aplicacion"
+    if usuario is None or getattr(usuario, "tipo", None) != PRINCIPAL_APLICACION:
+        return False
+    propia = _aplicacion_de_principal(db, usuario)
+    return propia is not None and str(propia.id) == str(application_id)
+
+
 def _push_token_a_aplicacion(db, usuario, token) -> None:
     """Best-effort: entrega el token recien emitido al webhook de la Application
     vinculada (si tiene url+secret), reutilizando el evento que el consumidor ya
@@ -1370,17 +1392,21 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
+    @strawberry.mutation
     def subscribe_resource(
         self,
         application_id: str,
         resource_id: str,
+        info: strawberry.types.Info,
         pinned_version: Optional[str] = None,
         auto_upgrade: str = "patch",
     ) -> ResourceSubscriptionType:
-        """Suscribe una Application a un Resource para recibir notificaciones de nuevos datasets."""
+        """Suscribe una Application a un Resource. Permitido al admin
+        (aplicaciones.gestionar) o al propio principal dueño de la Application."""
         db = get_db()
         try:
+            if not _autorizado_sub(info, db, application_id):
+                raise PermissionError("No autorizado para suscribir esta aplicación")
             if not db.query(Application).filter(Application.id == application_id).first():
                 raise ValueError(f"Application '{application_id}' no encontrada")
             if not db.query(Resource).filter(Resource.id == resource_id).first():
@@ -1408,14 +1434,17 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def unsubscribe_resource(self, id: str) -> bool:
-        """Elimina una suscripción por su id."""
+    @strawberry.mutation
+    def unsubscribe_resource(self, id: str, info: strawberry.types.Info) -> bool:
+        """Elimina una suscripción. Permitido al admin (aplicaciones.gestionar)
+        o al propio principal dueño de la Application de la suscripción."""
         db = get_db()
         try:
             sub = db.query(ResourceSubscription).filter(ResourceSubscription.id == id).first()
             if not sub:
                 raise ValueError(f"Suscripción '{id}' no encontrada")
+            if not _autorizado_sub(info, db, sub.application_id):
+                raise PermissionError("No autorizado para gestionar esta suscripción")
             db.delete(sub)
             db.commit()
             return True
