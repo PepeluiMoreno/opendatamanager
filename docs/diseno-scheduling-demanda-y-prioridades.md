@@ -36,6 +36,15 @@ El cron desaparece. La cadencia se deriva de la demanda de los consumidores.
   - medir la obsolescencia desde la **última comprobación con éxito** (`last_checked`), no desde la creación; un refresco que encuentra la fuente sin cambios **renueva `last_checked`** y no se redispara en cada barrido;
   - **backoff** ante fuente caída (no reintentar en bucle).
 - **Descubridores (naves nodriza):** mantienen **cadencia de operador** (son catalogación, lado ODM). Solo las **hojas** (las que sirven datasets) van por demanda.
+
+### UI del Schedule (parte ACTIVA)
+
+La pantalla de Schedule **deja de ser un editor de cron**. Pasa a:
+
+- por recurso, configurar la **ventana permitida** (único knob de scheduling del operador);
+- **mostrar (derivado, solo lectura):** cadencia efectiva = `min(caducidades de suscriptores activos)`, próximo refresco dentro de la ventana, último fetch / `last_checked`, y estado (**debido** / **en ventana** / **dormido** por falta de suscriptores).
+
+La **caducidad** se fija en la suscripción (lado Subscriber), no aquí. La vista demand-driven del Schedule es **parte activa**; **lo único aplazado (Parte B) es la política de priorización/carga**.
 - **Relación con leases/retención:** `caducidad` = frescura del dataset **vigente** (cada cuánto re-comprobar). `DatasetLease`/`plazo` = cuánto **conservar** los antiguos. Son **ortogonales**; nombrarlas distinto. (Pendiente: revisar si `caducidad` reencuadra parte del modelo de leases.)
 
 ---
