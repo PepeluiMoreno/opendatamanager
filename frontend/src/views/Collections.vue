@@ -27,12 +27,12 @@
         <table class="w-full text-sm">
           <thead class="sticky top-0 z-10 bg-gray-800">
             <tr class="text-left text-gray-400 border-b border-gray-700">
-              <th class="py-3 px-4 font-medium">Colección</th>
+              <th class="py-3 px-4 font-medium">Name</th>
               <th class="py-3 px-4 font-medium">Publisher</th>
-              <th class="py-3 px-4 font-medium text-right">Candidatos pendientes</th>
-              <th class="py-3 px-4 font-medium text-right">Miembros</th>
-              <th class="py-3 px-4 font-medium">Último rastreo</th>
-              <th class="py-3 px-4 font-medium text-right">Acciones</th>
+              <th class="py-3 px-4 font-medium text-right">Pending candidates</th>
+              <th class="py-3 px-4 font-medium text-right">Members</th>
+              <th class="py-3 px-4 font-medium">Last crawl</th>
+              <th class="py-3 px-4 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody>

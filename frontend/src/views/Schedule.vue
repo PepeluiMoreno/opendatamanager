@@ -36,10 +36,10 @@
       <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-700 bg-gray-800/50">
-            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Resource</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Schedule</th>
-            <th class="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Next run</th>
-            <th class="text-right px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+            <th class="text-left px-5 py-3 font-medium text-gray-400">Resource</th>
+            <th class="text-left px-5 py-3 font-medium text-gray-400">Schedule</th>
+            <th class="text-left px-5 py-3 font-medium text-gray-400">Next run</th>
+            <th class="text-right px-5 py-3 font-medium text-gray-400">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-700/60">

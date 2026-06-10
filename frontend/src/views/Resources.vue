@@ -1088,7 +1088,7 @@
             <h3 class="text-xs font-semibold text-purple-300 mb-2">🛰️ Recursos descubiertos por esta nodriza ({{ hijosDe(editingResource.id).length }})</h3>
             <div v-if="!hijosDe(editingResource.id).length" class="text-xs text-gray-500">Aún no hay recursos descubiertos. Lanza un Discovery.</div>
             <table v-else class="w-full text-xs">
-              <thead><tr class="text-gray-400 border-b border-gray-700"><th class="text-left py-1 px-2 font-medium">Nombre</th><th class="text-left py-1 px-2 font-medium">Tipo</th><th class="text-left py-1 px-2 font-medium">Estado</th><th class="text-right py-1 px-2 font-medium">Acción</th></tr></thead>
+              <thead><tr class="text-gray-400 border-b border-gray-700"><th class="text-left py-1 px-2 font-medium">Name</th><th class="text-left py-1 px-2 font-medium">Type</th><th class="text-left py-1 px-2 font-medium">Status</th><th class="text-right py-1 px-2 font-medium">Action</th></tr></thead>
               <tbody>
                 <tr v-for="h in hijosDe(editingResource.id)" :key="h.id" class="border-b border-gray-800">
                   <td class="py-1 px-2 text-gray-200">📄 {{ h.name }}</td>

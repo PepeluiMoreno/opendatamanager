@@ -27,10 +27,10 @@
         <table class="w-full text-sm">
           <thead class="bg-gray-700/60 text-gray-300 sticky top-0">
             <tr>
-              <th class="text-left px-4 py-3">Suscriptor</th>
-              <th class="text-left px-4 py-3">Modo</th>
-              <th class="text-center px-4 py-3">Suscripciones</th>
-              <th class="text-left px-4 py-3">Estado</th>
+              <th class="text-left px-4 py-3">Name</th>
+              <th class="text-left px-4 py-3">Mode</th>
+              <th class="text-center px-4 py-3">Subscriptions</th>
+              <th class="text-left px-4 py-3">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -108,7 +108,7 @@
             <div class="text-xs text-gray-400 mb-1">Principal: <span class="font-mono text-gray-300">{{ principalSel.username }}</span><span v-if="!principalSel.isActive" class="text-red-400 ml-2">(inactiva)</span></div>
             <div v-if="principalSel.tokens.length === 0" class="text-xs text-gray-500">Sin tokens.</div>
             <table v-else class="w-full text-xs">
-              <thead class="text-left text-gray-500 border-b border-gray-700"><tr><th class="py-1 pr-3 font-medium">Token</th><th class="py-1 pr-3 font-medium">Último uso</th><th class="py-1 pr-3 font-medium">Estado</th><th class="py-1 font-medium text-right">Acciones</th></tr></thead>
+              <thead class="text-left text-gray-500 border-b border-gray-700"><tr><th class="py-1 pr-3 font-medium">Token</th><th class="py-1 pr-3 font-medium">Last used</th><th class="py-1 pr-3 font-medium">Status</th><th class="py-1 font-medium text-right">Actions</th></tr></thead>
               <tbody>
                 <tr v-for="t in principalSel.tokens" :key="t.id" class="border-b border-gray-800">
                   <td class="py-1 pr-3 font-mono text-gray-300">{{ t.prefix }}…</td>

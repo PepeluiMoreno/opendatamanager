@@ -45,10 +45,10 @@
         <div v-else class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-left text-gray-400 border-b border-gray-700">
-              <tr><th class="py-2 px-4 font-medium">Aplicación</th><th class="py-2 px-4 font-medium">Contacto</th>
-                <th class="py-2 px-4 font-medium">Propósito</th><th class="py-2 px-4 font-medium">GitHub</th><th class="py-2 px-4 font-medium">Solicitada</th>
-                <th class="py-2 px-4 font-medium">Estado</th>
-                <th class="py-2 px-4 font-medium text-right">Acciones</th></tr>
+              <tr><th class="py-2 px-4 font-medium">Application</th><th class="py-2 px-4 font-medium">Contact</th>
+                <th class="py-2 px-4 font-medium">Purpose</th><th class="py-2 px-4 font-medium">GitHub</th><th class="py-2 px-4 font-medium">Requested</th>
+                <th class="py-2 px-4 font-medium">Status</th>
+                <th class="py-2 px-4 font-medium text-right">Actions</th></tr>
             </thead>
             <tbody>
               <tr v-for="s in solicitudesFiltradas" :key="s.id" class="border-b border-gray-700/50 hover:bg-gray-700/30">
@@ -90,9 +90,9 @@
         <div v-else class="overflow-x-auto">
           <table class="w-full text-sm">
             <thead class="text-left text-gray-400 border-b border-gray-700">
-              <tr><th class="py-2 px-4 font-medium">Recurso</th><th class="py-2 px-4 font-medium">Publisher</th>
-                <th class="py-2 px-4 font-medium">Especie</th><th class="py-2 px-4 font-medium">Propuesto</th>
-                <th class="py-2 px-4 font-medium text-right">Acciones</th></tr>
+              <tr><th class="py-2 px-4 font-medium">Resource</th><th class="py-2 px-4 font-medium">Publisher</th>
+                <th class="py-2 px-4 font-medium">Species</th><th class="py-2 px-4 font-medium">Proposed</th>
+                <th class="py-2 px-4 font-medium text-right">Actions</th></tr>
             </thead>
             <tbody>
               <tr v-for="r in recursos" :key="r.id" class="border-b border-gray-700/50 hover:bg-gray-700/30">

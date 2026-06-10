@@ -24,7 +24,7 @@
         No fetchers match the current filters.
       </div>
       <table v-else class="w-full text-xs">
-        <thead class="bg-gray-900 text-gray-400 text-xs uppercase tracking-wide">
+        <thead class="bg-gray-900 text-gray-400">
           <tr>
             <th class="py-1.5 px-3 text-left cursor-pointer select-none hover:text-white w-64" @click="setSort('name')">
               Name <SortIcon field="name" :sortBy="sortBy" :sortDir="sortDir" />

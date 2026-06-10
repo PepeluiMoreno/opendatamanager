@@ -71,11 +71,11 @@
         <thead class="sticky top-0 bg-gray-800 z-10">
           <tr class="border-b border-gray-700">
             <th class="w-8 px-4 py-2.5"></th>
-            <th class="text-left px-3 py-2.5 text-gray-400 font-medium">Recurso / Versión</th>
-            <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Registros</th>
-            <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Campos</th>
-            <th class="text-left px-4 py-2.5 text-gray-400 font-medium">Generado</th>
-            <th class="w-28 px-4 py-2.5 text-gray-400 font-medium text-center">Acciones</th>
+            <th class="text-left px-3 py-2.5 text-gray-400 font-medium">Resource / Version</th>
+            <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Records</th>
+            <th class="text-right px-4 py-2.5 text-gray-400 font-medium">Fields</th>
+            <th class="text-left px-4 py-2.5 text-gray-400 font-medium">Generated</th>
+            <th class="w-28 px-4 py-2.5 text-gray-400 font-medium text-center">Actions</th>
           </tr>
         </thead>
         <tbody>

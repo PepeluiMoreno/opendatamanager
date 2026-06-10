@@ -60,10 +60,10 @@
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-left text-gray-400 border-b border-gray-700">
-            <th class="py-2 pr-3">Recurso</th>
-            <th class="py-2 pr-3">Solicitado</th>
-            <th class="py-2 pr-3">Disponible hasta</th>
-            <th class="py-2 pr-3">Estado</th>
+            <th class="py-2 pr-3">Resource</th>
+            <th class="py-2 pr-3">Requested</th>
+            <th class="py-2 pr-3">Available until</th>
+            <th class="py-2 pr-3">Status</th>
             <th class="py-2"></th>
           </tr>
         </thead>

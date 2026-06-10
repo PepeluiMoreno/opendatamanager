@@ -13,11 +13,11 @@
       <table class="w-full text-sm">
         <thead class="bg-gray-700/60 text-gray-300">
           <tr>
-            <th class="text-left px-4 py-3">Usuario</th>
+            <th class="text-left px-4 py-3">Username</th>
             <th class="text-left px-4 py-3">Email</th>
             <th class="text-left px-4 py-3">Roles</th>
-            <th class="text-left px-4 py-3">Estado</th>
-            <th class="text-left px-4 py-3">Último acceso</th>
+            <th class="text-left px-4 py-3">Status</th>
+            <th class="text-left px-4 py-3">Last access</th>
             <th class="px-4 py-3"></th>
           </tr>
         </thead>
