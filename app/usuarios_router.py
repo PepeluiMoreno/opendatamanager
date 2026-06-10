@@ -137,14 +137,19 @@ def actualizar(usuario_id: str, payload: UsuarioActualizar, db=Depends(get_db)):
 
 
 @router.delete("/{usuario_id}")
-def desactivar(usuario_id: str, db=Depends(get_db)):
-    """Desactivación (no borrado físico): conserva trazabilidad y evita huérfanos."""
+def borrar(usuario_id: str, db=Depends(get_db)):
+    """Borrado físico del usuario. Las FKs hacia ``usuario`` son SET NULL o
+    CASCADE, así que no deja filas huérfanas. Dos salvaguardas: nunca deja el
+    sistema sin un administrador activo, y no borra cuentas de servicio (esas se
+    gestionan desde Subscribers)."""
     u = db.get(Usuario, usuario_id)
     if u is None:
         raise HTTPException(404, "Usuario no encontrado.")
+    if getattr(u, "tipo", "humano") != "humano":
+        raise HTTPException(409, "Es una cuenta de servicio; gestiónala desde Subscribers.")
     if _quedaria_sin_admin(db, excluyendo_id=u.id, nuevo_estado_roles=[]):
         raise HTTPException(409, "Operación rechazada: dejaría el sistema sin administradores activos.")
-    u.is_active = False
     revoke_user_sessions(db, u.id)
+    db.delete(u)
     db.commit()
     return {"ok": True}

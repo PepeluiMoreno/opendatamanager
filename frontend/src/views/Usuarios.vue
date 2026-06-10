@@ -1,7 +1,7 @@
 <template>
   <div class="p-6 max-w-5xl mx-auto">
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-100">👥 Usuarios</h1>
+      <h1 class="text-2xl font-bold text-gray-100">👥 Users</h1>
       <button class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg" @click="abrirCrear">
         + Nuevo usuario
       </button>
@@ -33,8 +33,13 @@
               <span :class="u.is_active ? 'text-green-400' : 'text-red-400'">{{ u.is_active ? 'Activo' : 'Inactivo' }}</span>
             </td>
             <td class="px-4 py-3 text-gray-400 text-xs">{{ u.last_login_at ? new Date(u.last_login_at).toLocaleString() : 'nunca' }}</td>
-            <td class="px-4 py-3 text-right">
-              <button class="text-blue-400 hover:text-blue-300 text-xs underline" @click="abrirEditar(u)">Editar</button>
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <button @click="abrirEditar(u)" title="Editar" class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              </button>
+              <button @click="confirmarBorrado(u)" title="Borrar" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
             </td>
           </tr>
           <tr v-if="!usuarios.length">
@@ -90,6 +95,9 @@
         </div>
       </div>
     </div>
+    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
+      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
+      @confirm="okConfirm" @cancel="cerrarConfirm" />
   </div>
 </template>
 
@@ -97,6 +105,7 @@
 import { ref, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const usuarios = ref([])
 const { page: uPage, perPage: uPerPage, total: uTotal, paged: pagedUsuarios } = usePagination(usuarios, 25)
@@ -105,6 +114,7 @@ const error = ref('')
 const form = ref(null)
 const formError = ref('')
 const guardando = ref(false)
+const confirmar = ref(null)
 
 async function api(path, options = {}) {
   const r = await fetch(`/api/usuarios${path}`, {
@@ -162,6 +172,20 @@ async function guardar() {
     guardando.value = false
   }
 }
+
+function confirmarBorrado(u) {
+  confirmar.value = {
+    title: 'Borrar usuario',
+    message: `Borrar a «${u.username}» de forma permanente. Esta acción no se puede deshacer.`,
+    confirmText: 'Borrar',
+    onConfirm: async () => {
+      try { await api(`/${u.id}`, { method: 'DELETE' }); await cargar() }
+      catch (e) { error.value = e.message }
+    },
+  }
+}
+async function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) await f() }
+function cerrarConfirm() { confirmar.value = null }
 
 onMounted(cargar)
 </script>

@@ -26,7 +26,7 @@
       <NavItem v-if="puede('programacion.gestionar')" to="/schedule" :active="$route.path === '/schedule'">🕐 Schedule</NavItem>
       <NavItem v-if="puede('settings.gestionar')" to="/settings" :active="$route.path === '/settings'">⚙️ Settings</NavItem>
       <NavItem v-if="puede('recursos.borrar')" to="/trash" :active="$route.path === '/trash'">🗑️ Trash</NavItem>
-      <NavItem v-if="puede('usuarios.gestionar')" to="/usuarios" :active="$route.path === '/usuarios'">👥 Usuarios</NavItem>
+      <NavItem v-if="puede('usuarios.gestionar')" to="/usuarios" :active="$route.path === '/usuarios'">👥 Users</NavItem>
       <button type="button" @click="help = true" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">❓ Ayuda</button>
 
       <div v-if="status !== 'online'" class="absolute inset-0 flex items-center justify-center">
