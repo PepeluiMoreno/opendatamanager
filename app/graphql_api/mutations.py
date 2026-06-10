@@ -1188,6 +1188,10 @@ class Mutation:
                 db.query(ResourceSubscription).filter(ResourceSubscription.application_id == id).delete()
                 db.delete(application)
             else:
+                # Soft-delete: también se quita la vinculación a recursos (suscripciones)
+                # y sus notificaciones; los recursos permanecen.
+                db.query(ApplicationNotification).filter(ApplicationNotification.application_id == id).delete()
+                db.query(ResourceSubscription).filter(ResourceSubscription.application_id == id).delete()
                 application.deleted_at = datetime.utcnow()
             db.commit()
             return True
@@ -2175,7 +2179,7 @@ class Mutation:
         """Elimina una aplicación (principal). Sus recursos NO se borran: pasan
         a 'sistema' (auto_generated=True). Sus tokens caen en cascada (revocados
         de hecho)."""
-        from app.models import Usuario, Resource, ServiceToken, SolicitudIngreso, Application
+        from app.models import Usuario, Resource, ServiceToken, SolicitudIngreso, Application, ResourceSubscription, ApplicationNotification
         from app.service_auth import PRINCIPAL_APLICACION
         db = get_db()
         try:
@@ -2207,6 +2211,12 @@ class Mutation:
                 _conds.append(Application.name.in_(_nombres))
             for _app in db.query(Application).filter(
                     Application.deleted_at == None, _or(*_conds)).all():
+                # Quitar la VINCULACIÓN a recursos (suscripciones) y sus notificaciones.
+                # Los recursos NO se borran (ya pasaron a 'sistema'); solo se desvincula.
+                db.query(ResourceSubscription).filter(
+                    ResourceSubscription.application_id == _app.id).delete(synchronize_session=False)
+                db.query(ApplicationNotification).filter(
+                    ApplicationNotification.application_id == _app.id).delete(synchronize_session=False)
                 _app.deleted_at = _dt.utcnow()
                 _app.active = False
                 # Liberar el nombre (UNIQUE) para permitir un re-alta limpio.
