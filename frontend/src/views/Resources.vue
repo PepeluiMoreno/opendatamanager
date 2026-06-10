@@ -21,7 +21,9 @@
     </div>
 
 
-    <div v-if="loading" class="py-8"><Spinner /></div>
+    <div v-if="loading" class="text-gray-400 text-center py-8">
+      Loading...
+    </div>
 
     <div v-else-if="error" class="p-4 bg-red-900 border border-red-700 rounded text-red-200">
       {{ error }}
@@ -191,13 +193,43 @@
               </div>
             </td>
             <td class="py-1.5 px-3">
-              <div class="flex justify-end items-center gap-0.5">
-                <button v-if="esNodriza(resource) && puede('ejecuciones.lanzar')" @click="launchDiscover(resource)" title="Discover — crawlea el árbol y genera candidatos" class="p-1.5 rounded transition-colors text-purple-300 hover:text-purple-200 hover:bg-purple-900/40"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m7-16l2.4 6.6L22 12l-6.6 2.4L13 21l-2.4-6.6L4 12l6.6-2.4L13 3z"/></svg></button>
-                <button v-if="puede('ejecuciones.lanzar')" @click="openExecuteModal(resource)" title="Ejecutar" class="p-1.5 rounded transition-colors text-gray-400 hover:text-blue-300 hover:bg-blue-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
-                <button v-if="puede('recursos.testar')" @click="showPreviewData(resource)" title="Probar (vista previa)" class="p-1.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-gray-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
-                <button v-if="puede('recursos.editar')" @click="editResource(resource)" title="Editar" class="p-1.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-gray-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                <button v-if="puede('recursos.crear')" @click="handleClone(resource)" title="Clonar" class="p-1.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-gray-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button>
-                <button v-if="puede('recursos.borrar')" @click="confirmDelete(resource)" title="Borrar" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              <div class="flex justify-end gap-1">
+                <!-- Discover: solo visible en fetchers Web Tree -->
+                <button
+                  v-if="esNodriza(resource) && puede('ejecuciones.lanzar')"
+                  @click="launchDiscover(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-purple-800 hover:bg-purple-700 text-white"
+                  title="Lanzar Discovery — crawlea el árbol y genera candidatos"
+                >Discover</button>
+                <button
+                  v-if="puede('ejecuciones.lanzar')"
+                  @click="openExecuteModal(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
+                  title="Ejecutar"
+                >Run</button>
+                <button
+                  v-if="puede('recursos.testar')"
+                  @click="showPreviewData(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                >Test</button>
+                <button
+                  v-if="puede('recursos.editar')"
+                  @click="editResource(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                >Edit</button>
+                <button
+                  v-if="puede('recursos.crear')"
+                  @click="handleClone(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  title="Clonar"
+                >Clone</button>
+                <button
+                  v-if="puede('recursos.borrar')"
+                  @click="confirmDelete(resource)"
+                  class="text-xs px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </button>
               </div>
             </td>
           </tr>
@@ -219,11 +251,11 @@
               <span class="text-xs ml-1" :class="child.active ? 'text-green-400' : 'text-red-400'">{{ child.active ? 'Activo' : 'Inactivo' }}</span>
             </td>
             <td class="py-1 px-3">
-              <div class="flex justify-end items-center gap-0.5">
-                <button v-if="puede('ejecuciones.lanzar')" @click="openExecuteModal(child)" title="Ejecutar" class="p-1.5 rounded transition-colors text-gray-400 hover:text-blue-300 hover:bg-blue-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></button>
-                <button v-if="puede('recursos.testar')" @click="showPreviewData(child)" title="Probar (vista previa)" class="p-1.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-gray-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
-                <button v-if="puede('recursos.editar')" @click="editResource(child)" title="Editar" class="p-1.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-gray-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                <button v-if="puede('recursos.borrar')" @click="confirmDelete(child)" title="Borrar" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+              <div class="flex justify-end gap-1">
+                <button v-if="puede('ejecuciones.lanzar')" @click="openExecuteModal(child)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white" title="Ejecutar">Run</button>
+                <button v-if="puede('recursos.testar')" @click="showPreviewData(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Test</button>
+                <button v-if="puede('recursos.editar')" @click="editResource(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Edit</button>
+                <button v-if="puede('recursos.borrar')" @click="confirmDelete(child)" class="text-xs px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white">Delete</button>
               </div>
             </td>
           </tr>
@@ -327,7 +359,7 @@
             <select v-model="form.fetcherId" required class="input w-full text-sm">
               <option value="">Select a type...</option>
               <option
-                v-for="type in fetchersOrdenados"
+                v-for="type in fetchers"
                 :key="type.id"
                 :value="type.id"
               >
@@ -1257,7 +1289,6 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import Spinner from '../components/Spinner.vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 
@@ -1317,9 +1348,6 @@ let _ro = null
 
 const resources = ref([])
 const fetchers = ref([])
-const fetchersOrdenados = computed(() =>
-  [...fetchers.value].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'es', { sensitivity: 'base' }))
-)
 const publishers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
 const appConfig = ref({})  // key→value map
