@@ -1,0 +1,24 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "MPR",
+    "nombre": "Ministerio de la Presidencia, Justicia y Relaciones con las Cortes",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.mpr.gob.es/"
+  },
+  "resources": [
+    {
+      "name": "Registro de Entidades Religiosas (RER)",
+      "fetcher": "Power BI",
+      "schedule": "0 0 * * *",
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "params": [
+        { "key": "url", "value": "https://app.powerbi.com/view?r=eyJrIjoi...", "is_external": false },
+        { "key": "resource_key", "value": "[Clave de recurso Power BI]", "is_external": false },
+        { "key": "query_json", "value": "[JSON de la consulta SemanticQuery para Power BI]", "is_external": false }
+      ]
+    }
+  ]
+}

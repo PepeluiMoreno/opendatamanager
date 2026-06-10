@@ -1,0 +1,23 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "MPR_OBS",
+    "nombre": "Observatorio del Pluralismo Religioso en España (Ministerio de la Presidencia)",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.mpr.gob.es/"
+  },
+  "resources": [
+    {
+      "name": "Directorio de Lugares de Culto",
+      "fetcher": "API REST",
+      "schedule": "0 0 1 * *",
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "params": [
+        { "key": "url", "value": "https://datos.gob.es/es/catalogo/ea0040811-directorio-de-lugares-de-culto-observatorio-del-pluralismo-religioso-en-espana/descarga", "is_external": false },
+        { "key": "format", "value": "csv", "is_external": false }
+      ]
+    }
+  ]
+}
