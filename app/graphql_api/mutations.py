@@ -133,6 +133,38 @@ def _push_solicitud_resuelta(s, token=None, username=None) -> None:
         pass
 
 
+def _aplicacion_de_principal(db, usuario):
+    """Application (entidad webhook) vinculada a un principal, casando el slug del
+    nombre con el username del principal (app-<slug>)."""
+    try:
+        from app.models import Application
+        from app.service_auth import _slug
+        for a in db.query(Application).filter(Application.deleted_at.is_(None)).all():
+            if _slug(a.name) == usuario.username:
+                return a
+    except Exception:
+        pass
+    return None
+
+
+def _push_token_a_aplicacion(db, usuario, token) -> None:
+    """Best-effort: entrega el token recien emitido al webhook de la Application
+    vinculada (si tiene url+secret), reutilizando el evento que el consumidor ya
+    procesa (solicitud_resuelta/aprobada). Asi emitir/rotar/crear desde la vista
+    Applications deja operativo al consumidor sin copiar/pegar."""
+    try:
+        app = _aplicacion_de_principal(db, usuario)
+        if not app or not getattr(app, "webhook_url", None) or not getattr(app, "webhook_secret", None):
+            return
+        from app.services.webhook_push import post_webhook
+        post_webhook(app.webhook_url, app.webhook_secret, {
+            "evento": "solicitud_resuelta", "estado": "aprobada",
+            "nombre": app.name, "token": token, "username": usuario.username,
+        })
+    except Exception:
+        pass
+
+
 def _push_recurso_resuelto(db, r) -> None:
     """Webhook best-effort al app que propuso el recurso (resuelto)."""
     try:
@@ -1931,6 +1963,20 @@ class Mutation:
             s.usuario_id = usuario.id
             db.commit()
             _push_solicitud_resuelta(s, token=secreto, username=usuario.username)
+            # Persistir secreto/URL del consumidor en su Application (entidad webhook)
+            # para que futuras emisiones/rotaciones desde Applications auto-entreguen el token.
+            try:
+                from app.models import Application as _App
+                _appent = db.query(_App).filter(_App.name == s.nombre,
+                                                _App.deleted_at.is_(None)).first()
+                if _appent is not None:
+                    if getattr(s, "callback_url", None):
+                        _appent.webhook_url = s.callback_url
+                    if getattr(s, "callback_secret", None):
+                        _appent.webhook_secret = s.callback_secret
+                    db.commit()
+            except Exception:
+                db.rollback()
             return AprobarSolicitudResult(
                 solicitud=SolicitudIngresoType(
                     id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
@@ -2034,6 +2080,7 @@ class Mutation:
                 ServiceToken.usuario_id == usuario.id).delete(synchronize_session=False)
             fila, secreto = emitir_token(db, usuario, label=None)
             db.commit()
+            _push_token_a_aplicacion(db, usuario, secreto)
             return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(usuario.id),
                                       prefix=fila.prefix, token=secreto)
         except Exception:
@@ -2059,6 +2106,7 @@ class Mutation:
             db.query(ServiceToken).filter(
                 ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
             fila, secreto = emitir_token(db, u, label=None)
+            _push_token_a_aplicacion(db, u, secreto)
             return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(u.id),
                                       prefix=fila.prefix, token=secreto)
         except Exception:
@@ -2083,6 +2131,7 @@ class Mutation:
             db.query(ServiceToken).filter(
                 ServiceToken.usuario_id == tok.usuario_id).delete(synchronize_session=False)
             fila, secreto = emitir_token(db, u, label=None)
+            _push_token_a_aplicacion(db, u, secreto)
             return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(fila.usuario_id),
                                       prefix=fila.prefix, token=secreto)
         except Exception:
