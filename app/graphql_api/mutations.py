@@ -1983,14 +1983,42 @@ class Mutation:
                 from app.models import Application as _App
                 _appent = db.query(_App).filter(_App.name == s.nombre,
                                                 _App.deleted_at.is_(None)).first()
-                if _appent is not None:
+                if _appent is None:
+                    # Crear la Application del consumidor al aprobar: queda registrada
+                    # en ODM (aparece en el listado) y podrá suscribirse a recursos.
+                    _appent = _App(
+                        id=uuid4(),
+                        name=s.nombre,
+                        description=getattr(s, "descripcion", None),
+                        subscribed_projects=[],
+                        active=True,
+                        consumption_mode=(getattr(s, "consumption_mode", None) or "webhook"),
+                        webhook_url=getattr(s, "callback_url", None),
+                        webhook_secret=getattr(s, "callback_secret", None),
+                        persona_contacto=getattr(s, "persona_contacto", None),
+                        email=getattr(s, "email", None),
+                        telefono=getattr(s, "telefono", None),
+                        github_url=getattr(s, "github_url", None),
+                        proposito=getattr(s, "proposito", None),
+                    )
+                    try:
+                        _appent.created_by_id = usuario.id
+                    except Exception:
+                        pass
+                    db.add(_appent)
+                else:
                     if getattr(s, "callback_url", None):
                         _appent.webhook_url = s.callback_url
                     if getattr(s, "callback_secret", None):
                         _appent.webhook_secret = s.callback_secret
                     if getattr(s, "consumption_mode", None):
                         _appent.consumption_mode = s.consumption_mode
-                    db.commit()
+                    for _f in ("persona_contacto", "email", "telefono", "github_url", "proposito"):
+                        if getattr(_appent, _f, None) is None and getattr(s, _f, None) is not None:
+                            setattr(_appent, _f, getattr(s, _f))
+                    if not _appent.active:
+                        _appent.active = True
+                db.commit()
             except Exception:
                 db.rollback()
             return AprobarSolicitudResult(
