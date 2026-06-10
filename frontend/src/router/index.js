@@ -4,7 +4,6 @@ import Dashboard from '../views/Dashboard.vue'
 import MisDatos from '../views/MisDatos.vue'
 import Resources from '../views/Resources.vue'
 import ResourceTest from '../views/ResourceTest.vue'
-import Applications from '../views/Applications.vue'
 import Fetchers from '../views/Fetchers.vue'
 import Executions from '../views/Executions.vue'
 import Settings from '../views/Settings.vue'
@@ -16,7 +15,7 @@ import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
 import Collections from '../views/Collections.vue'
 import Aprobaciones from '../views/Aprobaciones.vue'
-import Subscribers from '../views/Subscribers.vue'
+import Subscribers from '../views/SubscribersTabs.vue'
 
 const routes = [
   { path: '/mis-datos',      name: 'MisDatos',      component: MisDatos },
