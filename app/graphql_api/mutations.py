@@ -2114,6 +2114,8 @@ class Mutation:
                     Application.deleted_at == None, _or(*_conds)).all():
                 _app.deleted_at = _dt.utcnow()
                 _app.active = False
+                # Liberar el nombre (UNIQUE) para permitir un re-alta limpio.
+                _app.name = f"{_app.name}__del_{int(_dt.utcnow().timestamp())}"
             db.delete(u)
             db.commit()
             # Push de des-registro inmediato al callback de cada solicitud (estado=anulada).
