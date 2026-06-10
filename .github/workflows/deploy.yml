@@ -102,6 +102,9 @@ jobs:
             printf '%s\n' "$ODMGR_ENV_PRODUCTION" > .env.production
             COMPOSE="docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml"
             $COMPOSE pull
+            # Limpia contenedores atascados que bloquean el recreate (p.ej. overpass quedó
+            # "Error while Stopping" y aborta el 'up', dejando el 'app' sin (re)arrancar -> 502).
+            docker rm -f odmgr_overpass odmgr_app odmgr_frontend odmgr_osm-updater 2>/dev/null || true
             $COMPOSE up -d --remove-orphans
             $COMPOSE ps
             echo "[healthcheck] esperando a que el contenedor 'app' responda /health (uvicorn :8000)..."
