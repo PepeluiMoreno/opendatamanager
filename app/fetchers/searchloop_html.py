@@ -160,11 +160,15 @@ class SearchLoopHtmlFetcher(BaseFetcher):
     # Extracción de tabla (modo formulario)
     # ------------------------------------------------------------------
 
-    def _extract_table(self, soup: BeautifulSoup) -> List[Dict[str, str]]:
+    def _extract_table(self, soup: BeautifulSoup, base_url: str = "") -> List[Dict[str, str]]:
         rows_selector = self.params.get("rows_selector", "table tr")
         rows = soup.select(rows_selector)
         if not rows:
             return []
+
+        # Captura opcional del enlace por fila (e.g. enlace a la página de detalle).
+        row_link_selector = self.params.get("row_link_selector", "")
+        row_link_field = self.params.get("row_link_field", "_detail_url")
 
         has_header = self.params.get("has_header", True)
         headers: List[str] = []
@@ -187,6 +191,11 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             if not cells:
                 continue
             record = {}
+            if row_link_selector:
+                a = row.select_one(row_link_selector)
+                href = a.get("href") if a else None
+                if href:
+                    record[row_link_field] = urljoin(base_url, href) if base_url else href
             for i, cell in enumerate(cells):
                 key = headers[i] if i < len(headers) else f"col_{i}"
                 record[key] = re.sub(r"\s+", " ", cell.get_text(strip=True))
@@ -224,19 +233,57 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             ) if els else None
 
         # 4. field_label_selectors: {"campo": {"container": "css", "label": "Texto"}}
-        #    Busca un span/strong con ese texto y devuelve el sibling siguiente.
+        #    Busca un span/strong/b/dt con ese texto y devuelve su valor asociado:
+        #    primero el sibling elemento (con soporte de listas <ul>/<ol>), y si no
+        #    existe, los nodos de texto que siguen a la etiqueta (patrón
+        #    `<p><strong>Etiqueta</strong>: valor</p>`, frecuente en portales Struts).
+        #    Coincidencia: exacta primero (ignorando ':' final), substring después.
         for field, cfg in _parse_json_param(level_cfg.get("field_label_selectors", {})).items():
             container = soup.select_one(cfg.get("container", "body")) or soup
-            label_text = cfg.get("label", "").lower()
-            record[field] = None
-            for span in container.find_all(["span", "strong", "b", "dt"]):
-                if label_text in span.get_text(strip=True).lower():
-                    sibling = span.find_next_sibling()
-                    if sibling:
-                        record[field] = re.sub(r"\s+", " ", sibling.get_text(strip=True))
+            label_text = cfg.get("label", "").strip().rstrip(":").lower()
+            labels = container.find_all(["span", "strong", "b", "dt"])
+            target = None
+            for el in labels:  # pasada exacta
+                if el.get_text(strip=True).rstrip(":").lower() == label_text:
+                    target = el
                     break
+            if target is None:
+                for el in labels:  # pasada substring (compatibilidad)
+                    if label_text in el.get_text(strip=True).lower():
+                        target = el
+                        break
+            record[field] = self._label_value(target) if target is not None else None
 
         return record
+
+    @staticmethod
+    def _label_value(label_el) -> Optional[str]:
+        """Valor asociado a una etiqueta: lista <ul>/<ol> hermana, nodos de texto
+        siguientes, o texto del siguiente elemento hermano, en ese orden."""
+        sibling = label_el.find_next_sibling()
+        if sibling is not None and sibling.name == "table":
+            filas = []
+            for tr in sibling.find_all("tr"):
+                celdas = [re.sub(r"\s+", " ", c.get_text(strip=True))
+                          for c in tr.find_all("td")]
+                if any(celdas):
+                    filas.append(", ".join(c for c in celdas if c))
+            return " | ".join(filas) or None
+        if sibling is not None and sibling.name in ("ul", "ol"):
+            items = [re.sub(r"\s+", " ", li.get_text(strip=True))
+                     for li in sibling.find_all("li")]
+            return " | ".join(i for i in items if i) or None
+        parts = []
+        for node in label_el.next_siblings:
+            if getattr(node, "name", None):  # primer elemento corta la lectura de texto
+                break
+            parts.append(str(node))
+        text = re.sub(r"\s+", " ", "".join(parts)).strip().lstrip(":").strip().strip(",").strip()
+        if text:
+            return text
+        if sibling is not None:
+            return re.sub(r"\s+", " ", sibling.get_text(strip=True)) or None
+        return None
 
     def _find_subpage_links(self, soup: BeautifulSoup, level_cfg: Dict, fallback_base: str) -> List[str]:
         """Devuelve la lista de URLs de sub-páginas indicadas por la config del nivel."""
@@ -388,8 +435,9 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         page = 0
 
         while page < max_pages:
-            soup = self._send_search(current_url, method, enctype, form_data)
-            records = self._extract_table(soup)
+            soup = self._send_search(current_url, method, enctype, form_data) if form_data \
+                else self._fetch(current_url)
+            records = self._extract_table(soup, base_url=current_url)
             all_records.extend(records)
             page += 1
 
@@ -398,12 +446,45 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             next_link = soup.select_one(next_selector)
             if not next_link or not next_link.get("href"):
                 break
-            current_url = urljoin(search_url, next_link["href"])
+            nxt = urljoin(search_url, next_link["href"])
+            if nxt == current_url:
+                break
+            current_url = nxt
             form_data = {}
             if delay > 0:
                 time.sleep(delay)
 
-        return all_records
+        return self._enrich_with_details(all_records)
+
+    def _enrich_with_details(self, records: List[Dict]) -> List[Dict]:
+        """Enriquecimiento opcional por página de detalle (patrón listado→detalle).
+        Si `detail_level` está definido (mismo esquema que un nivel de `levels`),
+        visita la URL capturada por fila (`row_link_field`, por defecto
+        `_detail_url`) y fusiona los campos extraídos en el registro."""
+        detail_cfg = _parse_json_param(self.params.get("detail_level", {}))
+        if not detail_cfg:
+            return records
+        url_field = self.params.get("detail_url_field",
+                                    self.params.get("row_link_field", "_detail_url"))
+        delay = float(self.params.get("detail_delay", 1.0))
+        preview = int(self.params.get("_preview_limit", 0) or 0)
+        total = len(records)
+        for i, rec in enumerate(records):
+            durl = rec.get(url_field)
+            if not durl:
+                continue
+            try:
+                soup = self._fetch(durl)
+                rec.update(self._apply_level_config(soup, detail_cfg))
+            except Exception as exc:
+                logger.error(f"[detalle {i + 1}/{total}] Error en {durl}: {exc}")
+                if self.params.get("stop_on_error", False):
+                    raise
+            if preview and i + 1 >= preview:
+                break
+            if delay > 0 and i < total - 1:
+                time.sleep(delay)
+        return records
 
     def _resolve_search_mode(self):
         """Resuelve (method, enctype, use_multiselect, carry_hidden) a partir de
