@@ -104,14 +104,13 @@
             <div v-if="app.tokens.length === 0" class="text-xs text-gray-500">Sin tokens.</div>
             <table v-else class="w-full text-xs">
               <thead class="text-left text-gray-500 border-b border-gray-700">
-                <tr><th class="py-1 pr-3 font-medium">Token</th><th class="py-1 pr-3 font-medium">Etiqueta</th>
+                <tr><th class="py-1 pr-3 font-medium">Token</th>
                   <th class="py-1 pr-3 font-medium">Último uso</th><th class="py-1 pr-3 font-medium">Estado</th>
                   <th class="py-1 font-medium text-right">Acciones</th></tr>
               </thead>
               <tbody>
                 <tr v-for="t in app.tokens" :key="t.id" class="border-b border-gray-800">
                   <td class="py-1 pr-3 font-mono text-gray-300">{{ t.prefix }}…</td>
-                  <td class="py-1 pr-3 text-gray-400">{{ t.label || '—' }}</td>
                   <td class="py-1 pr-3 text-gray-400">{{ t.lastUsedAt ? fecha(t.lastUsedAt) : 'nunca' }}</td>
                   <td class="py-1 pr-3">
                     <span v-if="t.activo" class="text-emerald-400">activo</span>
@@ -200,11 +199,13 @@ async function aprobarSol(s) {
   const d = await aprobarSolicitudIngreso(s.id)
   const r = d?.aprobarSolicitudIngreso
   if (r) tokenEmitido.value = { username: r.username, token: r.token }
+  solicitudes.value = solicitudes.value.filter(x => x.id !== s.id)
   await cargarSolicitudes()
 }
 function rechazarSol(s) { rechazo.value = { tipo: 'sol', id: s.id, nombre: s.nombre, motivo: '' } }
 async function _rechazarSol(s_id, motivo) {
   await rechazarSolicitudIngreso(s_id, motivo || null)
+  solicitudes.value = solicitudes.value.filter(x => x.id !== s_id)
   await cargarSolicitudes()
 }
 async function aprobarRec(r) {
@@ -225,9 +226,7 @@ async function cargarAplicaciones() {
 }
 
 async function emitirToken(app) {
-  const label = window.prompt(`Etiqueta del nuevo token para «${app.username}» (opcional):`, '')
-  if (label === null) return
-  const d = await emitirTokenAplicacion(app.usuarioId, label || null)
+  const d = await emitirTokenAplicacion(app.usuarioId, null)
   const r = d?.emitirTokenAplicacion
   if (r) tokenEmitido.value = { username: app.username, token: r.token }
   await cargarAplicaciones()
@@ -236,7 +235,7 @@ async function rotarToken(app, tok) {
   confirmar.value = {
     title: 'Rotar token', confirmText: 'Rotar',
     message: `Rotar el token ${tok.prefix}… El token actual quedará revocado de inmediato.`,
-    onConfirm: async () => { const d = await rotarTokenAplicacion(tok.id, tok.label || null); const r = d?.rotarTokenAplicacion; if (r) tokenEmitido.value = { username: app.username, token: r.token }; await cargarAplicaciones() },
+    onConfirm: async () => { const d = await rotarTokenAplicacion(tok.id, null); const r = d?.rotarTokenAplicacion; if (r) tokenEmitido.value = { username: app.username, token: r.token }; await cargarAplicaciones() },
   }
 }
 async function revocarToken(tok) {

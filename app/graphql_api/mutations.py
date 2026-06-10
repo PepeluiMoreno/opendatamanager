@@ -108,19 +108,26 @@ def get_db():
         pass
 
 
-def _push_solicitud_resuelta(s) -> None:
-    """Webhook best-effort de resolución de solicitud (sin token en el payload)."""
+def _push_solicitud_resuelta(s, token=None, username=None) -> None:
+    """Webhook best-effort de resolución de solicitud. Al aprobar incluye el
+    token autogenerado y el username para que el consumidor quede operativo
+    sin intervención manual (copiar/pegar)."""
     try:
         url = getattr(s, "callback_url", None)
         if not url:
             return
         from app.services.webhook_push import post_webhook
-        post_webhook(url, getattr(s, "callback_secret", None), {
+        payload = {
             "evento": "solicitud_resuelta",
             "solicitudId": str(s.id), "nombre": s.nombre,
             "estado": s.estado, "motivo": s.motivo,
             "resueltaAt": s.resuelta_at.isoformat() if s.resuelta_at else None,
-        })
+        }
+        if token:
+            payload["token"] = token
+        if username:
+            payload["username"] = username
+        post_webhook(url, getattr(s, "callback_secret", None), payload)
     except Exception:
         pass
 
@@ -1887,13 +1894,17 @@ class Mutation:
                 raise ValueError("Solicitud no encontrada")
             if s.estado != "pendiente":
                 raise ValueError(f"La solicitud ya está '{s.estado}'")
+            from app.models import ServiceToken
             usuario = crear_principal_aplicacion(db, s.nombre, s.contacto)
-            fila, secreto = emitir_token(db, usuario, label="inicial")
+            # token único: borra cualquier token previo de esta app y emite uno nuevo
+            db.query(ServiceToken).filter(
+                ServiceToken.usuario_id == usuario.id).delete(synchronize_session=False)
+            fila, secreto = emitir_token(db, usuario, label=None)
             s.estado = "aprobada"
             s.resuelta_at = _dt.utcnow()
             s.usuario_id = usuario.id
             db.commit()
-            _push_solicitud_resuelta(s)
+            _push_solicitud_resuelta(s, token=secreto, username=usuario.username)
             return AprobarSolicitudResult(
                 solicitud=SolicitudIngresoType(
                     id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
@@ -1996,7 +2007,11 @@ class Mutation:
                                          Usuario.tipo == PRINCIPAL_APLICACION).first()
             if not u:
                 raise ValueError("Aplicación no encontrada")
-            fila, secreto = emitir_token(db, u, label=label)
+            from app.models import ServiceToken
+            # token único por app: borra los anteriores antes de emitir
+            db.query(ServiceToken).filter(
+                ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
+            fila, secreto = emitir_token(db, u, label=None)
             return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(u.id),
                                       prefix=fila.prefix, token=secreto)
         except Exception:
@@ -2009,13 +2024,18 @@ class Mutation:
                                info: strawberry.types.Info) -> TokenEmitidoResult:
         """Rota un token: emite uno nuevo y revoca el anterior. Devuelve el nuevo
         secreto una sola vez."""
-        from app.service_auth import rotar_token
+        from app.models import ServiceToken
+        from app.service_auth import emitir_token
         db = get_db()
         try:
-            res = rotar_token(db, token_id, label=label)
-            if res is None:
+            tok = db.query(ServiceToken).filter(ServiceToken.id == token_id).first()
+            if tok is None:
                 raise ValueError("Token no encontrado")
-            fila, secreto = res
+            u = tok.usuario
+            # token único: borra todos los tokens de la app y emite uno nuevo
+            db.query(ServiceToken).filter(
+                ServiceToken.usuario_id == tok.usuario_id).delete(synchronize_session=False)
+            fila, secreto = emitir_token(db, u, label=None)
             return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(fila.usuario_id),
                                       prefix=fila.prefix, token=secreto)
         except Exception:

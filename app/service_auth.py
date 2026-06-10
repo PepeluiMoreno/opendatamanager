@@ -169,10 +169,9 @@ def crear_principal_aplicacion(db, nombre: str, contacto: str = None):
     from app.passwords import hash_password
 
     username = _slug(nombre)
-    n = 1
-    while db.query(Usuario).filter(Usuario.username == username).first() is not None:
-        n += 1
-        username = (_slug(nombre) + f"-{n}")[:80]
+    existing = db.query(Usuario).filter(Usuario.username == username).first()
+    if existing is not None:
+        return existing  # idempotente: una aplicación → un único principal
 
     usuario = Usuario(
         username=username,
