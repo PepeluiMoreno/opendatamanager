@@ -1131,6 +1131,11 @@ class Mutation:
                 active=input.active,
                 consumption_mode=input.consumption_mode,
                 webhook_url=input.webhook_url,
+                persona_contacto=getattr(input, "persona_contacto", None),
+                email=getattr(input, "email", None),
+                telefono=getattr(input, "telefono", None),
+                github_url=getattr(input, "github_url", None),
+                proposito=getattr(input, "proposito", None),
             )
             db.add(application)
             db.commit()
@@ -1164,6 +1169,10 @@ class Mutation:
                 application.consumption_mode = input.consumption_mode
             if input.webhook_url is not None:
                 application.webhook_url = input.webhook_url
+            for _f in ("persona_contacto", "email", "telefono", "github_url", "proposito"):
+                _v = getattr(input, _f, None)
+                if _v is not None:
+                    setattr(application, _f, _v)
 
             db.commit()
             db.refresh(application)
@@ -1916,6 +1925,7 @@ class Mutation:
             else:
                 s = SolicitudIngreso(
                     nombre=input.nombre,
+                    consumption_mode=getattr(input, "consumption_mode", None),
                     contacto=getattr(input, "contacto", None),
                     proposito=getattr(input, "proposito", None),
                     descripcion=getattr(input, "descripcion", None),
@@ -1978,6 +1988,8 @@ class Mutation:
                         _appent.webhook_url = s.callback_url
                     if getattr(s, "callback_secret", None):
                         _appent.webhook_secret = s.callback_secret
+                    if getattr(s, "consumption_mode", None):
+                        _appent.consumption_mode = s.consumption_mode
                     db.commit()
             except Exception:
                 db.rollback()

@@ -159,15 +159,21 @@
             <input v-model="appForm.name" type="text" required class="input w-full" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-2">Description</label>
-            <textarea v-model="appForm.description" rows="3" class="input w-full"></textarea>
+            <label class="block text-sm font-medium mb-2">Descripción</label>
+            <textarea v-model="appForm.description" rows="5" class="input w-full"></textarea>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-sm font-medium mb-1">Persona de contacto</label><input v-model="appForm.persona_contacto" type="text" class="input w-full" /></div>
+            <div><label class="block text-sm font-medium mb-1">Email</label><input v-model="appForm.email" type="email" class="input w-full" /></div>
+            <div><label class="block text-sm font-medium mb-1">Teléfono</label><input v-model="appForm.telefono" type="text" class="input w-full" /></div>
+            <div><label class="block text-sm font-medium mb-1">Repositorio GitHub</label><input v-model="appForm.github_url" type="url" class="input w-full" placeholder="https://github.com/…" /></div>
           </div>
           <div>
-            <label class="block text-sm font-medium mb-2">Webhook URL</label>
-            <input v-model="appForm.webhookUrl" type="url" class="input w-full" placeholder="https://your-app/odmgr-webhook" />
+            <label class="block text-sm font-medium mb-1">Propósito</label>
+            <input v-model="appForm.proposito" type="text" class="input w-full" />
           </div>
           <div>
-            <label class="block text-sm font-medium mb-2">Consumption Mode</label>
+            <label class="block text-sm font-medium mb-2">Modo de consumo</label>
             <div class="grid grid-cols-3 gap-2">
               <label v-for="opt in consumptionModes" :key="opt.value"
                 :class="['flex flex-col items-start p-3 rounded border cursor-pointer transition-colors',
@@ -177,6 +183,10 @@
                 <span class="text-xs text-gray-400 mt-1">{{ opt.label }}</span>
               </label>
             </div>
+          </div>
+          <div v-if="appForm.consumptionMode !== 'graphql'">
+            <label class="block text-sm font-medium mb-2">Webhook URL</label>
+            <input v-model="appForm.webhookUrl" type="url" class="input w-full" placeholder="https://tu-app/webhooks/odmgr" />
           </div>
           <div class="flex items-center">
             <input v-model="appForm.active" type="checkbox" id="app-active" class="mr-2" />
@@ -300,7 +310,7 @@ const consumptionModes = [
   { value: 'graphql', label: 'Query GraphQL API' },
   { value: 'both',    label: 'Both modes' },
 ]
-const appForm = ref({ name: '', description: '', webhookUrl: '', consumptionMode: 'webhook', active: true })
+const appForm = ref({ name: '', description: '', webhookUrl: '', consumptionMode: 'webhook', active: true, persona_contacto: '', email: '', telefono: '', github_url: '', proposito: '' })
 
 // Subscription state
 const showSubModal  = ref(false)
@@ -344,7 +354,7 @@ async function load() {
 // ── App CRUD ──
 function openCreateApp() {
   editingApp.value = null
-  appForm.value = { name: '', description: '', webhookUrl: '', consumptionMode: 'webhook', active: true }
+  appForm.value = { name: '', description: '', webhookUrl: '', consumptionMode: 'webhook', active: true, persona_contacto: '', email: '', telefono: '', github_url: '', proposito: '' }
   appModalError.value = null
   showAppModal.value = true
 }
@@ -353,6 +363,8 @@ function openEditApp(app) {
   appForm.value = {
     name: app.name, description: app.description || '', webhookUrl: app.webhookUrl || '',
     consumptionMode: app.consumptionMode || 'webhook', active: app.active,
+    persona_contacto: app.personaContacto || '', email: app.email || '', telefono: app.telefono || '',
+    github_url: app.githubUrl || '', proposito: app.proposito || '',
   }
   appModalError.value = null
   showAppModal.value = true
@@ -361,10 +373,13 @@ function closeAppModal() { showAppModal.value = false; editingApp.value = null }
 async function submitApp() {
   appModalError.value = null
   try {
+    const f = appForm.value
     const input = {
-      name: appForm.value.name, description: appForm.value.description,
-      webhookUrl: appForm.value.webhookUrl || null,
-      consumptionMode: appForm.value.consumptionMode, active: appForm.value.active,
+      name: f.name, description: f.description,
+      webhookUrl: f.consumptionMode === 'graphql' ? null : (f.webhookUrl || null),
+      consumptionMode: f.consumptionMode, active: f.active,
+      personaContacto: f.persona_contacto || null, email: f.email || null,
+      telefono: f.telefono || null, githubUrl: f.github_url || null, proposito: f.proposito || null,
     }
     if (editingApp.value) await updateApplication(editingApp.value.id, input)
     else                  await createApplication(input)

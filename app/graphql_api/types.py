@@ -162,6 +162,13 @@ class ApplicationType:
     active: bool
     webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
     consumption_mode: str = strawberry.field(default="webhook", name="consumptionMode")
+    persona_contacto: Optional[str] = strawberry.field(default=None, name="personaContacto")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
+    consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
+    webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
+    proposito: Optional[str] = None
     deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
 @strawberry.input
@@ -172,6 +179,11 @@ class CreateApplicationInput:
     active: bool = True
     consumption_mode: str = strawberry.field(default="webhook", name="consumptionMode")
     webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
+    persona_contacto: Optional[str] = strawberry.field(default=None, name="personaContacto")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
+    proposito: Optional[str] = None
 
 @strawberry.input
 class UpdateApplicationInput:
@@ -181,6 +193,11 @@ class UpdateApplicationInput:
     active: Optional[bool] = None
     consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
     webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
+    persona_contacto: Optional[str] = strawberry.field(default=None, name="personaContacto")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
+    proposito: Optional[str] = None
 
 @strawberry.type
 class ExecutionResult:
@@ -486,6 +503,7 @@ class CrearSolicitudIngresoInput:
     email: Optional[str] = None
     telefono: Optional[str] = None
     github_url: Optional[str] = None
+    consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
     callback_url: Optional[str] = None      # callbackUrl: push de la resolución
     callback_secret: Optional[str] = None   # callbackSecret: firma del webhook
 

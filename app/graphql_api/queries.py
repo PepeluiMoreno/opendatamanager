@@ -215,6 +215,11 @@ def map_application(app: Application) -> ApplicationType:
         active=app.active,
         webhook_url=app.webhook_url,
         consumption_mode=app.consumption_mode or "webhook",
+        persona_contacto=getattr(app, "persona_contacto", None),
+        email=getattr(app, "email", None),
+        telefono=getattr(app, "telefono", None),
+        github_url=getattr(app, "github_url", None),
+        proposito=getattr(app, "proposito", None),
         deleted_at=app.deleted_at,
     )
 
@@ -974,6 +979,8 @@ class Query:
                 descripcion=getattr(s, "descripcion", None), persona_contacto=getattr(s, "persona_contacto", None),
                 email=getattr(s, "email", None), telefono=getattr(s, "telefono", None),
                 github_url=getattr(s, "github_url", None),
+                consumption_mode=getattr(s, "consumption_mode", None),
+                webhook_url=getattr(s, "callback_url", None),
                 estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
                 resuelta_at=s.resuelta_at,
                 usuario_id=str(s.usuario_id) if s.usuario_id else None,

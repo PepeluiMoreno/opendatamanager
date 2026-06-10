@@ -326,6 +326,11 @@ class Application(AuditMixin, Base):
     webhook_url = Column(String(500))
     webhook_secret = Column(String(100))
     consumption_mode = Column(String(20), nullable=False, default='webhook')
+    persona_contacto = Column(String(160), nullable=True)
+    email = Column(String(255), nullable=True)
+    telefono = Column(String(40), nullable=True)
+    github_url = Column(String(300), nullable=True)
+    proposito = Column(Text, nullable=True)
 
     # Relationships
     subscriptions = relationship("ResourceSubscription", back_populates="application")
@@ -632,6 +637,7 @@ class SolicitudIngreso(AuditMixin, Base):
     email = Column(String(255), nullable=True)            # email de contacto
     telefono = Column(String(40), nullable=True)
     github_url = Column(String(300), nullable=True)       # repo de la aplicación
+    consumption_mode = Column(String(20), nullable=True)  # webhook|graphql|both
     ambito_solicitado = Column(JSONB, nullable=True)      # scopes/recursos pedidos
     estado = Column(String(20), nullable=False, default="pendiente", server_default="pendiente")  # pendiente|aprobada|rechazada
     motivo = Column(Text, nullable=True)                  # motivo de rechazo / nota de aprobación
