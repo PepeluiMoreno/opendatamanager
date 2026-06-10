@@ -1145,7 +1145,7 @@ export async function deleteFetcherPreset(id) {
 const Q_SOLICITUDES_INGRESO = `
   query SolicitudesIngreso($soloPendientes: Boolean) {
     solicitudesIngreso(soloPendientes: $soloPendientes) {
-      id nombre contacto proposito estado motivo createdAt resueltaAt usuarioId
+      id nombre contacto proposito descripcion personaContacto email telefono githubUrl estado motivo createdAt resueltaAt usuarioId
     }
   }`
 

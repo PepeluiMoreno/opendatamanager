@@ -1849,6 +1849,13 @@ class Mutation:
         """Self-service: registra una solicitud de alta de aplicación. No crea
         nada operativo; queda 'pendiente' hasta que un admin la apruebe."""
         from app.models import SolicitudIngreso
+        # Validación de requeridos (rechaza solicitudes incompletas, también por API).
+        _req = {"nombre": input.nombre, "descripcion": getattr(input, "descripcion", None),
+                "persona_contacto": getattr(input, "persona_contacto", None),
+                "email": getattr(input, "email", None), "github_url": getattr(input, "github_url", None)}
+        _faltan = [k for k, v in _req.items() if not (v or "").strip()]
+        if _faltan:
+            raise ValueError("Faltan campos obligatorios: " + ", ".join(_faltan))
         db = get_db()
         try:
             # §9 anti-duplicados: si ya hay una pendiente con el mismo nombre, se
@@ -1864,6 +1871,11 @@ class Mutation:
                     nombre=input.nombre,
                     contacto=getattr(input, "contacto", None),
                     proposito=getattr(input, "proposito", None),
+                    descripcion=getattr(input, "descripcion", None),
+                    persona_contacto=getattr(input, "persona_contacto", None),
+                    email=getattr(input, "email", None),
+                    telefono=getattr(input, "telefono", None),
+                    github_url=getattr(input, "github_url", None),
                     estado="pendiente",
                     callback_url=getattr(input, "callback_url", None),
                     callback_secret=getattr(input, "callback_secret", None),
@@ -1872,6 +1884,8 @@ class Mutation:
                 db.commit()
             return SolicitudIngresoType(
                 id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
+                descripcion=s.descripcion, persona_contacto=s.persona_contacto, email=s.email,
+                telefono=s.telefono, github_url=s.github_url,
                 estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
                 resuelta_at=s.resuelta_at, usuario_id=None,
             )

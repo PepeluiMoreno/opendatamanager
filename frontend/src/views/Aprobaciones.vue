@@ -46,15 +46,24 @@
           <table class="w-full text-sm">
             <thead class="text-left text-gray-400 border-b border-gray-700">
               <tr><th class="py-2 px-4 font-medium">Aplicación</th><th class="py-2 px-4 font-medium">Contacto</th>
-                <th class="py-2 px-4 font-medium">Propósito</th><th class="py-2 px-4 font-medium">Solicitada</th>
+                <th class="py-2 px-4 font-medium">Propósito</th><th class="py-2 px-4 font-medium">GitHub</th><th class="py-2 px-4 font-medium">Solicitada</th>
                 <th class="py-2 px-4 font-medium">Estado</th>
                 <th class="py-2 px-4 font-medium text-right">Acciones</th></tr>
             </thead>
             <tbody>
               <tr v-for="s in solicitudesFiltradas" :key="s.id" class="border-b border-gray-700/50 hover:bg-gray-700/30">
-                <td class="py-2 px-4 text-white font-medium">{{ s.nombre }}</td>
-                <td class="py-2 px-4 text-gray-300">{{ s.contacto || '—' }}</td>
+                <td class="py-2 px-4 text-white font-medium">{{ s.nombre }}<span v-if="s.descripcion" class="block text-xs text-gray-500 font-normal">{{ s.descripcion }}</span></td>
+                <td class="py-2 px-4 text-gray-300">
+                  <span v-if="s.personaContacto">{{ s.personaContacto }}</span>
+                  <span v-if="s.email" class="block text-xs text-gray-400">{{ s.email }}</span>
+                  <span v-if="s.telefono" class="block text-xs text-gray-500">{{ s.telefono }}</span>
+                  <span v-if="!s.personaContacto && !s.email && !s.telefono">{{ s.contacto || '—' }}</span>
+                </td>
                 <td class="py-2 px-4 text-gray-400">{{ s.proposito || '—' }}</td>
+                <td class="py-2 px-4">
+                  <a v-if="s.githubUrl" :href="s.githubUrl" target="_blank" rel="noopener" class="text-blue-400 hover:text-blue-300 underline text-xs break-all">{{ s.githubUrl }}</a>
+                  <span v-else class="text-gray-500">—</span>
+                </td>
                 <td class="py-2 px-4 text-gray-400">{{ fecha(s.createdAt) }}</td>
                 <td class="py-2 px-4">
                   <span :class="s.estado==='aprobada' ? 'text-emerald-400' : s.estado==='rechazada' ? 'text-red-400' : s.estado==='anulada' ? 'text-gray-400' : 'text-yellow-400'">{{ estadoLabel(s.estado) }}</span>

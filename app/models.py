@@ -627,6 +627,11 @@ class SolicitudIngreso(AuditMixin, Base):
     nombre = Column(String(120), nullable=False)          # nombre de la aplicación
     contacto = Column(String(255), nullable=True)         # email/responsable
     proposito = Column(Text, nullable=True)               # para qué quiere los datos
+    descripcion = Column(Text, nullable=True)             # qué hace la aplicación
+    persona_contacto = Column(String(160), nullable=True) # responsable
+    email = Column(String(255), nullable=True)            # email de contacto
+    telefono = Column(String(40), nullable=True)
+    github_url = Column(String(300), nullable=True)       # repo de la aplicación
     ambito_solicitado = Column(JSONB, nullable=True)      # scopes/recursos pedidos
     estado = Column(String(20), nullable=False, default="pendiente", server_default="pendiente")  # pendiente|aprobada|rechazada
     motivo = Column(Text, nullable=True)                  # motivo de rechazo / nota de aprobación

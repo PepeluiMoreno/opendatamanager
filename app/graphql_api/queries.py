@@ -971,6 +971,9 @@ class Query:
             rows = q.order_by(SolicitudIngreso.created_at.desc()).all()
             return [SolicitudIngresoType(
                 id=str(s.id), nombre=s.nombre, contacto=s.contacto, proposito=s.proposito,
+                descripcion=getattr(s, "descripcion", None), persona_contacto=getattr(s, "persona_contacto", None),
+                email=getattr(s, "email", None), telefono=getattr(s, "telefono", None),
+                github_url=getattr(s, "github_url", None),
                 estado=s.estado, motivo=s.motivo, created_at=getattr(s, "created_at", None),
                 resuelta_at=s.resuelta_at,
                 usuario_id=str(s.usuario_id) if s.usuario_id else None,

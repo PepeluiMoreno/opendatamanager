@@ -463,6 +463,11 @@ class SolicitudIngresoType:
     nombre: str
     contacto: Optional[str] = None
     proposito: Optional[str] = None
+    descripcion: Optional[str] = None
+    persona_contacto: Optional[str] = strawberry.field(default=None, name="personaContacto")
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
     estado: str = "pendiente"
     motivo: Optional[str] = None
     created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
@@ -476,6 +481,11 @@ class CrearSolicitudIngresoInput:
     nombre: str
     contacto: Optional[str] = None
     proposito: Optional[str] = None
+    descripcion: Optional[str] = None
+    persona_contacto: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    github_url: Optional[str] = None
     callback_url: Optional[str] = None      # callbackUrl: push de la resolución
     callback_secret: Optional[str] = None   # callbackSecret: firma del webhook
 
