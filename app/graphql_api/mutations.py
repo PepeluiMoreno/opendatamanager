@@ -2020,6 +2020,27 @@ class Mutation:
 
     # ── §12 Gestión de tokens de aplicaciones (rotar / revocar / emitir) ────
 
+    @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
+    def crear_aplicacion(self, nombre: str, contacto: Optional[str],
+                         info: strawberry.types.Info) -> TokenEmitidoResult:
+        """Alta manual de aplicacion M2M: materializa (idempotente) el principal
+        'aplicacion' y emite su unico token Bearer. El secreto se entrega UNA vez."""
+        from app.models import ServiceToken
+        from app.service_auth import crear_principal_aplicacion, emitir_token
+        db = get_db()
+        try:
+            usuario = crear_principal_aplicacion(db, nombre, contacto)
+            db.query(ServiceToken).filter(
+                ServiceToken.usuario_id == usuario.id).delete(synchronize_session=False)
+            fila, secreto = emitir_token(db, usuario, label=None)
+            db.commit()
+            return TokenEmitidoResult(token_id=str(fila.id), usuario_id=str(usuario.id),
+                                      prefix=fila.prefix, token=secreto)
+        except Exception:
+            db.rollback(); raise
+        finally:
+            db.close()
+
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
     def emitir_token_aplicacion(self, usuario_id: strawberry.ID, label: Optional[str],
                                 info: strawberry.types.Info) -> TokenEmitidoResult:

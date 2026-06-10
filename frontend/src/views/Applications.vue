@@ -8,6 +8,10 @@
         <button @click="openCreateApp" class="btn btn-primary text-sm py-1 px-3">+ New</button>
       </div>
 
+      <FilterBar :canClear="!!q" :count="filteredApps.length" :total="applications.length" @clear="q=''">
+        <input v-model="q" type="text" placeholder="Buscar aplicación…" class="input text-sm flex-1 min-w-[160px]" />
+      </FilterBar>
+
       <div v-if="loading" class="text-gray-400 text-center py-8">Loading…</div>
       <div v-else-if="error" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm">{{ error }}</div>
       <div v-else-if="applications.length === 0" class="text-gray-400 text-sm py-8 text-center">
@@ -16,7 +20,7 @@
 
       <div v-else class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
         <button
-          v-for="app in applications" :key="app.id"
+          v-for="app in filteredApps" :key="app.id"
           @click="selectedAppId = app.id"
           :class="['w-full text-left card hover:border-gray-600 transition-colors',
                    selectedAppId === app.id ? 'border-purple-500 bg-purple-900/20' : '']"
@@ -71,6 +75,36 @@
           <span v-if="usoMensual" class="text-white font-medium">{{ usoMensual.usados }} refrescos a demanda</span>
           <span v-else class="text-gray-600">—</span>
           <span v-if="usoMensual" class="text-xs text-gray-500 ml-1">· cuota diaria {{ usoMensual.cuotaDiaria }}/día</span>
+        </div>
+        <!-- Acceso M2M: principal + tokens (movido desde Approvals) -->
+        <div class="px-4 py-3 border-b border-gray-700 flex-shrink-0">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs uppercase tracking-wide text-gray-500 font-medium">Acceso (token Bearer)</span>
+            <div class="flex gap-2 items-center">
+              <button v-if="principalSel" @click="emitirTok(principalSel)" class="btn text-xs py-1 px-2">Emitir token</button>
+              <button v-else @click="crearAcceso(selectedApp)" class="btn btn-primary text-xs py-1 px-2">Crear acceso</button>
+              <button v-if="principalSel" @click="eliminarAcceso(principalSel)" title="Eliminar acceso (principal + tokens)" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+            </div>
+          </div>
+          <div v-if="!principalSel" class="text-xs text-gray-500">Sin acceso emitido. «Crear acceso» materializa el principal <span class="font-mono text-gray-400">{{ slugUsername(selectedApp.name) }}</span> y emite su token.</div>
+          <div v-else>
+            <div class="text-xs text-gray-400 mb-1">Principal: <span class="font-mono text-gray-300">{{ principalSel.username }}</span><span v-if="!principalSel.isActive" class="text-red-400 ml-2">(inactiva)</span></div>
+            <div v-if="principalSel.tokens.length === 0" class="text-xs text-gray-500">Sin tokens.</div>
+            <table v-else class="w-full text-xs">
+              <thead class="text-left text-gray-500 border-b border-gray-700"><tr><th class="py-1 pr-3 font-medium">Token</th><th class="py-1 pr-3 font-medium">Último uso</th><th class="py-1 pr-3 font-medium">Estado</th><th class="py-1 font-medium text-right">Acciones</th></tr></thead>
+              <tbody>
+                <tr v-for="t in principalSel.tokens" :key="t.id" class="border-b border-gray-800">
+                  <td class="py-1 pr-3 font-mono text-gray-300">{{ t.prefix }}…</td>
+                  <td class="py-1 pr-3 text-gray-400">{{ t.lastUsedAt ? formatDate(t.lastUsedAt) : 'nunca' }}</td>
+                  <td class="py-1 pr-3"><span v-if="t.activo" class="text-emerald-400">activo</span><span v-else-if="t.revokedAt" class="text-red-400">revocado</span><span v-else class="text-yellow-400">expirado</span></td>
+                  <td class="py-1 text-right whitespace-nowrap">
+                    <button v-if="t.activo" @click="rotarTok(principalSel, t)" title="Rotar" class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+                    <button v-if="t.activo" @click="revocarTok(t)" title="Revocar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/></svg></button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
         <div class="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-gray-500 font-medium flex-shrink-0">Recursos autorizados</div>
 
@@ -214,6 +248,15 @@
     </div>
 
   </div>
+    <div v-if="tokenEmitido" class="fixed bottom-4 right-4 z-50 max-w-md rounded-xl border border-emerald-700 bg-emerald-950/95 backdrop-blur p-4 shadow-2xl">
+      <h3 class="text-sm font-semibold text-emerald-300 mb-1">Token emitido para «{{ tokenEmitido.username }}»</h3>
+      <p class="text-xs text-emerald-200/80 mb-2">Cópialo ahora: no se vuelve a mostrar.</p>
+      <div class="flex items-center gap-2">
+        <code class="flex-1 text-xs bg-gray-900 rounded px-3 py-2 break-all text-emerald-200">{{ tokenEmitido.token }}</code>
+        <button @click="copiar(tokenEmitido.token)" class="btn text-xs whitespace-nowrap">Copiar</button>
+        <button @click="tokenEmitido = null" class="text-gray-400 hover:text-white text-xs px-2">Ocultar</button>
+      </div>
+    </div>
     <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
       :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
       @confirm="okConfirm" @cancel="cerrarConfirm" />
@@ -228,9 +271,11 @@ function cerrarConfirm() { confirmar.value = null }
 
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
+import FilterBar from '../components/FilterBar.vue'
 import {
   fetchApplications, createApplication, updateApplication, deleteApplication, fetchUsoMensualAplicacion,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
+  fetchAplicacionesM2M, crearAplicacion, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion, eliminarAplicacion,
 } from '../api/graphql'
 
 const applications  = ref([])
@@ -239,6 +284,9 @@ const resources     = ref([])
 const loading       = ref(true)
 const error         = ref(null)
 const selectedAppId = ref('')
+const aplicaciones  = ref([])
+const tokenEmitido  = ref(null)
+const q             = ref('')
 
 // App CRUD state
 const showAppModal       = ref(false)
@@ -278,12 +326,13 @@ async function load() {
   loading.value = true
   error.value = null
   try {
-    const [appRes, subRes, resRes] = await Promise.all([
-      fetchApplications(), fetchSubscriptions(), fetchResources(),
+    const [appRes, subRes, resRes, accRes] = await Promise.all([
+      fetchApplications(), fetchSubscriptions(), fetchResources(), fetchAplicacionesM2M(),
     ])
     applications.value  = appRes?.applications        ?? []
     subscriptions.value = subRes?.resourceSubscriptions ?? []
     resources.value     = resRes?.resources           ?? []
+    aplicaciones.value  = accRes?.aplicacionesM2m     ?? []
     if (!selectedApp.value && applications.value.length) selectedAppId.value = applications.value[0].id
   } catch (e) {
     error.value = e.message || 'Error loading data'
@@ -374,5 +423,45 @@ function formatDate(iso) {
   return new Date(/Z|[+-]\d{2}:?\d{2}$/.test(iso) ? iso : iso + 'Z').toLocaleString('es-ES', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
+}
+
+// ── #34 Acceso M2M (principal + tokens) por aplicación ──
+function slugUsername(name) {
+  return 'app-' + String(name || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+const principalSel = computed(() => {
+  if (!selectedApp.value) return null
+  const u = slugUsername(selectedApp.value.name)
+  return aplicaciones.value.find(a => a.username === u) || null
+})
+const filteredApps = computed(() => {
+  const s = q.value.trim().toLowerCase()
+  if (!s) return applications.value
+  return applications.value.filter(a => (a.name || '').toLowerCase().includes(s) || (a.description || '').toLowerCase().includes(s))
+})
+function copiar(t) { try { navigator.clipboard?.writeText(t) } catch { /* no-op */ } }
+async function reloadAcc() { const d = await fetchAplicacionesM2M(); aplicaciones.value = d?.aplicacionesM2m || [] }
+async function crearAcceso(app) {
+  try { const d = await crearAplicacion(app.name, null); const r = d?.crearAplicacion; if (r) tokenEmitido.value = { username: slugUsername(app.name), token: r.token }; await reloadAcc() }
+  catch (e) { error.value = e.message || 'No se pudo crear el acceso' }
+}
+async function emitirTok(p) {
+  try { const d = await emitirTokenAplicacion(p.usuarioId, null); const r = d?.emitirTokenAplicacion; if (r) tokenEmitido.value = { username: p.username, token: r.token }; await reloadAcc() }
+  catch (e) { error.value = e.message || 'No se pudo emitir el token' }
+}
+function rotarTok(p, tok) {
+  confirmar.value = { title: 'Rotar token', confirmText: 'Rotar',
+    message: `Rotar ${tok.prefix}… El token actual quedará revocado de inmediato.`,
+    onConfirm: async () => { const d = await rotarTokenAplicacion(tok.id, null); const r = d?.rotarTokenAplicacion; if (r) tokenEmitido.value = { username: p.username, token: r.token }; await reloadAcc() } }
+}
+function revocarTok(tok) {
+  confirmar.value = { title: 'Revocar token', confirmText: 'Revocar',
+    message: `Revocar ${tok.prefix}… Es inmediato e irreversible.`,
+    onConfirm: async () => { await revocarTokenAplicacion(tok.id); await reloadAcc() } }
+}
+function eliminarAcceso(p) {
+  confirmar.value = { title: 'Eliminar acceso', confirmText: 'Eliminar',
+    message: `Eliminar el acceso «${p.username}» (principal + tokens). Sus recursos pasarán a sistema.`,
+    onConfirm: async () => { try { await eliminarAplicacion(p.usuarioId); await reloadAcc() } catch (e) { error.value = e.message || 'No se pudo eliminar el acceso' } } }
 }
 </script>

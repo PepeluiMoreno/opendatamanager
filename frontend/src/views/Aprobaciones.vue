@@ -114,50 +114,6 @@
       </div>
     </section>
 
-    <!-- §12 Aplicaciones registradas y sus tokens -->
-    <section v-if="puede('aplicaciones.aprobar')">
-      <h2 class="text-lg font-semibold text-white mb-2">Aplicaciones y tokens</h2>
-      <div class="card">
-        <div v-if="cargandoApp" class="p-6 text-center text-gray-400">Cargando…</div>
-        <div v-else-if="aplicaciones.length === 0" class="p-6 text-center text-gray-400">No hay aplicaciones registradas.</div>
-        <div v-else class="space-y-4">
-          <div v-for="app in aplicaciones" :key="app.usuarioId" class="border border-gray-700 rounded-lg p-3">
-            <div class="flex items-center justify-between mb-2">
-              <div>
-                <span class="text-white font-medium">{{ app.username }}</span>
-                <span v-if="!app.isActive" class="ml-2 text-xs text-red-400">(inactiva)</span>
-                <span v-if="app.email" class="ml-2 text-xs text-gray-500">{{ app.email }}</span>
-              </div>
-              <button @click="emitirToken(app)" class="btn text-xs">Emitir token</button>
-              <button @click="eliminarApp(app)" title="Eliminar aplicación" class="ml-1 p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-            </div>
-            <div v-if="app.tokens.length === 0" class="text-xs text-gray-500">Sin tokens.</div>
-            <table v-else class="w-full text-xs">
-              <thead class="text-left text-gray-500 border-b border-gray-700">
-                <tr><th class="py-1 pr-3 font-medium">Token</th>
-                  <th class="py-1 pr-3 font-medium">Último uso</th><th class="py-1 pr-3 font-medium">Estado</th>
-                  <th class="py-1 font-medium text-right">Acciones</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="t in app.tokens" :key="t.id" class="border-b border-gray-800">
-                  <td class="py-1 pr-3 font-mono text-gray-300">{{ t.prefix }}…</td>
-                  <td class="py-1 pr-3 text-gray-400">{{ t.lastUsedAt ? fecha(t.lastUsedAt) : 'nunca' }}</td>
-                  <td class="py-1 pr-3">
-                    <span v-if="t.activo" class="text-emerald-400">activo</span>
-                    <span v-else-if="t.revokedAt" class="text-red-400">revocado</span>
-                    <span v-else class="text-yellow-400">expirado</span>
-                  </td>
-                  <td class="py-1 text-right whitespace-nowrap">
-                    <button v-if="t.activo" @click="rotarToken(app, t)" title="Rotar" class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
-                    <button v-if="t.activo" @click="revocarToken(t)" title="Revocar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/></svg></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
   </div>
     <div v-if="rechazo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="cerrarRechazo">
       <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
@@ -199,18 +155,15 @@ import { useAuth } from '../composables/useAuth'
 import {
   fetchSolicitudesIngreso, aprobarSolicitudIngreso, rechazarSolicitudIngreso,
   fetchRecursosPropuestos, aprobarRecurso, rechazarRecurso,
-  fetchAplicacionesM2M, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion,
-  eliminarSolicitudIngreso, eliminarAplicacion,
+  eliminarSolicitudIngreso,
 } from '../api/graphql'
 
 const { puede } = useAuth()
 
 const solicitudes = ref([])
 const recursos = ref([])
-const aplicaciones = ref([])
 const cargandoSol = ref(false)
 const cargandoRec = ref(false)
-const cargandoApp = ref(false)
 const tokenEmitido = ref(null)
 const estadoFiltro = ref('pendiente')
 const solicitudesFiltradas = computed(() => estadoFiltro.value ? solicitudes.value.filter(x => (x.estado || 'pendiente') === estadoFiltro.value) : solicitudes.value)
@@ -222,12 +175,7 @@ async function eliminarSol(s) {
   try { await eliminarSolicitudIngreso(s.id); solicitudes.value = solicitudes.value.filter(x => x.id !== s.id) }
   catch (e) { accionError.value = 'No se pudo eliminar la solicitud: ' + (e?.message || e) }
 }
-async function eliminarApp(app) {
-  if (!window.confirm(`¿Eliminar la aplicación «${app.username}»? Su token quedará revocado y sus recursos pasarán a sistema.`)) return
-  accionError.value = ''
-  try { await eliminarAplicacion(app.usuarioId); await cargarAplicaciones() }
-  catch (e) { accionError.value = 'No se pudo eliminar la aplicación: ' + (e?.message || e) }
-}
+
 function fecha(s) {
   if (!s) return '—'
   try { return new Date(s).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' }) } catch { return s }
@@ -280,33 +228,5 @@ async function _rechazarRec(r_id, motivo) {
   await cargarRecursos()
 }
 
-async function cargarAplicaciones() {
-  if (!puede('aplicaciones.aprobar')) return
-  cargandoApp.value = true
-  try { const d = await fetchAplicacionesM2M(); aplicaciones.value = d?.aplicacionesM2m || [] }
-  finally { cargandoApp.value = false }
-}
-
-async function emitirToken(app) {
-  const d = await emitirTokenAplicacion(app.usuarioId, null)
-  const r = d?.emitirTokenAplicacion
-  if (r) tokenEmitido.value = { username: app.username, token: r.token }
-  await cargarAplicaciones()
-}
-async function rotarToken(app, tok) {
-  confirmar.value = {
-    title: 'Rotar token', confirmText: 'Rotar',
-    message: `Rotar el token ${tok.prefix}… El token actual quedará revocado de inmediato.`,
-    onConfirm: async () => { const d = await rotarTokenAplicacion(tok.id, null); const r = d?.rotarTokenAplicacion; if (r) tokenEmitido.value = { username: app.username, token: r.token }; await cargarAplicaciones() },
-  }
-}
-async function revocarToken(tok) {
-  confirmar.value = {
-    title: 'Revocar token', confirmText: 'Revocar',
-    message: `Revocar el token ${tok.prefix}… Es inmediato e irreversible.`,
-    onConfirm: async () => { await revocarTokenAplicacion(tok.id); await cargarAplicaciones() },
-  }
-}
-
-onMounted(() => { cargarSolicitudes(); cargarRecursos(); cargarAplicaciones() })
+onMounted(() => { cargarSolicitudes(); cargarRecursos() })
 </script>

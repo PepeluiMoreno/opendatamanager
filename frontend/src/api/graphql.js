@@ -1234,6 +1234,13 @@ const M_REVOCAR_TOKEN = `
     revocarTokenAplicacion(tokenId: $tokenId)
   }`
 
+const M_CREAR_APLICACION = `
+  mutation CrearAplicacion($nombre: String!, $contacto: String) {
+    crearAplicacion(nombre: $nombre, contacto: $contacto) {
+      tokenId usuarioId prefix token
+    }
+  }`
+
 const M_ELIMINAR_SOLICITUD = `
   mutation EliminarSolicitud($id: ID!) {
     eliminarSolicitudIngreso(id: $id)
@@ -1258,6 +1265,10 @@ export async function rotarTokenAplicacion(tokenId, label) {
 }
 export async function revocarTokenAplicacion(tokenId) {
   try { return await client.request(M_REVOCAR_TOKEN, { tokenId }) }
+  catch (e) { handleGraphQLError(e) }
+}
+export async function crearAplicacion(nombre, contacto) {
+  try { return await client.request(M_CREAR_APLICACION, { nombre, contacto: contacto || null }) }
   catch (e) { handleGraphQLError(e) }
 }
 export async function eliminarSolicitudIngreso(id) {
