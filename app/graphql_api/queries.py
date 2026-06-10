@@ -364,6 +364,17 @@ class UsoMensualAplicacion:
 @strawberry.type
 class Query:
     @strawberry.field
+    def whoami_aplicacion(self, info: Info) -> Optional[str]:
+        """Username del principal 'aplicacion' autenticado por Bearer, o null si
+        el token no es válido / no es una aplicación. El consumidor lo usa para
+        validar al arrancar si sigue dado de alta (token vivo)."""
+        from app.service_auth import PRINCIPAL_APLICACION
+        usuario = info.context.get("usuario") if (info and info.context) else None
+        if usuario is not None and getattr(usuario, "tipo", None) == PRINCIPAL_APLICACION:
+            return usuario.username
+        return None
+
+    @strawberry.field
     def cuota_refrescos(self, info: Info) -> CuotaRefrescos:
         """Cuota de refrescos a demanda del principal actual, recalculada hoy."""
         usuario = info.context.get("usuario") if (info and info.context) else None
