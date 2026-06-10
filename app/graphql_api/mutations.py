@@ -210,36 +210,6 @@ def _push_recurso_resuelto(db, r) -> None:
         pass
 
 
-def _push_suscripcion_evento(db, sub, activa: bool) -> None:
-    """Webhook best-effort al suscriptor cuando el operador activa o quita una
-    suscripción, para que el consumidor mantenga su lista de suscripciones en
-    local sin tener que tirar de ODM por GraphQL."""
-    try:
-        from app.models import Application, Resource
-        from app.services.webhook_push import post_webhook
-        app_row = db.query(Application).filter(Application.id == sub.application_id).first()
-        if not app_row or not getattr(app_row, "webhook_url", None) or not getattr(app_row, "webhook_secret", None):
-            return
-        r = db.query(Resource).filter(Resource.id == sub.resource_id).first()
-        pub = None
-        if r is not None:
-            p = getattr(r, "publisher", None)
-            if p is not None:
-                pub = getattr(p, "acronimo", None) or getattr(p, "nombre", None)
-        post_webhook(app_row.webhook_url, app_row.webhook_secret, {
-            "evento": "suscripcion_activada" if activa else "suscripcion_desactivada",
-            "subscriptionId": str(sub.id),
-            "applicationId": str(sub.application_id),
-            "resourceId": str(sub.resource_id),
-            "resourceName": getattr(r, "name", None) if r is not None else None,
-            "publisher": pub,
-            "pinnedVersion": getattr(sub, "pinned_version", None),
-            "autoUpgrade": getattr(sub, "auto_upgrade", None),
-        })
-    except Exception:
-        pass
-
-
 @strawberry.type
 class Mutation:
     @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
@@ -1498,7 +1468,6 @@ class Mutation:
             db.add(sub)
             db.commit()
             db.refresh(sub)
-            _push_suscripcion_evento(db, sub, True)
             return map_resource_subscription(sub)
         except Exception as e:
             db.rollback()
@@ -1517,7 +1486,6 @@ class Mutation:
                 raise ValueError(f"Suscripción '{id}' no encontrada")
             if not _autorizado_sub(info, db, sub.application_id):
                 raise PermissionError("No autorizado para gestionar esta suscripción")
-            _push_suscripcion_evento(db, sub, False)
             db.delete(sub)
             db.commit()
             return True
