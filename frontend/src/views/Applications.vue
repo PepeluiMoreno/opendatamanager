@@ -1,52 +1,70 @@
 <template>
-  <div class="p-6 flex flex-col lg:flex-row gap-6 h-full">
+  <div class="p-6 flex flex-col gap-6 h-full">
 
-    <!-- ── Maestro: aplicaciones ───────────────────────────────────────── -->
-    <aside class="lg:w-72 lg:flex-shrink-0 flex flex-col min-h-0">
+    <!-- ── Maestro: suscriptores (FilterBar + datatable) ──────────────── -->
+    <div class="flex flex-col min-h-0">
       <div class="flex items-center justify-end mb-3">
         <button @click="openCreateApp" class="btn btn-primary text-sm py-1 px-3">+ New</button>
       </div>
 
-      <FilterBar :canClear="!!q" :count="filteredApps.length" :total="applications.length" @clear="q=''">
-        <input v-model="q" type="text" placeholder="Buscar aplicación…" class="input text-sm flex-1 min-w-[160px]" />
+      <FilterBar :canClear="!!q || estadoFiltro !== 'todos'" :count="filteredApps.length" :total="applications.length"
+                 @clear="q=''; estadoFiltro='todos'">
+        <input v-model="q" type="text" placeholder="Buscar suscriptor…" class="input text-sm flex-1 min-w-[200px]" />
+        <select v-model="estadoFiltro" class="input text-sm">
+          <option value="todos">Todos</option>
+          <option value="activos">Activos</option>
+          <option value="inactivos">Inactivos</option>
+        </select>
       </FilterBar>
 
       <div v-if="loading" class="text-gray-400 text-center py-8">Loading…</div>
       <div v-else-if="error" class="p-3 bg-red-900 border border-red-700 rounded text-red-200 text-sm">{{ error }}</div>
       <div v-else-if="applications.length === 0" class="text-gray-400 text-sm py-8 text-center">
-        No applications yet. Click “New”.
+        Aún no hay suscriptores. Pulsa «New».
       </div>
 
-      <div v-else class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-0">
-        <button
-          v-for="app in filteredApps" :key="app.id"
-          @click="selectedAppId = app.id"
-          :class="['w-full text-left card hover:border-gray-600 transition-colors',
-                   selectedAppId === app.id ? 'border-purple-500 bg-purple-900/20' : '']"
-        >
-          <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
-              <h3 class="font-bold text-purple-300 truncate">{{ app.name }}</h3>
-              <p v-if="app.description" class="text-xs text-gray-400 mt-0.5 truncate">{{ app.description }}</p>
-            </div>
-            <span :class="app.active ? 'text-green-400' : 'text-red-400'" class="text-xs font-medium flex-shrink-0">
-              {{ app.active ? 'Active' : 'Inactive' }}
-            </span>
-          </div>
-          <div class="flex items-center gap-2 mt-2">
-            <span class="text-xs font-mono px-2 py-0.5 rounded" :class="modeClass(app.consumptionMode)">
-              {{ app.consumptionMode === 'both' ? 'webhook + graphql' : app.consumptionMode }}
-            </span>
-            <span class="text-xs text-gray-500">{{ subsForApp(app.id).length }} subs</span>
-          </div>
-        </button>
+      <div v-else class="bg-gray-800 rounded-xl overflow-hidden max-h-[42vh] overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-700/60 text-gray-300 sticky top-0">
+            <tr>
+              <th class="text-left px-4 py-3">Suscriptor</th>
+              <th class="text-left px-4 py-3">Modo</th>
+              <th class="text-center px-4 py-3">Suscripciones</th>
+              <th class="text-left px-4 py-3">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="app in filteredApps" :key="app.id" @click="selectedAppId = app.id"
+                :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                         selectedAppId === app.id ? 'bg-purple-900/25' : 'hover:bg-gray-700/30']">
+              <td class="px-4 py-3">
+                <div class="font-bold text-purple-300 truncate">{{ app.name }}</div>
+                <div v-if="app.description" class="text-xs text-gray-400 mt-0.5 truncate max-w-md">{{ app.description }}</div>
+              </td>
+              <td class="px-4 py-3">
+                <span class="text-xs font-mono px-2 py-0.5 rounded" :class="modeClass(app.consumptionMode)">
+                  {{ app.consumptionMode === 'both' ? 'webhook + graphql' : app.consumptionMode }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-center text-gray-300">{{ subsForApp(app.id).length }}</td>
+              <td class="px-4 py-3">
+                <span :class="app.active ? 'text-green-400' : 'text-red-400'" class="text-xs font-medium">
+                  {{ app.active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+            </tr>
+            <tr v-if="filteredApps.length === 0">
+              <td colspan="4" class="px-4 py-6 text-center text-gray-500">Sin resultados.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
-    </aside>
+    </div>
 
     <!-- ── Detalle: suscripciones de la aplicación seleccionada ─────────── -->
-    <section class="lg:flex-1 flex flex-col min-h-0 rounded-xl border border-gray-700 bg-gray-800">
+    <section class="flex-1 flex flex-col min-h-0 rounded-xl border border-gray-700 bg-gray-800">
       <div v-if="!selectedApp" class="flex-1 flex items-center justify-center text-gray-500 text-sm">
-        Select an application to manage its subscriptions.
+        Selecciona un suscriptor para ver su cabecera y recursos autorizados.
       </div>
 
       <template v-else>
@@ -296,6 +314,7 @@ const selectedAppId = ref('')
 const aplicaciones  = ref([])
 const tokenEmitido  = ref(null)
 const q             = ref('')
+const estadoFiltro  = ref('todos')
 
 // App CRUD state
 const showAppModal       = ref(false)
@@ -455,8 +474,12 @@ const principalSel = computed(() => {
 })
 const filteredApps = computed(() => {
   const s = q.value.trim().toLowerCase()
-  if (!s) return applications.value
-  return applications.value.filter(a => (a.name || '').toLowerCase().includes(s) || (a.description || '').toLowerCase().includes(s))
+  return applications.value.filter(a => {
+    if (estadoFiltro.value === 'activos' && !a.active) return false
+    if (estadoFiltro.value === 'inactivos' && a.active) return false
+    if (!s) return true
+    return (a.name || '').toLowerCase().includes(s) || (a.description || '').toLowerCase().includes(s)
+  })
 })
 function copiar(t) { try { navigator.clipboard?.writeText(t) } catch { /* no-op */ } }
 async function reloadAcc() { const d = await fetchAplicacionesM2M(); aplicaciones.value = d?.aplicacionesM2m || [] }
