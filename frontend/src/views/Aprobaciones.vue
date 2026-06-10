@@ -36,6 +36,7 @@
           <option value="pendiente">Pendientes</option>
           <option value="aprobada">Admitidas</option>
           <option value="rechazada">Rechazadas</option>
+          <option value="anulada">Anuladas</option>
         </select>
       </div>
       <div class="card">
@@ -56,7 +57,7 @@
                 <td class="py-2 px-4 text-gray-400">{{ s.proposito || '—' }}</td>
                 <td class="py-2 px-4 text-gray-400">{{ fecha(s.createdAt) }}</td>
                 <td class="py-2 px-4">
-                  <span :class="s.estado==='aprobada' ? 'text-emerald-400' : s.estado==='rechazada' ? 'text-red-400' : 'text-yellow-400'">{{ estadoLabel(s.estado) }}</span>
+                  <span :class="s.estado==='aprobada' ? 'text-emerald-400' : s.estado==='rechazada' ? 'text-red-400' : s.estado==='anulada' ? 'text-gray-400' : 'text-yellow-400'">{{ estadoLabel(s.estado) }}</span>
                   <span v-if="s.estado==='rechazada' && s.motivo" class="block text-xs text-gray-500">{{ s.motivo }}</span>
                 </td>
                 <td class="py-2 px-4 text-right whitespace-nowrap">
@@ -205,7 +206,7 @@ const tokenEmitido = ref(null)
 const estadoFiltro = ref('pendiente')
 const solicitudesFiltradas = computed(() => estadoFiltro.value ? solicitudes.value.filter(x => (x.estado || 'pendiente') === estadoFiltro.value) : solicitudes.value)
 
-function estadoLabel(e) { return e === 'aprobada' ? 'Admitida' : e === 'rechazada' ? 'Rechazada' : 'Pendiente' }
+function estadoLabel(e) { return e === 'aprobada' ? 'Admitida' : e === 'rechazada' ? 'Rechazada' : e === 'anulada' ? 'Anulada' : 'Pendiente' }
 async function eliminarSol(s) {
   if (!window.confirm(`¿Eliminar la solicitud de «${s.nombre}»?`)) return
   accionError.value = ''

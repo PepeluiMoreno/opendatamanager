@@ -2080,7 +2080,7 @@ class Mutation:
         """Elimina una aplicación (principal). Sus recursos NO se borran: pasan
         a 'sistema' (auto_generated=True). Sus tokens caen en cascada (revocados
         de hecho)."""
-        from app.models import Usuario, Resource, ServiceToken
+        from app.models import Usuario, Resource, ServiceToken, SolicitudIngreso
         from app.service_auth import PRINCIPAL_APLICACION
         db = get_db()
         try:
@@ -2089,14 +2089,25 @@ class Mutation:
                 Usuario.tipo == PRINCIPAL_APLICACION).first()
             if not u:
                 raise ValueError("Aplicación no encontrada")
+            # Sus solicitudes pasan a 'anulada' (no se borran) y se avisará al cliente.
+            sols = db.query(SolicitudIngreso).filter(
+                SolicitudIngreso.usuario_id == u.id).all()
+            for s in sols:
+                s.estado = "anulada"
+                s.motivo = "Aplicación eliminada en ODM"
+                s.resuelta_at = _dt.utcnow()
             # Reasignar sus recursos a 'sistema' ANTES de borrar el principal.
             db.query(Resource).filter(
                 Resource.created_by_id == u.id).update(
                 {"auto_generated": True}, synchronize_session=False)
+            # Tokens revocados de hecho (se borran al borrar el principal; explícito).
             db.query(ServiceToken).filter(
                 ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
             db.delete(u)
             db.commit()
+            # Push de des-registro inmediato al callback de cada solicitud (estado=anulada).
+            for s in sols:
+                _push_solicitud_resuelta(s)
             return True
         except Exception:
             db.rollback(); raise
