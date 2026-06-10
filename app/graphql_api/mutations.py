@@ -1866,6 +1866,17 @@ class Mutation:
             ).first()
             if existente is not None:
                 s = existente
+                # Sana una pendiente anterior creada sin callback (p. ej. antes de
+                # configurar la URL pública del consumidor): completa callback_url/secret.
+                _cu = getattr(input, "callback_url", None)
+                _cs = getattr(input, "callback_secret", None)
+                _ch = False
+                if _cu and not getattr(s, "callback_url", None):
+                    s.callback_url = _cu; _ch = True
+                if _cs and not getattr(s, "callback_secret", None):
+                    s.callback_secret = _cs; _ch = True
+                if _ch:
+                    db.commit()
             else:
                 s = SolicitudIngreso(
                     nombre=input.nombre,
