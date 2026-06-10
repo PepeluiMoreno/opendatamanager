@@ -485,6 +485,7 @@ class SolicitudIngresoType:
     github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
     consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
     webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
+    ya_registrada: bool = strawberry.field(default=False, name="yaRegistrada")
     estado: str = "pendiente"
     motivo: Optional[str] = None
     created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")

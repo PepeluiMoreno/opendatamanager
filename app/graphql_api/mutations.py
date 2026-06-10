@@ -1207,24 +1207,65 @@ class Mutation:
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
     def delete_application(self, id: str, hard_delete: bool = False) -> bool:
-        """Soft-delete (or hard-delete) de una Application"""
+        """Ruta ÚNICA de borrado. Elimina la aplicación por completo: borra la
+        Application (webhook) y su principal+tokens, desvincula recursos (que
+        pasan a 'sistema'), anula sus solicitudes y avisa al consumidor
+        (estado=anulada) para que deje de estar operativo y vuelva al alta."""
+        from app.models import (Usuario, Resource, ServiceToken, SolicitudIngreso,
+                                 ResourceSubscription, ApplicationNotification)
+        from app.service_auth import PRINCIPAL_APLICACION, _slug
         db = get_db()
         try:
             application = db.query(Application).filter(Application.id == id).first()
             if not application:
                 raise ValueError(f"Application with id '{id}' not found")
+            _wh_url = getattr(application, "webhook_url", None)
+            _wh_secret = getattr(application, "webhook_secret", None)
+            _name = application.name
 
+            # Principal vinculado (app-<slug>): su acceso muere con la aplicación.
+            u = db.query(Usuario).filter(
+                Usuario.username == _slug(_name),
+                Usuario.tipo == PRINCIPAL_APLICACION).first()
+            sols = []
+            if u is not None:
+                sols = db.query(SolicitudIngreso).filter(
+                    SolicitudIngreso.usuario_id == u.id).all()
+                for s in sols:
+                    s.estado = "anulada"
+                    s.motivo = "Aplicación eliminada en ODM"
+                    s.resuelta_at = _dt.utcnow()
+                db.query(Resource).filter(
+                    Resource.created_by_id == u.id).update(
+                    {"auto_generated": True}, synchronize_session=False)
+                db.query(ServiceToken).filter(
+                    ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
+
+            db.query(ApplicationNotification).filter(
+                ApplicationNotification.application_id == id).delete(synchronize_session=False)
+            db.query(ResourceSubscription).filter(
+                ResourceSubscription.application_id == id).delete(synchronize_session=False)
             if hard_delete:
-                db.query(ApplicationNotification).filter(ApplicationNotification.application_id == id).delete()
-                db.query(ResourceSubscription).filter(ResourceSubscription.application_id == id).delete()
                 db.delete(application)
             else:
-                # Soft-delete: también se quita la vinculación a recursos (suscripciones)
-                # y sus notificaciones; los recursos permanecen.
-                db.query(ApplicationNotification).filter(ApplicationNotification.application_id == id).delete()
-                db.query(ResourceSubscription).filter(ResourceSubscription.application_id == id).delete()
-                application.deleted_at = datetime.utcnow()
+                application.deleted_at = _dt.utcnow()
+                application.active = False
+                application.created_by_id = None
+                application.name = f"{_name}__del_{int(_dt.utcnow().timestamp())}"
+            if u is not None:
+                db.delete(u)
             db.commit()
+
+            # Aviso de des-registro al consumidor (best-effort).
+            try:
+                from app.services.webhook_push import post_webhook
+                if _wh_url and _wh_secret:
+                    post_webhook(_wh_url, _wh_secret, {
+                        "evento": "solicitud_resuelta", "estado": "anulada", "nombre": _name})
+            except Exception:
+                pass
+            for s in sols:
+                _push_solicitud_resuelta(s)
             return True
         except Exception as e:
             db.rollback()
@@ -1932,6 +1973,17 @@ class Mutation:
             raise ValueError("Faltan campos obligatorios: " + ", ".join(_faltan))
         db = get_db()
         try:
+            # Identidad: si ya hay una Application activa con este nombre, el secreto
+            # de webhook debe coincidir (mismo consumidor re-llaveando tras perder el
+            # token). Si no coincide, es otro reclamando el nombre -> rechazar.
+            from app.models import Application as _App
+            _app_exist = db.query(_App).filter(
+                _App.name == input.nombre, _App.deleted_at.is_(None)).first()
+            if _app_exist is not None and getattr(_app_exist, "webhook_secret", None):
+                if (getattr(input, "callback_secret", None) or "") != (_app_exist.webhook_secret or ""):
+                    raise ValueError(
+                        "Ya existe una aplicación registrada con este nombre. Si es tuya, "
+                        "usa el mismo secreto de webhook; si no, elige otro nombre.")
             # §9 anti-duplicados: si ya hay una pendiente con el mismo nombre, se
             # devuelve esa (idempotente) en vez de crear otra.
             existente = db.query(SolicitudIngreso).filter(
@@ -2242,61 +2294,3 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
-    def eliminar_aplicacion(self, usuario_id: strawberry.ID,
-                            info: strawberry.types.Info) -> bool:
-        """Elimina una aplicación (principal). Sus recursos NO se borran: pasan
-        a 'sistema' (auto_generated=True). Sus tokens caen en cascada (revocados
-        de hecho)."""
-        from app.models import Usuario, Resource, ServiceToken, SolicitudIngreso, Application, ResourceSubscription, ApplicationNotification
-        from app.service_auth import PRINCIPAL_APLICACION
-        db = get_db()
-        try:
-            u = db.query(Usuario).filter(
-                Usuario.id == usuario_id,
-                Usuario.tipo == PRINCIPAL_APLICACION).first()
-            if not u:
-                raise ValueError("Aplicación no encontrada")
-            # Sus solicitudes pasan a 'anulada' (no se borran) y se avisará al cliente.
-            sols = db.query(SolicitudIngreso).filter(
-                SolicitudIngreso.usuario_id == u.id).all()
-            for s in sols:
-                s.estado = "anulada"
-                s.motivo = "Aplicación eliminada en ODM"
-                s.resuelta_at = _dt.utcnow()
-            # Reasignar sus recursos a 'sistema' ANTES de borrar el principal.
-            db.query(Resource).filter(
-                Resource.created_by_id == u.id).update(
-                {"auto_generated": True}, synchronize_session=False)
-            # Tokens revocados de hecho (se borran al borrar el principal; explícito).
-            db.query(ServiceToken).filter(
-                ServiceToken.usuario_id == u.id).delete(synchronize_session=False)
-            # Soft-delete de la(s) Application(s) (suscripción webhook) ligadas por
-            # nombre o autoría, para que el cliente deje de verse "registrado".
-            from sqlalchemy import or_ as _or
-            _conds = [Application.created_by_id == u.id]
-            _nombres = [s.nombre for s in sols]
-            if _nombres:
-                _conds.append(Application.name.in_(_nombres))
-            for _app in db.query(Application).filter(
-                    Application.deleted_at == None, _or(*_conds)).all():
-                # Quitar la VINCULACIÓN a recursos (suscripciones) y sus notificaciones.
-                # Los recursos NO se borran (ya pasaron a 'sistema'); solo se desvincula.
-                db.query(ResourceSubscription).filter(
-                    ResourceSubscription.application_id == _app.id).delete(synchronize_session=False)
-                db.query(ApplicationNotification).filter(
-                    ApplicationNotification.application_id == _app.id).delete(synchronize_session=False)
-                _app.deleted_at = _dt.utcnow()
-                _app.active = False
-                # Liberar el nombre (UNIQUE) para permitir un re-alta limpio.
-                _app.name = f"{_app.name}__del_{int(_dt.utcnow().timestamp())}"
-            db.delete(u)
-            db.commit()
-            # Push de des-registro inmediato al callback de cada solicitud (estado=anulada).
-            for s in sols:
-                _push_solicitud_resuelta(s)
-            return True
-        except Exception:
-            db.rollback(); raise
-        finally:
-            db.close()

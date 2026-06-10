@@ -83,7 +83,6 @@
             <div class="flex gap-2 items-center">
               <button v-if="principalSel" @click="emitirTok(principalSel)" class="btn text-xs py-1 px-2">Emitir token</button>
               <button v-else @click="crearAcceso(selectedApp)" class="btn btn-primary text-xs py-1 px-2">Crear acceso</button>
-              <button v-if="principalSel" @click="eliminarAcceso(principalSel)" title="Eliminar acceso (principal + tokens)" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
             </div>
           </div>
           <div v-if="!principalSel" class="text-xs text-gray-500">Sin acceso emitido. «Crear acceso» materializa el principal <span class="font-mono text-gray-400">{{ slugUsername(selectedApp.name) }}</span> y emite su token.</div>
@@ -285,7 +284,7 @@ import FilterBar from '../components/FilterBar.vue'
 import {
   fetchApplications, createApplication, updateApplication, deleteApplication, fetchUsoMensualAplicacion,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
-  fetchAplicacionesM2M, crearAplicacion, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion, eliminarAplicacion,
+  fetchAplicacionesM2M, crearAplicacion, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion,
 } from '../api/graphql'
 
 const applications  = ref([])
@@ -473,10 +472,5 @@ function revocarTok(tok) {
   confirmar.value = { title: 'Revocar token', confirmText: 'Revocar',
     message: `Revocar ${tok.prefix}… Es inmediato e irreversible.`,
     onConfirm: async () => { await revocarTokenAplicacion(tok.id); await reloadAcc() } }
-}
-function eliminarAcceso(p) {
-  confirmar.value = { title: 'Eliminar acceso', confirmText: 'Eliminar',
-    message: `Eliminar el acceso «${p.username}» (principal + tokens). Sus recursos pasarán a sistema.`,
-    onConfirm: async () => { try { await eliminarAplicacion(p.usuarioId); await reloadAcc() } catch (e) { error.value = e.message || 'No se pudo eliminar el acceso' } } }
 }
 </script>

@@ -1150,7 +1150,7 @@ export async function deleteFetcherPreset(id) {
 const Q_SOLICITUDES_INGRESO = `
   query SolicitudesIngreso($soloPendientes: Boolean) {
     solicitudesIngreso(soloPendientes: $soloPendientes) {
-      id nombre contacto proposito descripcion personaContacto email telefono githubUrl consumptionMode webhookUrl estado motivo createdAt resueltaAt usuarioId
+      id nombre contacto proposito descripcion personaContacto email telefono githubUrl consumptionMode webhookUrl yaRegistrada estado motivo createdAt resueltaAt usuarioId
     }
   }`
 
@@ -1251,11 +1251,6 @@ const M_ELIMINAR_SOLICITUD = `
     eliminarSolicitudIngreso(id: $id)
   }`
 
-const M_ELIMINAR_APLICACION = `
-  mutation EliminarAplicacion($usuarioId: ID!) {
-    eliminarAplicacion(usuarioId: $usuarioId)
-  }`
-
 export async function fetchAplicacionesM2M() {
   try { return await client.request(Q_APLICACIONES_M2M) }
   catch (e) { handleGraphQLError(e) }
@@ -1278,9 +1273,5 @@ export async function crearAplicacion(nombre, contacto) {
 }
 export async function eliminarSolicitudIngreso(id) {
   try { return await client.request(M_ELIMINAR_SOLICITUD, { id }) }
-  catch (e) { handleGraphQLError(e) }
-}
-export async function eliminarAplicacion(usuarioId) {
-  try { return await client.request(M_ELIMINAR_APLICACION, { usuarioId }) }
   catch (e) { handleGraphQLError(e) }
 }
