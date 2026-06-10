@@ -1,22 +1,19 @@
-"""purge one-off de principales de aplicación ckan-jerez (limpieza solicitada)
+"""purge one-off de principales de aplicacion ckan-jerez (limpieza solicitada)
 
-Revision ID: b2c3d4e5f6a7
+Revision ID: purge_ckan_princ_1
 Revises: f0a1b2c3d4e5
 Create Date: 2026-06-10
 
-Borra TODOS los principales (Usuario tipo='aplicacion') cuyo username contiene
-'ckan-jerez' (app-ckan-jerez, app-ckan-jerez-10/11/12, …). El FK
-service_token.usuario_id es ON DELETE CASCADE → sus tokens caen en cascada; los
-FK de auditoría son SET NULL. Se ejecuta UNA SOLA VEZ (marcador persistente
-opendata._purge_markers); el consumidor re-hace el alta limpia con el flujo de
-token autogenerado. Envuelto en EXCEPTION ... NULL para no abortar el arranque.
+Borra TODOS los principales (Usuario tipo='aplicacion') con username que contiene
+'ckan-jerez'. service_token.usuario_id es ON DELETE CASCADE; los FK de auditoria
+son SET NULL. Una sola vez (marcador opendata._purge_markers). EXCEPTION ... NULL
+para no abortar el arranque. Id de revision descriptivo a proposito (el esquema
+hex rotado ya usaba b2c3d4e5f6a7 → versionado_recursos).
 """
 from typing import Union, Sequence
-
 from alembic import op
 
-
-revision: str = 'b2c3d4e5f6a7'
+revision: str = 'purge_ckan_princ_1'
 down_revision: Union[str, None] = 'f0a1b2c3d4e5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
