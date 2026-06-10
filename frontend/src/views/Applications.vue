@@ -4,7 +4,7 @@
     <!-- ── Maestro: suscriptores (FilterBar + datatable) ──────────────── -->
     <div class="flex flex-col min-h-0">
       <div class="flex items-center justify-end mb-3">
-        <button @click="openCreateApp" class="btn btn-primary text-sm py-1 px-3">+ New</button>
+        <button @click="openCreateApp" class="btn btn-primary text-sm py-1 px-3">+ Subscriber</button>
       </div>
 
       <FilterBar :canClear="!!q || estadoFiltro !== 'todos'" :count="filteredApps.length" :total="applications.length"
