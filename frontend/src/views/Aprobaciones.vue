@@ -8,6 +8,11 @@
       </p>
     </div>
 
+    <div v-if="accionError" class="bg-red-900/40 border border-red-700 text-red-200 text-sm rounded-lg px-3 py-2">
+      {{ accionError }}
+      <button @click="accionError=''" class="float-right text-red-300 hover:text-white">✕</button>
+    </div>
+
     <!-- Token recién emitido (display-once) -->
     <div v-if="tokenEmitido" class="card border border-emerald-700 bg-emerald-950/30">
       <h3 class="text-sm font-semibold text-emerald-300 mb-1">Token emitido para «{{ tokenEmitido.username }}»</h3>
@@ -150,11 +155,17 @@ import { ref, onMounted } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 const confirmar = ref(null)
 const rechazo = ref(null)
+const accionError = ref('')
 function cerrarRechazo() { rechazo.value = null }
-function confirmarRechazo() {
+async function confirmarRechazo() {
   const r = rechazo.value; rechazo.value = null
   if (!r) return
-  if (r.tipo === 'sol') _rechazarSol(r.id, r.motivo); else _rechazarRec(r.id, r.motivo)
+  accionError.value = ''
+  try {
+    if (r.tipo === 'sol') await _rechazarSol(r.id, r.motivo); else await _rechazarRec(r.id, r.motivo)
+  } catch (e) {
+    accionError.value = 'No se pudo rechazar: ' + (e?.message || e)
+  }
 }
 function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
 function cerrarConfirm() { confirmar.value = null }
@@ -196,11 +207,16 @@ async function cargarRecursos() {
 }
 
 async function aprobarSol(s) {
-  const d = await aprobarSolicitudIngreso(s.id)
-  const r = d?.aprobarSolicitudIngreso
-  if (r) tokenEmitido.value = { username: r.username, token: r.token }
-  solicitudes.value = solicitudes.value.filter(x => x.id !== s.id)
-  await cargarSolicitudes()
+  accionError.value = ''
+  try {
+    const d = await aprobarSolicitudIngreso(s.id)
+    const r = d?.aprobarSolicitudIngreso
+    if (r) tokenEmitido.value = { username: r.username, token: r.token }
+    solicitudes.value = solicitudes.value.filter(x => x.id !== s.id)
+    await cargarSolicitudes()
+  } catch (e) {
+    accionError.value = 'No se pudo aprobar la solicitud: ' + (e?.message || e)
+  }
 }
 function rechazarSol(s) { rechazo.value = { tipo: 'sol', id: s.id, nombre: s.nombre, motivo: '' } }
 async function _rechazarSol(s_id, motivo) {
@@ -209,8 +225,13 @@ async function _rechazarSol(s_id, motivo) {
   await cargarSolicitudes()
 }
 async function aprobarRec(r) {
-  await aprobarRecurso(r.id)
-  await cargarRecursos()
+  accionError.value = ''
+  try {
+    await aprobarRecurso(r.id)
+    await cargarRecursos()
+  } catch (e) {
+    accionError.value = 'No se pudo aprobar el recurso: ' + (e?.message || e)
+  }
 }
 function rechazarRec(r) { rechazo.value = { tipo: 'rec', id: r.id, nombre: r.name, motivo: '' } }
 async function _rechazarRec(r_id, motivo) {

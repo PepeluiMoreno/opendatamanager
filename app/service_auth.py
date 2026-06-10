@@ -173,9 +173,15 @@ def crear_principal_aplicacion(db, nombre: str, contacto: str = None):
     if existing is not None:
         return existing  # idempotente: una aplicación → un único principal
 
+    # email es UNIQUE: si el contacto ya está en uso por otro usuario, no lo
+    # asignamos (evita IntegrityError al materializar el principal).
+    email = (contacto or None)
+    if email is not None and db.query(Usuario).filter(Usuario.email == email).first() is not None:
+        email = None
+
     usuario = Usuario(
         username=username,
-        email=(contacto or None),
+        email=email,
         password_hash=hash_password(_secrets.token_urlsafe(32)),  # inservible para login
         is_active=True,
         tipo=PRINCIPAL_APLICACION,
