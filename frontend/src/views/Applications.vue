@@ -94,41 +94,12 @@
           <span v-else class="text-gray-600">—</span>
           <span v-if="usoMensual" class="text-xs text-gray-500 ml-1">· cuota diaria {{ usoMensual.cuotaDiaria }}/día</span>
         </div>
-        <!-- Acceso M2M: principal + tokens (movido desde Approvals) -->
-        <div class="px-4 py-3 border-b border-gray-700 flex-shrink-0">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs uppercase tracking-wide text-gray-500 font-medium">Acceso (token Bearer)</span>
-            <div class="flex gap-2 items-center">
-              <button v-if="principalSel" @click="emitirTok(principalSel)" class="btn text-xs py-1 px-2">Emitir token</button>
-              <button v-else @click="crearAcceso(selectedApp)" class="btn btn-primary text-xs py-1 px-2">Crear acceso</button>
-            </div>
-          </div>
-          <div v-if="!principalSel" class="text-xs text-gray-500">Sin acceso emitido. «Crear acceso» materializa el principal <span class="font-mono text-gray-400">{{ slugUsername(selectedApp.name) }}</span> y emite su token.</div>
-          <div v-else>
-            <div class="text-xs text-gray-400 mb-1">Principal: <span class="font-mono text-gray-300">{{ principalSel.username }}</span><span v-if="!principalSel.isActive" class="text-red-400 ml-2">(inactiva)</span></div>
-            <div v-if="principalSel.tokens.length === 0" class="text-xs text-gray-500">Sin tokens.</div>
-            <table v-else class="w-full text-xs">
-              <thead class="text-left text-gray-500 border-b border-gray-700"><tr><th class="py-1 pr-3 font-medium">Token</th><th class="py-1 pr-3 font-medium">Last used</th><th class="py-1 pr-3 font-medium">Status</th><th class="py-1 font-medium text-right">Actions</th></tr></thead>
-              <tbody>
-                <tr v-for="t in principalSel.tokens" :key="t.id" class="border-b border-gray-800">
-                  <td class="py-1 pr-3 font-mono text-gray-300">{{ t.prefix }}…</td>
-                  <td class="py-1 pr-3 text-gray-400">{{ t.lastUsedAt ? formatDate(t.lastUsedAt) : 'nunca' }}</td>
-                  <td class="py-1 pr-3"><span v-if="t.activo" class="text-emerald-400">activo</span><span v-else-if="t.revokedAt" class="text-red-400">revocado</span><span v-else class="text-yellow-400">expirado</span></td>
-                  <td class="py-1 text-right whitespace-nowrap">
-                    <button v-if="t.activo" @click="rotarTok(principalSel, t)" title="Rotar" class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
-                    <button v-if="t.activo" @click="revocarTok(t)" title="Revocar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728A9 9 0 015.636 5.636"/></svg></button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
         <div class="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-gray-500 font-medium flex-shrink-0">Recursos autorizados</div>
 
         <!-- Tabla de suscripciones -->
         <div class="flex-1 overflow-auto min-h-0">
           <div v-if="subsForApp(selectedApp.id).length === 0" class="flex flex-col items-center justify-center h-40 text-gray-500 gap-2">
-            <span>No subscriptions for this application.</span>
+            <span>No subscriptions for the subscriber "{{ selectedApp.name }}".</span>
             <button @click="openNewSub" class="text-blue-400 hover:underline text-sm">Subscribe to a resource</button>
           </div>
           <table v-else class="w-full text-sm">
