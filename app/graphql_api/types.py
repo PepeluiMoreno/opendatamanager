@@ -166,8 +166,6 @@ class ApplicationType:
     email: Optional[str] = None
     telefono: Optional[str] = None
     github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
-    consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
-    webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
     proposito: Optional[str] = None
     deleted_at: Optional[datetime] = strawberry.field(default=None, name="deletedAt")
 
@@ -485,6 +483,8 @@ class SolicitudIngresoType:
     email: Optional[str] = None
     telefono: Optional[str] = None
     github_url: Optional[str] = strawberry.field(default=None, name="githubUrl")
+    consumption_mode: Optional[str] = strawberry.field(default=None, name="consumptionMode")
+    webhook_url: Optional[str] = strawberry.field(default=None, name="webhookUrl")
     estado: str = "pendiente"
     motivo: Optional[str] = None
     created_at: Optional[datetime] = strawberry.field(default=None, name="createdAt")
