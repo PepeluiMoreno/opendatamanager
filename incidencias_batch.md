@@ -210,15 +210,17 @@ tienen su propio índice. El crawl ciego debería ser siempre el último recurso
 primero. Encaja con la idea del descubridor como "expansor": preferir leer el índice
 publicado por la plataforma antes que rastrear.
 
-## Descubridor REST — lookups con parámetro OBLIGATORIO (PENDIENTE)
-El descubridor emite los lookups como GET planos (sin params), pero algunos exigen
-un parámetro obligatorio y un troceo por su enum. Caso real: /organos requiere
-idAdmon (C=Estatal, A=Autonómica, L=Local, O=Otros). El candidato "BDNS lookup ·
-Órganos" se emitió SIN idAdmon -> no funciona tal cual. El troceo por nivel de
-administración es conocimiento de dominio, no está en el OpenAPI plano.
-Mejora: detectar params required de tipo enum en el OpenAPI y expandir el lookup en
-N hijos (uno por valor), como un mini-pivote. Mientras tanto, para órganos se usan
-los 4 recursos hand-tuned preexistentes (idAdmon C/A/L/O), que la matriz no toca.
-Nota: "beneficiarios" NO es un dataset; /beneficiarios = Tipos de beneficiarios
-(categorías). El universo de perceptores sale de grandesbeneficiarios (dataset) y,
-completo, del derived NIF↔denominación sobre concesiones.
+## Descubridor REST — endpoints que NO encajan en el mapeo 1:1 (DECIDIDO)
+Decisión (consistente con el principio: no meter artificios que resten generalidad):
+el descubridor mantiene 1:1 endpoint->recurso y SOLO emite lookups que son tabla
+enumerable (GET de un segmento, sin obligatorios aparte de vpd, lista no vacía). Lo
+demás se EXCLUYE con motivo en el log, no se rescata con trucos:
+  · /organos: exige idAdmon (enum C/A/L/O). RECHAZADO expandir por enum dentro del
+    descubridor -> sería asumir que un enum obligatorio es siempre una dimensión de
+    partición (no es universal) y rompe el 1:1. La partición es trabajo del mecanismo
+    dedicado (Pivote). Mientras tanto, órganos se cubre con los 4 recursos
+    hand-tuned preexistentes (idAdmon C/A/L/O).
+  · /terceros: endpoint de búsqueda (param `busqueda`, >=3 chars); no enumerable.
+    Útil como herramienta de búsqueda para el algoritmo, no como recurso de ingesta.
+  · /enlaces: objeto de configuración del portal (enlaces a ayuda/transparencia/ley/
+    microportal/noticias), no datos.

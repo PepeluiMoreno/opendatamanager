@@ -92,26 +92,54 @@ class RestApiDiscovererFetcher(BaseDiscoverer):
                 "target_params": self._dataset_child(cfg, name),
             })
 
-        # Lookups (opcional): GET de un solo segmento sin /busqueda hermano.
+        # Lookups (opcional). El descubridor mantiene un mapeo limpio 1:1
+        # endpoint -> recurso. Solo emite lookups que SON una tabla enumerable:
+        # GET de un segmento, sin params obligatorios aparte de vpd, que devuelve
+        # una lista no vacía. Lo que necesita partición (/organos -> idAdmon: eso
+        # es un Pivote, no un lookup), búsqueda por término (/terceros) o no es
+        # tabla (/enlaces, config del portal) queda FUERA a propósito y con MOTIVO
+        # en el log: forzarlo aquí sería un artificio que resta generalidad.
         n_lookups = 0
+        excluidos: List[str] = []
         if cfg["include_lookups"]:
+            sess = requests.Session()
+            ua = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
             for path, ops in paths.items():
                 seg = path.strip("/").split("/")
                 if len(seg) != 1 or "get" not in ops:
                     continue
                 name = seg[0]
                 if name in datasets or name in _LOOKUP_EXCLUDE:
-                    continue   # tiene /busqueda (es un dataset por-id) o es auth/microportal
+                    continue   # tiene /busqueda o es auth/microportal
                 tag = (ops["get"].get("tags") or [name])[0]
-                proposals.append({
-                    "suggested_name": f"BDNS lookup · {tag}"[:200],
-                    "matched_urls": [], "file_types": {}, "confidence": 0.9,
-                    "target_fetcher_code": cfg["child"],
-                    "target_params": self._lookup_child(cfg, name),
-                })
-                n_lookups += 1
+                req = [p.get("name") for p in ops["get"].get("parameters", [])
+                       if p.get("required") and p.get("name") != "vpd"]
+                if req:
+                    excluidos.append(f"{name} (exige {req}: partición/filtro, no es lookup plano)")
+                    continue
+                try:
+                    rp = sess.get(f"{cfg['api_base']}/{name}", params={"vpd": cfg["vpd"]},
+                                  headers=ua, timeout=15)
+                    payload = rp.json() if rp.status_code == 200 else None
+                    code = rp.status_code
+                except Exception:
+                    payload, code = None, "err"
+                if isinstance(payload, list) and payload:
+                    proposals.append({
+                        "suggested_name": f"BDNS lookup · {tag}"[:200],
+                        "matched_urls": [], "file_types": {}, "confidence": 0.9,
+                        "target_fetcher_code": cfg["child"],
+                        "target_params": self._lookup_child(cfg, name),
+                    })
+                    n_lookups += 1
+                elif isinstance(payload, dict):
+                    excluidos.append(f"{name} (objeto, no tabla; config de portal)")
+                else:
+                    excluidos.append(f"{name} (HTTP {code}; ¿endpoint de búsqueda?)")
 
-        self.profile_stats = {"total_files": len(proposals), "datasets": len(datasets), "lookups": n_lookups}
-        logger.info(f"[rest-discover] {len(datasets)} dataset(s) + {n_lookups} lookup(s) -> {len(proposals)} hijo(s).")
+        self.profile_stats = {"total_files": len(proposals), "datasets": len(datasets),
+                              "lookups": n_lookups, "excluidos": excluidos}
+        logger.info(f"[rest-discover] {len(datasets)} dataset(s) + {n_lookups} lookup(s); "
+                    f"fuera: {excluidos or 'ninguno'} -> {len(proposals)} hijo(s).")
         return proposals
 
