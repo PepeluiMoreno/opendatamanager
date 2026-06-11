@@ -56,6 +56,7 @@
           :class="viewMode === 'list' ? 'border-purple-400 text-purple-200 bg-purple-950/40' : 'border-gray-600 text-gray-500 hover:text-gray-300'"
         >Lista</button>
         <button @click="viewMode = 'tree'"
+          v-if="!autodescriptivo"
           class="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
           :class="viewMode === 'tree' ? 'border-purple-400 text-purple-200 bg-purple-950/40' : 'border-gray-600 text-gray-500 hover:text-gray-300'"
         >Árbol</button>
@@ -488,6 +489,10 @@ function toggleSelect(c) {
 }
 
 // ── Data loading ───────────────────────────────────────────────────────────
+// Las colecciones autodescriptivas (catálogo/archivo) no tienen árbol útil:
+// forzar vista Lista, donde cada candidato se promueve uno a uno.
+watch(autodescriptivo, (v) => { if (v) viewMode.value = 'list' })
+
 watch(selectedResourceId, async (id) => {
   selection.value = new Set()
   if (!id) { candidates.value = []; return }

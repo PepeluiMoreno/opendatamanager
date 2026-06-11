@@ -41,7 +41,7 @@ _DEFAULT_INCLUDE = r"(registro\s+de\s+(asociaciones|fundaciones)|^(asociaciones|
 _DEFAULT_EXCLUDE = (
     r"(paciente|juvenil|profesional|estad[íi]stic|cuentas|puesto|consumidor|"
     r"empresarial|desarrollo\s+rural|p[úu]blic[ao]s?\b|inventario|localizaci|"
-    r"econ[óo]mic|ámbito|servicio\s+wms|legislatura)"
+    r"econ[óo]mic|ámbito|servicio\s+wms|legislatura|balance)"
 )
 
 
@@ -140,6 +140,11 @@ class CatalogFetcher(BaseFetcher):
                 # (p. ej. un fichero por provincia, o csv vs json): título de la
                 # distribución si lo trae, si no el nombre de fichero de la URL.
                 dlabel = self._val(d.get("title")) or url.rstrip("/").split("/")[-1].split("?")[0]
+                # El exclude también se aplica a la etiqueta de la distribución: un
+                # dataset con título de registro puede traer distribuciones que NO
+                # son el registro (Balance, Cuentas de resultados por ejercicio...).
+                if dlabel and cfg["exclude"].search(dlabel):
+                    continue
                 out.append({"title": title.strip(), "publisher": publisher,
                             "url": url, "format": fmt, "dist_label": dlabel})
         logger.info(f"[catalog] {len(out)} distribución(es) pertinente(s) tras filtro.")
