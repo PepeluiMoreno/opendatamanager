@@ -121,6 +121,31 @@ class Publisher(AuditMixin, Base):
     resources = relationship("Resource", back_populates="publisher_obj")
 
 
+class ResourceGroup(AuditMixin, Base):
+    """Agrupación organizativa de recursos.
+
+    Una de dos naturalezas según su origen:
+      - 'organizativa': carpeta creada a mano, sin raíz.
+      - 'matriz': originada por un recurso matriz descubridor, que la preside
+        vía ``root_resource_id``.
+    Un recurso pertenece como mucho a UNA agrupación (Resource.resource_group_id).
+    Al borrar la agrupación, sus miembros quedan «sin agrupar» (FK SET NULL), nunca
+    se borran.
+    """
+    __tablename__ = "resource_group"
+    __table_args__ = (
+        UniqueConstraint("name", name="uq_resource_group_name"),
+        {"schema": "opendata"},
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    name = Column(String(100), nullable=False)
+    origin = Column(String(20), default="organizativa", server_default="organizativa", nullable=False)  # organizativa | matriz
+    # Para las de origen 'matriz': el recurso que la preside. Si se borra la
+    # matriz, su agrupación se va con ella (y sus miembros quedan sin agrupar).
+    root_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=True)
+
+
 class Resource(AuditMixin, Base):
     __tablename__ = "resource"
     __table_args__ = (
@@ -143,6 +168,9 @@ class Resource(AuditMixin, Base):
     load_mode = Column(String(20), default="replace")
 
     parent_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
+    # Agrupación organizativa a la que pertenece (carpeta). Nullable = «sin agrupar».
+    # Al borrar la agrupación, este campo vuelve a NULL (no se borra el recurso).
+    resource_group_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_group.id", ondelete="SET NULL"), nullable=True)
     auto_generated = Column(Boolean, default=False, nullable=False)
     # Rol del recurso frente a un fetcher capaz de descubrir (p. ej. Web Tree):
     # marca si ESTE recurso actúa como nave nodriza (descubre candidatos y los

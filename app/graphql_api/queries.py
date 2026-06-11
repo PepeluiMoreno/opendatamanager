@@ -10,7 +10,7 @@ from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Subscriber, FieldMetadata,
     ResourceExecution, Dataset, ResourceSubscription, SubscriberNotification, AppConfig,
-    DerivedDatasetConfig, DerivedDatasetEntry, Publisher, RefrescoExtemporaneo
+    DerivedDatasetConfig, DerivedDatasetEntry, Publisher, RefrescoExtemporaneo, ResourceGroup
 )
 from datetime import datetime as _dt
 from sqlalchemy import func as _func
@@ -18,6 +18,7 @@ from app.graphql_api.types import (
     PresetType,
     FetcherType,
     ResourceType,
+    ResourceGroupType,
     FetcherParamType,
     ResourceParamType,
     SubscriberType,
@@ -190,6 +191,7 @@ def map_resource(resource: Resource) -> ResourceType:
         created_at=getattr(resource, 'created_at', None),
         deleted_at=resource.deleted_at,
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
+        resource_group_id=str(resource.resource_group_id) if getattr(resource, 'resource_group_id', None) else None,
         auto_generated=getattr(resource, 'auto_generated', False) or False,
         genera_colecciones=bool(getattr(resource, 'genera_colecciones', False)),
         created_by_kind=_created_by_kind(resource),
@@ -202,6 +204,17 @@ def map_resource(resource: Resource) -> ResourceType:
         candidatos_pendientes=getattr(resource, '_candidatos_pendientes', 0),
         miembros=getattr(resource, '_miembros', 0),
         ultimo_descubrimiento=getattr(resource, '_ultimo_descubrimiento', None),
+    )
+
+
+def map_resource_group(g: ResourceGroup, miembros: int = 0) -> ResourceGroupType:
+    """Convierte modelo ResourceGroup a tipo GraphQL."""
+    return ResourceGroupType(
+        id=str(g.id),
+        name=g.name,
+        origin=g.origin or "organizativa",
+        root_resource_id=str(g.root_resource_id) if g.root_resource_id else None,
+        miembros=miembros,
     )
 
 
@@ -495,6 +508,21 @@ class Query:
         try:
             ft = db.query(FetcherModel).filter(FetcherModel.id == id, FetcherModel.deleted_at == None).first()
             return map_fetcher(ft, include_resources=True) if ft else None
+        finally:
+            db.close()
+
+    @strawberry.field
+    def resource_groups(self, info: Info) -> List[ResourceGroupType]:
+        """Lista las agrupaciones de recursos con su recuento de miembros."""
+        db = get_db()
+        try:
+            grupos = db.query(ResourceGroup).order_by(ResourceGroup.name.asc()).all()
+            counts = dict(
+                db.query(Resource.resource_group_id, _func.count(Resource.id))
+                  .filter(Resource.deleted_at == None, Resource.resource_group_id != None)
+                  .group_by(Resource.resource_group_id).all()
+            )
+            return [map_resource_group(g, miembros=int(counts.get(g.id, 0))) for g in grupos]
         finally:
             db.close()
 
