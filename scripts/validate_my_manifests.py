@@ -10,7 +10,7 @@ from app.services.manifests import validate_manifest
 
 # Códigos de fetchers conocidos en la aplicación (según la base de datos o lo esperado)
 # 'Power BI' y 'API REST' son los que usamos en los manifiestos.
-KNOWN_FETCHER_CODES = ["Power BI", "API REST", "HTML Paginated", "Web Tree", "CKAN"]
+KNOWN_FETCHER_CODES = ["HTML (genérico)", "API REST", "Web Tree", "CKAN", "Power BI"]
 
 def validate_file(filepath):
     print(f"Validando {filepath}...")
