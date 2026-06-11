@@ -209,3 +209,16 @@ es casi universal; WordPress (wp-json), Drupal (JSON:API), CKAN (api/3) y Socrat
 tienen su propio índice. El crawl ciego debería ser siempre el último recurso, no el
 primero. Encaja con la idea del descubridor como "expansor": preferir leer el índice
 publicado por la plataforma antes que rastrear.
+
+## Descubridor REST — lookups con parámetro OBLIGATORIO (PENDIENTE)
+El descubridor emite los lookups como GET planos (sin params), pero algunos exigen
+un parámetro obligatorio y un troceo por su enum. Caso real: /organos requiere
+idAdmon (C=Estatal, A=Autonómica, L=Local, O=Otros). El candidato "BDNS lookup ·
+Órganos" se emitió SIN idAdmon -> no funciona tal cual. El troceo por nivel de
+administración es conocimiento de dominio, no está en el OpenAPI plano.
+Mejora: detectar params required de tipo enum en el OpenAPI y expandir el lookup en
+N hijos (uno por valor), como un mini-pivote. Mientras tanto, para órganos se usan
+los 4 recursos hand-tuned preexistentes (idAdmon C/A/L/O), que la matriz no toca.
+Nota: "beneficiarios" NO es un dataset; /beneficiarios = Tipos de beneficiarios
+(categorías). El universo de perceptores sale de grandesbeneficiarios (dataset) y,
+completo, del derived NIF↔denominación sobre concesiones.
