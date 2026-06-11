@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "MJUS",
+    "nombre": "Ministerio de la Presidencia, Justicia y Relaciones con las Cortes",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://maper.mjusticia.gob.es/"
+  },
+  "resources": [
+    {
+      "name": "Registro de Entidades Religiosas (RER)",
+      "fetcher": "HTML (genérico)",
+      "schedule": "0 3 1 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "navigation", "value": "searchloop", "is_external": false },
+        { "key": "url", "value": "https://maper.mjusticia.gob.es/Maper/buscarRER.action", "is_external": false },
+        { "key": "session_init_url", "value": "https://maper.mjusticia.gob.es/Maper/buscarRER.action", "is_external": false },
+        { "key": "search_mode", "value": "POST_struts", "is_external": false },
+        { "key": "search_field_name", "value": "filtro.confesion", "is_external": false },
+        { "key": "extra_params", "value": "{\"filtro.nombre\": \"\", \"filtro.numeroInscripcion\": \"\", \"filtro.numeroInscripcionAntiguo\": \"\", \"__multiselect_filtro.subconfesion\": \"\", \"filtro.seccion\": \"1\", \"__multiselect_filtro.tiposEntidad\": \"\", \"__multiselect_filtro.codigosComunidad\": \"\", \"__multiselect_filtro.codigosProvincia\": \"\", \"filtro.municipio\": \"\"}", "is_external": false },
+        { "key": "rows_selector", "value": "table.tabla_datos tr", "is_external": false },
+        { "key": "has_header", "value": "true", "is_external": false },
+        { "key": "row_link_selector", "value": "a[href*='DetalleEntidadReligiosa']", "is_external": false },
+        { "key": "next_page_selector", "value": "li.movimiento a:-soup-contains('Siguiente')", "is_external": false },
+        { "key": "max_pages", "value": "1600", "is_external": false },
+        { "key": "delay_between_pages", "value": "2.0", "is_external": false },
+        { "key": "delay_between_searches", "value": "3.0", "is_external": false },
+        { "key": "detail_delay", "value": "1.0", "is_external": false },
+        { "key": "detail_level", "value": "{\"field_label_selectors\": {\"numero_inscripcion\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Número de inscripción\"}, \"numero_inscripcion_antiguo\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Número de inscripción antiguo\"}, \"confesion\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Confesión\"}, \"seccion\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Sección\"}, \"nombre\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Nombre\"}, \"fecha_inscripcion\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Fecha de inscripción\"}, \"tipo_entidad\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Tipo de entidad\"}, \"domicilio_social\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Domicilio social\"}, \"comunidad_autonoma\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Comunidad autónoma\"}, \"fecha_estatutos\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Fecha de aprobación de estatutos\"}, \"representantes_legales\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Representantes legales\"}, \"federaciones\": {\"container\": \".detallePublicacionTexto\", \"label\": \"Federaciones\"}}}", "is_external": false },
+        { "key": "timeout", "value": "30", "is_external": false },
+        { "key": "max_retries", "value": "3", "is_external": false }
+      ]
+    }
+  ]
+}

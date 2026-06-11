@@ -2,12 +2,14 @@
 
 Una sola clase para scraping HTML sobre HTTP. Las peculiaridades se delegan en los
 registros de categorías de variación:
-  - navegación (`navigation`): single | paged | pivot | form_pivot
+  - navegación (`navigation`): single | paged | pivot | form_pivot | form_paged | searchloop
   - extracción (`extraction`):  fields | table   (dialecto de selectores CSS)
   - construcción de la petición (`request`): query | form_submit
-Absorbe HTML Forms (single), HTML Paginated (paged) y URL Loop HTML (pivot+paged).
-La recursión por niveles y el árbol de directorios quedan como especies propias
-(searchloop / web_tree): son tecnologías de descubrimiento genuinamente distintas.
+Absorbe HTML Forms (single), HTML Paginated (paged), URL Loop HTML (pivot+paged)
+y HTML SearchLoop (searchloop: pivota sobre valores de un <select>, formularios
+Struts2 con sesión, paginación y enriquecimiento por página de detalle; delega
+en searchloop_html). El árbol de directorios queda como especie propia
+(web_tree): es una tecnología de descubrimiento genuinamente distinta.
 """
 import os
 import time
@@ -25,6 +27,9 @@ logger = logging.getLogger(__name__)
 class HTMLFetcher(BaseFetcher):
     def fetch(self) -> RawData:
         mode = (self.params.get("navigation") or "single").lower()
+        if mode == "searchloop":
+            from app.fetchers.searchloop_html import SearchLoopHtmlFetcher
+            return SearchLoopHtmlFetcher(self.params).fetch()
         if mode == "form_pivot":
             return self._form_pivot()
         if mode == "form_paged":
