@@ -28,6 +28,7 @@ from app.graphql_api.types import (
     SubscriberNotificationType,
     AppConfigType,
     DerivedDatasetConfigType,
+    DerivedDatasetEntryType,
     PublisherType,
     ResourceCandidateType,
     SolicitudIngresoType,
@@ -792,10 +793,9 @@ class Query:
     def derived_dataset_entries(
         self, config_id: str, search: Optional[str] = None,
         limit: int = 100, offset: int = 0,
-    ) -> List["DerivedDatasetEntryType"]:
+    ) -> List[DerivedDatasetEntryType]:
         """Entradas de un catálogo derivado (p. ej. NIF↔denominación). `search`
         filtra por subcadena en la clave. Paginado con limit/offset."""
-        from app.graphql_api.types import DerivedDatasetEntryType
         db = get_db()
         try:
             q = db.query(DerivedDatasetEntry).filter(DerivedDatasetEntry.config_id == config_id)
