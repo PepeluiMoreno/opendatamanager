@@ -189,3 +189,23 @@ Preguntas a resolver:
 El BDNS RestApiDiscoverer será el 5º ejemplo concreto -> buen insumo para decidir
 la forma del refactor con casos reales en la mano (catálogo/web-tree/pivote/
 archivo/rest).
+
+## Descubrimiento — Web Tree consciente de la plataforma (TYPO3 y general) (PENDIENTE)
+Explorar mecanismos que eviten o reduzcan el crawling cuando se detecta el CMS,
+empezando por TYPO3 (común en sector público europeo). Idea: el Web Tree, antes de
+rastrear a ciegas, detecta la plataforma y usa su índice nativo.
+TYPO3 en concreto:
+  · Huella de detección: /typo3/, /fileadmin/, /typo3conf/, URLs ?id= con cHash.
+  · NO hay API de contenido en el core. La JSON API es la extensión `headless`
+    (Macopedia/friendsoftypo3), opt-in y DESACTIVADA por defecto, requiere TYPO3
+    ≥9.5 -> rara en instalaciones clásicas de administración. No asumible.
+  · Lo fiable sin headless: sitemap.xml (system ext `seo`, core desde v9; índice
+    de URLs por tabla: páginas, news) y feeds RSS/Atom de la extensión `news`
+    (georgringer).
+  · Estrategia: detectar -> sondear JSON headless (Accept: application/json) ->
+    si no, sitemap.xml (+ news RSS) -> crawl solo como último recurso.
+Generalización (mayor que TYPO3): "Web Tree consciente de la plataforma" — sitemap.xml
+es casi universal; WordPress (wp-json), Drupal (JSON:API), CKAN (api/3) y Socrata
+tienen su propio índice. El crawl ciego debería ser siempre el último recurso, no el
+primero. Encaja con la idea del descubridor como "expansor": preferir leer el índice
+publicado por la plataforma antes que rastrear.
