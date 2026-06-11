@@ -32,6 +32,7 @@ _EXT_TO_FORMAT = {
     ".xlsx": "xlsx",
     ".xls": "xls",
     ".pdf": "pdf",
+    ".json": "json",
 }
 
 
@@ -186,6 +187,62 @@ def _sniff_header_row(rows, params) -> int:
     return 0
 
 
+def _parse_json_records(content: bytes, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Convierte un fichero JSON en registros tabulares.
+
+    Casos:
+      · array de objetos          → registros directos.
+      · objeto con `records_path` → navega la ruta (puntos) hasta el array.
+      · objeto sin ruta           → toma el PRIMER valor que sea lista (heurística
+        para envoltorios tipo {result:{items:[...]}} o {datos:[...]}).
+    Aplana valores anidados (dict/list) a JSON-string para mantener tabularidad.
+    Encoding: usa `encoding` si se da; si no, utf-8 con fallback a latin-1 cuando
+    el utf-8 deja caracteres de reemplazo (frecuente en portales antiguos).
+    """
+    enc = params.get("encoding")
+    if enc:
+        text = content.decode(enc, errors="replace")
+    else:
+        text = content.decode("utf-8", errors="strict") if _is_utf8(content) else content.decode("latin-1")
+
+    data = json.loads(text)
+
+    records_path = params.get("records_path", "")
+    if isinstance(data, dict):
+        if records_path:
+            node: Any = data
+            for key in records_path.split("."):
+                node = node.get(key, {}) if isinstance(node, dict) else {}
+            data = node
+        else:
+            data = next((v for v in data.values() if isinstance(v, list)), [])
+
+    if not isinstance(data, list):
+        return []
+
+    records: List[Dict[str, Any]] = []
+    for item in data:
+        if not isinstance(item, dict):
+            records.append({"valor": item})
+            continue
+        flat = {}
+        for k, v in item.items():
+            flat[_normalize_col(str(k))] = (
+                json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list))
+                else ("" if v is None else str(v).strip())
+            )
+        records.append(flat)
+    return records
+
+
+def _is_utf8(content: bytes) -> bool:
+    try:
+        content.decode("utf-8")
+        return True
+    except UnicodeDecodeError:
+        return False
+
+
 def _parse_csv_like(content: bytes, params: Dict[str, Any], delimiter: str = "") -> List[Dict[str, str]]:
     encoding = params.get("encoding", "utf-8-sig")
     skip_rows = int(params.get("skip_rows", 0))
@@ -293,9 +350,11 @@ def parse_structured_file(
         return _parse_csv_like(content, params)
     if fmt == "tsv":
         return _parse_csv_like(content, params, delimiter="\t")
+    if fmt == "json":
+        return _parse_json_records(content, params)
     if fmt == "pdf":
         return parse_pdf_table(content, params)
 
     raise ValueError(
-        f"Formato '{fmt}' no soportado. Valores válidos: pdf, xls, xlsx, csv, tsv"
+        f"Formato '{fmt}' no soportado. Valores válidos: pdf, xls, xlsx, csv, tsv, json"
     )
