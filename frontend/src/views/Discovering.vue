@@ -521,18 +521,23 @@ function askBulkPromote() {
 }
 async function bulkPromote() {
   bulkPromoting.value = true
-  const usados = new Set()
+  const usadosT = new Set(), usadosN = new Set()
   let ok = 0; const fallos = []
   for (const id of [...selection.value]) {
     const c = candidates.value.find(x => x.id === id)
     if (!c) continue
-    const base = nameToTable(c.suggestedName || c.id)
-    let table = base, i = 2
-    while (usados.has(table)) table = `${base}_${i++}`
-    usados.add(table)
+    const baseT = nameToTable(c.suggestedName || c.id)
+    let table = baseT, i = 2
+    while (usadosT.has(table)) table = `${baseT}_${i++}`
+    usadosT.add(table)
+    // Nombre: el modelo limita a 100 chars. Clamp + dedupe dentro del lote.
+    let name = (c.suggestedName || table).slice(0, 100)
+    let j = 2
+    while (usadosN.has(name)) name = `${(c.suggestedName || table).slice(0, 96)} (${j++})`
+    usadosN.add(name)
     try {
       await gqlPromoteCandidate(id, {
-        name: c.suggestedName || table, targetTable: table,
+        name, targetTable: table,
         schedule: null, enableLoad: false, loadMode: 'upsert', variant: null,
       })
       ok++
@@ -695,7 +700,7 @@ function reset() {
 // ── Promote ────────────────────────────────────────────────────────────────
 function openPromote(c) {
   promoteCandidate.value = c
-  promoteForm.value = { name: c.suggestedName || '', targetTable: nameToTable(c.suggestedName || ''), schedule: '', enableLoad: false, variant: '' }
+  promoteForm.value = { name: (c.suggestedName || '').slice(0, 100), targetTable: nameToTable(c.suggestedName || ''), schedule: '', enableLoad: false, variant: '' }
   promoteError.value = ''
 }
 

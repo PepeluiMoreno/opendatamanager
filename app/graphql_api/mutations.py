@@ -1720,11 +1720,11 @@ class Mutation:
                 preset_id = preset.id
 
             child = Resource(
-                name=input.name,
+                name=(input.name or "")[:100],
                 fetcher_id=child_fetcher_id,
                 publisher=parent.publisher,
                 publisher_id=parent.publisher_id,
-                target_table=input.target_table,
+                target_table=(input.target_table or None) and input.target_table[:100],
                 active=True,
                 schedule=input.schedule,
                 enable_load=bool(input.enable_load),
