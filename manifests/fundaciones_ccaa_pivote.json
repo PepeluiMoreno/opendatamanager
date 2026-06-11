@@ -1,0 +1,112 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "MJUS",
+    "nombre": "Ministerio de la Presidencia, Justicia y Relaciones con las Cortes",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://fundosbuscador.mjusticia.gob.es/"
+  },
+  "resources": [
+    {
+      "name": "Fundaciones estatales por CCAA (pivote)",
+      "fetcher": "Pivote",
+      "genera_colecciones": true,
+      "schedule": null,
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://fundosbuscador.mjusticia.gob.es/fundosbuscador/buscarResultadoBusqueda.action",
+          "is_external": false
+        },
+        {
+          "key": "session_init_url",
+          "value": "https://fundosbuscador.mjusticia.gob.es/fundosbuscador/cargaBuscador.action?lang=es_es",
+          "is_external": false
+        },
+        {
+          "key": "search_mode",
+          "value": "POST_struts",
+          "is_external": false
+        },
+        {
+          "key": "multiselect_companion",
+          "value": "false",
+          "is_external": false
+        },
+        {
+          "key": "carry_hidden_fields",
+          "value": "false",
+          "is_external": false
+        },
+        {
+          "key": "search_field_name",
+          "value": "filtro.provincia",
+          "is_external": false
+        },
+        {
+          "key": "extra_params",
+          "value": "{\"filtro.nombre\": \"\", \"filtro.localidad\": \"\", \"filtro.fines\": \"\", \"lang\": \"es_es\"}",
+          "is_external": false
+        },
+        {
+          "key": "rows_selector",
+          "value": "table tr",
+          "is_external": false
+        },
+        {
+          "key": "has_header",
+          "value": "true",
+          "is_external": false
+        },
+        {
+          "key": "row_link_selector",
+          "value": "a[href*='DetalleFundacion']",
+          "is_external": false
+        },
+        {
+          "key": "next_page_selector",
+          "value": "li.paginaResultados a:-soup-contains('Siguiente')",
+          "is_external": false
+        },
+        {
+          "key": "max_pages",
+          "value": "400",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "1.5",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_searches",
+          "value": "3.0",
+          "is_external": false
+        },
+        {
+          "key": "detail_delay",
+          "value": "1.0",
+          "is_external": false
+        },
+        {
+          "key": "detail_level",
+          "value": "{\"field_label_selectors\": {\"nif\": {\"container\": \"body\", \"label\": \"NIF\"}, \"num_registro\": {\"container\": \"body\", \"label\": \"Nº de registro\"}, \"fecha_constitucion\": {\"container\": \"body\", \"label\": \"Fecha de constitución\"}, \"fecha_inscripcion\": {\"container\": \"body\", \"label\": \"Fecha de inscripción\"}, \"fecha_extincion\": {\"container\": \"body\", \"label\": \"Fecha de extinción\"}, \"domicilio\": {\"container\": \"body\", \"label\": \"Domicilio\"}, \"localidad\": {\"container\": \"body\", \"label\": \"Localidad\"}, \"codigo_postal\": {\"container\": \"body\", \"label\": \"Código postal\"}, \"provincia_detalle\": {\"container\": \"body\", \"label\": \"Provincia\"}, \"correo\": {\"container\": \"body\", \"label\": \"Correo electrónico\"}, \"web\": {\"container\": \"body\", \"label\": \"Web\"}}}",
+          "is_external": false
+        },
+        {
+          "key": "pivot_group_map",
+          "value": "es_provincia_ccaa",
+          "is_external": false
+        },
+        {
+          "key": "child_fetcher",
+          "value": "HTML (genérico)",
+          "is_external": false
+        }
+      ],
+      "clase_fuente": "scraping_publico"
+    }
+  ]
+}

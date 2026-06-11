@@ -144,6 +144,19 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "Pivote",
+        "class_path": "app.fetchers.pivot_discoverer.PivotDiscovererFetcher",
+        "description": "Descubridor por pivote: lee los valores de un <select> de filtro (provincia, confesión...) en la página del formulario y emite un recurso-hijo por valor —o por GRUPO de valores (provincias→CCAA)—. Cada hijo es un searchloop que internaliza los valores de su grupo. Configúralo con los mismos params del searchloop hijo (url de acción, session_init_url de la página del form, search_field_name, extra_params, selectores, detail_level...) más la agrupación.",
+        "params": [
+            {"param_name": "search_field_name", "data_type": "string", "required": True, "group": "descubrimiento", "hint": "Nombre del <select> de filtro cuyas opciones son el pivote (p. ej. 'filtro.provincia')."},
+            {"param_name": "pivot_group_map", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "Agrupa los valores a un grano gobernable. Preset 'es_provincia_ccaa' (provincias INE→CCAA) o JSON {valor: grupo}. Vacío = un hijo por valor."},
+            {"param_name": "pivot_form_url", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "Página donde vive el <select> (si difiere de session_init_url). Por defecto session_init_url, y si no, url."},
+            {"param_name": "child_fetcher", "data_type": "string", "required": False, "default_value": "HTML (genérico)", "group": "descubrimiento", "hint": "Especie-destino de los hijos. Normalmente 'HTML (genérico)' (navigation=searchloop)."},
+            {"param_name": "url", "data_type": "string", "required": True, "group": "http", "hint": "Endpoint de ACCIÓN (POST de búsqueda) que heredan los hijos."},
+            {"param_name": "session_init_url", "data_type": "string", "required": False, "group": "http", "hint": "Página del formulario: abre sesión y contiene el <select> a descubrir."},
+        ],
+    },
+    {
         "name": "File Download",
         "class_path": "app.fetchers.file_download.FileDownloadFetcher",
         "description": "Downloads a static file and converts rows to records. Supports PDF, XLS, XLSX, CSV and TSV.",
@@ -1070,7 +1083,7 @@ def seed() -> None:
     try:
         retirados = []
         # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
-        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"]}
+        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"]}
         for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             _f.modos = _MODOS.get(_f.code, ["extraer"])
         db.commit()

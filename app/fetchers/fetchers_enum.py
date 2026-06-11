@@ -56,6 +56,12 @@ class FetchersEnum(Enum):
         "description": "Nave nodriza de catálogo DCAT-AP-ES (datos.gob.es). Modos: descubrir (propose: un candidato autodescriptivo por distribución descargable que pasa la regla de selección, con especie-destino + url + formato) y extraer (vuelca el listado del catálogo como dataset)."
     }
 
+    PIVOTE = {
+        "code": "Pivote",
+        "class_path": "app.fetchers.pivot_discoverer.PivotDiscovererFetcher",
+        "description": "Descubridor por pivote: lee los valores de un <select> de filtro (provincia, confesión...) en la página del formulario y emite un recurso-hijo por valor —o por GRUPO de valores (p. ej. provincias→CCAA)—. Cada hijo es un searchloop que internaliza los valores de su grupo. Cuarta estrategia de descubrimiento. Solo modo descubrir."
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # FILES = {
     #     "code": "FILES",
