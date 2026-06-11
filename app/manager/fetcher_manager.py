@@ -204,7 +204,19 @@ class FetcherManager:
             fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
 
             # ── DISCOVER MODE ────────────────────────────────────────────────
-            if not is_child and (hasattr(fetcher, "discover") or hasattr(fetcher, "propose")):
+            # El comportamiento (descubrir vs extraer) lo decide la INTENCIÓN
+            # declarada del recurso (es_coleccion = fetcher.descubre + recurso-madre
+            # + genera_colecciones), NO la mera presencia de un método en el fetcher.
+            # Así las especies de doble modo (p. ej. Catálogo DCAT, que tiene
+            # propose() y fetch()) pueden correr como Colección (descubrir) o como
+            # extractor según `genera_colecciones`. Un recurso marcado Colección cuya
+            # especie no sabe descubrir es una misconfiguración: se avisa y se extrae.
+            quiere_descubrir = (not is_child) and bool(getattr(resource, "es_coleccion", False))
+            puede_descubrir = hasattr(fetcher, "discover") or hasattr(fetcher, "propose")
+            if quiere_descubrir and not puede_descubrir:
+                logger.log(f"  Recurso marcado Colección pero su especie no descubre; se extrae.")
+                quiere_descubrir = False
+            if quiere_descubrir and puede_descubrir:
                 if execution.kind != "discovering":
                     execution.kind = "discovering"
                     session.commit()

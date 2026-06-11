@@ -339,6 +339,7 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
                 publisher_id=publisher.id, fetcher_id=fetcher.id,
                 active=bool(r.get("active", True)), schedule=r.get("schedule"),
                 preset_id=preset.id if preset else None,
+                genera_colecciones=bool(r.get("genera_colecciones", False)),
                 auto_generated=True, origin="manifest",
             )
             session.add(resource)
@@ -375,6 +376,7 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
             resource.preset_id = preset.id if preset else None
             resource.active = bool(r.get("active", resource.active))
             resource.schedule = r.get("schedule", resource.schedule)
+            resource.genera_colecciones = bool(r.get("genera_colecciones", resource.genera_colecciones))
             _aplicar_params(resource, r)
             session.flush()
             registrar_version(session, resource, origin="manifest", author=autor)
