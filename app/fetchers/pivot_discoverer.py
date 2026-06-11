@@ -23,7 +23,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 
-from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
+from app.fetchers.base import BaseDiscoverer
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ _PRESETS = {"es_provincia_ccaa": _ES_PROVINCIA_CCAA}
 _DISCOVERY_ONLY = {"pivot_group_map", "child_fetcher", "navigation", "search_field_values", "pivot_form_url"}
 
 
-class PivotDiscovererFetcher(BaseFetcher):
+class PivotDiscovererFetcher(BaseDiscoverer):
 
     def _group_map(self) -> Optional[Dict[str, str]]:
         raw = self.params.get("pivot_group_map")
@@ -120,12 +120,3 @@ class PivotDiscovererFetcher(BaseFetcher):
         logger.info(f"[pivote] {len(proposals)} grupo(s) -> {len(proposals)} hijo(s).")
         return proposals
 
-    # Sin modo extraer: el pivote solo descubre.
-    def fetch(self) -> RawData:
-        raise NotImplementedError("La especie Pivote solo opera en modo descubrir.")
-
-    def parse(self, raw: RawData) -> ParsedData:
-        return raw
-
-    def normalize(self, parsed: ParsedData) -> DomainData:
-        return parsed

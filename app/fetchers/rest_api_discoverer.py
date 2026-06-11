@@ -23,7 +23,7 @@ from typing import Any, Dict, List
 
 import requests
 
-from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
+from app.fetchers.base import BaseDiscoverer
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ _LOOKUP_EXCLUDE = {"suscripciones", "vpd"}
 _BUSQUEDA_RE = re.compile(r"^/(?P<name>[^/]+)/busqueda$")
 
 
-class RestApiDiscovererFetcher(BaseFetcher):
+class RestApiDiscovererFetcher(BaseDiscoverer):
 
     def _cfg(self) -> Dict[str, Any]:
         p = self.params
@@ -115,11 +115,3 @@ class RestApiDiscovererFetcher(BaseFetcher):
         logger.info(f"[rest-discover] {len(datasets)} dataset(s) + {n_lookups} lookup(s) -> {len(proposals)} hijo(s).")
         return proposals
 
-    def fetch(self) -> RawData:
-        raise NotImplementedError("La especie REST API (descubridor) solo opera en modo descubrir.")
-
-    def parse(self, raw: RawData) -> ParsedData:
-        return raw
-
-    def normalize(self, parsed: ParsedData) -> DomainData:
-        return parsed

@@ -3,7 +3,7 @@ import importlib
 import importlib.util
 from typing import Dict, Optional
 from app.models import Resource
-from app.fetchers.base import BaseFetcher
+from app.fetchers.base import BaseSpecies
 
 
 class FetcherFactory:
@@ -49,7 +49,7 @@ class FetcherFactory:
         return isinstance(getattr(mod, clase, None), type)
 
     @staticmethod
-    def create_from_resource(resource: Resource, execution_params: Optional[Dict] = None) -> BaseFetcher:
+    def create_from_resource(resource: Resource, execution_params: Optional[Dict] = None) -> BaseSpecies:
         if not resource.active:
             raise ValueError(f"Resource '{resource.name}' está desactivado")
 
