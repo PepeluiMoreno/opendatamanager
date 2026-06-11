@@ -1693,22 +1693,35 @@ class Mutation:
             if not parent:
                 raise ValueError(f"Crawler padre no encontrado: {candidate.crawler_resource_id}")
 
-            # Variante opcional: resuelta por `code` bajo la especie del padre.
+            # Especie del hijo: por defecto hereda la del crawler padre (legacy
+            # Web Tree), pero si el candidato declara `target_fetcher_code` usa esa
+            # especie (nodriza de catálogo: padre DESCUBRE, hijo EXTRAE con otra).
+            child_fetcher_id = parent.fetcher_id
+            if candidate.target_fetcher_code:
+                tgt = db.query(Fetcher).filter(
+                    Fetcher.code == candidate.target_fetcher_code).first()
+                if not tgt:
+                    raise ValueError(
+                        f"Especie destino '{candidate.target_fetcher_code}' del candidato "
+                        f"no está registrada")
+                child_fetcher_id = tgt.id
+
+            # Variante opcional: resuelta por `code` bajo la especie del hijo.
             preset_id = None
             if input.variant:
                 from app.models import FetcherPreset
                 preset = db.query(FetcherPreset).filter(
                     FetcherPreset.code == input.variant,
-                    FetcherPreset.fetcher_id == parent.fetcher_id,
+                    FetcherPreset.fetcher_id == child_fetcher_id,
                     FetcherPreset.deleted_at.is_(None)).first()
                 if not preset:
                     raise ValueError(
-                        f"Variante '{input.variant}' no existe para la especie del crawler")
+                        f"Variante '{input.variant}' no existe para la especie del hijo")
                 preset_id = preset.id
 
             child = Resource(
                 name=input.name,
-                fetcher_id=parent.fetcher_id,
+                fetcher_id=child_fetcher_id,
                 publisher=parent.publisher,
                 publisher_id=parent.publisher_id,
                 target_table=input.target_table,
@@ -1723,11 +1736,17 @@ class Mutation:
             db.add(child)
             db.flush()
 
-            # El hijo hereda únicamente `root_url` del padre — todos los demás
-            # params son defaults internos del WebTreeFetcher.
-            root_url = next((p.value for p in (parent.params or []) if p.key == "root_url"), None)
-            if root_url:
-                db.add(ResourceParam(resource_id=child.id, key="root_url", value=root_url))
+            # Params del hijo: si el candidato trae `target_params` (catálogo),
+            # se aplican tal cual (autodescriptivo). Si no, comportamiento legacy:
+            # hereda solo `root_url` del crawler padre (Web Tree lee el resto de
+            # matched_urls/dimensions del propio ResourceCandidate en cada ejecución).
+            if candidate.target_params:
+                for k, v in candidate.target_params.items():
+                    db.add(ResourceParam(resource_id=child.id, key=k, value=str(v)))
+            else:
+                root_url = next((p.value for p in (parent.params or []) if p.key == "root_url"), None)
+                if root_url:
+                    db.add(ResourceParam(resource_id=child.id, key="root_url", value=root_url))
 
             candidate.status = "promoted"
             candidate.promoted_resource_id = child.id

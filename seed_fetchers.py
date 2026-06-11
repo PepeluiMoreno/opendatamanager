@@ -126,6 +126,23 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "Catálogo DCAT",
+        "class_path": "app.fetchers.catalog.CatalogFetcher",
+        "description": "Nave nodriza de catálogo: consulta un catálogo DCAT-AP-ES (por defecto datos.gob.es) y descubre un recurso-hijo por cada distribución descargable que pase la regla de selección. Cada candidato es autodescriptivo (especie-destino + url + formato), así que el hijo extrae con la especie que corresponda (típicamente File Download).",
+        "params": [
+            {"param_name": "catalog_api", "data_type": "string", "required": False, "default_value": "https://datos.gob.es/apidata", "group": "http", "hint": "Base de la apidata del catálogo DCAT-AP-ES. Por defecto el catálogo federado nacional datos.gob.es."},
+            {"param_name": "query_terms", "data_type": "string", "required": False, "default_value": "asociaciones,fundaciones", "group": "descubrimiento", "hint": "Palabras de título a consultar, separadas por coma. Una consulta por término."},
+            {"param_name": "title_include", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "Regex (ignora mayúsc.) que el título DEBE casar para considerarse pertinente. Vacío = patrón de registros por defecto."},
+            {"param_name": "title_exclude", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "Regex que descarta el dataset (ruido: pacientes, juveniles, estadísticas...). Vacío = patrón por defecto."},
+            {"param_name": "formats", "data_type": "string", "required": False, "default_value": "csv,json", "group": "descubrimiento", "hint": "Formatos de distribución admitidos, separados por coma. Típico csv,json."},
+            {"param_name": "drop_url_contains", "data_type": "string", "required": False, "default_value": "diccionario", "group": "descubrimiento", "hint": "Subcadenas que descartan una distribución (p. ej. los diccionarios de datos), separadas por coma."},
+            {"param_name": "child_fetcher", "data_type": "string", "required": False, "default_value": "File Download", "group": "descubrimiento", "hint": "Especie-destino de los recursos-hijo. Normalmente 'File Download' para CSV/JSON directos."},
+            {"param_name": "page_size", "data_type": "integer", "required": False, "default_value": 50, "group": "behavior", "hint": "Tamaño de página de la apidata. Típico 50."},
+            {"param_name": "max_pages", "data_type": "integer", "required": False, "default_value": 20, "group": "behavior", "hint": "Límite de páginas por término. 20 × 50 = 1000 datasets por término."},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 30, "group": "http", "hint": "Segundos máximos por consulta al catálogo."},
+        ],
+    },
+    {
         "name": "File Download",
         "class_path": "app.fetchers.file_download.FileDownloadFetcher",
         "description": "Downloads a static file and converts rows to records. Supports PDF, XLS, XLSX, CSV and TSV.",
@@ -1052,7 +1069,7 @@ def seed() -> None:
     try:
         retirados = []
         # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
-        _MODOS = {"Web Tree": ["extraer", "descubrir"]}
+        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"]}
         for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             _f.modos = _MODOS.get(_f.code, ["extraer"])
         db.commit()

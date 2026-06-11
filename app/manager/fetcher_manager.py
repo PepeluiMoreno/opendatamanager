@@ -204,29 +204,38 @@ class FetcherManager:
             fetcher = FetcherFactory.create_from_resource(resource, runtime_params)
 
             # ── DISCOVER MODE ────────────────────────────────────────────────
-            if not is_child and hasattr(fetcher, "discover"):
+            if not is_child and (hasattr(fetcher, "discover") or hasattr(fetcher, "propose")):
                 if execution.kind != "discovering":
                     execution.kind = "discovering"
                     session.commit()
-                logger.log("[1/1] DISCOVER — Crawleando árbol sin descargar ficheros...")
-                leaf_urls = fetcher.discover()
-                logger.log(f"  {len(leaf_urls)} URLs hoja descubiertas. Inferiendo agrupaciones...")
 
-                # Profile stats generados por el fetcher (función pura)
-                profile_stats = getattr(fetcher, "profile_stats", {})
-                if profile_stats:
-                    logger.log(
-                        f"  Stats: {profile_stats.get('total_files')} ficheros | "
-                        f"ext: {list(profile_stats.get('file_extensions', {}).keys())} | "
-                        f"profundidad dominante: {profile_stats.get('dominant_depth')}"
-                    )
-
-                # path_root es opcional: si se pasa, sobreescribe el prefijo común
-                # autodetectado. Útil cuando un crawler mezcla sub-portales.
-                resource_params = {p.key: p.value for p in resource.params}
-                path_root = resource_params.get("path_root") or None
-                raw_proposals = infer(leaf_urls, path_root=path_root)
-                logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación.")
+                # Dos estilos de descubrimiento:
+                #  · propose(): el fetcher devuelve candidatos YA FORMADOS (catálogos
+                #    DCAT, APIs de metadatos): cada propuesta es una entidad discreta
+                #    con su especie-destino y params. No se infiere agrupación.
+                #  · discover()+infer(): crawler de árbol de ficheros; las URLs hoja
+                #    se agrupan por patrón de ruta en dimensiones/path_template.
+                if hasattr(fetcher, "propose"):
+                    logger.log("[1/1] DISCOVER — Consultando catálogo (propose)...")
+                    raw_proposals = fetcher.propose()
+                    profile_stats = getattr(fetcher, "profile_stats", {})
+                    leaf_urls = []
+                    logger.log(f"  {len(raw_proposals)} propuesta(s) del catálogo.")
+                else:
+                    logger.log("[1/1] DISCOVER — Crawleando árbol sin descargar ficheros...")
+                    leaf_urls = fetcher.discover()
+                    logger.log(f"  {len(leaf_urls)} URLs hoja descubiertas. Inferiendo agrupaciones...")
+                    profile_stats = getattr(fetcher, "profile_stats", {})
+                    if profile_stats:
+                        logger.log(
+                            f"  Stats: {profile_stats.get('total_files')} ficheros | "
+                            f"ext: {list(profile_stats.get('file_extensions', {}).keys())} | "
+                            f"profundidad dominante: {profile_stats.get('dominant_depth')}"
+                        )
+                    resource_params = {p.key: p.value for p in resource.params}
+                    path_root = resource_params.get("path_root") or None
+                    raw_proposals = infer(leaf_urls, path_root=path_root)
+                    logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación.")
 
                 created_ids = []
                 for p in raw_proposals:
@@ -234,12 +243,14 @@ class FetcherManager:
                     candidate = ResourceCandidate(
                         execution_id=execution.id,
                         crawler_resource_id=resource.id,
-                        path_template=pd.get("path_template"),
-                        dimensions=pd.get("dimensions"),
-                        matched_urls=pd.get("matched_urls"),
-                        file_types=pd.get("file_types"),
+                        path_template=pd.get("path_template") or pd.get("suggested_name") or "—",
+                        dimensions=pd.get("dimensions") or [],
+                        matched_urls=pd.get("matched_urls") or [],
+                        file_types=pd.get("file_types") or {},
                         suggested_name=pd.get("suggested_name"),
                         confidence=pd.get("confidence"),
+                        target_fetcher_code=pd.get("target_fetcher_code"),
+                        target_params=pd.get("target_params"),
                         status="discovered",
                     )
                     session.add(candidate)

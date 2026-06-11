@@ -1,0 +1,185 @@
+"""CatalogFetcher — Nave nodriza de catálogo (descubridor DCAT).
+
+Consulta un catálogo de datos abiertos (por defecto la apidata de datos.gob.es,
+DCAT-AP-ES) y emite UN CANDIDATO POR DISTRIBUCIÓN descargable que pase la regla
+de selección. Cada candidato es autodescriptivo: lleva la especie-destino del
+hijo (`target_fetcher_code`) y sus params (`target_params`: url + format), de modo
+que la promoción es genérica y el hijo EXTRAE con otra especie que la del padre.
+
+Modos: ["extraer", "descubrir"].
+  · descubrir → propose(): el manager crea ResourceCandidate por propuesta.
+  · extraer   → stream()/fetch(): vuelca el listado del catálogo como dataset
+    (útil para auditar la cosecha del catálogo en sí).
+
+No normaliza ni puntúa: ODM es productor neutral. La regla de selección es un
+filtro de PERTINENCIA del catálogo (qué datasets son registros de interés), no
+lógica de consumidor.
+
+Params principales:
+  catalog_api        Base de la apidata (def. https://datos.gob.es/apidata)
+  query_terms        Palabras de título a consultar, separadas por coma
+                     (def. "asociaciones,fundaciones"). Una consulta por término.
+  page_size          Tamaño de página de la apidata (def. 50)
+  max_pages          Límite de páginas por término (def. 20)
+  title_include      Regex (i) que el título DEBE casar (def. registros)
+  title_exclude      Regex (i) que descarta el dataset (ruido)
+  formats            Formatos de distribución admitidos, coma (def. "csv,json")
+  drop_url_contains  Subcadenas que descartan una distribución (def.
+                     "diccionario,diccionario_datos" — los diccionarios de datos)
+  child_fetcher      Especie-destino de los hijos (def. "File Download")
+"""
+import json
+import logging
+import re
+from typing import Any, Dict, Generator, List, Optional
+
+from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_INCLUDE = r"(registro\s+de\s+(asociaciones|fundaciones)|^(asociaciones|fundaciones)\s+de\b|^registros?\s+de\s+fundaciones)"
+_DEFAULT_EXCLUDE = (
+    r"(paciente|juvenil|profesional|estad[íi]stic|cuentas|puesto|consumidor|"
+    r"empresarial|desarrollo\s+rural|p[úu]blic[ao]s?\b|inventario|localizaci|"
+    r"econ[óo]mic|ámbito|servicio\s+wms|legislatura)"
+)
+
+
+class CatalogFetcher(BaseFetcher):
+
+    def _cfg(self) -> Dict[str, Any]:
+        p = self.params
+        return {
+            "api": (p.get("catalog_api") or "https://datos.gob.es/apidata").rstrip("/"),
+            "terms": [t.strip() for t in (p.get("query_terms") or "asociaciones,fundaciones").split(",") if t.strip()],
+            "page_size": int(p.get("page_size", 50)),
+            "max_pages": int(p.get("max_pages", 20)),
+            "include": re.compile(p.get("title_include") or _DEFAULT_INCLUDE, re.I),
+            "exclude": re.compile(p.get("title_exclude") or _DEFAULT_EXCLUDE, re.I),
+            "formats": {f.strip().lower() for f in (p.get("formats") or "csv,json").split(",") if f.strip()},
+            "drop": [s.strip().lower() for s in (p.get("drop_url_contains") or "diccionario").split(",") if s.strip()],
+            "child": p.get("child_fetcher") or "File Download",
+        }
+
+    # ── helpers de extracción DCAT (apidata datos.gob.es) ────────────────────
+    @staticmethod
+    def _val(node: Any) -> Optional[str]:
+        """Extrae el valor 'es' de un campo multilingüe DCAT (_value/_lang)."""
+        if isinstance(node, list):
+            for x in node:
+                if isinstance(x, dict) and x.get("_lang") in ("es", None):
+                    return x.get("_value")
+            return node[0].get("_value") if node and isinstance(node[0], dict) else None
+        if isinstance(node, dict):
+            return node.get("_value")
+        return node
+
+    @staticmethod
+    def _fmt(dist: Dict[str, Any]) -> str:
+        f = dist.get("format", {})
+        v = f.get("value") if isinstance(f, dict) else f
+        return str(v or "").split("/")[-1].lower()
+
+    def _fetch_page(self, api: str, term: str, page: int, size: int) -> List[Dict]:
+        url = f"{api}/catalog/dataset/title/{term}"
+        resp = self._request(None, "GET", url,
+                             params={"_pageSize": size, "_page": page},
+                             headers={"Accept": "application/json"},
+                             timeout=int(self.params.get("timeout", 30)))
+        resp.raise_for_status()
+        data = resp.json()
+        res = data.get("result", {})
+        return res.get("items", []) if isinstance(res, dict) else (res or [])
+
+    def _iter_datasets(self, cfg: Dict) -> Generator[Dict, None, None]:
+        for term in cfg["terms"]:
+            for page in range(cfg["max_pages"]):
+                try:
+                    items = self._fetch_page(cfg["api"], term, page, cfg["page_size"])
+                except Exception as exc:
+                    logger.error(f"[catalog] término '{term}' pág {page}: {exc}")
+                    break
+                if not items:
+                    break
+                for it in items:
+                    yield it
+                if len(items) < cfg["page_size"]:
+                    break
+
+    def _entries(self) -> List[Dict[str, Any]]:
+        """Devuelve las entradas pertinentes: (title, publisher, url, format)."""
+        cfg = self._cfg()
+        seen = set()
+        out: List[Dict[str, Any]] = []
+        for it in self._iter_datasets(cfg):
+            title = self._val(it.get("title")) or ""
+            if not cfg["include"].search(title) or cfg["exclude"].search(title):
+                continue
+            publisher = it.get("publisher", "")
+            publisher = publisher.split("/")[-1] if isinstance(publisher, str) else ""
+            dists = it.get("distribution", []) or []
+            if isinstance(dists, dict):
+                dists = [dists]
+            for d in dists:
+                if not isinstance(d, dict):
+                    continue
+                fmt = self._fmt(d)
+                if fmt not in cfg["formats"]:
+                    continue
+                url = d.get("downloadURL") or d.get("accessURL")
+                if not url:
+                    continue
+                low = url.lower()
+                if any(s in low for s in cfg["drop"]):
+                    continue
+                if url in seen:
+                    continue
+                seen.add(url)
+                # Etiqueta para desambiguar distribuciones del mismo dataset
+                # (p. ej. un fichero por provincia, o csv vs json): título de la
+                # distribución si lo trae, si no el nombre de fichero de la URL.
+                dlabel = self._val(d.get("title")) or url.rstrip("/").split("/")[-1].split("?")[0]
+                out.append({"title": title.strip(), "publisher": publisher,
+                            "url": url, "format": fmt, "dist_label": dlabel})
+        logger.info(f"[catalog] {len(out)} distribución(es) pertinente(s) tras filtro.")
+        return out
+
+    # ── modo DESCUBRIR ───────────────────────────────────────────────────────
+    def propose(self) -> List[Dict[str, Any]]:
+        cfg = self._cfg()
+        proposals = []
+        for e in self._entries():
+            name = e["title"]
+            if e["publisher"]:
+                name = f"{name} [{e['publisher']}]"
+            dl = e.get("dist_label")
+            if dl and dl.lower() not in name.lower():
+                name = f"{name} · {dl}"
+            proposals.append({
+                "suggested_name": name[:200],
+                "matched_urls": [e["url"]],
+                "file_types": {e["format"]: 1},
+                "confidence": 0.9,
+                "target_fetcher_code": cfg["child"],
+                "target_params": {"url": e["url"], "format": e["format"]},
+            })
+        self.profile_stats = {"total_files": len(proposals),
+                              "file_extensions": {p["format"]: 1 for p in [
+                                  {"format": list(x["file_types"].keys())[0]} for x in proposals]}}
+        return proposals
+
+    # ── modo EXTRAER ─────────────────────────────────────────────────────────
+    def stream(self) -> Generator[List[Dict[str, Any]], None, None]:
+        yield self._entries()
+
+    def fetch(self) -> RawData:
+        out: List[Dict] = []
+        for chunk in self.stream():
+            out.extend(chunk)
+        return out
+
+    def parse(self, raw: RawData) -> ParsedData:
+        return raw
+
+    def normalize(self, parsed: ParsedData) -> DomainData:
+        return parsed

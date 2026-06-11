@@ -50,6 +50,12 @@ class FetchersEnum(Enum):
         "description": "Crawler de portales web clásicos. Modos: discover (infiere agrupaciones de URLs hoja por dimensiones year/month/quarter/...) y stream (descarga las URLs de un Resource hijo promovido enriqueciendo con dimensiones)."
     }
 
+    CATALOGO_DCAT = {
+        "code": "Catálogo DCAT",
+        "class_path": "app.fetchers.catalog.CatalogFetcher",
+        "description": "Nave nodriza de catálogo DCAT-AP-ES (datos.gob.es). Modos: descubrir (propose: un candidato autodescriptivo por distribución descargable que pasa la regla de selección, con especie-destino + url + formato) y extraer (vuelca el listado del catálogo como dataset)."
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # FILES = {
     #     "code": "FILES",

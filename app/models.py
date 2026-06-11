@@ -294,6 +294,13 @@ class ResourceCandidate(AuditMixin, Base):
     suggested_name = Column(Text, nullable=True)
     confidence = Column(Float, nullable=True)
 
+    # Promoción heterogénea: un candidato puede declarar la ESPECIE del hijo y sus
+    # params, en vez de heredar la del crawler padre. Imprescindible para nodrizas
+    # de catálogo (el padre DESCUBRE, el hijo EXTRAE con otra especie). Si van NULL,
+    # la promoción cae al comportamiento legacy (hereda fetcher del padre + root_url).
+    target_fetcher_code = Column(String(50), nullable=True)
+    target_params = Column(JSONB, nullable=True)
+
     status = Column(String(20), nullable=False, default="discovered")
     promoted_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="SET NULL"), nullable=True)
     merged_into_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_candidate.id", ondelete="SET NULL"), nullable=True)
