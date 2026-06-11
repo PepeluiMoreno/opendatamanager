@@ -70,6 +70,7 @@ const label = computed(() =>
 const unit = computed(() => {
   const k = props.cfg.key
   if (k.includes('timeout'))   return 'sec'
+  if (k.includes('minutes'))   return 'min'
   if (k.includes('days'))      return 'days'
   if (k.includes('processes')) return 'max'
   if (k.includes('page_size')) return 'rows'
@@ -114,6 +115,8 @@ const lim = computed(() => {
       return { min: 1, max: 365, step: 1 }
     case 'execution_retention_days':
       return { min: 7, max: 730, step: 1 }
+    case 'execute_cooldown_minutes':
+      return { min: 0, max: 1440, step: 5, reason: '0 = sin cooldown' }
     default:
       return { min: 0, max: 99999, step: 1 }
   }

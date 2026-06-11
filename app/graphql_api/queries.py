@@ -692,10 +692,18 @@ class Query:
         db = get_db()
         try:
             rows = db.query(AppConfig).order_by(AppConfig.key).all()
-            return [
+            out = [
                 AppConfigType(key=r.key, value=r.value, description=r.description, updated_at=r.updated_at)
                 for r in rows
             ]
+            # Defaults para claves conocidas que se LEEN con un fallback pero pueden
+            # no tener fila aún (así el campo aparece en Settings y es ajustable).
+            faltan = {"execute_cooldown_minutes": (60, "Minutos mínimos entre re-ejecuciones de un recurso. 0 = sin cooldown.")}
+            presentes = {r.key for r in rows}
+            for k, (val, desc) in faltan.items():
+                if k not in presentes:
+                    out.append(AppConfigType(key=k, value=val, description=desc, updated_at=None))
+            return sorted(out, key=lambda c: c.key)
         finally:
             db.close()
 

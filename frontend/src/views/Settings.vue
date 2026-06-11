@@ -93,7 +93,7 @@ const saved   = ref(false)
 
 const concurrencyKeys = ['max_concurrent_processes', 'default_fetch_timeout', 'max_pages_per_run', 'default_page_size']
 const retentionKeys   = ['log_retention_days', 'execution_retention_days']
-const behaviourKeys   = ['auto_run_on_startup', 'notify_on_failure']
+const behaviourKeys   = ['auto_run_on_startup', 'notify_on_failure', 'execute_cooldown_minutes']
 
 const retBehRows = Array.from({ length: Math.max(retentionKeys.length, behaviourKeys.length) }, (_, i) => i)
 
