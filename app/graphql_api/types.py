@@ -312,6 +312,14 @@ class DerivedDatasetConfigType:
     entry_count: Optional[int] = strawberry.field(default=None, name="entryCount")
 
 
+@strawberry.type
+class DerivedDatasetEntryType:
+    """Una entrada del catálogo derivado: la clave natural + los campos proyectados."""
+    key_value: str = strawberry.field(name="keyValue")
+    data: strawberry.scalars.JSON
+    updated_at: Optional[datetime] = strawberry.field(default=None, name="updatedAt")
+
+
 @strawberry.input
 class CreateDerivedDatasetConfigInput:
     source_resource_id: str = strawberry.field(name="sourceResourceId")

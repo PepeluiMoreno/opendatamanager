@@ -789,6 +789,30 @@ class Query:
             db.close()
 
     @strawberry.field
+    def derived_dataset_entries(
+        self, config_id: str, search: Optional[str] = None,
+        limit: int = 100, offset: int = 0,
+    ) -> List["DerivedDatasetEntryType"]:
+        """Entradas de un catálogo derivado (p. ej. NIF↔denominación). `search`
+        filtra por subcadena en la clave. Paginado con limit/offset."""
+        from app.graphql_api.types import DerivedDatasetEntryType
+        db = get_db()
+        try:
+            q = db.query(DerivedDatasetEntry).filter(DerivedDatasetEntry.config_id == config_id)
+            if search:
+                q = q.filter(DerivedDatasetEntry.key_value.ilike(f"%{search}%"))
+            rows = q.order_by(DerivedDatasetEntry.key_value).offset(max(0, offset)).limit(min(max(1, limit), 1000)).all()
+            return [
+                DerivedDatasetEntryType(
+                    key_value=r.key_value, data=r.data,
+                    updated_at=getattr(r, "updated_at", None),
+                )
+                for r in rows
+            ]
+        finally:
+            db.close()
+
+    @strawberry.field
     def subscriber_notifications(self, application_id: Optional[str] = None, dataset_id: Optional[str] = None) -> List[SubscriberNotificationType]:
         """Lista notificaciones enviadas, filtrado por application_id o dataset_id"""
         db = get_db()
