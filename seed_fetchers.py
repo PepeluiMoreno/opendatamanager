@@ -976,11 +976,20 @@ def seed() -> None:
                 row = db.query(_FP_P).filter(_FP_P.fetcher_id == esp.id, _FP_P.code == pdef["code"]).first()
                 bloqueados = [k for k in pdef.get("locked", []) if k in pdef["params"]]
                 if row is None:
-                    db.add(_FP_P(fetcher_id=esp.id, code=pdef["code"],
-                                 description=pdef.get("description"), params=pdef["params"],
-                                 locked_params=bloqueados))
-                    print(f"[seed_fetchers] preset '{pdef['code']}' creado bajo '{especie_code}'")
-                else:
+                    # Inserción tolerante a siembra concurrente (durante el recreate
+                    # del deploy, contenedor viejo y nuevo siembran a la vez): si otro
+                    # seeder ganó la carrera e insertó esta variante, el savepoint
+                    # revienta con IntegrityError; se reconvierte en update idempotente.
+                    from sqlalchemy.exc import IntegrityError as _IE
+                    try:
+                        with db.begin_nested():
+                            db.add(_FP_P(fetcher_id=esp.id, code=pdef["code"],
+                                         description=pdef.get("description"), params=pdef["params"],
+                                         locked_params=bloqueados))
+                        print(f"[seed_fetchers] preset '{pdef['code']}' creado bajo '{especie_code}'")
+                    except _IE:
+                        row = db.query(_FP_P).filter(_FP_P.fetcher_id == esp.id, _FP_P.code == pdef["code"]).first()
+                if row is not None:
                     row.description = pdef.get("description")
                     row.params = pdef["params"]
                     row.locked_params = bloqueados
