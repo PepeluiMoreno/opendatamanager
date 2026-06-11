@@ -949,6 +949,16 @@ def seed() -> None:
                 "params": {"request": "json_body", "pagination": "pivot_loop", "extraction": "passthrough"},
             },
             {
+                "code": "Pivote por valor (query)",
+                "description": "Una petición por cada valor de un eje, enviado como parámetro de query. Para endpoints que NO se enumeran de una vez: o se parten por una dimensión (p. ej. /organos por idAdmon C/A/L/O), o se barre un endpoint de búsqueda por término (p. ej. /terceros por las combinaciones de N letras). Los valores salen de: lista inline (pivot_values), generador combinatorio (pivot_generate=product + pivot_length -> AAA..ZZZ), o un dataset ya cosechado en ODM (pivot_source_resource/pivot_source_field). El recurso aporta la 'url', el 'pivot_param' y, según el caso, content_field / pivot_field_out / id_field.",
+                "params": {"request": "query", "pagination": "pivot_loop", "extraction": "passthrough"},
+            },
+            {
+                "code": "Pivote por valor (query)",
+                "description": "Una petición por cada valor de un pivote, enviado como parámetro de QUERY, uniendo y deduplicando (id_field) entre iteraciones. Para endpoints que NO se enumeran de una sola vez: parten por una dimensión (p. ej. /organos por idAdmon=C/A/L/O) o son búsqueda-por-término (p. ej. /terceros por 'busqueda'). Los valores salen de: lista inline (pivot_values), generador combinatorio (pivot_generate=product + pivot_length, p. ej. AAA..ZZZ) o un dataset ODM (pivot_source_*). El recurso aporta url, pivot_param, content_field e id_field; opcional pivot_field_out para etiquetar cada fila con su pivote.",
+                "params": {"request": "query", "pagination": "pivot_loop", "extraction": "passthrough"},
+            },
+            {
                 "code": "Series temporales JSON",
                 "description": "Respuesta JSON de series temporales aplanada a formato largo (una fila por punto de la serie). El recurso aporta la 'url' y la raíz donde viven las series.",
                 "params": {"request": "query", "pagination": "none", "extraction": "timeseries_long"},
