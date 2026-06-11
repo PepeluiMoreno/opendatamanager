@@ -408,6 +408,12 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         next_selector = self.params.get("next_page_selector", "")
         max_pages = int(self.params.get("max_pages", 50))
         delay = float(self.params.get("delay_between_pages", 0.5))
+        _preview = int(self.params.get("_preview_limit", 0) or 0)
+        if _preview:
+            # En preview los delays de cortesía sobran y el gateway tiene timeout
+            # corto: sin esperas y con un techo de páginas holgado para el tope.
+            delay = 0.0
+            max_pages = min(max_pages, max(1, (_preview // 10) + 2))
 
         method, enctype, use_multiselect, carry_hidden = self._resolve_search_mode()
         # Acción de búsqueda: explícita > descubierta del <form> > misma url.
@@ -433,6 +439,7 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         current_url = search_url
         all_records: List[Dict] = []
         page = 0
+        preview_limit = int(self.params.get("_preview_limit", 0) or 0)
 
         while page < max_pages:
             soup = self._send_search(current_url, method, enctype, form_data) if form_data \
@@ -440,6 +447,12 @@ class SearchLoopHtmlFetcher(BaseFetcher):
             records = self._extract_table(soup, base_url=current_url)
             all_records.extend(records)
             page += 1
+
+            # En preview, no seguir paginando una vez juntadas filas suficientes:
+            # el enriquecimiento por detalle (caro) ya se acota aparte.
+            if preview_limit and len(all_records) >= preview_limit:
+                all_records = all_records[:preview_limit]
+                break
 
             if not next_selector:
                 break
@@ -464,10 +477,19 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         detail_cfg = _parse_json_param(self.params.get("detail_level", {}))
         if not detail_cfg:
             return records
+        preview = int(self.params.get("_preview_limit", 0) or 0)
+        # En preview, el enriquecimiento por detalle (1 petición por fila) es caro
+        # frente al timeout del gateway, pero el listado solo trae 4 columnas y no
+        # sirve para validar el recurso. Compromiso: enriquecer unas POCAS filas
+        # (preview_detail_max, def. 5) sin esperas, salvo preview_detail=false.
+        if preview and str(self.params.get("preview_detail", "true")).lower() in ("0", "false", "no"):
+            return records
         url_field = self.params.get("detail_url_field",
                                     self.params.get("row_link_field", "_detail_url"))
         delay = float(self.params.get("detail_delay", 1.0))
-        preview = int(self.params.get("_preview_limit", 0) or 0)
+        if preview:
+            delay = 0.0
+            records = records[:min(preview, int(self.params.get("preview_detail_max", 5)))]
         total = len(records)
         for i, rec in enumerate(records):
             durl = rec.get(url_field)
@@ -546,6 +568,10 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         delay_between = float(self.params.get("delay_between_searches", 1.0))
         field_tag = self.params.get("search_field_name", "search_value")
         preview_limit = int(self.params.get("_preview_limit", 0))
+        if preview_limit:
+            # En preview basta el primer pivote para validar el recurso; sin esperas.
+            search_values = search_values[:1]
+            delay_between = 0.0
         total_yielded = 0
 
         for i, val in enumerate(search_values):
