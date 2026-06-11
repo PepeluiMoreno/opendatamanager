@@ -121,6 +121,39 @@
         </div>
       </div>
 
+      <!-- Agrupaciones (carpetas organizativas) -->
+      <div class="flex items-center gap-2 flex-wrap px-1 py-2 border-b border-gray-700 text-xs">
+        <span class="text-gray-500 font-medium mr-1">Agrupaciones:</span>
+        <button @click="selectedGroup = null"
+                class="px-2 py-0.5 rounded-full border"
+                :class="selectedGroup === null ? 'border-blue-500 bg-blue-900/40 text-blue-200' : 'border-gray-700 text-gray-300 hover:bg-gray-700'">
+          Todas
+        </button>
+        <button v-for="g in groups" :key="g.id" @click="selectedGroup = g.id"
+                class="px-2 py-0.5 rounded-full border flex items-center gap-1"
+                :class="selectedGroup === g.id ? 'border-blue-500 bg-blue-900/40 text-blue-200' : 'border-gray-700 text-gray-300 hover:bg-gray-700'"
+                :title="g.origin === 'matriz' ? 'Originada por una matriz' : 'Carpeta organizativa'">
+          <span v-if="g.origin === 'matriz'">🛰️</span><span v-else>🗂️</span>
+          {{ g.name }}
+          <span class="text-gray-500">{{ memberCount(g.id) }}</span>
+        </button>
+        <button @click="selectedGroup = '__none__'"
+                class="px-2 py-0.5 rounded-full border"
+                :class="selectedGroup === '__none__' ? 'border-blue-500 bg-blue-900/40 text-blue-200' : 'border-gray-700 text-gray-400 hover:bg-gray-700'">
+          Sin agrupar <span class="text-gray-500">{{ countSinAgrupar }}</span>
+        </button>
+
+        <span class="mx-1 text-gray-700">|</span>
+        <button v-if="puede('recursos.crear')" @click="nuevaAgrupacion"
+                class="px-2 py-0.5 rounded border border-green-700 text-green-400 hover:bg-green-900/30">+ Nueva</button>
+        <template v-if="grupoSeleccionadoEditable && puede('recursos.editar')">
+          <button @click="renombrarAgrupacion" title="Renombrar agrupación"
+                  class="px-2 py-0.5 rounded border border-gray-700 text-gray-300 hover:bg-gray-700">✎ Renombrar</button>
+          <button @click="borrarAgrupacion" title="Borrar agrupación"
+                  class="px-2 py-0.5 rounded border border-red-800 text-red-400 hover:bg-red-900/30">🗑 Borrar</button>
+        </template>
+      </div>
+
       <div class="overflow-y-auto flex-1">
       <table class="w-full">
         <thead class="sticky top-0 z-10 bg-gray-800">
@@ -333,6 +366,15 @@
                 <option v-for="p in publishers" :key="p.id" :value="p.id">{{ p.nombre }}</option>
               </select>
             </div>
+          </div>
+
+          <div v-if="showEditModal && !editingResource?.parentResourceId">
+            <label class="block text-xs font-medium mb-1">Agrupación</label>
+            <select v-model="form.resourceGroupId" class="input w-full text-sm">
+              <option value="">Sin agrupar</option>
+              <option v-for="g in groups.filter(x => x.origin !== 'matriz')" :key="g.id" :value="g.id">{{ g.name }}</option>
+            </select>
+            <p class="text-[11px] text-gray-500 mt-1">Carpeta organizativa a la que pertenece este recurso.</p>
           </div>
 
           <div>
@@ -1349,6 +1391,10 @@ import {
   deleteDerivedDatasetConfig,
   toggleDerivedDatasetConfig,
   fetchPublishers,
+  fetchResourceGroups,
+  createResourceGroup,
+  renameResourceGroup,
+  deleteResourceGroup,
 } from '../api/graphql'
 import PreviewDataModal from './PreviewDataModal.vue'
 
@@ -1536,7 +1582,7 @@ const previewParams = ref({})
 
 const form = ref({
   name: '', description: '', publisherId: null, fetcherId: '', presetId: null, params: [], active: true, schedule: null,
-  generaColecciones: false, modo: 'extraer',
+  generaColecciones: false, modo: 'extraer', resourceGroupId: '',
   numWorkers: 1, maxConcurrentRequests: null, rateLimitPerSecond: null, requestDelayMs: null,
   retryAttempts: null, retryBackoffFactor: null, batchSize: null,
 })
@@ -1666,6 +1712,10 @@ function initExpandedGroups() {
   expandedGroups.value = next
 }
 
+const groups = ref([])
+const selectedGroup = ref(null)   // null = todas | '__none__' = sin agrupar | <id>
+const groupsById = computed(() => Object.fromEntries(groups.value.map(g => [g.id, g])))
+
 const filteredResources = computed(() => {
   const q = searchQuery.value.toLowerCase()
   return resources.value.filter(r => {
@@ -1676,10 +1726,54 @@ const filteredResources = computed(() => {
     if (selectedApp.value && !(r.subscriberApps || []).includes(selectedApp.value)) return false
     if (selectedKind.value && (r.createdByKind || 'usuario') !== selectedKind.value) return false
     if (selectedNivel.value && r.publisherObj?.nivel !== selectedNivel.value) return false
+    if (selectedGroup.value === '__none__' && r.resourceGroupId) return false
+    if (selectedGroup.value && selectedGroup.value !== '__none__' && r.resourceGroupId !== selectedGroup.value) return false
     if (!filterAllStatuses.value && filterStatuses.value.length) { if (!filterStatuses.value.includes(r.active ? 'active' : 'inactive')) return false }
     return true
   }).sort((a, b) => a.name.localeCompare(b.name, 'es'))
 })
+
+// ── Agrupaciones (carpetas organizativas) ───────────────────────────────────
+const countSinAgrupar = computed(() => resources.value.filter(r => !r.resourceGroupId).length)
+function memberCount(gid) { return resources.value.filter(r => r.resourceGroupId === gid).length }
+const grupoSeleccionadoEditable = computed(() => {
+  const g = selectedGroup.value && selectedGroup.value !== '__none__' ? groupsById.value[selectedGroup.value] : null
+  return g && g.origin !== 'matriz' ? g : null
+})
+async function nuevaAgrupacion() {
+  const nombre = (window.prompt('Nombre de la nueva agrupación') || '').trim()
+  if (!nombre) return
+  try {
+    const r = await createResourceGroup(nombre)
+    const g = r?.createResourceGroup
+    if (g) { groups.value = [...groups.value, g].sort((a,b)=>a.name.localeCompare(b.name,'es')); selectedGroup.value = g.id }
+  } catch (e) { console.error('Error creando agrupación:', e) }
+}
+async function renombrarAgrupacion() {
+  const g = grupoSeleccionadoEditable.value
+  if (!g) return
+  const nombre = (window.prompt('Nuevo nombre de la agrupación', g.name) || '').trim()
+  if (!nombre || nombre === g.name) return
+  try {
+    const r = await renameResourceGroup(g.id, nombre)
+    const ng = r?.renameResourceGroup
+    if (ng) groups.value = groups.value.map(x => x.id === ng.id ? { ...x, name: ng.name } : x).sort((a,b)=>a.name.localeCompare(b.name,'es'))
+  } catch (e) { console.error('Error renombrando agrupación:', e) }
+}
+async function borrarAgrupacion() {
+  const g = grupoSeleccionadoEditable.value
+  if (!g) return
+  const n = memberCount(g.id)
+  const msg = n ? `Borrar la agrupación «${g.name}»: sus ${n} recurso(s) quedarán sin agrupar (no se borran). ¿Continuar?`
+                : `Borrar la agrupación «${g.name}»?`
+  if (!window.confirm(msg)) return
+  try {
+    await deleteResourceGroup(g.id)
+    groups.value = groups.value.filter(x => x.id !== g.id)
+    selectedGroup.value = null
+    await loadData()
+  } catch (e) { console.error('Error borrando agrupación:', e) }
+}
 
 // ── Jerarquía nodriza → recursos descubiertos ───────────────────────────────
 function esNodriza(r) { return r?.generaColecciones === true }
@@ -1706,12 +1800,14 @@ const selectedOptionalParam = ref('')
 async function loadData() {
   try {
     loading.value = true; error.value = null
-    const [rd, td, pd, rmd, pmd, cd, id] = await Promise.all([
+    const [rd, td, pd, rmd, pmd, cd, id, gd] = await Promise.all([
       fetchResources(false), fetchFetchers(), fetchPublishers(),
       fetchFieldMetadata('resource'), fetchFieldMetadata('resource_param'),
       fetchAppConfig(), fetch('/api/system/info').then(r => r.json()).catch(() => null),
+      fetchResourceGroups().catch(() => null),
     ])
     resources.value = rd.resources; fetchers.value = td.fetchers; publishers.value = pd?.publishers || []
+    groups.value = gd?.resourceGroups || []
     const m = {}; rmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); pmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); fieldMetadata.value = m
     if (cd?.appConfig) { const map = {}; cd.appConfig.forEach(c => { map[c.key] = c.value }); appConfig.value = map }
     if (id) sysInfo.value = id
@@ -1760,6 +1856,7 @@ function editResource(resource) {
     params: resource.params.filter(p=>!ck.includes(p.key)).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false})),
     active: resource.active, schedule: resource.schedule||null,
     generaColecciones: resource.generaColecciones || false, modo: resource.generaColecciones ? 'descubrir' : 'extraer',
+    resourceGroupId: resource.resourceGroupId || '',
     numWorkers: parseInt(getParam('num_workers',1)),
     maxConcurrentRequests: getParam('max_concurrent_requests')?parseInt(getParam('max_concurrent_requests')):null,
     rateLimitPerSecond: getParam('rate_limit_per_second')?parseInt(getParam('rate_limit_per_second')):null,
@@ -1838,14 +1935,14 @@ async function submitForm() {
     const cp = { 'num_workers':{value:form.value.numWorkers,default:1},'max_concurrent_requests':{value:form.value.maxConcurrentRequests,default:null},'rate_limit_per_second':{value:form.value.rateLimitPerSecond,default:null},'request_delay_ms':{value:form.value.requestDelayMs,default:null},'retry_attempts':{value:form.value.retryAttempts,default:null},'retry_backoff_factor':{value:form.value.retryBackoffFactor,default:null},'batch_size':{value:form.value.batchSize,default:null} }
     for (const [k,c] of Object.entries(cp)) { if (c.value!==null&&c.value!==c.default) allParams.push({key:k,value:String(c.value)}) }
     const input = { name:form.value.name, description:form.value.description||null, publisherId:form.value.publisherId||null, fetcherId:form.value.fetcherId, presetId:form.value.presetId || (editingResource ? "" : null), params:allParams, active:form.value.active, schedule:form.value.schedule||null, generaColecciones:form.value.generaColecciones || false }
-    if (showCreateModal.value) await createResource(input); else await updateResource(editingResource.value.id, input)
+    if (showCreateModal.value) await createResource(input); else await updateResource(editingResource.value.id, { ...input, resourceGroupId: form.value.resourceGroupId ?? '' })
     closeModals(); await loadData()
   } catch (e) { error.value = 'Failed to save resource: ' + e.message }
 }
 
 function closeModals() {
   showCreateModal.value=false; showEditModal.value=false; editingResource.value=null; activeParamTab.value='parameters'; expandedGroups.value=new Set(); derivedConfigs.value=[]; showAddDerivedForm.value=false; editingDerivedId.value=null
-  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, generaColecciones:false, modo:'extraer', numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
+  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, generaColecciones:false, modo:'extraer', resourceGroupId:'', numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
 }
 
 async function loadDerivedConfigs(id) { derivedConfigsLoading.value=true; try { const r=await fetchDerivedDatasetConfigs(id); derivedConfigs.value=r?.derivedDatasetConfigs||[] } catch {} finally { derivedConfigsLoading.value=false } }
