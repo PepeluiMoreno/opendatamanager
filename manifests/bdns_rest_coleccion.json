@@ -11,6 +11,7 @@
         {
             "name": "BDNS (API SNPSAP) — matriz",
             "fetcher": "Descubridor REST",
+            "clase_fuente": "api_abierta",
             "genera_colecciones": true,
             "schedule": null,
             "active": true,

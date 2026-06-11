@@ -36,7 +36,7 @@ _FETCHERS_PUBLICACION = frozenset({
 # Fetchers de API abierta.
 _FETCHERS_API = frozenset({
     "API REST", "API REST Paginada", "REST Loop", "SOAP", "WFS", "WMS",
-    "JSON Time Series",
+    "JSON Time Series", "Descubridor REST",
 })
 
 
