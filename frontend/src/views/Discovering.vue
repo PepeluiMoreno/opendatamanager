@@ -103,6 +103,7 @@
           <span v-for="d in n.dimensiones" :key="d"
             class="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300">{{ d }}</span>
           <button @click="onPromoverRama(n)"
+            v-if="!autodescriptivo"
             class="ml-auto btn btn-secondary text-xs px-2.5 py-0.5"
             :disabled="!n.numCandidatos"
             title="Promover toda la rama como un recurso">
@@ -219,13 +220,21 @@
         <label class="block text-xs text-gray-400 mb-1">target_table</label>
         <input v-model="promoteForm.targetTable" class="input w-full mb-3 text-sm font-mono" placeholder="snake_case" />
 
-        <label class="block text-xs text-gray-400 mb-1">Variante</label>
-        <select v-model="promoteForm.variant" class="input w-full mb-3 text-sm">
-          <option value="">(sin variante)</option>
-          <option value="Censo documental">Censo documental</option>
-          <option value="Extracción de datos">Extracción de datos</option>
-          <option value="Extracción con receta">Extracción con receta</option>
-        </select>
+        <template v-if="promoteCandidate?.targetFetcherCode">
+          <p class="text-xs text-gray-400 mb-3 bg-gray-800/60 border border-gray-700 rounded p-2">
+            Se promueve a <span class="font-mono text-gray-200">{{ promoteCandidate.targetFetcherCode }}</span>
+            con su URL y formato ya resueltos. No requiere variante.
+          </p>
+        </template>
+        <template v-else>
+          <label class="block text-xs text-gray-400 mb-1">Variante</label>
+          <select v-model="promoteForm.variant" class="input w-full mb-3 text-sm">
+            <option value="">(sin variante)</option>
+            <option value="Censo documental">Censo documental</option>
+            <option value="Extracción de datos">Extracción de datos</option>
+            <option value="Extracción con receta">Extracción con receta</option>
+          </select>
+        </template>
 
         <label class="block text-xs text-gray-400 mb-1">Schedule (cron, opcional)</label>
         <input v-model="promoteForm.schedule" class="input w-full mb-3 text-sm" placeholder="0 3 * * 0" />
@@ -429,6 +438,11 @@ const filteredCandidates = computed(() =>
     ? candidates.value
     : candidates.value.filter(c => c.status === filterStatus.value)
 )
+
+// Colección autodescriptiva (catálogo/archivo): cada candidato lleva su especie
+// y params destino. En ese caso no aplican variantes ni "promover rama" (fundir
+// registros independientes no tiene sentido): se promueve uno a uno.
+const autodescriptivo = computed(() => candidates.value.some(c => c.targetFetcherCode))
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function statusBadge(status) {

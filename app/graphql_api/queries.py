@@ -269,6 +269,7 @@ def map_resource_candidate(c: ResourceCandidate) -> ResourceCandidateType:
         suggested_name=c.suggested_name,
         confidence=c.confidence,
         status=c.status,
+        target_fetcher_code=c.target_fetcher_code,
         promoted_resource_id=str(c.promoted_resource_id) if c.promoted_resource_id else None,
         merged_into_id=str(c.merged_into_id) if c.merged_into_id else None,
         split_from_id=str(c.split_from_id) if c.split_from_id else None,

@@ -1027,7 +1027,7 @@ export async function restoreExecution(id) {
 const CANDIDATE_FIELDS = `
   id executionId crawlerResourceId pathTemplate
   dimensions matchedUrls fileTypes
-  suggestedName confidence status
+  suggestedName confidence status targetFetcherCode
   promotedResourceId mergedIntoId splitFromId
   detectedAt reviewedAt reviewedBy
 `

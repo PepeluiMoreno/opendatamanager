@@ -428,6 +428,7 @@ class ResourceCandidateType:
     suggested_name: Optional[str] = strawberry.field(default=None, name="suggestedName")
     confidence: Optional[float] = None
     status: str
+    target_fetcher_code: Optional[str] = strawberry.field(default=None, name="targetFetcherCode")
     promoted_resource_id: Optional[str] = strawberry.field(default=None, name="promotedResourceId")
     merged_into_id: Optional[str] = strawberry.field(default=None, name="mergedIntoId")
     split_from_id: Optional[str] = strawberry.field(default=None, name="splitFromId")
