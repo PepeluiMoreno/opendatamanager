@@ -237,6 +237,16 @@ export const QUERIES = {
     }
   `,
 
+  GET_DERIVED_DATASET_ENTRIES: `
+    query GetDerivedDatasetEntries($configId: String!, $search: String, $limit: Int, $offset: Int) {
+      derivedDatasetEntries(configId: $configId, search: $search, limit: $limit, offset: $offset) {
+        keyValue
+        data
+        updatedAt
+      }
+    }
+  `,
+
   GET_FETCHERS: `
     query GetFetchers {
       fetchers {
@@ -835,6 +845,14 @@ export async function fetchResourceExecutions(resourceId = null) {
 export async function fetchDerivedDatasetConfigs(sourceResourceId = null) {
   try {
     return await client.request(QUERIES.GET_DERIVED_DATASET_CONFIGS, { sourceResourceId })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function fetchDerivedDatasetEntries(configId, { search = null, limit = 500, offset = 0 } = {}) {
+  try {
+    return await client.request(QUERIES.GET_DERIVED_DATASET_ENTRIES, { configId, search, limit, offset })
   } catch (error) {
     handleGraphQLError(error)
   }

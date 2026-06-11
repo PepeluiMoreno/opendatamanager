@@ -983,6 +983,9 @@
                         <td class="py-1.5 whitespace-nowrap flex gap-1">
                           <button type="button" @click="startEditDerived(cfg)"
                             class="text-blue-400 hover:text-blue-300 text-xs px-1">Edit</button>
+                          <button type="button" @click="openDerivedEntries(cfg)"
+                            :disabled="!cfg.entryCount"
+                            class="text-green-400 hover:text-green-300 disabled:text-gray-600 text-xs px-1">Ver</button>
                           <button type="button" @click="deleteDerived(cfg.id)"
                             class="text-red-400 hover:text-red-300 text-xs px-1">✕</button>
                         </td>
@@ -1066,6 +1069,40 @@
                   class="text-xs text-green-400 hover:text-green-300 border border-green-800 rounded px-3 py-1 mt-1">
                   + Add derived dataset
                 </button>
+
+                <!-- Visor del catálogo derivado -->
+                <div v-if="derivedEntriesModal" class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" @click.self="derivedEntriesModal = null">
+                  <div class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col p-4">
+                    <div class="flex items-center justify-between mb-3">
+                      <h4 class="text-sm font-semibold text-green-300 font-mono">{{ derivedEntriesModal.targetName }}
+                        <span class="text-gray-500">· {{ derivedEntriesModal.keyField }}</span></h4>
+                      <button @click="derivedEntriesModal = null" class="text-gray-500 hover:text-gray-300">✕</button>
+                    </div>
+                    <div class="flex items-center gap-2 mb-2">
+                      <input v-model="derivedEntriesSearch" @keyup.enter="loadDerivedEntries"
+                        class="input flex-1 text-xs py-1" :placeholder="`Buscar en ${derivedEntriesModal.keyField}…`" />
+                      <button @click="loadDerivedEntries" class="btn btn-secondary text-xs px-3 py-1">Buscar</button>
+                      <button @click="exportDerivedCSV" :disabled="!derivedEntries.length" class="btn btn-primary text-xs px-3 py-1">Export CSV</button>
+                    </div>
+                    <div class="flex-1 overflow-auto">
+                      <p v-if="derivedEntriesLoading" class="text-xs text-gray-500 py-3 text-center">Cargando…</p>
+                      <p v-else-if="!derivedEntries.length" class="text-xs text-gray-500 py-3 text-center">Sin entradas.</p>
+                      <table v-else class="w-full text-xs">
+                        <thead class="text-gray-500 border-b border-gray-700 sticky top-0 bg-gray-900">
+                          <tr><th class="text-left py-1 pr-2 font-mono text-yellow-300">{{ derivedEntriesModal.keyField }}</th>
+                            <th v-for="f in (derivedEntriesModal.extractFields || [])" :key="f" class="text-left py-1 pr-2">{{ f }}</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(e, i) in derivedEntries" :key="i" class="border-b border-gray-800">
+                            <td class="py-1 pr-2 font-mono text-yellow-200">{{ e.keyValue }}</td>
+                            <td v-for="f in (derivedEntriesModal.extractFields || [])" :key="f" class="py-1 pr-2 text-gray-300">{{ e.data?.[f] }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p class="text-[10px] text-gray-600 mt-2">Mostrando hasta 500 entradas. Para el catálogo completo, consume la query GraphQL derivedDatasetEntries.</p>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -1313,6 +1350,7 @@ import {
   fetchCuotaRefrescos,
   fetchAppConfig,
   fetchDerivedDatasetConfigs,
+  fetchDerivedDatasetEntries,
   createDerivedDatasetConfig,
   updateDerivedDatasetConfig,
   deleteDerivedDatasetConfig,
@@ -1502,6 +1540,37 @@ const form = ref({
 const activeParamTab = ref('parameters')
 const derivedConfigs = ref([])
 const derivedConfigsLoading = ref(false)
+// Visor/exportador del catálogo derivado (entradas)
+const derivedEntriesModal = ref(null)   // cfg activo o null
+const derivedEntries = ref([])
+const derivedEntriesLoading = ref(false)
+const derivedEntriesSearch = ref('')
+async function openDerivedEntries(cfg) {
+  derivedEntriesModal.value = cfg
+  derivedEntriesSearch.value = ''
+  await loadDerivedEntries()
+}
+async function loadDerivedEntries() {
+  if (!derivedEntriesModal.value) return
+  derivedEntriesLoading.value = true
+  try {
+    const r = await fetchDerivedDatasetEntries(derivedEntriesModal.value.id, { search: derivedEntriesSearch.value || null, limit: 500 })
+    derivedEntries.value = r?.derivedDatasetEntries || []
+  } catch { derivedEntries.value = [] } finally { derivedEntriesLoading.value = false }
+}
+function exportDerivedCSV() {
+  const cfg = derivedEntriesModal.value
+  if (!cfg || !derivedEntries.value.length) return
+  const cols = [cfg.keyField, ...(cfg.extractFields || [])]
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const head = cols.map(esc).join(',')
+  const body = derivedEntries.value.map(e => cols.map(c => esc(e.data?.[c])).join(',')).join('\n')
+  const blob = new Blob([head + '\n' + body], { type: 'text/csv;charset=utf-8' })
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = `${cfg.targetName}.csv`
+  a.click(); URL.revokeObjectURL(a.href)
+}
 const newDerivedConfig = ref({ targetName: '', keyField: '', extractFieldsText: '', mergeStrategy: 'upsert', enabled: true, description: '' })
 const showAddDerivedForm = ref(false)
 const editingDerivedId = ref(null)
