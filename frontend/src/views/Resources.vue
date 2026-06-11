@@ -1,7 +1,7 @@
 <template>
   <div class="p-6 flex flex-col h-full" ref="viewEl">
     <template v-if="!(showCreateModal || showEditModal)">
-    <div class="flex justify-between items-center mb-4">
+    <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
       <h1 class="text-2xl font-bold">Resources</h1>
       <div class="flex gap-2 items-center">
         <span v-if="cuota && puede('ejecuciones.lanzar')"
@@ -39,11 +39,11 @@
           class="input w-full text-xs py-1 px-2"
         />
 
-        <div class="flex flex-wrap gap-4 items-center">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-4 sm:items-center">
           <!-- Type filter -->
           <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Type:</span>
-            <select v-model="selectedType" class="input py-0.5 px-2 text-xs" style="min-width:140px">
+            <select v-model="selectedType" class="input py-0.5 px-2 text-xs flex-1 sm:flex-none sm:min-w-[140px]">
               <option value="">All</option>
               <option v-for="t in availableTypes" :key="t" :value="t">{{ t }}</option>
             </select>
@@ -52,7 +52,7 @@
           <!-- Publisher filter -->
           <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Publisher:</span>
-            <select v-model="selectedPublisher" class="input py-0.5 px-2 text-xs" style="min-width:160px">
+            <select v-model="selectedPublisher" class="input py-0.5 px-2 text-xs flex-1 sm:flex-none sm:min-w-[160px]">
               <option value="">All</option>
               <option v-for="p in availablePublishers" :key="p.id" :value="p.id">{{ p.nombre }}</option>
             </select>
@@ -61,7 +61,7 @@
           <!-- Origen (quién lo generó) -->
           <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Origen:</span>
-            <select v-model="selectedKind" class="input py-0.5 px-2 text-xs" style="min-width:120px">
+            <select v-model="selectedKind" class="input py-0.5 px-2 text-xs flex-1 sm:flex-none sm:min-w-[120px]">
               <option value="">Cualquiera</option>
               <option value="usuario">Usuario</option>
               <option value="aplicacion">Aplicación</option>
@@ -72,7 +72,7 @@
           <!-- Used by (aplicaciones suscritas) -->
           <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Used by:</span>
-            <select v-model="selectedApp" class="input py-0.5 px-2 text-xs" style="min-width:150px">
+            <select v-model="selectedApp" class="input py-0.5 px-2 text-xs flex-1 sm:flex-none sm:min-w-[150px]">
               <option value="">Anyone</option>
               <option v-for="a in availableApps" :key="a" :value="a">{{ a }}</option>
             </select>
@@ -81,7 +81,7 @@
           <!-- Level filter -->
           <div class="flex items-center gap-1.5">
             <span class="text-gray-400 font-medium">Level:</span>
-            <select v-model="selectedNivel" class="input py-0.5 px-2 text-xs" style="min-width:110px">
+            <select v-model="selectedNivel" class="input py-0.5 px-2 text-xs flex-1 sm:flex-none sm:min-w-[110px]">
               <option value="">All</option>
               <option v-for="n in availableNiveles" :key="n" :value="n">{{ n }}</option>
             </select>
@@ -154,14 +154,14 @@
         </template>
       </div>
 
-      <div class="overflow-y-auto flex-1">
-      <table class="w-full">
+      <div class="overflow-auto flex-1">
+      <table class="w-full min-w-[20rem]">
         <thead class="sticky top-0 z-10 bg-gray-800">
           <tr class="border-b border-gray-700 text-xs text-gray-400">
             <th class="text-left py-2 px-3 font-medium">Name</th>
-            <th class="text-left py-2 px-3 font-medium">Publisher</th>
-            <th class="text-left py-2 px-3 font-medium">Apps</th>
-            <th class="text-left py-2 px-3 font-medium">Type</th>
+            <th class="text-left py-2 px-3 font-medium hidden md:table-cell">Publisher</th>
+            <th class="text-left py-2 px-3 font-medium hidden lg:table-cell">Apps</th>
+            <th class="text-left py-2 px-3 font-medium hidden sm:table-cell">Type</th>
             <th class="text-left py-2 px-3 font-medium">Status</th>
             <th class="text-right py-2 px-3 font-medium">Actions</th>
           </tr>
@@ -188,7 +188,7 @@
                     :class="origenBadge(resource).clase"
                     :title="origenBadge(resource).tooltip">{{ origenBadge(resource).texto }}</span>
             </td>
-            <td class="py-1.5 px-3 text-xs text-gray-400 whitespace-nowrap">
+            <td class="py-1.5 px-3 text-xs text-gray-400 whitespace-nowrap hidden md:table-cell">
               <span v-if="resource.publisherObj?.acronimo"
                     :title="resource.publisherObj.nombre"
                     class="cursor-help">
@@ -197,13 +197,13 @@
               </span>
               <span v-else>{{ resource.publisherObj?.nombre || resource.publisher || '—' }}</span>
             </td>
-            <td class="py-1.5 px-3 text-xs whitespace-nowrap">
+            <td class="py-1.5 px-3 text-xs whitespace-nowrap hidden lg:table-cell">
               <span v-if="resource.subscriberCount"
                     class="inline-block px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300 cursor-help"
                     :title="(resource.subscriberApps || []).join(', ')">{{ resource.subscriberCount }}</span>
               <span v-else class="text-gray-600">—</span>
             </td>
-            <td class="py-1.5 px-3 whitespace-nowrap">
+            <td class="py-1.5 px-3 whitespace-nowrap hidden sm:table-cell">
               <code class="text-xs bg-gray-900 px-1.5 py-0.5 rounded text-blue-400">
                 {{ resource.fetcher.code }}
               </code>
@@ -267,12 +267,12 @@
               <span class="text-gray-600 pl-5 mr-1">└─</span>{{ child.name }}
               <span class="ml-1 text-[9px] uppercase tracking-wide font-bold px-1 py-0.5 rounded bg-purple-900/60 text-purple-300">descubierto</span>
             </td>
-            <td class="py-1 px-3 text-xs text-gray-400 whitespace-nowrap">{{ child.publisherObj?.acronimo || child.publisherObj?.nombre || child.publisher || '—' }}</td>
-            <td class="py-1 px-3 text-xs whitespace-nowrap">
+            <td class="py-1 px-3 text-xs text-gray-400 whitespace-nowrap hidden md:table-cell">{{ child.publisherObj?.acronimo || child.publisherObj?.nombre || child.publisher || '—' }}</td>
+            <td class="py-1 px-3 text-xs whitespace-nowrap hidden lg:table-cell">
               <span v-if="child.subscriberCount" class="inline-block px-1.5 py-0.5 rounded bg-blue-900/50 text-blue-300">{{ child.subscriberCount }}</span>
               <span v-else class="text-gray-600">—</span>
             </td>
-            <td class="py-1 px-3 whitespace-nowrap"><code class="text-xs bg-gray-900 px-1.5 py-0.5 rounded text-blue-400">{{ child.fetcher.code }}</code></td>
+            <td class="py-1 px-3 whitespace-nowrap hidden sm:table-cell"><code class="text-xs bg-gray-900 px-1.5 py-0.5 rounded text-blue-400">{{ child.fetcher.code }}</code></td>
             <td class="py-1 px-3 whitespace-nowrap">
               <span class="inline-block h-1.5 w-1.5 rounded-full" :class="child.active ? 'bg-green-400' : 'bg-red-500'"></span>
               <span class="text-xs ml-1" :class="child.active ? 'text-green-400' : 'text-red-400'">{{ child.active ? 'Activo' : 'Inactivo' }}</span>
