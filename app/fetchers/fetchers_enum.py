@@ -62,6 +62,12 @@ class FetchersEnum(Enum):
         "description": "Descubridor por pivote: lee los valores de un <select> de filtro (provincia, confesión...) en la página del formulario y emite un recurso-hijo por valor —o por GRUPO de valores (p. ej. provincias→CCAA)—. Cada hijo es un searchloop que internaliza los valores de su grupo. Cuarta estrategia de descubrimiento. Solo modo descubrir."
     }
 
+    DESCUBRIDOR_REST = {
+        "code": "Descubridor REST",
+        "class_path": "app.fetchers.rest_api_discoverer.RestApiDiscovererFetcher",
+        "description": "Descubridor de API REST: lee el OpenAPI de una API (por defecto SNPSAP/BDNS) y emite un hijo API REST por cada dataset (patrón /{nombre}/busqueda, paginado) y opcionalmente por cada catálogo lookup. Los hijos usan 'busqueda' (JSON estructurado, filtrable por nifCif/fecha), no 'exportar'. Solo modo descubrir."
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # FILES = {
     #     "code": "FILES",

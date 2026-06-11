@@ -1,0 +1,51 @@
+{
+    "odm_manifest_version": 1,
+    "publisher": {
+        "acronimo": "IGAE-SNPSAP",
+        "nombre": "Intervención General de la Administración del Estado — Sistema Nacional de Publicidad de Subvenciones y Ayudas Públicas",
+        "nivel": "ESTATAL",
+        "pais": "España",
+        "portal_url": "https://www.infosubvenciones.es"
+    },
+    "resources": [
+        {
+            "name": "BDNS (API SNPSAP) — matriz",
+            "fetcher": "Descubridor REST",
+            "genera_colecciones": true,
+            "schedule": null,
+            "active": true,
+            "params": [
+                {
+                    "key": "openapi_url",
+                    "value": "https://www.infosubvenciones.es/bdnstrans/estaticos/doc/snpsap-api.json",
+                    "is_external": false
+                },
+                {
+                    "key": "api_base",
+                    "value": "https://www.infosubvenciones.es/bdnstrans/api",
+                    "is_external": false
+                },
+                {
+                    "key": "vpd",
+                    "value": "GE",
+                    "is_external": false
+                },
+                {
+                    "key": "page_size",
+                    "value": "100",
+                    "is_external": false
+                },
+                {
+                    "key": "include_lookups",
+                    "value": "true",
+                    "is_external": false
+                },
+                {
+                    "key": "child_fetcher",
+                    "value": "API REST",
+                    "is_external": false
+                }
+            ]
+        }
+    ]
+}

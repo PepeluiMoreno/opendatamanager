@@ -168,3 +168,24 @@ El backend ya es genérico (hook propose() en el manager). Falta el frontend:
     de Catálogo (que ya está en master pero no se puede disparar desde la UI; hoy
     solo corre por su schedule).
   · Collections.vue (~L23): copy "(hoy, Web Tree)" obsoleto.
+
+## UI — filtro de recursos "solo descubribles" (pendiente, sin gatillo)
+- En la lista de recursos, un checkbox para filtrar solo los que son Colección /
+  descubribles (es_coleccion o fetcher.descubre). Vista rápida de las naves nodriza.
+
+## Refactor — entidad Discoverer separada del Fetcher (DISCUTIR, post-BDNS)
+Idea del usuario: extraer la capacidad de descubrir a una entidad propia
+"Discoverer", elegida en función del Fetcher, en vez de un propose() pegado al
+Fetcher. Motivación: Pivote y RestApi son "fetchers que no fetchean" (fetch()
+NotImplementedError) — olor a dos responsabilidades en una clase. Separar:
+Fetcher extrae, Discoverer descubre el índice y emite candidatos.
+Preguntas a resolver:
+  · ¿cómo se empareja Discoverer↔Fetcher? (registro fetcher→discoverer / el
+    recurso declara su discoverer / mapping en seed)
+  · los duales (Catálogo extrae Y descubre): ¿Fetcher con Discoverer asociado,
+    o dos entidades?
+  · el manager pasaría de hasattr(propose) a "¿tiene Discoverer? descubre : extrae".
+  · ¿composición? el Discoverer reutiliza config del Fetcher (auth, base_url).
+El BDNS RestApiDiscoverer será el 5º ejemplo concreto -> buen insumo para decidir
+la forma del refactor con casos reales en la mano (catálogo/web-tree/pivote/
+archivo/rest).

@@ -157,6 +157,19 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "name": "Descubridor REST",
+        "class_path": "app.fetchers.rest_api_discoverer.RestApiDiscovererFetcher",
+        "description": "Descubridor de API REST: lee el OpenAPI de una API y emite un hijo 'API REST' por cada dataset (patrón /{nombre}/busqueda, paginado) y, opcionalmente, por cada catálogo lookup. Por defecto apunta a SNPSAP/BDNS. Los hijos usan 'busqueda' (JSON estructurado, filtrable por nifCif/fecha), no 'exportar' — verificado que son proyecciones distintas. Quinta estrategia de descubrimiento. Solo modo descubrir.",
+        "params": [
+            {"param_name": "openapi_url", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "URL del OpenAPI/Swagger a leer. Por defecto el de SNPSAP/BDNS (estaticos/doc/snpsap-api.json)."},
+            {"param_name": "api_base", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "Base de la API REST que heredan los hijos. Por defecto https://www.infosubvenciones.es/bdnstrans/api"},
+            {"param_name": "vpd", "data_type": "string", "required": False, "default_value": "GE", "group": "descubrimiento", "hint": "Portal virtual (obligatorio en BDNS). GE = estado general; o el código del portal de cada CCAA."},
+            {"param_name": "page_size", "data_type": "integer", "required": False, "default_value": 100, "group": "descubrimiento", "hint": "Tamaño de página que se preconfigura en los hijos paginados."},
+            {"param_name": "include_lookups", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "'true' para emitir también los catálogos lookup (regiones, objetivos, órganos...) como hijos pequeños. Vacío = solo los datasets."},
+            {"param_name": "child_fetcher", "data_type": "string", "required": False, "default_value": "API REST", "group": "descubrimiento", "hint": "Especie-destino de los hijos. Normalmente 'API REST'."},
+        ],
+    },
+    {
         "name": "File Download",
         "class_path": "app.fetchers.file_download.FileDownloadFetcher",
         "description": "Downloads a static file and converts rows to records. Supports PDF, XLS, XLSX, CSV and TSV.",
@@ -1083,7 +1096,7 @@ def seed() -> None:
     try:
         retirados = []
         # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
-        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"]}
+        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"], "Descubridor REST": ["descubrir"]}
         for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             _f.modos = _MODOS.get(_f.code, ["extraer"])
         db.commit()
