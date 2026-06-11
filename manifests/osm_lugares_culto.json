@@ -16,10 +16,26 @@
       "clase_fuente": "publicacion_abierta",
       "collection": "Inmuebles religiosos en España",
       "params": [
-        { "key": "use_types", "value": "RELIGIOUS_ALL,RELIGIOUS_BUILDING_EXTRA", "is_external": false },
-        { "key": "element_types", "value": "node,way,relation", "is_external": false },
-        { "key": "timeout", "value": "300", "is_external": false },
-        { "key": "max_elements", "value": "0", "is_external": false }
+        {
+          "key": "use_types",
+          "value": "RELIGIOUS_CATHOLIC_STRICT,RELIGIOUS_BUILDING_EXTRA",
+          "is_external": false
+        },
+        {
+          "key": "element_types",
+          "value": "node,way,relation",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "300",
+          "is_external": false
+        },
+        {
+          "key": "max_elements",
+          "value": "0",
+          "is_external": false
+        }
       ]
     }
   ]

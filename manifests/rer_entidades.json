@@ -41,6 +41,11 @@
           "is_external": false
         },
         {
+          "key": "search_field_values",
+          "value": "CAT",
+          "is_external": false
+        },
+        {
           "key": "extra_params",
           "value": "{\"filtro.nombre\": \"\", \"filtro.numeroInscripcion\": \"\", \"filtro.numeroInscripcionAntiguo\": \"\", \"__multiselect_filtro.subconfesion\": \"\", \"filtro.seccion\": \"1\", \"__multiselect_filtro.tiposEntidad\": \"\", \"__multiselect_filtro.codigosComunidad\": \"\", \"__multiselect_filtro.codigosProvincia\": \"\", \"filtro.municipio\": \"\"}",
           "is_external": false
