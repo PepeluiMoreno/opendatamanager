@@ -534,7 +534,7 @@ class ServiceTokenType:
 
 
 @strawberry.type
-class AplicacionM2MType:
+class SubscriberM2MType:
     """Aplicación aprobada: el principal (Usuario tipo='aplicacion') y sus tokens."""
     usuario_id: str = strawberry.field(name="usuarioId")
     username: str

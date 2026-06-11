@@ -282,9 +282,9 @@ import Paginator from '../components/Paginator.vue'
 import FilterBar from '../components/FilterBar.vue'
 import Hint from '../components/Hint.vue'
 import {
-  fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber, activateSubscriber, fetchUsoMensualAplicacion,
+  fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber, activateSubscriber, fetchUsoMensualSubscriber,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
-  fetchAplicacionesM2M, crearAplicacion, emitirTokenAplicacion, rotarTokenAplicacion, revocarTokenAplicacion,
+  fetchSubscribersM2M, crearSubscriber, emitirTokenSubscriber, rotarTokenSubscriber, revocarTokenSubscriber,
 } from '../api/graphql'
 
 const subscribers  = ref([])
@@ -323,8 +323,8 @@ const usoMensual = ref(null)
 watch(selectedAppId, async (id) => {
   usoMensual.value = null
   if (!id) return
-  const d = await fetchUsoMensualAplicacion(id)
-  usoMensual.value = d?.usoMensualAplicacion || null
+  const d = await fetchUsoMensualSubscriber(id)
+  usoMensual.value = d?.usoMensualSubscriber || null
 })
 function subsForApp(id) { return subscriptions.value.filter(s => s.applicationId === id) }
 const subsSeleccionada = computed(() => selectedApp.value ? subsForApp(selectedApp.value.id) : [])
@@ -339,12 +339,12 @@ async function load() {
   error.value = null
   try {
     const [appRes, subRes, resRes, accRes] = await Promise.all([
-      fetchSubscribers(), fetchSubscriptions(), fetchResources(), fetchAplicacionesM2M(),
+      fetchSubscribers(), fetchSubscriptions(), fetchResources(), fetchSubscribersM2M(),
     ])
     subscribers.value  = appRes?.subscribers        ?? []
     subscriptions.value = subRes?.resourceSubscriptions ?? []
     resources.value     = resRes?.resources           ?? []
-    aplicaciones.value  = accRes?.aplicacionesM2m     ?? []
+    aplicaciones.value  = accRes?.subscribersM2m     ?? []
     if (!selectedApp.value && filteredApps.value.length) selectedAppId.value = filteredApps.value[0].id
   } catch (e) {
     error.value = e.message || 'Error loading data'
@@ -469,23 +469,23 @@ watch(filteredApps, (lista) => {
   if (!lista.some(a => a.id === selectedAppId.value)) selectedAppId.value = lista.length ? lista[0].id : ''
 })
 function copiar(t) { try { navigator.clipboard?.writeText(t) } catch { /* no-op */ } }
-async function reloadAcc() { const d = await fetchAplicacionesM2M(); aplicaciones.value = d?.aplicacionesM2m || [] }
+async function reloadAcc() { const d = await fetchSubscribersM2M(); aplicaciones.value = d?.subscribersM2m || [] }
 async function crearAcceso(app) {
-  try { const d = await crearAplicacion(app.name, null); const r = d?.crearAplicacion; if (r) tokenEmitido.value = { username: slugUsername(app.name), token: r.token }; await reloadAcc() }
+  try { const d = await crearSubscriber(app.name, null); const r = d?.crearSubscriber; if (r) tokenEmitido.value = { username: slugUsername(app.name), token: r.token }; await reloadAcc() }
   catch (e) { error.value = e.message || 'No se pudo crear el acceso' }
 }
 async function emitirTok(p) {
-  try { const d = await emitirTokenAplicacion(p.usuarioId, null); const r = d?.emitirTokenAplicacion; if (r) tokenEmitido.value = { username: p.username, token: r.token }; await reloadAcc() }
+  try { const d = await emitirTokenSubscriber(p.usuarioId, null); const r = d?.emitirTokenSubscriber; if (r) tokenEmitido.value = { username: p.username, token: r.token }; await reloadAcc() }
   catch (e) { error.value = e.message || 'No se pudo emitir el token' }
 }
 function rotarTok(p, tok) {
   confirmar.value = { title: 'Rotar token', confirmText: 'Rotar',
     message: `Rotar ${tok.prefix}… El token actual quedará revocado de inmediato.`,
-    onConfirm: async () => { const d = await rotarTokenAplicacion(tok.id, null); const r = d?.rotarTokenAplicacion; if (r) tokenEmitido.value = { username: p.username, token: r.token }; await reloadAcc() } }
+    onConfirm: async () => { const d = await rotarTokenSubscriber(tok.id, null); const r = d?.rotarTokenSubscriber; if (r) tokenEmitido.value = { username: p.username, token: r.token }; await reloadAcc() } }
 }
 function revocarTok(tok) {
   confirmar.value = { title: 'Revocar token', confirmText: 'Revocar',
     message: `Revocar ${tok.prefix}… Es inmediato e irreversible.`,
-    onConfirm: async () => { await revocarTokenAplicacion(tok.id); await reloadAcc() } }
+    onConfirm: async () => { await revocarTokenSubscriber(tok.id); await reloadAcc() } }
 }
 </script>

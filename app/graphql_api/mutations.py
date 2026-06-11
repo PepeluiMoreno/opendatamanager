@@ -2202,7 +2202,7 @@ class Mutation:
     # ── §12 Gestión de tokens de aplicaciones (rotar / revocar / emitir) ────
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.gestionar")])
-    def crear_aplicacion(self, nombre: str, contacto: Optional[str],
+    def crear_subscriber(self, nombre: str, contacto: Optional[str],
                          info: strawberry.types.Info) -> TokenEmitidoResult:
         """Alta manual de aplicacion M2M: materializa (idempotente) el principal
         'aplicacion' y emite su unico token Bearer. El secreto se entrega UNA vez."""
@@ -2224,7 +2224,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
-    def emitir_token_aplicacion(self, usuario_id: strawberry.ID, label: Optional[str],
+    def emitir_token_subscriber(self, usuario_id: strawberry.ID, label: Optional[str],
                                 info: strawberry.types.Info) -> TokenEmitidoResult:
         """Emite un token Bearer adicional para una aplicación. El secreto en
         claro se devuelve una sola vez."""
@@ -2250,7 +2250,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
-    def rotar_token_aplicacion(self, token_id: strawberry.ID, label: Optional[str],
+    def rotar_token_subscriber(self, token_id: strawberry.ID, label: Optional[str],
                                info: strawberry.types.Info) -> TokenEmitidoResult:
         """Rota un token: emite uno nuevo y revoca el anterior. Devuelve el nuevo
         secreto una sola vez."""
@@ -2275,7 +2275,7 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("aplicaciones.aprobar")])
-    def revocar_token_aplicacion(self, token_id: strawberry.ID,
+    def revocar_token_subscriber(self, token_id: strawberry.ID,
                                  info: strawberry.types.Info) -> bool:
         """Revoca un token de inmediato. Idempotente."""
         from app.service_auth import revocar_token

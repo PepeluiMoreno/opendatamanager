@@ -871,11 +871,11 @@ export async function toggleDerivedDatasetConfig(id, enabled) {
   }
 }
 
-export async function fetchUsoMensualAplicacion(applicationId) {
+export async function fetchUsoMensualSubscriber(applicationId) {
   try {
     return await client.request(
       `query UsoMensual($applicationId: String!) {
-        usoMensualAplicacion(applicationId: $applicationId) { usados periodo cuotaDiaria }
+        usoMensualSubscriber(applicationId: $applicationId) { usados periodo cuotaDiaria }
       }`, { applicationId })
   } catch (error) {
     handleGraphQLError(error)
@@ -1223,11 +1223,11 @@ export async function rechazarRecurso(id, motivo) {
   catch (e) { handleGraphQLError(e) }
 }
 
-// ── §12 Gestión de aplicaciones M2M y sus tokens ──────────────────────────
+// ── §12 Gestión de subscribers M2M y sus tokens ──────────────────────────
 
 const Q_APLICACIONES_M2M = `
-  query AplicacionesM2M {
-    aplicacionesM2m {
+  query SubscribersM2M {
+    subscribersM2m {
       usuarioId username email isActive
       tokens { id label prefix lastUsedAt expiresAt revokedAt activo }
     }
@@ -1235,26 +1235,26 @@ const Q_APLICACIONES_M2M = `
 
 const M_EMITIR_TOKEN = `
   mutation EmitirToken($usuarioId: ID!, $label: String) {
-    emitirTokenAplicacion(usuarioId: $usuarioId, label: $label) {
+    emitirTokenSubscriber(usuarioId: $usuarioId, label: $label) {
       tokenId usuarioId prefix token
     }
   }`
 
 const M_ROTAR_TOKEN = `
   mutation RotarToken($tokenId: ID!, $label: String) {
-    rotarTokenAplicacion(tokenId: $tokenId, label: $label) {
+    rotarTokenSubscriber(tokenId: $tokenId, label: $label) {
       tokenId usuarioId prefix token
     }
   }`
 
 const M_REVOCAR_TOKEN = `
   mutation RevocarToken($tokenId: ID!) {
-    revocarTokenAplicacion(tokenId: $tokenId)
+    revocarTokenSubscriber(tokenId: $tokenId)
   }`
 
 const M_CREAR_APLICACION = `
-  mutation CrearAplicacion($nombre: String!, $contacto: String) {
-    crearAplicacion(nombre: $nombre, contacto: $contacto) {
+  mutation CrearSubscriber($nombre: String!, $contacto: String) {
+    crearSubscriber(nombre: $nombre, contacto: $contacto) {
       tokenId usuarioId prefix token
     }
   }`
@@ -1264,23 +1264,23 @@ const M_ELIMINAR_SOLICITUD = `
     eliminarSolicitudIngreso(id: $id)
   }`
 
-export async function fetchAplicacionesM2M() {
+export async function fetchSubscribersM2M() {
   try { return await client.request(Q_APLICACIONES_M2M) }
   catch (e) { handleGraphQLError(e) }
 }
-export async function emitirTokenAplicacion(usuarioId, label) {
+export async function emitirTokenSubscriber(usuarioId, label) {
   try { return await client.request(M_EMITIR_TOKEN, { usuarioId, label: label || null }) }
   catch (e) { handleGraphQLError(e) }
 }
-export async function rotarTokenAplicacion(tokenId, label) {
+export async function rotarTokenSubscriber(tokenId, label) {
   try { return await client.request(M_ROTAR_TOKEN, { tokenId, label: label || null }) }
   catch (e) { handleGraphQLError(e) }
 }
-export async function revocarTokenAplicacion(tokenId) {
+export async function revocarTokenSubscriber(tokenId) {
   try { return await client.request(M_REVOCAR_TOKEN, { tokenId }) }
   catch (e) { handleGraphQLError(e) }
 }
-export async function crearAplicacion(nombre, contacto) {
+export async function crearSubscriber(nombre, contacto) {
   try { return await client.request(M_CREAR_APLICACION, { nombre, contacto: contacto || null }) }
   catch (e) { handleGraphQLError(e) }
 }

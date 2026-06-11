@@ -31,7 +31,7 @@ from app.graphql_api.types import (
     PublisherType,
     ResourceCandidateType,
     SolicitudIngresoType,
-    AplicacionM2MType,
+    SubscriberM2MType,
     ServiceTokenType,
     TaxonomiaNodoType,
 )
@@ -359,7 +359,7 @@ class CuotaRefrescos:
 
 
 @strawberry.type
-class UsoMensualAplicacion:
+class UsoMensualSubscriber:
     """Uso de refrescos a demanda de una aplicación en el mes en curso."""
     usados: int
     periodo: str
@@ -369,7 +369,7 @@ class UsoMensualAplicacion:
 @strawberry.type
 class Query:
     @strawberry.field
-    def whoami_aplicacion(self, info: Info) -> Optional[str]:
+    def whoami_subscriber(self, info: Info) -> Optional[str]:
         """Username del principal 'aplicacion' autenticado por Bearer, o null si
         el token no es válido / no es una aplicación. El consumidor lo usa para
         validar al arrancar si sigue dado de alta (token vivo)."""
@@ -398,7 +398,7 @@ class Query:
             db.close()
 
     @strawberry.field
-    def uso_mensual_aplicacion(self, application_id: str) -> UsoMensualAplicacion:
+    def uso_mensual_subscriber(self, application_id: str) -> UsoMensualSubscriber:
         """Refrescos a demanda consumidos por la aplicación en el mes en curso.
         Resuelve el principal por nombre (Subscriber.name == Usuario.username)."""
         from app.models import Subscriber, Usuario, RefrescoExtemporaneo
@@ -410,13 +410,13 @@ class Query:
             app_row = db.query(Subscriber).filter(Subscriber.id == application_id).first()
             u = db.query(Usuario).filter(Usuario.username == app_row.name).first() if app_row else None
             if u is None:
-                return UsoMensualAplicacion(usados=0, periodo=periodo, cuota_diaria=0)
+                return UsoMensualSubscriber(usados=0, periodo=periodo, cuota_diaria=0)
             usados = db.query(_func.count(RefrescoExtemporaneo.id)).filter(
                 RefrescoExtemporaneo.created_by_id == u.id,
                 RefrescoExtemporaneo.created_at >= inicio,
             ).scalar() or 0
             cuota = getattr(u, "cuota_refrescos_diaria", 0) or 0
-            return UsoMensualAplicacion(usados=usados, periodo=periodo, cuota_diaria=cuota)
+            return UsoMensualSubscriber(usados=usados, periodo=periodo, cuota_diaria=cuota)
         finally:
             db.close()
 
@@ -1007,7 +1007,7 @@ class Query:
             db.close()
 
     @strawberry.field(permission_classes=[requiere("aplicaciones.aprobar")])
-    def aplicaciones_m2m(self, info: Info) -> List[AplicacionM2MType]:
+    def subscribers_m2m(self, info: Info) -> List[SubscriberM2MType]:
         """Aplicaciones aprobadas (principales tipo='aplicacion') y sus tokens
         Bearer, sin el secreto (solo metadatos). Requiere 'aplicaciones.aprobar'."""
         from app.models import Usuario, ServiceToken
@@ -1023,7 +1023,7 @@ class Query:
                 toks = (db.query(ServiceToken)
                         .filter(ServiceToken.usuario_id == u.id)
                         .order_by(ServiceToken.created_at.desc()).all())
-                out.append(AplicacionM2MType(
+                out.append(SubscriberM2MType(
                     usuario_id=str(u.id), username=u.username, email=u.email, is_active=u.is_active,
                     tokens=[ServiceTokenType(
                         id=str(t.id), label=t.label, prefix=t.prefix,
