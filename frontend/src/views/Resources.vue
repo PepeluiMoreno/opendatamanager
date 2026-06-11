@@ -358,13 +358,16 @@
             </Tooltip>
             <select v-model="form.fetcherId" required class="input w-full text-sm">
               <option value="">Select a type...</option>
-              <option
-                v-for="type in fetchersOrdenados"
-                :key="type.id"
-                :value="type.id"
-              >
-                {{ type.code }} - {{ type.description }}
-              </option>
+              <optgroup label="Extractores">
+                <option v-for="type in fetchersExtractores" :key="type.id" :value="type.id">
+                  {{ type.code }} - {{ type.description }}
+                </option>
+              </optgroup>
+              <optgroup label="🛰️ Descubridores (Colecciones)">
+                <option v-for="type in fetchersDescubridores" :key="type.id" :value="type.id">
+                  {{ type.code }} - {{ type.description }}
+                </option>
+              </optgroup>
             </select>
             <div v-if="selectedFetcher?.modos?.includes('descubrir')"
                  class="mt-2 p-3 rounded border border-blue-800 bg-blue-950/30">
@@ -1389,6 +1392,9 @@ const fetchers = ref([])
 const fetchersOrdenados = computed(() =>
   [...fetchers.value].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'es', { sensitivity: 'base' }))
 )
+const esDescubridor = (f) => (f.modos || []).includes('descubrir')
+const fetchersExtractores = computed(() => fetchersOrdenados.value.filter(f => !esDescubridor(f)))
+const fetchersDescubridores = computed(() => fetchersOrdenados.value.filter(esDescubridor))
 const publishers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
 const appConfig = ref({})  // key→value map
