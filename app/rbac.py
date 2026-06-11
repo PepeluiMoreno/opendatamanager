@@ -20,7 +20,6 @@ MAPA_TRANSACCIONES = {
     # Recursos
     "create_resource": "recursos.crear",
     "import_manifest": "recursos.crear",
-    "clone_resource": "recursos.crear",
     "update_resource": "recursos.editar",
     "delete_resource": "recursos.borrar",
     "restore_resource": "recursos.borrar",

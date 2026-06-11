@@ -332,20 +332,6 @@ export const MUTATIONS = {
     }
   `,
 
-  CLONE_RESOURCE: `
-    mutation CloneResource($id: String!, $name: String) {
-      cloneResource(id: $id, name: $name) {
-        id
-        name
-        publisher
-        fetcherId
-        active
-        schedule
-        params { key value isExternal }
-      }
-    }
-  `,
-
   EXECUTE_RESOURCE: `
     mutation ExecuteResource($id: String!, $params: JSON) {
       executeResource(id: $id, params: $params) {
@@ -708,14 +694,6 @@ export async function updateResource(id, input) {
 export async function deleteResource(id, hardDelete = false) {
   try {
     return await client.request(MUTATIONS.DELETE_RESOURCE, { id, hardDelete })
-  } catch (error) {
-    handleGraphQLError(error)
-  }
-}
-
-export async function cloneResource(id, name = null) {
-  try {
-    return await client.request(MUTATIONS.CLONE_RESOURCE, { id, name })
   } catch (error) {
     handleGraphQLError(error)
   }

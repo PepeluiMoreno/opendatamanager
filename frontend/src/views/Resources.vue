@@ -218,12 +218,6 @@
                   class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
                 >Edit</button>
                 <button
-                  v-if="puede('recursos.crear')"
-                  @click="handleClone(resource)"
-                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
-                  title="Clonar"
-                >Clone</button>
-                <button
                   v-if="puede('recursos.borrar')"
                   @click="confirmDelete(resource)"
                   class="text-xs px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white"
@@ -1344,7 +1338,6 @@ import {
   updateResource,
   deleteResource,
   fetchDatasets,
-  cloneResource,
   previewResourceData,
   executeResource,
   fetchCuotaRefrescos,
@@ -1828,10 +1821,6 @@ async function confirmExecute() {
 async function confirmDelete(resource) {
   resourceToDelete.value = resource; hardDeleteFlag.value = false; deleteDatasetCount.value = 0; showDeleteModal.value = true
   try { const r = await fetchDatasets(resource.id); deleteDatasetCount.value = r?.datasets?.length??0 } catch {}
-}
-
-async function handleClone(resource) {
-  try { const r = await cloneResource(resource.id); if (r?.cloneResource) await loadResources() } catch (e) { console.error('Error cloning resource:', e) }
 }
 
 async function handleDelete() {

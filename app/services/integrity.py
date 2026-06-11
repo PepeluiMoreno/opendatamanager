@@ -3,8 +3,8 @@
 Un recurso con **suscripciones activas** no debe sufrir cambios que *puedan*
 romper su contrato de extracción (fetcher, preset o params). En vez de arriesgar
 una rotura silenciosa aguas abajo, ODM **bloquea** el cambio en el momento de la
-edición y sugiere **clonar** el recurso: el clon nace sin suscriptores y sobre él
-se aplica la modificación; los consumidores migran cuando quieren. Lo mismo al
+edición: hay que crear un recurso nuevo (sin suscriptores) y aplicar ahí la
+modificación, migrando los consumidores cuando quieran. Lo mismo al
 borrar un recurso suscrito o al editar los params de un preset que usan recursos
 suscritos (el cambio se propagaría a todos).
 
@@ -84,8 +84,8 @@ def guard_resource_update(session, resource, input) -> None:
         raise ValueError(
             f"Cambio bloqueado: el recurso '{resource.name}' tiene {n} suscripción(es) "
             f"activa(s) y el cambio afecta a su contrato de extracción "
-            f"({', '.join(sorted(changes))}). Clónalo (cloneResource) y aplica el cambio "
-            f"al clon, o desuscribe primero a los consumidores."
+            f"({', '.join(sorted(changes))}). Crea un recurso nuevo con el cambio y "
+            f"migra a los consumidores, o desuscribe primero a los consumidores."
         )
 
 
@@ -108,5 +108,5 @@ def guard_preset_update(session, preset, *, changing_contract: bool) -> None:
         raise ValueError(
             f"Cambio bloqueado: el preset '{preset.code}' lo usan recursos con {n} "
             f"suscripción(es) activa(s); editar sus params los afectaría a todos. Crea un "
-            f"preset nuevo (createFetcherPreset) y reapunta/clona los recursos al nuevo."
+            f"preset nuevo (createFetcherPreset) y reapunta los recursos al nuevo."
         )

@@ -420,53 +420,6 @@ class Mutation:
         finally:
             db.close()
 
-    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
-    def clone_resource(self, id: str, info: strawberry.types.Info, name: Optional[str] = None) -> ResourceType:
-        """Clona un Resource existente copiando todos sus parámetros.
-
-        El clon se crea inactivo y sin schedule para evitar ejecuciones no deseadas.
-        El nombre puede personalizarse; si no se indica se añade ' (copia)'.
-        """
-        db = get_db()
-        try:
-            source = db.query(Resource).filter(Resource.id == id).first()
-            if not source:
-                raise ValueError(f"Resource con id '{id}' no encontrado")
-
-            clone = Resource(
-                id=uuid4(),
-                name=name or f"{source.name} (copia)",
-                description=source.description,
-                publisher=source.publisher,
-                fetcher_id=source.fetcher_id,
-                preset_id=source.preset_id,
-                active=False,
-                enable_load=source.enable_load,
-                load_mode=source.load_mode,
-                schedule=None,
-            )
-            db.add(clone)
-            db.flush()
-
-            for p in db.query(ResourceParam).filter(ResourceParam.resource_id == source.id):
-                db.add(ResourceParam(
-                    id=uuid4(),
-                    resource_id=clone.id,
-                    key=p.key,
-                    value=p.value,
-                    is_external=p.is_external,
-                ))
-
-            _registrar_ui(db, clone, info)
-            db.commit()
-            db.refresh(clone)
-            return map_resource(clone)
-        except Exception as e:
-            db.rollback()
-            raise e
-        finally:
-            db.close()
-
     @strawberry.mutation(permission_classes=[requiere("recursos.borrar")])
     def delete_resource(self, id: str, hard_delete: bool = False) -> bool:
         """Elimina una fuente de datos.
