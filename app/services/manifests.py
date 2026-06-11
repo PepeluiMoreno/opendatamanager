@@ -298,6 +298,35 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
                 key=p["key"], value=p["value"], is_external=bool(p.get("is_external", False)),
             ))
 
+    def _resolver_collection(nombre: str):
+        """Get-or-create de una collection organizativa por nombre (único).
+        Idempotente: si ya existe se reutiliza; si no, se crea con origin
+        'organizativa' (carpeta, sin raíz)."""
+        from app.models import ResourceCollection
+        col = (session.query(ResourceCollection)
+               .filter(ResourceCollection.name == nombre).first())
+        if col is None:
+            col = ResourceCollection(id=uuid4(), name=nombre, origin="organizativa")
+            session.add(col)
+            session.flush()
+        return col
+
+    def _asignar_collection(resource, nombre):
+        """Reconcilia la pertenencia a collection declarada en el manifiesto.
+        Asigna si el recurso está sin agrupar; respeta una asignación previa a
+        OTRA collection (puesta a mano por la UI): no la pisa, solo informa.
+        Un recurso pertenece como mucho a una collection."""
+        if not nombre:
+            return
+        col = _resolver_collection(nombre)
+        if resource.resource_collection_id == col.id:
+            return                                  # ya en la collection correcta
+        if resource.resource_collection_id is None:
+            resource.resource_collection_id = col.id
+        else:
+            skipped.append(f"{resource.name}: ya pertenece a otra collection; "
+                           f"no se reasigna a '{nombre}'")
+
     for r in manifest["resources"]:
         fetcher = session.query(Fetcher).filter(Fetcher.code == r["fetcher"]).first()
         if fetcher is None:
@@ -345,6 +374,7 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
             session.add(resource)
             session.flush()
             _aplicar_params(resource, r)
+            _asignar_collection(resource, r.get("collection"))
             session.flush()
             registrar_version(session, resource, origin="manifest", author=autor)
             from app.services.eventos import registrar_evento
@@ -352,6 +382,10 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
                              {"fetcher": fetcher.code, "source": source})
             created += 1
             continue
+
+        # Reconciliación de collection para recursos ya existentes (en cada
+        # arranque, idempotente, al margen del hash que no incluye la collection).
+        _asignar_collection(resource, r.get("collection"))
 
         # Detección a tres bandas: base (last_synced) vs fichero vs BD.
         db_hash = manifest_hash(_canonical_from_db(session, resource))

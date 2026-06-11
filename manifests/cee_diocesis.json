@@ -15,15 +15,48 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "navigation", "value": "searchloop", "is_external": false },
-        { "key": "url_template", "value": "https://www.conferenciaepiscopal.es/diocesis/", "is_external": false },
-        { "key": "search_field_name", "value": "ambito", "is_external": false },
-        { "key": "search_field_values", "value": "es", "is_external": false },
-        { "key": "subpage_delay", "value": "1.0", "is_external": false },
-        { "key": "timeout", "value": "30", "is_external": false },
-        { "key": "max_retries", "value": "3", "is_external": false },
-        { "key": "levels", "value": "[{\"level_name\": \"indice\", \"subpage_link_selector\": \"figure.wp-block-table table a[href*='diocesis-de-']\", \"subpage_link_attr\": \"href\", \"subpage_base_url\": \"https://www.conferenciaepiscopal.es/\", \"inherit_fields\": []}, {\"level_name\": \"diocesis\", \"field_selectors\": {\"nombre\": \"h1\", \"contacto\": \".entry-content\"}}]", "is_external": false }
-      ]
+        {
+          "key": "navigation",
+          "value": "searchloop",
+          "is_external": false
+        },
+        {
+          "key": "url_template",
+          "value": "https://www.conferenciaepiscopal.es/diocesis/",
+          "is_external": false
+        },
+        {
+          "key": "search_field_name",
+          "value": "ambito",
+          "is_external": false
+        },
+        {
+          "key": "search_field_values",
+          "value": "es",
+          "is_external": false
+        },
+        {
+          "key": "subpage_delay",
+          "value": "1.0",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "30",
+          "is_external": false
+        },
+        {
+          "key": "max_retries",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "levels",
+          "value": "[{\"level_name\": \"indice\", \"subpage_link_selector\": \"figure.wp-block-table table a[href*='diocesis-de-']\", \"subpage_link_attr\": \"href\", \"subpage_base_url\": \"https://www.conferenciaepiscopal.es/\", \"inherit_fields\": []}, {\"level_name\": \"diocesis\", \"field_selectors\": {\"nombre\": \"h1\", \"contacto\": \".entry-content\"}}]",
+          "is_external": false
+        }
+      ],
+      "collection": "Entidades religiosas"
     }
   ]
 }
