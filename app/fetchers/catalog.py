@@ -59,6 +59,7 @@ class CatalogFetcher(BaseFetcher):
             "formats": {f.strip().lower() for f in (p.get("formats") or "csv,json").split(",") if f.strip()},
             "drop": [s.strip().lower() for s in (p.get("drop_url_contains") or "diccionario").split(",") if s.strip()],
             "child": p.get("child_fetcher") or "File Download",
+            "prefer": [f.strip().lower() for f in (p.get("prefer_format") or "").split(",") if f.strip()],
         }
 
     # ── helpers de extracción DCAT (apidata datos.gob.es) ────────────────────
@@ -142,6 +143,29 @@ class CatalogFetcher(BaseFetcher):
                 out.append({"title": title.strip(), "publisher": publisher,
                             "url": url, "format": fmt, "dist_label": dlabel})
         logger.info(f"[catalog] {len(out)} distribución(es) pertinente(s) tras filtro.")
+        if cfg["prefer"]:
+            out = self._collapse_formats(out, cfg["prefer"])
+            logger.info(f"[catalog] {len(out)} tras prefer_format={cfg['prefer']}.")
+        return out
+
+    @staticmethod
+    def _collapse_formats(entries: List[Dict[str, Any]], prefer: List[str]) -> List[Dict[str, Any]]:
+        """Cuando un mismo registro (title, publisher) se publica en varios formatos,
+        deja solo el preferido. Si el preferido no está en el grupo, no descarta nada.
+        Conserva TODAS las entradas del formato elegido (p. ej. un fichero por
+        provincia): solo elimina los formatos redundantes, nunca particiones."""
+        from collections import defaultdict
+        grupos: Dict[Any, List[Dict]] = defaultdict(list)
+        for e in entries:
+            grupos[(e["title"], e["publisher"])].append(e)
+        out: List[Dict[str, Any]] = []
+        for items in grupos.values():
+            formatos = {i["format"] for i in items}
+            elegido = next((f for f in prefer if f in formatos), None)
+            if elegido is None:
+                out.extend(items)
+            else:
+                out.extend(i for i in items if i["format"] == elegido)
         return out
 
     # ── modo DESCUBRIR ───────────────────────────────────────────────────────
