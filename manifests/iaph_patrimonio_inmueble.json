@@ -1,0 +1,25 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "IAPH",
+    "nombre": "Instituto Andaluz del Patrimonio Histórico (Junta de Andalucía)",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://www.juntadeandalucia.es/datosabiertos/portal/"
+  },
+  "resources": [
+    {
+      "name": "Patrimonio Inmueble de Andalucía (IAPH)",
+      "fetcher": "File Download",
+      "schedule": "0 5 2 * *",
+      "active": true,
+      "clase_fuente": "publicacion_abierta",
+      "collection": "Inmuebles religiosos en España",
+      "params": [
+        { "key": "url", "value": "https://www.juntadeandalucia.es/datosabiertos/portal/iaph/dataset/bien/inmueble?page=0&rows=50000&format=csv", "is_external": false },
+        { "key": "format", "value": "csv", "is_external": false },
+        { "key": "timeout", "value": "120", "is_external": false }
+      ]
+    }
+  ]
+}
