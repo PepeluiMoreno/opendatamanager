@@ -1,0 +1,32 @@
+{
+    "odm_manifest_version": 1,
+    "publisher": {
+        "acronimo": "IGAE-SNPSAP",
+        "nombre": "Intervención General de la Administración del Estado — Sistema Nacional de Publicidad de Subvenciones y Ayudas Públicas",
+        "nivel": "ESTATAL",
+        "pais": "España",
+        "portal_url": "https://www.infosubvenciones.es"
+    },
+    "resources": [
+        {
+            "name": "BDNS Terceros (pivote alfabético AAA-ZZZ)",
+            "fetcher": "API REST",
+            "clase_fuente": "api_abierta",
+            "schedule": null,
+            "active": true,
+            "params": [
+                {"key": "url", "value": "https://www.infosubvenciones.es/bdnstrans/api/terceros", "is_external": false},
+                {"key": "pagination", "value": "pivot_loop", "is_external": false},
+                {"key": "pivot_param", "value": "busqueda", "is_external": false},
+                {"key": "pivot_generate", "value": "product", "is_external": false},
+                {"key": "pivot_alphabet", "value": "ABCDEFGHIJKLMNOPQRSTUVWXYZ", "is_external": false},
+                {"key": "pivot_length", "value": "3", "is_external": false},
+                {"key": "content_field", "value": "terceros", "is_external": false},
+                {"key": "id_field", "value": "id", "is_external": false},
+                {"key": "query_params", "value": "{\"vpd\": \"GE\"}", "is_external": false},
+                {"key": "delay", "value": "0.1", "is_external": false},
+                {"key": "timeout", "value": "30", "is_external": false}
+            ]
+        }
+    ]
+}

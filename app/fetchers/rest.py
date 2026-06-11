@@ -79,7 +79,12 @@ class RESTFetcher(BaseFetcher):
         preview_limit = int(self.params.get("_preview_limit", 0) or 0)
 
         strat_params = self.params
-        if pagination == "pivot_loop" and (self.params.get("pivot_source_resource") or self.params.get("pivot_source_odmgr_query")):
+        if pagination == "pivot_loop" and (self.params.get("pivot_generate") or self.params.get("pivot_length")):
+            # Valores de pivote GENERADOS por combinatoria (endpoints de búsqueda
+            # por término: AAA..ZZZ). General, no específico de ninguna fuente.
+            from app.fetchers.pivot_sources import pivots_generated
+            strat_params = {**self.params, "pivot_values": pivots_generated(self.params)}
+        elif pagination == "pivot_loop" and (self.params.get("pivot_source_resource") or self.params.get("pivot_source_odmgr_query")):
             # Los valores del pivote salen de un dataset ya cosechado en ODM
             # (p. ej. códigos DIR3 del catálogo oficial).
             from app.fetchers.pivot_sources import pivots_from_odmgr

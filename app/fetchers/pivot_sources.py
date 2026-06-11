@@ -81,3 +81,29 @@ def pivots_from_odmgr(params: Dict[str, Any]) -> List[Any]:
     out = [r[field] for r in registros if r.get(field)]
     seen = set()
     return [v for v in out if not (v in seen or seen.add(v))]
+
+
+def pivots_generated(params: Dict[str, Any]) -> List[str]:
+    """Genera valores de pivote por combinatoria, para endpoints de BÚSQUEDA por
+    término (no enumerables) que sí admiten un filtro de N caracteres. En vez de
+    leer los valores de una fuente, se generan todas las cadenas de longitud
+    `pivot_length` sobre `pivot_alphabet`, y la unión de los resultados (deduplicada
+    por `id_field`) aproxima el universo. General: cualquier endpoint search-by-term.
+
+    Params:
+      pivot_generate  — modo. Hoy solo "product" (producto cartesiano del alfabeto).
+      pivot_alphabet  — alfabeto (default A-Z).
+      pivot_length    — longitud de cada combinación (p. ej. 3 -> AAA..ZZZ).
+    """
+    from itertools import product
+    modo = (params.get("pivot_generate") or "product").lower()
+    alfabeto = params.get("pivot_alphabet") or "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    try:
+        n = int(params.get("pivot_length"))
+    except (TypeError, ValueError):
+        raise ValueError("pivot_generate requiere 'pivot_length' (entero, p. ej. 3)")
+    if modo != "product":
+        raise ValueError(f"pivot_generate='{modo}' no soportado (hoy: 'product')")
+    if not 1 <= n <= 4:
+        raise ValueError("'pivot_length' fuera de rango razonable (1-4)")
+    return ["".join(c) for c in product(alfabeto, repeat=n)]
