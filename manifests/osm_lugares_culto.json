@@ -1,0 +1,26 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "OSM",
+    "nombre": "OpenStreetMap",
+    "nivel": "INTERNACIONAL",
+    "pais": "Internacional",
+    "portal_url": "https://www.openstreetmap.org/"
+  },
+  "resources": [
+    {
+      "name": "Lugares de culto en España (OSM)",
+      "fetcher": "OSM Overpass",
+      "schedule": "0 5 1 * *",
+      "active": true,
+      "clase_fuente": "publicacion_abierta",
+      "collection": "Inmuebles religiosos en España",
+      "params": [
+        { "key": "use_types", "value": "RELIGIOUS_ALL,RELIGIOUS_BUILDING_EXTRA", "is_external": false },
+        { "key": "element_types", "value": "node,way,relation", "is_external": false },
+        { "key": "timeout", "value": "300", "is_external": false },
+        { "key": "max_elements", "value": "0", "is_external": false }
+      ]
+    }
+  ]
+}
