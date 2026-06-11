@@ -177,7 +177,7 @@ class Resource(AuditMixin, Base):
     # promueve) o si solo extrae un dato concreto. Capacidad (fetcher.descubre)
     # ≠ intención: un mismo fetcher sirve para ambas. Solo las marcadas figuran
     # como Collection. Default False: un Web Tree extrae salvo que se cualifique.
-    genera_collections = Column(Boolean, default=False, server_default="false", nullable=False)
+    genera_colecciones = Column(Boolean, default=False, server_default="false", nullable=False)
 
     # Perfil (preset) de la especie aplicado a este recurso. La particularización
     # vive en el recurso, no en el catálogo de fetchers.

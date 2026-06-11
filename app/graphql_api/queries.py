@@ -193,7 +193,7 @@ def map_resource(resource: Resource) -> ResourceType:
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
         resource_collection_id=str(resource.resource_collection_id) if getattr(resource, 'resource_collection_id', None) else None,
         auto_generated=getattr(resource, 'auto_generated', False) or False,
-        genera_collections=bool(getattr(resource, 'genera_collections', False)),
+        genera_colecciones=bool(getattr(resource, 'genera_colecciones', False)),
         created_by_kind=_created_by_kind(resource),
         subscriber_count=getattr(resource, '_subscriber_count', 0),
         subscriber_apps=getattr(resource, '_subscriber_apps', None),
@@ -586,7 +586,7 @@ class Query:
                     .options(joinedload(Resource.publisher_obj))
                     .filter(Resource.deleted_at == None,
                             Resource.parent_resource_id == None,
-                            Resource.genera_collections == True)
+                            Resource.genera_colecciones == True)
                     .order_by(Resource.created_at.desc()).all())
             cols = [r for r in base if r.es_coleccion]
             for r in cols:

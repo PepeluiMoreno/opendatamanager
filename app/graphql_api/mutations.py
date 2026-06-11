@@ -270,7 +270,7 @@ class Mutation:
                 schedule=input.schedule,
                 preset_id=preset_id,
                 params_hash=ph,
-                genera_collections=bool(getattr(input, "genera_collections", False)),
+                genera_colecciones=bool(getattr(input, "genera_colecciones", False)),
                 estado_aprobacion=_estado,
             )
             db.add(resource)
@@ -369,8 +369,8 @@ class Mutation:
                     resource.preset_id = preset.id
             if input.active is not None:
                 resource.active = input.active
-            if getattr(input, "genera_collections", None) is not None:
-                resource.genera_collections = bool(input.genera_collections)
+            if getattr(input, "genera_colecciones", None) is not None:
+                resource.genera_colecciones = bool(input.genera_colecciones)
             if getattr(input, "resource_collection_id", None) is not None:
                 if input.resource_collection_id == "":
                     resource.resource_collection_id = None   # sacar de la collection → «sin agrupar»
