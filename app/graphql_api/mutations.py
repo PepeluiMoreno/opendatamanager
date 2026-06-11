@@ -63,7 +63,7 @@ from app.graphql_api.types import (
     AppConfigType,
     SetConfigInput,
     ResourceType,
-    ResourceGroupType,
+    ResourceCollectionType,
     FetcherType,
     FetcherParamType,
     SubscriberType,
@@ -95,7 +95,7 @@ from app.graphql_api.queries import (
     map_preset,
     map_application, map_resource, map_fetcher, map_type_fetcher_param,
     map_derived_dataset_config, map_resource_subscription, map_publisher,
-    map_resource_candidate, map_resource_group,
+    map_resource_candidate, map_resource_collection,
 )
 from app.manager.fetcher_manager import FetcherManager
 import app.scheduler as scheduler
@@ -270,7 +270,7 @@ class Mutation:
                 schedule=input.schedule,
                 preset_id=preset_id,
                 params_hash=ph,
-                genera_colecciones=bool(getattr(input, "genera_colecciones", False)),
+                genera_collections=bool(getattr(input, "genera_collections", False)),
                 estado_aprobacion=_estado,
             )
             db.add(resource)
@@ -369,17 +369,17 @@ class Mutation:
                     resource.preset_id = preset.id
             if input.active is not None:
                 resource.active = input.active
-            if getattr(input, "genera_colecciones", None) is not None:
-                resource.genera_colecciones = bool(input.genera_colecciones)
-            if getattr(input, "resource_group_id", None) is not None:
-                if input.resource_group_id == "":
-                    resource.resource_group_id = None   # sacar de la agrupación → «sin agrupar»
+            if getattr(input, "genera_collections", None) is not None:
+                resource.genera_collections = bool(input.genera_collections)
+            if getattr(input, "resource_collection_id", None) is not None:
+                if input.resource_collection_id == "":
+                    resource.resource_collection_id = None   # sacar de la collection → «sin agrupar»
                 else:
-                    from app.models import ResourceGroup as _RG
-                    grupo = db.query(_RG).filter(_RG.id == input.resource_group_id).first()
+                    from app.models import ResourceCollection as _RG
+                    grupo = db.query(_RG).filter(_RG.id == input.resource_collection_id).first()
                     if grupo is None:
-                        raise ValueError("La agrupación indicada no existe")
-                    resource.resource_group_id = grupo.id
+                        raise ValueError("La collection indicada no existe")
+                    resource.resource_collection_id = grupo.id
             if input.schedule is not None:
                 resource.schedule = input.schedule if input.schedule != "" else None
 
@@ -431,21 +431,21 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
-    def create_resource_group(self, name: str, info: strawberry.types.Info) -> ResourceGroupType:
-        """Crea una agrupación organizativa (carpeta) vacía. Nombre único."""
-        from app.models import ResourceGroup
+    def create_resource_collection(self, name: str, info: strawberry.types.Info) -> ResourceCollectionType:
+        """Crea una collection organizativa (carpeta) vacía. Nombre único."""
+        from app.models import ResourceCollection
         db = get_db()
         try:
             nombre = (name or "").strip()
             if not nombre:
-                raise ValueError("La agrupación necesita un nombre")
-            if db.query(ResourceGroup).filter(ResourceGroup.name == nombre).first():
-                raise ValueError(f"Ya existe una agrupación llamada '{nombre}'")
-            grupo = ResourceGroup(id=uuid4(), name=nombre, origin="organizativa")
+                raise ValueError("La collection necesita un nombre")
+            if db.query(ResourceCollection).filter(ResourceCollection.name == nombre).first():
+                raise ValueError(f"Ya existe una collection llamada '{nombre}'")
+            grupo = ResourceCollection(id=uuid4(), name=nombre, origin="organizativa")
             db.add(grupo)
             db.commit()
             db.refresh(grupo)
-            return map_resource_group(grupo, miembros=0)
+            return map_resource_collection(grupo, miembros=0)
         except Exception as e:
             db.rollback()
             raise e
@@ -453,28 +453,28 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
-    def rename_resource_group(self, id: str, name: str, info: strawberry.types.Info) -> ResourceGroupType:
-        """Renombra una agrupación. Solo aplica a las organizativas; las de origen
+    def rename_resource_collection(self, id: str, name: str, info: strawberry.types.Info) -> ResourceCollectionType:
+        """Renombra una collection. Solo aplica a las organizativas; las de origen
         'matriz' toman su identidad del recurso que las preside."""
-        from app.models import ResourceGroup
+        from app.models import ResourceCollection
         db = get_db()
         try:
-            grupo = db.query(ResourceGroup).filter(ResourceGroup.id == id).first()
+            grupo = db.query(ResourceCollection).filter(ResourceCollection.id == id).first()
             if grupo is None:
-                raise ValueError("La agrupación no existe")
+                raise ValueError("La collection no existe")
             if grupo.origin == "matriz":
-                raise ValueError("Una agrupación originada por una matriz no se renombra aquí; se renombra su recurso raíz")
+                raise ValueError("Una collection originada por una matriz no se renombra aquí; se renombra su recurso raíz")
             nombre = (name or "").strip()
             if not nombre:
-                raise ValueError("La agrupación necesita un nombre")
-            choca = db.query(ResourceGroup).filter(ResourceGroup.name == nombre, ResourceGroup.id != grupo.id).first()
+                raise ValueError("La collection necesita un nombre")
+            choca = db.query(ResourceCollection).filter(ResourceCollection.name == nombre, ResourceCollection.id != grupo.id).first()
             if choca:
-                raise ValueError(f"Ya existe una agrupación llamada '{nombre}'")
+                raise ValueError(f"Ya existe una collection llamada '{nombre}'")
             grupo.name = nombre
             db.commit()
             db.refresh(grupo)
-            n = db.query(Resource).filter(Resource.resource_group_id == grupo.id, Resource.deleted_at == None).count()
-            return map_resource_group(grupo, miembros=n)
+            n = db.query(Resource).filter(Resource.resource_collection_id == grupo.id, Resource.deleted_at == None).count()
+            return map_resource_collection(grupo, miembros=n)
         except Exception as e:
             db.rollback()
             raise e
@@ -482,21 +482,21 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
-    def delete_resource_group(self, id: str, info: strawberry.types.Info) -> bool:
-        """Borra una agrupación organizativa. Sus miembros NO se borran: quedan
+    def delete_resource_collection(self, id: str, info: strawberry.types.Info) -> bool:
+        """Borra una collection organizativa. Sus miembros NO se borran: quedan
         «sin agrupar» (la FK es SET NULL). Las de origen 'matriz' no se borran
         aquí: desaparecen al borrar su recurso raíz."""
-        from app.models import ResourceGroup
+        from app.models import ResourceCollection
         db = get_db()
         try:
-            grupo = db.query(ResourceGroup).filter(ResourceGroup.id == id).first()
+            grupo = db.query(ResourceCollection).filter(ResourceCollection.id == id).first()
             if grupo is None:
-                raise ValueError("La agrupación no existe")
+                raise ValueError("La collection no existe")
             if grupo.origin == "matriz":
-                raise ValueError("Una agrupación originada por una matriz no se borra aquí; se borra su recurso raíz")
+                raise ValueError("Una collection originada por una matriz no se borra aquí; se borra su recurso raíz")
             # Desvincular explícitamente (no dependemos solo del ON DELETE SET NULL).
-            db.query(Resource).filter(Resource.resource_group_id == grupo.id).update(
-                {Resource.resource_group_id: None}, synchronize_session=False)
+            db.query(Resource).filter(Resource.resource_collection_id == grupo.id).update(
+                {Resource.resource_collection_id: None}, synchronize_session=False)
             db.delete(grupo)
             db.commit()
             return True

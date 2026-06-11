@@ -10,7 +10,7 @@ from app.database import SessionLocal
 from app.models import (
     Fetcher as FetcherModel, Resource, ResourceCandidate, FetcherParams, ResourceParam, Subscriber, FieldMetadata,
     ResourceExecution, Dataset, ResourceSubscription, SubscriberNotification, AppConfig,
-    DerivedDatasetConfig, DerivedDatasetEntry, Publisher, RefrescoExtemporaneo, ResourceGroup
+    DerivedDatasetConfig, DerivedDatasetEntry, Publisher, RefrescoExtemporaneo, ResourceCollection
 )
 from datetime import datetime as _dt
 from sqlalchemy import func as _func
@@ -18,7 +18,7 @@ from app.graphql_api.types import (
     PresetType,
     FetcherType,
     ResourceType,
-    ResourceGroupType,
+    ResourceCollectionType,
     FetcherParamType,
     ResourceParamType,
     SubscriberType,
@@ -191,9 +191,9 @@ def map_resource(resource: Resource) -> ResourceType:
         created_at=getattr(resource, 'created_at', None),
         deleted_at=resource.deleted_at,
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
-        resource_group_id=str(resource.resource_group_id) if getattr(resource, 'resource_group_id', None) else None,
+        resource_collection_id=str(resource.resource_collection_id) if getattr(resource, 'resource_collection_id', None) else None,
         auto_generated=getattr(resource, 'auto_generated', False) or False,
-        genera_colecciones=bool(getattr(resource, 'genera_colecciones', False)),
+        genera_collections=bool(getattr(resource, 'genera_collections', False)),
         created_by_kind=_created_by_kind(resource),
         subscriber_count=getattr(resource, '_subscriber_count', 0),
         subscriber_apps=getattr(resource, '_subscriber_apps', None),
@@ -207,9 +207,9 @@ def map_resource(resource: Resource) -> ResourceType:
     )
 
 
-def map_resource_group(g: ResourceGroup, miembros: int = 0) -> ResourceGroupType:
-    """Convierte modelo ResourceGroup a tipo GraphQL."""
-    return ResourceGroupType(
+def map_resource_collection(g: ResourceCollection, miembros: int = 0) -> ResourceCollectionType:
+    """Convierte modelo ResourceCollection a tipo GraphQL."""
+    return ResourceCollectionType(
         id=str(g.id),
         name=g.name,
         origin=g.origin or "organizativa",
@@ -512,17 +512,17 @@ class Query:
             db.close()
 
     @strawberry.field
-    def resource_groups(self, info: Info) -> List[ResourceGroupType]:
-        """Lista las agrupaciones de recursos con su recuento de miembros."""
+    def resource_collections(self, info: Info) -> List[ResourceCollectionType]:
+        """Lista las collections de recursos con su recuento de miembros."""
         db = get_db()
         try:
-            grupos = db.query(ResourceGroup).order_by(ResourceGroup.name.asc()).all()
+            grupos = db.query(ResourceCollection).order_by(ResourceCollection.name.asc()).all()
             counts = dict(
-                db.query(Resource.resource_group_id, _func.count(Resource.id))
-                  .filter(Resource.deleted_at == None, Resource.resource_group_id != None)
-                  .group_by(Resource.resource_group_id).all()
+                db.query(Resource.resource_collection_id, _func.count(Resource.id))
+                  .filter(Resource.deleted_at == None, Resource.resource_collection_id != None)
+                  .group_by(Resource.resource_collection_id).all()
             )
-            return [map_resource_group(g, miembros=int(counts.get(g.id, 0))) for g in grupos]
+            return [map_resource_collection(g, miembros=int(counts.get(g.id, 0))) for g in grupos]
         finally:
             db.close()
 
@@ -586,7 +586,7 @@ class Query:
                     .options(joinedload(Resource.publisher_obj))
                     .filter(Resource.deleted_at == None,
                             Resource.parent_resource_id == None,
-                            Resource.genera_colecciones == True)
+                            Resource.genera_collections == True)
                     .order_by(Resource.created_at.desc()).all())
             cols = [r for r in base if r.es_coleccion]
             for r in cols:

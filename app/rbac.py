@@ -21,9 +21,9 @@ MAPA_TRANSACCIONES = {
     "create_resource": "recursos.crear",
     "import_manifest": "recursos.crear",
     "update_resource": "recursos.editar",
-    "create_resource_group": "recursos.crear",
-    "rename_resource_group": "recursos.editar",
-    "delete_resource_group": "recursos.editar",
+    "create_resource_collection": "recursos.crear",
+    "rename_resource_collection": "recursos.editar",
+    "delete_resource_collection": "recursos.editar",
     "delete_resource": "recursos.borrar",
     "restore_resource": "recursos.borrar",
     # Candidatos (flujo de alta de recursos)
