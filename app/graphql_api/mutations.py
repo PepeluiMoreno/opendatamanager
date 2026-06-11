@@ -1719,8 +1719,18 @@ class Mutation:
                         f"Variante '{input.variant}' no existe para la especie del hijo")
                 preset_id = preset.id
 
+            # Nombre único (col. varchar 100, unique). Si ya existe (re-promoción o
+            # candidatos duplicados entre discoveries), se sufija " (2)", " (3)"...
+            base_name = (input.name or "recurso")[:100]
+            unique_name = base_name
+            n = 2
+            while db.query(Resource).filter(Resource.name == unique_name).first():
+                suf = f" ({n})"
+                unique_name = base_name[:100 - len(suf)] + suf
+                n += 1
+
             child = Resource(
-                name=(input.name or "")[:100],
+                name=unique_name,
                 fetcher_id=child_fetcher_id,
                 publisher=parent.publisher,
                 publisher_id=parent.publisher_id,
