@@ -353,34 +353,31 @@
           </div>
 
           <div>
+            <!-- Dos flujos: extraer (Fetcher) o descubrir (Discoverer) -->
+            <div class="flex gap-2 mb-2">
+              <button type="button" @click="setModo('extraer')"
+                :class="['flex-1 text-xs py-1.5 rounded border', form.modo !== 'descubrir' ? 'border-emerald-600 bg-emerald-950/40 text-emerald-200' : 'border-gray-700 text-gray-400 hover:text-gray-200']">
+                Recurso de extracción
+              </button>
+              <button type="button" @click="setModo('descubrir')"
+                :class="['flex-1 text-xs py-1.5 rounded border', form.modo === 'descubrir' ? 'border-blue-600 bg-blue-950/40 text-blue-200' : 'border-gray-700 text-gray-400 hover:text-gray-200']">
+                🛰️ Colección (descubre)
+              </button>
+            </div>
             <Tooltip :text="getTooltip('fetcher_id')">
-              <label class="block text-xs font-medium mb-1">Fetcher Type</label>
+              <label class="block text-xs font-medium mb-1">{{ form.modo === 'descubrir' ? 'Discoverer' : 'Fetcher' }}</label>
             </Tooltip>
             <select v-model="form.fetcherId" required class="input w-full text-sm">
-              <option value="">Select a type...</option>
-              <optgroup label="Extractores">
-                <option v-for="type in fetchersExtractores" :key="type.id" :value="type.id">
-                  {{ type.code }} - {{ type.description }}
-                </option>
-              </optgroup>
-              <optgroup label="🛰️ Descubridores (Colecciones)">
-                <option v-for="type in fetchersDescubridores" :key="type.id" :value="type.id">
-                  {{ type.code }} - {{ type.description }}
-                </option>
-              </optgroup>
+              <option value="">{{ form.modo === 'descubrir' ? 'Elige un descubridor...' : 'Elige un extractor...' }}</option>
+              <option v-for="type in especiesDelModo" :key="type.id" :value="type.id">
+                {{ type.code }} - {{ type.description }}
+              </option>
             </select>
-            <div v-if="selectedFetcher?.modos?.includes('descubrir')"
-                 class="mt-2 p-3 rounded border border-blue-800 bg-blue-950/30">
-              <label class="flex items-start gap-2 cursor-pointer">
-                <input type="checkbox" v-model="form.generaColecciones"
-                       class="mt-0.5 accent-blue-500" />
-                <span class="text-xs text-blue-200">
-                  🛰️ Cualificar como <strong>generador de colecciones</strong> (nave
-                  nodriza). Marcado, el recurso descubre candidatos y aparece en
-                  Collections. Sin marcar, este Web Tree solo <strong>extrae</strong> su
-                  dato, aunque su especie sea capaz de descubrir.
-                </span>
-              </label>
+            <div v-if="form.modo === 'descubrir'"
+                 class="mt-2 p-2.5 rounded border border-blue-800 bg-blue-950/30 text-xs text-blue-200">
+              🛰️ Este recurso será una <strong>colección</strong> (nave nodriza): descubre
+              candidatos y aparece en Collections. Los hijos que promociones serán
+              recursos de extracción.
             </div>
           </div>
 
@@ -1392,9 +1389,17 @@ const fetchers = ref([])
 const fetchersOrdenados = computed(() =>
   [...fetchers.value].sort((a, b) => (a.code || '').localeCompare(b.code || '', 'es', { sensitivity: 'base' }))
 )
-const esDescubridor = (f) => (f.modos || []).includes('descubrir')
-const fetchersExtractores = computed(() => fetchersOrdenados.value.filter(f => !esDescubridor(f)))
-const fetchersDescubridores = computed(() => fetchersOrdenados.value.filter(esDescubridor))
+const puedeDescubrir = (f) => (f.modos || []).includes('descubrir')
+const puedeExtraer = (f) => { const m = f.modos || []; return m.length === 0 || m.includes('extraer') }
+const especiesExtraer = computed(() => fetchersOrdenados.value.filter(puedeExtraer))
+const especiesDescubrir = computed(() => fetchersOrdenados.value.filter(puedeDescubrir))
+const especiesDelModo = computed(() => (form.value.modo === 'descubrir' ? especiesDescubrir.value : especiesExtraer.value))
+function setModo(m) {
+  form.value.modo = m
+  form.value.generaColecciones = (m === 'descubrir')
+  const lista = m === 'descubrir' ? especiesDescubrir.value : especiesExtraer.value
+  if (form.value.fetcherId && !lista.some(f => f.id === form.value.fetcherId)) form.value.fetcherId = ''
+}
 const publishers = ref([])
 const fieldMetadata = ref({}) // Metadata for tooltips
 const appConfig = ref({})  // key→value map
@@ -1538,7 +1543,7 @@ const previewParams = ref({})
 
 const form = ref({
   name: '', description: '', publisherId: null, fetcherId: '', presetId: null, params: [], active: true, schedule: null,
-  generaColecciones: false,
+  generaColecciones: false, modo: 'extraer',
   numWorkers: 1, maxConcurrentRequests: null, rateLimitPerSecond: null, requestDelayMs: null,
   retryAttempts: null, retryBackoffFactor: null, batchSize: null,
 })
@@ -1761,7 +1766,7 @@ function editResource(resource) {
     name: resource.name, description: resource.description||'', publisherId: resource.publisherId||null, fetcherId: resource.fetcher.id, presetId: resource.preset?.id || null,
     params: resource.params.filter(p=>!ck.includes(p.key)).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false})),
     active: resource.active, schedule: resource.schedule||null,
-    generaColecciones: resource.generaColecciones || false,
+    generaColecciones: resource.generaColecciones || false, modo: resource.generaColecciones ? 'descubrir' : 'extraer',
     numWorkers: parseInt(getParam('num_workers',1)),
     maxConcurrentRequests: getParam('max_concurrent_requests')?parseInt(getParam('max_concurrent_requests')):null,
     rateLimitPerSecond: getParam('rate_limit_per_second')?parseInt(getParam('rate_limit_per_second')):null,
@@ -1851,7 +1856,7 @@ async function submitForm() {
 
 function closeModals() {
   showCreateModal.value=false; showEditModal.value=false; editingResource.value=null; activeParamTab.value='parameters'; expandedGroups.value=new Set(); derivedConfigs.value=[]; showAddDerivedForm.value=false; editingDerivedId.value=null
-  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, generaColecciones:false, numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
+  form.value = { name:'', description:'', publisher:'', fetcherId:'', params:[], active:true, schedule:null, generaColecciones:false, modo:'extraer', numWorkers:1, maxConcurrentRequests:null, rateLimitPerSecond:null, requestDelayMs:null, retryAttempts:null, retryBackoffFactor:null, batchSize:null }
 }
 
 async function loadDerivedConfigs(id) { derivedConfigsLoading.value=true; try { const r=await fetchDerivedDatasetConfigs(id); derivedConfigs.value=r?.derivedDatasetConfigs||[] } catch {} finally { derivedConfigsLoading.value=false } }
