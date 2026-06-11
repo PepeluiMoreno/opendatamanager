@@ -235,8 +235,8 @@
               </span>
 
               <!-- Execution param overrides — hidden when already shown in the title label -->
-              <template v-if="!execLabel(ex) && ex.executionParams && Object.keys(ex.executionParams).length">
-                <span v-for="(v, k) in ex.executionParams" :key="k"
+              <template v-if="!execLabel(ex) && Object.keys(visibleParams(ex.executionParams)).length">
+                <span v-for="(v, k) in visibleParams(ex.executionParams)" :key="k"
                   class="bg-blue-900/50 border border-blue-800 text-blue-300 px-1.5 py-0.5 rounded font-mono">
                   {{ k }}={{ v }}
                 </span>
@@ -462,12 +462,19 @@ function resourceName(id, ex) {
   if (ex?.resourceName) return ex.resourceName
   return resources.value.find(r => r.id === id)?.name ?? id
 }
+// Params internos del motor (prefijo '_') que no deben mostrarse en la UI.
+function visibleParams(p) {
+  if (!p) return {}
+  return Object.fromEntries(Object.entries(p).filter(([k]) => !String(k).startsWith('_')))
+}
 function execLabel(ex) {
   const p = ex.executionParams
   if (!p || !Object.keys(p).length) return null
   const resource = resources.value.find(r => r.id === ex.resourceId)
   const resourceParams = resource?.params ?? []
-  const pairs = Object.entries(p).filter(([, v]) => v != null && String(v).trim())
+  // Omitir claves internas (prefijo '_': _profile_stats, _staging_path, etc.):
+  // son estado del motor, no overrides que el usuario deba ver en el título.
+  const pairs = Object.entries(p).filter(([k, v]) => !k.startsWith('_') && v != null && String(v).trim())
   return pairs.length ? pairs.map(([k, v]) => {
     if (k === 'bounding_value') {
       const fieldParam = resourceParams.find(rp => rp.key === 'bounding_field')

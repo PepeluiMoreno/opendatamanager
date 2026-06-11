@@ -20,7 +20,7 @@
     <div class="card">
       <div v-if="cargando" class="p-8"><Spinner /></div>
       <div v-else-if="filtered.length === 0" class="p-8 text-center text-gray-400">
-        <template v-if="colecciones.length === 0">Aún no hay colecciones. Un recurso se vuelve Colección cuando su especie declara el modo «descubrir» (hoy, Web Tree).</template>
+        <template v-if="colecciones.length === 0">Aún no hay colecciones. Un recurso se vuelve Colección cuando su especie declara el modo «descubrir» (Web Tree, Catálogo DCAT…) y se marca «genera colecciones».</template>
         <template v-else>Sin resultados. <button @click="search='';tipoFilter=''" class="text-yellow-400 hover:text-yellow-300 underline">Limpiar filtros</button></template>
       </div>
       <div v-else class="overflow-x-auto">
