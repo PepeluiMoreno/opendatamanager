@@ -8,6 +8,7 @@ controlada de parser especializado para artefactos especialmente raros.
 from __future__ import annotations
 
 import csv
+import html
 import importlib
 import io
 import json
@@ -17,6 +18,13 @@ from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
 import pdfplumber
+
+
+def _clean(s: str) -> str:
+    """Limpia un valor de texto: decodifica entidades HTML (&quot;, &amp;,
+    &aacute;...) que algunas fuentes embeben al serializar a CSV/JSON, y recorta.
+    Idempotente para texto sin entidades."""
+    return html.unescape(s).strip()
 
 logger = logging.getLogger(__name__)
 
@@ -229,7 +237,7 @@ def _parse_json_records(content: bytes, params: Dict[str, Any]) -> List[Dict[str
         for k, v in item.items():
             flat[_normalize_col(str(k))] = (
                 json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list))
-                else ("" if v is None else str(v).strip())
+                else ("" if v is None else _clean(str(v)))
             )
         records.append(flat)
     return records
@@ -276,7 +284,7 @@ def _parse_csv_like(content: bytes, params: Dict[str, Any], delimiter: str = "")
     records: List[Dict[str, str]] = []
     for row in reader:
         padded = row + [""] * max(0, len(columns) - len(row))
-        records.append({col: padded[i].strip() for i, col in enumerate(columns)})
+        records.append({col: _clean(padded[i]) for i, col in enumerate(columns)})
     return records
 
 
@@ -318,7 +326,7 @@ def parse_pdf_table(content: bytes, params: Dict[str, Any]) -> List[Dict[str, st
         if not any(cell for cell in row if cell):
             continue
         padded = list(row) + [""] * max(0, len(columns) - len(row))
-        records.append({col: str(padded[i] or "").strip() for i, col in enumerate(columns)})
+        records.append({col: _clean(str(padded[i] or "")) for i, col in enumerate(columns)})
     records = _drop_empty_columns(records)
     if not _parece_tabla(records):
         logger.info(
