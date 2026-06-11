@@ -249,9 +249,23 @@ class FetcherManager:
                     raw_proposals = infer(leaf_urls, path_root=path_root)
                     logger.log(f"  {len(raw_proposals)} propuesta(s) de agrupación.")
 
+                # Dedup: no recrear candidatos ya conocidos para esta colección, así
+                # relanzar el discovery no acumula duplicados ni revive promovidos/
+                # descartados. Identidad = nombre sugerido o path_template.
+                existentes = {
+                    (c.suggested_name or c.path_template)
+                    for c in session.query(ResourceCandidate).filter(
+                        ResourceCandidate.crawler_resource_id == resource.id).all()
+                }
                 created_ids = []
+                omitidos = 0
                 for p in raw_proposals:
                     pd = p if isinstance(p, dict) else p.to_dict()
+                    ident = pd.get("suggested_name") or pd.get("path_template") or "—"
+                    if ident in existentes:
+                        omitidos += 1
+                        continue
+                    existentes.add(ident)
                     candidate = ResourceCandidate(
                         execution_id=execution.id,
                         crawler_resource_id=resource.id,
@@ -293,7 +307,8 @@ class FetcherManager:
                 execution.status = "completed"
                 execution.completed_at = datetime.utcnow()
                 logger.log(
-                    f"DISCOVER COMPLETED — {len(raw_proposals)} candidato(s) | "
+                    f"DISCOVER COMPLETED — {len(created_ids)} candidato(s) nuevo(s)"
+                    f"{f', {omitidos} ya existentes omitidos' if omitidos else ''} | "
                     f"{len(leaf_urls)} URLs | stats guardados"
                 )
                 session.commit()
