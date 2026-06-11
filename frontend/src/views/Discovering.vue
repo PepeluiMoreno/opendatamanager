@@ -62,6 +62,10 @@
         >Árbol</button>
       </div>
       <span v-if="viewMode === 'list'" class="text-xs text-gray-500">{{ filteredCandidates.length }} / {{ candidates.length }}</span>
+      <label v-if="viewMode === 'list' && selectableCandidates.length" class="text-xs text-gray-400 flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" :checked="allSelected" @change="toggleSelectAll" class="accent-purple-500" />
+        Todos
+      </label>
       <div v-if="viewMode === 'list'" class="flex gap-1 flex-wrap">
         <button
           v-for="s in statuses" :key="s"
@@ -76,11 +80,13 @@
         Mín. series
         <input type="number" min="1" v-model.number="taxUmbral" class="input w-16 text-xs py-0.5" />
       </label>
-      <!-- Merge action (requires ≥2 selected) -->
-      <div v-if="viewMode === 'list' && selection.size >= 2" class="flex items-center gap-2 ml-auto">
+      <!-- Acción sobre selección -->
+      <div v-if="viewMode === 'list' && selection.size >= 1" class="flex items-center gap-2 ml-auto">
         <span class="text-xs text-gray-400">{{ selection.size }} sel.</span>
-        <button @click="openMerge" class="btn btn-secondary text-xs px-3 py-1">Fundir</button>
-        <button @click="selection.clear(); selection = new Set()" class="text-xs text-gray-500 hover:text-gray-300 underline">Deselect</button>
+        <button v-if="autodescriptivo" @click="askBulkPromote" :disabled="bulkPromoting"
+          class="btn btn-primary text-xs px-3 py-1">{{ bulkPromoting ? 'Promoviendo…' : `Promover ${selection.size}` }}</button>
+        <button v-if="!autodescriptivo && selection.size >= 2" @click="openMerge" class="btn btn-secondary text-xs px-3 py-1">Fundir</button>
+        <button @click="selection = new Set()" class="text-xs text-gray-500 hover:text-gray-300 underline">Deselect</button>
       </div>
     </div>
 
@@ -486,6 +492,60 @@ function toggleSelect(c) {
   const s = new Set(selection.value)
   s.has(c.id) ? s.delete(c.id) : s.add(c.id)
   selection.value = s
+}
+
+// Selección masiva sobre los candidatos seleccionables (discovered/reviewed) ya filtrados.
+const selectableCandidates = computed(() =>
+  filteredCandidates.value.filter(c => ['discovered', 'reviewed'].includes(c.status))
+)
+const allSelected = computed(() =>
+  selectableCandidates.value.length > 0 &&
+  selectableCandidates.value.every(c => selection.value.has(c.id))
+)
+function toggleSelectAll() {
+  selection.value = allSelected.value
+    ? new Set()
+    : new Set(selectableCandidates.value.map(c => c.id))
+}
+
+// Promoción en lote (catálogo/archivo autodescriptivo): cada candidato lleva su
+// especie y params; autogeneramos nombre y target_table del nombre sugerido.
+const bulkPromoting = ref(false)
+function askBulkPromote() {
+  const n = selection.value.size
+  confirmar.value = {
+    title: 'Promover en lote',
+    message: `¿Promover ${n} candidato(s) como recursos? Se autogeneran nombre y tabla a partir del nombre sugerido.`,
+    onConfirm: bulkPromote,
+  }
+}
+async function bulkPromote() {
+  bulkPromoting.value = true
+  const usados = new Set()
+  let ok = 0; const fallos = []
+  for (const id of [...selection.value]) {
+    const c = candidates.value.find(x => x.id === id)
+    if (!c) continue
+    const base = nameToTable(c.suggestedName || c.id)
+    let table = base, i = 2
+    while (usados.has(table)) table = `${base}_${i++}`
+    usados.add(table)
+    try {
+      await gqlPromoteCandidate(id, {
+        name: c.suggestedName || table, targetTable: table,
+        schedule: null, enableLoad: false, loadMode: 'upsert', variant: null,
+      })
+      ok++
+    } catch (e) { fallos.push(`${(c.suggestedName || id).slice(0, 40)}: ${e?.message || 'error'}`) }
+  }
+  selection.value = new Set()
+  await loadCandidates()
+  bulkPromoting.value = false
+  confirmar.value = {
+    title: 'Promoción en lote',
+    message: `Promovidos: ${ok}.` + (fallos.length ? ` Fallos: ${fallos.length}.\n${fallos.slice(0, 6).join('\n')}` : ''),
+    onConfirm: null,
+  }
 }
 
 // ── Data loading ───────────────────────────────────────────────────────────
