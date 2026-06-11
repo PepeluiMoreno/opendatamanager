@@ -179,7 +179,7 @@ FETCHERS: List[Dict[str, Any]] = [
     {
         "name": "Compressed File",
         "class_path": "app.fetchers.compressed_file.CompressedFileFetcher",
-        "description": "Downloads a compressed archive and parses the extracted file as PDF, XLS, XLSX, CSV or TSV.",
+        "description": "Archivo comprimido (ZIP/TAR/TAR.GZ/TAR.BZ2/GZ). Modos: extraer (saca una entrada y la parsea como PDF/XLS/XLSX/CSV/TSV/JSON) y descubrir (Archivo como Colección: lista los miembros de datos y emite un hijo por fichero, cada uno autodescriptivo con su entry e inner_format).",
         "params": [
             {"param_name": "url", "data_type": "string", "required": True, "group": "http", "hint": "Dirección del archivo comprimido (zip, gz, tar...)."},
             {"param_name": "format", "data_type": "string", "required": True, "group": "archive", "hint": "Formato del contenedor: zip, gz, tar... Si se omite se infiere de la URL."},
@@ -1083,7 +1083,7 @@ def seed() -> None:
     try:
         retirados = []
         # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
-        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"]}
+        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"]}
         for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             _f.modos = _MODOS.get(_f.code, ["extraer"])
         db.commit()

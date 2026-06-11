@@ -184,6 +184,69 @@ class CompressedFileFetcher(BaseFetcher):
             records.extend(chunk)
         return records
 
+    # ── Modo descubrir (Archivo como Colección) ───────────────────────────────
+    _DATA_FORMATS = {"csv", "tsv", "xlsx", "xls", "json", "pdf"}
+
+    def _resolve_fmt(self, url: str) -> str:
+        fmt = self.params.get("format", "").lower().strip()
+        if not fmt:
+            for ext in ("tar.gz", "tar.bz2", "tar", "zip", "gz"):
+                if url.lower().endswith(f".{ext}") or f".{ext}?" in url.lower():
+                    fmt = ext
+                    break
+        if not fmt:
+            raise ValueError("El parámetro 'format' es obligatorio. Valores: zip | tar | tar.gz | tar.bz2 | gz")
+        return fmt
+
+    def propose(self) -> List[Dict[str, Any]]:
+        """Lista los miembros del archivo y emite un recurso-hijo por cada fichero
+        de datos (csv/tsv/xlsx/xls/json/pdf). Cada hijo es un 'Compressed File' en
+        modo extractor con su `entry` fijado. Salta directorios y ficheros no-datos
+        (readmes, imágenes...). Un archivo de 1 solo miembro -> 1 candidato."""
+        url = self.params.get("url")
+        if not url:
+            raise ValueError("El parámetro 'url' es obligatorio")
+        fmt = self._resolve_fmt(url)
+        http_headers = self.params.get("headers", {})
+        if isinstance(http_headers, str):
+            http_headers = json.loads(http_headers)
+        timeout = int(self.params.get("timeout", 120))
+
+        logger.info(f"[CompressedFileFetcher] (descubrir) Descargando {fmt.upper()}: {url}")
+        response = self._request(None, "GET", url, headers=http_headers, timeout=timeout)
+        response.raise_for_status()
+        content = response.content
+
+        if fmt == "zip":
+            members = [n for n in zipfile.ZipFile(io.BytesIO(content)).namelist() if not n.endswith("/")]
+        elif fmt in _TAR_MODES:
+            tf = tarfile.open(fileobj=io.BytesIO(content), mode=_TAR_MODES[fmt])
+            members = [m.name for m in tf.getmembers() if m.isfile()]
+        elif fmt == "gz":
+            members = []   # gz = un único fichero, no es contenedor de varios
+        else:
+            raise ValueError(f"Formato '{fmt}' no soportado. Valores: zip | tar | tar.gz | tar.bz2 | gz")
+
+        proposals: List[Dict[str, Any]] = []
+        omitidos = 0
+        for name in members:
+            inner = _infer_inner_format(name)
+            if inner not in self._DATA_FORMATS:
+                omitidos += 1
+                continue
+            proposals.append({
+                "suggested_name": name.rsplit("/", 1)[-1][:200],
+                "matched_urls": [],
+                "file_types": {inner: 1},
+                "confidence": 0.95,
+                "target_fetcher_code": "Compressed File",
+                "target_params": {"url": url, "format": fmt, "entry": name, "inner_format": inner},
+            })
+        self.profile_stats = {"total_files": len(proposals), "miembros": len(members), "no_datos": omitidos}
+        logger.info(f"[CompressedFileFetcher] (descubrir) {len(members)} miembro(s) -> "
+                    f"{len(proposals)} de datos, {omitidos} omitidos.")
+        return proposals
+
     def parse(self, raw: RawData) -> ParsedData:
         return raw
 
