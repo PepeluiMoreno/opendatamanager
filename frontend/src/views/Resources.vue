@@ -162,6 +162,7 @@
         <span class="text-blue-200 font-medium">{{ numSeleccionados }} seleccionado(s)</span>
         <select v-model="bulkAction" class="input py-0.5 px-2 text-xs">
           <option value="">Acción…</option>
+          <option value="toggle">Activar/Desactivar (invertir)</option>
           <option value="move">Mover a colección</option>
           <option value="group">Agrupar (nueva colección)</option>
           <option value="ungroup">Desagrupar</option>
@@ -1922,6 +1923,13 @@ async function aplicarAccionLote() {
   const items = recursosSeleccionados.value
   bulkBusy.value = true
   try {
+    if (accion === 'toggle') {
+      // Invierte el estado de cada seleccionado (activo↔inactivo).
+      for (const r of items) await updateResource(r.id, { active: !r.active })
+      limpiarSeleccion(); bulkAction.value = ''
+      await loadData()
+      return
+    }
     let colDestino = null  // '' = desagrupar (sin colección)
     if (accion === 'move') {
       if (!bulkMoveTarget.value) { bulkBusy.value = false; return }
