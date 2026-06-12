@@ -75,6 +75,10 @@
           <select v-model="fType"><option value="">Tipo: todos</option><option v-for="f in fetchers" :key="f.id" :value="f.code">{{ f.name }}</option></select>
         </div>
         <div class="chip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.acronimo || p.nombre }}</option></select>
+        </div>
+        <div class="chip">
           <span class="sd-mini"></span>
           <select v-model="fStatus"><option value="">Estado: todos</option><option value="on">Activos</option><option value="off">Inactivos</option></select>
         </div>
@@ -105,6 +109,7 @@
           <div class="lhead">
             <div><input type="checkbox" class="cbx" :checked="todasSel" @change="toggleTodas" /></div>
             <div>Recurso</div>
+            <div class="col-pub">Publisher</div>
             <div class="col-fetch">Fetcher</div>
             <div>Estado</div>
             <div class="col-sched">Próxima ejecución</div>
@@ -126,8 +131,8 @@
                   <span v-if="esNodriza(r)">🛰️ </span>{{ r.name }}
                   <small v-if="hijosDe(r.id).length"> · {{ hijosDe(r.id).length }} descubiertos</small>
                 </span>
-                <span v-if="r.publisherObj?.acronimo" class="badge sys">{{ r.publisherObj.acronimo }}</span>
               </div>
+              <div class="col-pub pub" :title="r.publisherObj?.nombre || ''">{{ r.publisherObj?.acronimo || r.publisherObj?.nombre || '—' }}</div>
               <div class="ftype col-fetch"><span class="dot"></span>{{ r.fetcher?.name }}</div>
               <div><span :class="['status', estadoClase(r)]"><span class="sd"></span>{{ estadoTexto(r) }}</span></div>
               <div class="col-sched sched">
@@ -143,6 +148,7 @@
               <div v-for="ch in hijosDe(r.id)" :key="ch.id" :class="['row','child',{ sel: sel.has(ch.id) }]">
                 <div><input type="checkbox" class="cbx" :checked="sel.has(ch.id)" @change="toggleUno(ch.id)" /></div>
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
+                <div class="col-pub pub" :title="ch.publisherObj?.nombre || ''">{{ ch.publisherObj?.acronimo || ch.publisherObj?.nombre || '—' }}</div>
                 <div class="ftype col-fetch"><span class="dot" style="background:#3a4654"></span>{{ ch.fetcher?.name }}</div>
                 <div><span :class="['status', estadoClase(ch)]"><span class="sd"></span>{{ estadoTexto(ch) }}</span></div>
                 <div class="col-sched sched"><span :class="['nx', proximaEjecucion(ch).t]">{{ proximaEjecucion(ch).txt }}</span></div>
@@ -285,7 +291,7 @@ const fetchers = ref([])
 const publishers = ref([])
 
 const selected = ref('__none__')   // colección abierta: id | '__none__'
-const q = ref(''); const fType = ref(''); const fStatus = ref('')
+const q = ref(''); const fType = ref(''); const fStatus = ref(''); const fPublisher = ref('')
 const sel = ref(new Set())
 const abiertas = ref(new Set())
 
@@ -402,12 +408,19 @@ const enColeccion = computed(() => resources.value.filter(r =>
 const topLevel = computed(() => enColeccion.value.filter(r => !r.parentResourceId).filter(r => {
   if (q.value && !r.name.toLowerCase().includes(q.value.toLowerCase())) return false
   if (fType.value && r.fetcher?.code !== fType.value) return false
+  if (fPublisher.value && r.publisherObj?.id !== fPublisher.value) return false
   if (fStatus.value === 'on' && !r.active) return false
   if (fStatus.value === 'off' && r.active) return false
   return true
 }))
 function hijosDe(id) { return resources.value.filter(r => r.parentResourceId === id) }
 function toggleRamaOpen(id) { const s = new Set(abiertas.value); s.has(id)?s.delete(id):s.add(id); abiertas.value = s }
+// Publishers que realmente aparecen en algún recurso (para el filtro).
+const publishersUsados = computed(() => {
+  const map = new Map()
+  for (const r of resources.value) if (r.publisherObj?.id && !map.has(r.publisherObj.id)) map.set(r.publisherObj.id, r.publisherObj)
+  return Array.from(map.values()).sort((a,b)=>(a.acronimo||a.nombre).localeCompare(b.acronimo||b.nombre,'es'))
+})
 
 function estadoClase(r){ if(r.estadoAprobacion==='pendiente')return'pend'; return r.active?'on':'off' }
 function estadoTexto(r){ if(r.estadoAprobacion==='pendiente')return'Descubierto'; return r.active?'Activo':'Inactivo' }
@@ -583,12 +596,12 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
 .listwrap{flex:1;overflow-y:auto;padding:2px 16px 90px}
 .empty{text-align:center;color:var(--faint);padding:40px;font-size:13px}
 .link{color:var(--signal);background:none;border:none;cursor:pointer;margin-left:6px}
-.lhead{display:grid;grid-template-columns:30px 1fr 150px 116px 150px 80px;gap:8px;padding:8px 14px;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);position:sticky;top:0;background:var(--ink);z-index:3}
-.row{display:grid;grid-template-columns:30px 1fr 150px 116px 150px 80px;gap:8px;align-items:center;padding:11px 14px;border-radius:12px;margin:3px 0;background:var(--panel);border:1px solid var(--line-soft)}
+.lhead{display:grid;grid-template-columns:30px minmax(0,1fr) 110px 140px 104px 140px 78px;gap:8px;padding:9px 14px 8px;font-family:var(--disp);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--muted);position:sticky;top:0;background:var(--ink);z-index:3;border-bottom:1px solid var(--line)}
+.row{display:grid;grid-template-columns:30px minmax(0,1fr) 110px 140px 104px 140px 78px;gap:8px;align-items:center;padding:11px 14px;border-radius:12px;margin:3px 0;background:var(--panel);border:1px solid var(--line-soft)}
 .row:hover{border-color:#2c3a48;background:var(--panel-2)}
 .row.sel{border-color:var(--signal-dim);background:#10211e}
 .row.child{background:#0f141bcc;margin-left:30px;border-style:dashed;border-color:#1c2733}
-@media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 116px 80px}.col-sched,.col-fetch{display:none}}
+@media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 104px 78px}.col-sched,.col-fetch,.col-pub{display:none}}
 .cbx{appearance:none;width:17px;height:17px;border-radius:5px;border:1.5px solid #36434f;background:#0d1219;cursor:pointer;position:relative}
 .cbx:checked{background:var(--signal);border-color:var(--signal)}
 .cbx:checked::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#042521;font-size:11px;font-weight:800}
@@ -607,10 +620,10 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
 .status.off{color:var(--faint)}.status.off .sd{background:#3a4654}
 .status.pend{color:var(--harvest)}.status.pend .sd{background:var(--harvest);box-shadow:0 0 8px var(--harvest)}
 .sched{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
-.racts{display:flex;gap:4px;justify-content:flex-end;opacity:0;transition:.13s}
-.row:hover .racts{opacity:1}
-.racts button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;background:none;cursor:pointer}
-.racts button:hover{color:var(--signal);border-color:var(--signal-dim);background:#0f201d}
+.pub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.racts{display:flex;gap:4px;justify-content:flex-end;opacity:1}
+.racts button{width:28px;height:28px;border-radius:8px;border:1px solid #1d4ed8;color:#3b82f6;display:grid;place-items:center;background:#3b82f612;cursor:pointer}
+.racts button:hover{color:#60a5fa;border-color:#3b82f6;background:#3b82f622}
 .racts button svg{width:14px;height:14px}
 
 .bulk{position:fixed;left:50%;bottom:22px;transform:translate(-50%,30px);opacity:0;pointer-events:none;transition:.25s cubic-bezier(.2,.9,.3,1.2);display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#1b2530,#141c25);border:1px solid #2d3a48;border-radius:14px;padding:10px 12px 10px 16px;box-shadow:0 16px 50px #000a;z-index:40}

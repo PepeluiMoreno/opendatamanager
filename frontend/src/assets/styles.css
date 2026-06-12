@@ -32,6 +32,18 @@ body {
   @apply px-4 py-2 rounded font-medium transition-colors;
 }
 
+/* Iconos de acción: azul intenso y SIEMPRE visibles (estándar de toda la app). */
+.act-icon {
+  @apply text-blue-500 opacity-100 transition-colors;
+}
+.act-icon:hover {
+  @apply text-blue-400 bg-blue-500/10;
+}
+.act-icon.danger { @apply text-red-500; }
+.act-icon.danger:hover { @apply text-red-400 bg-red-500/10; }
+/* Forzar visibilidad aunque la fila atenúe sus acciones en hover-only. */
+.act-icon { opacity: 1 !important; }
+
 .btn-primary {
   @apply bg-blue-600 hover:bg-blue-700 text-white;
 }

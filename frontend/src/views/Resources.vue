@@ -283,12 +283,12 @@
                 <button
                   v-if="puede('recursos.testar')"
                   @click="showPreviewData(resource)"
-                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
                 >Test</button>
                 <button
                   v-if="puede('recursos.editar')"
                   @click="editResource(resource)"
-                  class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                  class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white"
                 >Edit</button>
                 <button
                   v-if="puede('recursos.borrar')"
@@ -325,8 +325,8 @@
             <td class="py-1 px-3">
               <div class="flex justify-end gap-1">
                 <button v-if="puede('ejecuciones.lanzar')" @click="openExecuteModal(child)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white" title="Ejecutar">Run</button>
-                <button v-if="puede('recursos.testar')" @click="showPreviewData(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Test</button>
-                <button v-if="puede('recursos.editar')" @click="editResource(child)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Edit</button>
+                <button v-if="puede('recursos.testar')" @click="showPreviewData(child)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white">Test</button>
+                <button v-if="puede('recursos.editar')" @click="editResource(child)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white">Edit</button>
                 <button v-if="puede('recursos.borrar')" @click="confirmDelete(child)" class="text-xs px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white">Delete</button>
               </div>
             </td>
@@ -1216,7 +1216,7 @@
                   <td class="py-1 px-2 text-gray-200">📄 {{ h.name }}</td>
                   <td class="py-1 px-2"><code class="bg-gray-900 px-1 rounded text-blue-400">{{ h.fetcher.code }}</code></td>
                   <td class="py-1 px-2"><span :class="h.active ? 'text-green-400' : 'text-red-400'">{{ h.active ? 'Activo' : 'Inactivo' }}</span></td>
-                  <td class="py-1 px-2 text-right"><button type="button" v-if="puede('recursos.editar')" @click="editResource(h)" class="text-xs px-2 py-0.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-200">Editar</button></td>
+                  <td class="py-1 px-2 text-right"><button type="button" v-if="puede('recursos.editar')" @click="editResource(h)" class="text-xs px-2 py-0.5 rounded bg-blue-700 hover:bg-blue-600 text-white">Editar</button></td>
                 </tr>
               </tbody>
             </table>
