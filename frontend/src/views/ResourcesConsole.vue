@@ -1,5 +1,5 @@
 <template>
-  <div class="console">
+  <div class="console" :style="{ gridTemplateColumns: railW + 'px 6px 1fr' }">
     <!-- ============ COLLECTIONS RAIL ============ -->
     <aside class="rail">
       <div class="brand">
@@ -20,12 +20,17 @@
       </div>
 
       <div class="roster">
-        <div v-for="c in panels" :key="c.key"
+        <div v-for="c in panelsFiltradas" :key="c.key"
              :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz' }]"
              @click="selected = c.group; limpiarSel()">
           <span class="gi">{{ c.icon }}</span>
-          <span class="nm">{{ c.label }}</span>
-          <span class="ct">{{ c.count }}</span>
+          <div class="cmeta">
+            <span class="nm">{{ c.label }}</span>
+            <span class="attrs">
+              <span class="at">{{ c.kind==='matriz' ? 'nodriza' : c.kind==='none' ? 'sin agrupar' : 'organizativa' }}</span>
+              <span class="at">· {{ c.count }} rec.</span>
+            </span>
+          </div>
           <span v-if="c.kind==='col'" class="edit" @click.stop>
             <button title="Renombrar" @click="abrirRename(c.g)">✎</button>
             <button class="del" title="Eliminar" @click="pedirBorrarCol(c.g)">🗑</button>
@@ -33,8 +38,18 @@
         </div>
       </div>
 
+      <!-- panel de filtro de colecciones -->
+      <div class="col-filter">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input v-model="colFilter" placeholder="Filtrar colecciones…" />
+        <button v-if="colFilter" class="clr" @click="colFilter=''">✕</button>
+      </div>
+
       <div class="rail-foot"><span class="pulse"></span> {{ nActivos }} activos · {{ nPend }} descubiertos</div>
     </aside>
+
+    <!-- divisor redimensionable -->
+    <div class="divider" @mousedown="startDrag"><span></span></div>
 
     <!-- ============ MAIN ============ -->
     <main class="main">
@@ -66,6 +81,25 @@
       </div>
 
       <div class="listwrap">
+        <!-- barra de acciones en lote (estilo master: inline, select + contextual) -->
+        <div v-if="sel.size > 0" class="bulkbar">
+          <span class="bn"><b>{{ sel.size }}</b> seleccionados</span>
+          <select v-model="bulkAction" class="bsel">
+            <option value="">Acción…</option>
+            <option value="toggle">Activar/Desactivar (invertir)</option>
+            <option value="move">Mover a colección</option>
+            <option value="group">Agrupar (nueva colección)</option>
+            <option value="ungroup">Desagrupar</option>
+          </select>
+          <select v-if="bulkAction==='move'" v-model="bulkMoveTarget" class="bsel">
+            <option value="">Elige colección…</option>
+            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+          </select>
+          <input v-if="bulkAction==='group'" v-model="bulkGroupName" class="bsel" placeholder="Nombre de la colección…" @keyup.enter="aplicarLote" />
+          <button class="bapply" :disabled="bulkBusy || !bulkAction || (bulkAction==='move'&&!bulkMoveTarget) || (bulkAction==='group'&&!bulkGroupName.trim())" @click="aplicarLote">{{ bulkBusy?'Aplicando…':'Aplicar' }}</button>
+          <button class="bclear" @click="limpiarSel">Limpiar</button>
+        </div>
+
         <div v-if="loading" class="empty">Cargando…</div>
         <template v-else>
           <div class="lhead">
@@ -73,7 +107,7 @@
             <div>Recurso</div>
             <div class="col-fetch">Fetcher</div>
             <div>Estado</div>
-            <div class="col-sched">Programación</div>
+            <div class="col-sched">Próxima ejecución</div>
             <div class="col-acts" style="text-align:right">Acciones</div>
           </div>
 
@@ -96,7 +130,10 @@
               </div>
               <div class="ftype col-fetch"><span class="dot"></span>{{ r.fetcher?.name }}</div>
               <div><span :class="['status', estadoClase(r)]"><span class="sd"></span>{{ estadoTexto(r) }}</span></div>
-              <div class="col-sched sched">{{ r.schedule || '—' }}</div>
+              <div class="col-sched sched">
+                <span :class="['nx', proximaEjecucion(r).t]">{{ proximaEjecucion(r).txt }}</span>
+                <small v-if="proximaEjecucion(r).rel">{{ proximaEjecucion(r).rel }}</small>
+              </div>
               <div class="col-acts racts">
                 <button v-if="puede('ejecuciones.lanzar')" title="Ejecutar" @click="ejecutar(r)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
                 <button v-if="puede('recursos.editar')" title="Editar" @click="abrirDrawer(r)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -108,7 +145,7 @@
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
                 <div class="ftype col-fetch"><span class="dot" style="background:#3a4654"></span>{{ ch.fetcher?.name }}</div>
                 <div><span :class="['status', estadoClase(ch)]"><span class="sd"></span>{{ estadoTexto(ch) }}</span></div>
-                <div class="col-sched sched">{{ ch.schedule || '—' }}</div>
+                <div class="col-sched sched"><span :class="['nx', proximaEjecucion(ch).t]">{{ proximaEjecucion(ch).txt }}</span></div>
                 <div class="col-acts racts">
                   <button v-if="puede('recursos.editar')" title="Editar" @click="abrirDrawer(ch)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
                 </div>
@@ -118,23 +155,6 @@
         </template>
       </div>
     </main>
-
-    <!-- ============ BULK BAR ============ -->
-    <div :class="['bulk', { show: sel.size > 0 }]">
-      <div class="n"><b>{{ sel.size }}</b> seleccionados</div>
-      <div class="vsep"></div>
-      <button class="act" @click="invertirEstado">Invertir estado</button>
-      <div class="grp">
-        <select v-model="moveTarget"><option value="">Mover a…</option><option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option></select>
-        <button @click="moverSel">Mover</button>
-      </div>
-      <div class="grp">
-        <input v-model="grpName" placeholder="Agrupar en nueva…" />
-        <button @click="agruparSel">Crear</button>
-      </div>
-      <button class="act" @click="desagruparSel">Desagrupar</button>
-      <button class="x" @click="limpiarSel">✕</button>
-    </div>
 
     <!-- ============ DRAWER (resource editor) ============ -->
     <div :class="['scrim',{show:drawer}]" @click="cerrarDrawer"></div>
@@ -269,6 +289,73 @@ const q = ref(''); const fType = ref(''); const fStatus = ref('')
 const sel = ref(new Set())
 const abiertas = ref(new Set())
 
+// ---- rail redimensionable ----
+const railW = ref(264)
+let dragging = false
+function startDrag(e){ dragging = true; e.preventDefault()
+  const move = ev => { if(!dragging) return; railW.value = Math.min(440, Math.max(200, ev.clientX)) }
+  const up = () => { dragging = false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up) }
+  window.addEventListener('mousemove',move); window.addEventListener('mouseup',up)
+}
+
+// ---- filtro de colecciones ----
+const colFilter = ref('')
+
+// ---- próxima ejecución programada (calculada del cron, sin librería) ----
+function parseField(f, lo, hi){
+  if (f === '*' || f === '?') { const s=new Set(); for(let i=lo;i<=hi;i++) s.add(i); return s }
+  const set = new Set()
+  for (const part of f.split(',')){
+    let m
+    if ((m = part.match(/^(\*|\d+)(?:-(\d+))?(?:\/(\d+))?$/))){
+      let a = m[1]==='*' ? lo : +m[1]
+      let b = m[2]!=null ? +m[2] : (m[1]==='*' ? hi : (m[3]!=null ? hi : a))
+      const step = m[3]!=null ? +m[3] : 1
+      for(let i=a;i<=b;i+=step) if(i>=lo&&i<=hi) set.add(i)
+    }
+  }
+  return set
+}
+function nextRun(cron){
+  if (!cron) return null
+  const p = cron.trim().split(/\s+/); if (p.length !== 5) return null
+  let mins,hrs,doms,mons,dows
+  try {
+    mins=parseField(p[0],0,59); hrs=parseField(p[1],0,23); doms=parseField(p[2],1,31)
+    mons=parseField(p[3],1,12); dows=parseField(p[4],0,6)
+  } catch { return null }
+  const domR = p[2] !== '*' && p[2] !== '?'
+  const dowR = p[4] !== '*' && p[4] !== '?'
+  const d = new Date(); d.setSeconds(0,0); d.setMinutes(d.getMinutes()+1)
+  for (let guard=0; guard<366*24*60; guard++){
+    if (!mons.has(d.getMonth()+1)){ d.setMonth(d.getMonth()+1,1); d.setHours(0,0,0,0); continue }
+    const domOk = doms.has(d.getDate()); const dowOk = dows.has(d.getDay())
+    const dayOk = domR && dowR ? (domOk||dowOk) : domR ? domOk : dowR ? dowOk : true
+    if (!dayOk){ d.setDate(d.getDate()+1); d.setHours(0,0,0,0); continue }
+    if (!hrs.has(d.getHours())){ d.setHours(d.getHours()+1,0,0,0); continue }
+    if (!mins.has(d.getMinutes())){ d.setMinutes(d.getMinutes()+1,0,0); continue }
+    return d
+  }
+  return null
+}
+function proximaEjecucion(r){
+  if (!r.active) return { txt:'—', t:'inactivo' }
+  if (!r.schedule) return { txt:'manual', t:'manual' }
+  const d = nextRun(r.schedule)
+  if (!d) return { txt:r.schedule, t:'cron' }
+  const now = new Date(); const diff = d - now
+  const fmt = d.toLocaleString('es-ES',{ day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+  let rel = ''
+  const h = Math.round(diff/3600000)
+  if (h < 1) rel = 'en breve'
+  else if (h < 24) rel = `en ${h} h`
+  else rel = `en ${Math.round(h/24)} d`
+  return { txt: fmt, rel, t:'ok' }
+}
+
+// ---- barra de acciones en lote (estilo master) ----
+const bulkAction = ref(''); const bulkMoveTarget = ref(''); const bulkGroupName = ref(''); const bulkBusy = ref(false)
+
 // ---- carga ----
 async function load() {
   loading.value = true
@@ -340,6 +427,26 @@ async function invertirEstado(){ await aplicar(async()=>{ for(const r of selecci
 async function moverSel(){ if(!moveTarget.value)return; await aplicar(async()=>{ for(const r of seleccionados.value) await updateResource(r.id,{collectionId:moveTarget.value}) }); moveTarget.value='' }
 async function desagruparSel(){ await aplicar(async()=>{ for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }) }
 async function agruparSel(){ const n=grpName.value.trim(); if(!n)return; await aplicar(async()=>{ const r=await createResourceCollection(n); const g=r?.createResourceCollection; if(!g)throw new Error('no creada'); for(const x of seleccionados.value) await updateResource(x.id,{collectionId:g.id}) }); grpName.value='' }
+
+// dispatcher estilo master: una acción + control contextual
+const panelsFiltradas = computed(() => {
+  const f = colFilter.value.trim().toLowerCase()
+  if (!f) return panels.value
+  return panels.value.filter(p => p.label.toLowerCase().includes(f) || p.kind === 'none')
+})
+async function aplicarLote(){
+  if (!bulkAction.value || sel.value.size===0) return
+  bulkBusy.value = true
+  try {
+    if (bulkAction.value === 'toggle') { for(const r of seleccionados.value) await updateResource(r.id,{active:!r.active}) }
+    else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value) await updateResource(r.id,{collectionId:bulkMoveTarget.value}) }
+    else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); for(const r of seleccionados.value) await updateResource(r.id,{collectionId:g.id}) }
+    else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }
+    bulkAction.value=''; bulkMoveTarget.value=''; bulkGroupName.value=''
+    limpiarSel(); await load()
+  } catch(e){ window.alert('Error: '+(e?.message||e)) }
+  finally { bulkBusy.value=false }
+}
 
 // ---- colecciones CRUD ----
 const showAdd = ref(false); const addName = ref('')
@@ -579,4 +686,39 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .cf .ghost{padding:9px 16px;border-radius:10px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer}
 .cf .danger{padding:9px 18px;border-radius:10px;background:var(--alert);color:#2a0b0b;font-weight:700;border:none;cursor:pointer}
 .cf .save{padding:9px 18px;border-radius:10px;background:var(--signal);color:#042521;font-weight:700;border:none;cursor:pointer}
+
+/* --- divisor redimensionable --- */
+.divider{cursor:col-resize;display:flex;align-items:center;justify-content:center;background:transparent}
+.divider span{width:2px;height:46px;border-radius:2px;background:var(--line);transition:.15s}
+.divider:hover span{background:var(--signal);box-shadow:0 0 8px var(--signal)}
+
+/* --- colección con atributos (dos líneas) --- */
+.col{align-items:center}
+.col .cmeta{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.col .cmeta .nm{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.col .attrs{display:flex;gap:5px;font-family:var(--mono);font-size:10px;color:var(--faint)}
+.col.active .attrs{color:#6fb9af}
+.col.tag-matriz .attrs .at:first-child{color:var(--violet)}
+
+/* --- filtro de colecciones --- */
+.col-filter{display:flex;align-items:center;gap:8px;margin:6px 12px 4px;padding:7px 10px;background:#0e151d;border:1px solid var(--line);border-radius:9px}
+.col-filter svg{width:13px;height:13px;color:var(--faint);flex-shrink:0}
+.col-filter input{flex:1;min-width:0;background:transparent;border:none;color:var(--txt);font-size:12px;outline:none}
+.col-filter .clr{color:var(--faint);background:none;border:none;cursor:pointer;font-size:12px}
+
+/* --- barra de lote inline (estilo master) --- */
+.bulkbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 8px;padding:9px 12px;border-radius:11px;background:#10211e;border:1px solid var(--signal-dim)}
+.bulkbar .bn{font-size:12.5px;color:#9fded3}.bulkbar .bn b{color:var(--signal)}
+.bulkbar .bsel{background:#0d131b;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:7px 10px;font-size:12.5px;outline:none}
+.bulkbar .bsel:focus{border-color:var(--signal-dim)}
+.bulkbar .bapply{padding:7px 14px;border-radius:8px;background:var(--signal);color:#042521;font-weight:600;font-size:12.5px;border:none;cursor:pointer}
+.bulkbar .bapply:disabled{opacity:.4;cursor:not-allowed}
+.bulkbar .bclear{padding:7px 12px;border-radius:8px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer;font-size:12.5px}
+.bulkbar .bclear:hover{color:var(--txt);border-color:#34424f}
+
+/* --- próxima ejecución --- */
+.col-sched.sched{display:flex;flex-direction:column;gap:1px}
+.nx{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.nx.manual{color:var(--faint)}.nx.inactivo{color:#3a4654}.nx.ok{color:var(--signal)}
+.col-sched small{font-family:var(--mono);font-size:10px;color:var(--faint)}
 </style>
