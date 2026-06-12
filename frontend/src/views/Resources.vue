@@ -161,23 +161,24 @@
            class="flex items-center gap-2 flex-wrap px-3 py-2 border-b border-gray-700 bg-blue-900/20 text-xs flex-shrink-0">
         <span class="text-blue-200 font-medium">{{ numSeleccionados }} seleccionado(s)</span>
         <select v-model="bulkAction" class="input py-0.5 px-2 text-xs">
-          <option value="">Acciones en lote…</option>
-          <option value="activate">Activar</option>
-          <option value="deactivate">Desactivar</option>
-          <template v-if="puede('recursos.editar')">
-            <option disabled>── Mover a colección ──</option>
-            <option value="move:__new__">➕ Nueva colección…</option>
-            <option value="move:">Sin agrupar</option>
-            <option v-for="g in groups" :key="g.id" :value="'move:' + g.id">{{ g.name }}</option>
-          </template>
-          <option v-if="puede('recursos.borrar')" value="delete">Borrar</option>
+          <option value="">Acción…</option>
+          <option value="move">Mover a colección</option>
+          <option value="group">Agrupar (nueva colección)</option>
+          <option value="ungroup">Desagrupar</option>
         </select>
-        <!-- Crear agrupación al vuelo: el campo de nombre aparece al elegir "Nueva colección…" -->
-        <input v-if="bulkAction === 'move:__new__'" v-model="nuevaColeccionLote" type="text"
+        <!-- Mover: desplegable de colecciones existentes -->
+        <select v-if="bulkAction === 'move'" v-model="bulkMoveTarget" class="input py-0.5 px-2 text-xs">
+          <option value="">Elige colección…</option>
+          <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+        </select>
+        <!-- Agrupar: nombre de la colección nueva, al vuelo -->
+        <input v-if="bulkAction === 'group'" v-model="nuevaColeccionLote" type="text"
                placeholder="Nombre de la colección…" class="input py-0.5 px-2 text-xs"
                @keyup.enter="aplicarAccionLote" autofocus />
         <button @click="aplicarAccionLote"
-                :disabled="!bulkAction || bulkBusy || (bulkAction === 'move:__new__' && !nuevaColeccionLote.trim())"
+                :disabled="bulkBusy || !bulkAction
+                           || (bulkAction === 'move' && !bulkMoveTarget)
+                           || (bulkAction === 'group' && !nuevaColeccionLote.trim())"
                 class="px-2 py-0.5 rounded border border-blue-600 text-blue-200 hover:bg-blue-800/40 disabled:opacity-40 disabled:cursor-not-allowed">
           {{ bulkBusy ? 'Aplicando…' : 'Aplicar' }}
         </button>
@@ -1784,10 +1785,9 @@ const groups = ref([])
 const selectedGroup = ref(null)   // null = todas | '__none__' = sin agrupar | <id>
 const groupsById = computed(() => Object.fromEntries(groups.value.map(g => [g.id, g])))
 
-// Paneles del acordeón: All + cada colección + Uncollected. El panel "abierto"
-// es el de selectedGroup; al elegir otro, el anterior se colapsa.
+// Paneles del acordeón: cada colección + Uncollected (sin "All"). El panel
+// "abierto" es el de selectedGroup; al elegir otro, el anterior se colapsa.
 const panels = computed(() => [
-  { key: 'all', group: null, label: 'All', icon: '📚', kind: 'all', count: resources.value.length },
   ...groups.value.map(g => ({
     key: g.id, group: g.id, label: g.name,
     icon: g.origin === 'matriz' ? '🛰️' : '🗂️',
@@ -1889,6 +1889,7 @@ watch([searchQuery, selectedType, selectedPublisher, selectedApp, selectedKind, 
 // aplican al conjunto de recursos marcados.
 const selectedIds = ref(new Set())
 const bulkAction = ref('')
+const bulkMoveTarget = ref('')   // colección destino para la acción "mover"
 const bulkBusy = ref(false)
 
 // IDs que componen la "rama" de un recurso (él mismo + sus hijos descubiertos).
@@ -1919,18 +1920,13 @@ async function aplicarAccionLote() {
   const accion = bulkAction.value
   if (!accion || selectedIds.value.size === 0) return
   const items = recursosSeleccionados.value
-  // Confirmación para acciones destructivas.
-  if (accion === 'delete') {
-    const ok = window.confirm(`¿Borrar ${items.length} recurso(s) seleccionado(s)?`)
-    if (!ok) return
-  }
   bulkBusy.value = true
   try {
-    // "Crear agrupación al vuelo": si la acción es mover a una colección NUEVA,
-    // se crea primero con el nombre tecleado y se usa su id como destino.
-    let colDestino = null
-    if (accion.startsWith('move:')) colDestino = accion.slice(5)  // '' = sin agrupar
-    if (accion === 'move:__new__') {
+    let colDestino = null  // '' = desagrupar (sin colección)
+    if (accion === 'move') {
+      if (!bulkMoveTarget.value) { bulkBusy.value = false; return }
+      colDestino = bulkMoveTarget.value
+    } else if (accion === 'group') {
       const nombre = (nuevaColeccionLote.value || '').trim()
       if (!nombre) { bulkBusy.value = false; return }
       const r = await createResourceCollection(nombre)
@@ -1938,14 +1934,12 @@ async function aplicarAccionLote() {
       if (!g) throw new Error('No se pudo crear la colección')
       groups.value = [...groups.value, g].sort((a,b)=>a.name.localeCompare(b.name,'es'))
       colDestino = g.id
+    } else if (accion === 'ungroup') {
+      colDestino = ''  // sacar de su colección → Uncollected
     }
-    for (const r of items) {
-      if (accion === 'activate') await updateResource(r.id, { active: true })
-      else if (accion === 'deactivate') await updateResource(r.id, { active: false })
-      else if (accion === 'delete') await deleteResource(r.id, false)
-      else if (accion.startsWith('move:')) await updateResource(r.id, { collectionId: colDestino })
-    }
-    limpiarSeleccion(); bulkAction.value = ''; nuevaColeccionLote.value = ''
+    for (const r of items) await updateResource(r.id, { collectionId: colDestino })
+    limpiarSeleccion()
+    bulkAction.value = ''; bulkMoveTarget.value = ''; nuevaColeccionLote.value = ''
     await loadData()
   } catch (e) {
     window.alert('Error aplicando la acción en lote: ' + (e?.message || e))
@@ -1968,6 +1962,10 @@ async function loadData() {
     ])
     resources.value = rd.resources; fetchers.value = td.fetchers; publishers.value = pd?.publishers || []
     groups.value = gd?.resourceCollections || []
+    // Sin panel "All": si no hay panel abierto válido, abrir el primero
+    // (primera colección, o Uncollected si no hay colecciones).
+    const grupos = panels.value.map(p => p.group)
+    if (!grupos.includes(selectedGroup.value)) selectedGroup.value = grupos[0] ?? '__none__'
     const m = {}; rmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); pmd.fieldMetadata.forEach(x => { m[x.fieldName] = x }); fieldMetadata.value = m
     if (cd?.appConfig) { const map = {}; cd.appConfig.forEach(c => { map[c.key] = c.value }); appConfig.value = map }
     if (id) sysInfo.value = id
