@@ -4,6 +4,7 @@ import Dashboard from '../views/Dashboard.vue'
 import MisDatos from '../views/MisDatos.vue'
 import Resources from '../views/Resources.vue'
 import ResourcesConsole from '../views/ResourcesConsole.vue'
+import SubscribersConsole from '../views/SubscribersConsole.vue'
 import ResourceTest from '../views/ResourceTest.vue'
 import Fetchers from '../views/Fetchers.vue'
 import Executions from '../views/Executions.vue'
@@ -23,6 +24,7 @@ const routes = [
   { path: '/',               name: 'Dashboard',    component: Dashboard },
   { path: '/resources',      name: 'Resources',     component: Resources },
   { path: '/console',        name: 'ResourcesConsole', component: ResourcesConsole },
+  { path: '/subscribers-console', name: 'SubscribersConsole', component: SubscribersConsole },
   { path: '/collections',    name: 'Collections',   component: Collections },
   { path: '/fetchers',       name: 'Fetchers',      component: Fetchers },
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
