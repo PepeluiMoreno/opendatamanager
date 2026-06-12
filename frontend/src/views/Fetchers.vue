@@ -78,7 +78,7 @@
                 <button
                   v-if="puede('fetchers.gestionar')"
                   @click="editFetcher(f)"
-                  class="p-1.5 rounded text-gray-400 hover:text-white hover:bg-gray-700 transition-colors"
+                  class="act-icon"
                   title="Edit"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -90,10 +90,8 @@
                   v-if="puede('fetchers.gestionar')"
                   @click="deleteFetcher(f)"
                   :disabled="f.resources?.length > 0"
-                  class="p-1.5 rounded transition-colors"
-                  :class="f.resources?.length > 0
-                    ? 'text-gray-600 cursor-not-allowed'
-                    : 'text-gray-400 hover:text-red-400 hover:bg-gray-700'"
+                  class="act-icon danger"
+                  :class="f.resources?.length > 0 ? 'opacity-40 cursor-not-allowed' : ''"
                   :title="f.resources?.length > 0 ? 'Cannot delete: has resources' : 'Delete'"
                 >
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

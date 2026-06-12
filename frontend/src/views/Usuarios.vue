@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 max-w-5xl mx-auto">
+  <div class="p-6">
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold text-gray-100">👥 Users</h1>
       <button class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg" @click="abrirCrear">
