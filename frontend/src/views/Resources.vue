@@ -14,7 +14,8 @@
           ↑ Importar
         </button>
         <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="onImportFile" />
-        <button v-if="puede('recursos.crear')" @click="showCreateModal = true" class="btn btn-primary text-sm">
+        <button v-if="puede('recursos.crear')" @click="showCreateModal = true"
+                class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">
           + Nuevo recurso
         </button>
       </div>
@@ -126,18 +127,25 @@
       <div class="border-b border-gray-700 flex-shrink-0">
         <div class="flex items-center justify-between px-3 py-2">
           <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Collections</span>
-          <button v-if="puede('recursos.crear')" @click="nuevaColeccion"
-                  class="text-xs px-2 py-0.5 rounded bg-green-700/80 hover:bg-green-600 text-white">+ Collection</button>
+          <button v-if="puede('recursos.crear')" @click="openCreateCollection"
+                  class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">+ Collection</button>
         </div>
         <div class="max-h-[28vh] overflow-y-auto">
           <table class="w-full text-xs">
+            <thead class="bg-gray-700/40 text-gray-400 sticky top-0">
+              <tr>
+                <th class="text-left px-3 py-2 font-medium">Name</th>
+                <th class="text-right px-3 py-2 font-medium w-24">Resources</th>
+                <th class="text-right px-3 py-2 font-medium w-24">Actions</th>
+              </tr>
+            </thead>
             <tbody>
               <tr @click="selectedGroup = null"
                   :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
                            selectedGroup === null ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
                 <td class="px-3 py-2 font-medium text-gray-200">📚 All</td>
-                <td class="px-3 py-2 text-right text-gray-500 w-16">{{ resources.length }}</td>
-                <td class="px-3 py-2 w-20"></td>
+                <td class="px-3 py-2 text-right text-gray-500">{{ resources.length }}</td>
+                <td class="px-3 py-2"></td>
               </tr>
               <tr v-for="g in groups" :key="g.id" @click="selectedGroup = g.id"
                   :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
@@ -148,22 +156,27 @@
                   {{ g.name }}
                   <span v-if="g.origin === 'matriz'" class="ml-1 text-[9px] uppercase tracking-wide text-purple-300">matriz</span>
                 </td>
-                <td class="px-3 py-2 text-right text-gray-500 w-16">{{ memberCount(g.id) }}</td>
-                <td class="px-3 py-2 text-right whitespace-nowrap w-20" @click.stop>
+                <td class="px-3 py-2 text-right text-gray-500">{{ memberCount(g.id) }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap" @click.stop>
                   <template v-if="g.origin !== 'matriz' && puede('recursos.editar')">
-                    <button @click="selectedGroup = g.id; renombrarColeccion()" title="Rename collection"
-                            class="p-1 rounded text-blue-400 hover:text-blue-300 hover:bg-blue-900/30">✎</button>
-                    <button @click="selectedGroup = g.id; borrarColeccion()" title="Delete collection"
-                            class="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-900/30">🗑</button>
+                    <button @click="openRenameCollection(g)" title="Rename collection"
+                            class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30">
+                      <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button @click="borrarColeccion(g)" title="Delete collection"
+                            class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30">
+                      <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
                   </template>
+                  <span v-else class="text-gray-700">—</span>
                 </td>
               </tr>
               <tr @click="selectedGroup = '__none__'"
                   :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
                            selectedGroup === '__none__' ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
                 <td class="px-3 py-2 text-gray-400">🗃️ Uncollected</td>
-                <td class="px-3 py-2 text-right text-gray-500 w-16">{{ countSinAgrupar }}</td>
-                <td class="px-3 py-2 w-20"></td>
+                <td class="px-3 py-2 text-right text-gray-500">{{ countSinAgrupar }}</td>
+                <td class="px-3 py-2"></td>
               </tr>
             </tbody>
           </table>
@@ -1405,6 +1418,27 @@
       </div>
 
     </div>
+
+    <!-- ── Modal: crear/editar collection (mismo patrón que Subscribers) ── -->
+    <div v-if="showCollectionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="closeCollectionModal">
+      <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
+        <h2 class="text-2xl font-bold mb-4">{{ editingCollection ? 'Edit collection' : 'Create collection' }}</h2>
+        <form @submit.prevent="submitCollection" class="space-y-4">
+          <div>
+            <label class="block text-sm text-gray-400 mb-1">Name</label>
+            <input v-model="collectionName" type="text" autofocus
+                   class="input w-full" placeholder="e.g. Entidades religiosas" />
+          </div>
+          <div class="flex justify-end space-x-2 pt-2">
+            <button type="button" @click="closeCollectionModal" class="btn btn-secondary">Cancel</button>
+            <button type="submit" :disabled="!collectionName.trim() || collectionBusy"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors">
+              {{ editingCollection ? 'Update' : 'Create' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
 </template>
@@ -1789,28 +1823,33 @@ const grupoSeleccionadoEditable = computed(() => {
   const g = selectedGroup.value && selectedGroup.value !== '__none__' ? groupsById.value[selectedGroup.value] : null
   return g && g.origin !== 'matriz' ? g : null
 })
-async function nuevaColeccion() {
-  const nombre = (window.prompt('New collection name') || '').trim()
+// ── Collection CRUD vía modal (mismo patrón que Subscribers) ───────────────
+const showCollectionModal = ref(false)
+const editingCollection = ref(null)   // null = crear
+const collectionName = ref('')
+const collectionBusy = ref(false)
+function openCreateCollection() { editingCollection.value = null; collectionName.value = ''; showCollectionModal.value = true }
+function openRenameCollection(g) { editingCollection.value = g; collectionName.value = g.name; showCollectionModal.value = true }
+function closeCollectionModal() { showCollectionModal.value = false }
+async function submitCollection() {
+  const nombre = (collectionName.value || '').trim()
   if (!nombre) return
+  collectionBusy.value = true
   try {
-    const r = await createResourceCollection(nombre)
-    const g = r?.createResourceCollection
-    if (g) { groups.value = [...groups.value, g].sort((a,b)=>a.name.localeCompare(b.name,'es')); selectedGroup.value = g.id }
-  } catch (e) { console.error('Error creating collection:', e) }
+    if (editingCollection.value) {
+      const r = await renameResourceCollection(editingCollection.value.id, nombre)
+      const ng = r?.renameResourceCollection
+      if (ng) groups.value = groups.value.map(x => x.id === ng.id ? { ...x, name: ng.name } : x).sort((a,b)=>a.name.localeCompare(b.name,'es'))
+    } else {
+      const r = await createResourceCollection(nombre)
+      const g = r?.createResourceCollection
+      if (g) { groups.value = [...groups.value, g].sort((a,b)=>a.name.localeCompare(b.name,'es')); selectedGroup.value = g.id }
+    }
+    showCollectionModal.value = false
+  } catch (e) { console.error('Error saving collection:', e); window.alert('Error: ' + (e?.message || e)) }
+  finally { collectionBusy.value = false }
 }
-async function renombrarColeccion() {
-  const g = grupoSeleccionadoEditable.value
-  if (!g) return
-  const nombre = (window.prompt('Rename collection', g.name) || '').trim()
-  if (!nombre || nombre === g.name) return
-  try {
-    const r = await renameResourceCollection(g.id, nombre)
-    const ng = r?.renameResourceCollection
-    if (ng) groups.value = groups.value.map(x => x.id === ng.id ? { ...x, name: ng.name } : x).sort((a,b)=>a.name.localeCompare(b.name,'es'))
-  } catch (e) { console.error('Error renaming collection:', e) }
-}
-async function borrarColeccion() {
-  const g = grupoSeleccionadoEditable.value
+async function borrarColeccion(g) {
   if (!g) return
   const n = memberCount(g.id)
   const msg = n ? `Delete collection "${g.name}": its ${n} resource(s) will become uncollected (not deleted). Continue?`
@@ -1819,7 +1858,7 @@ async function borrarColeccion() {
   try {
     await deleteResourceCollection(g.id)
     groups.value = groups.value.filter(x => x.id !== g.id)
-    selectedGroup.value = null
+    if (selectedGroup.value === g.id) selectedGroup.value = null
     await loadData()
   } catch (e) { console.error('Error deleting collection:', e) }
 }
