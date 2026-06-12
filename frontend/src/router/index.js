@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
 import MisDatos from '../views/MisDatos.vue'
 import Resources from '../views/Resources.vue'
+import ResourcesConsole from '../views/ResourcesConsole.vue'
 import ResourceTest from '../views/ResourceTest.vue'
 import Fetchers from '../views/Fetchers.vue'
 import Executions from '../views/Executions.vue'
@@ -21,6 +22,7 @@ const routes = [
   { path: '/mis-datos',      name: 'MisDatos',      component: MisDatos },
   { path: '/',               name: 'Dashboard',    component: Dashboard },
   { path: '/resources',      name: 'Resources',     component: Resources },
+  { path: '/console',        name: 'ResourcesConsole', component: ResourcesConsole },
   { path: '/collections',    name: 'Collections',   component: Collections },
   { path: '/fetchers',       name: 'Fetchers',      component: Fetchers },
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
