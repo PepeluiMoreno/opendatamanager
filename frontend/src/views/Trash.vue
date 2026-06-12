@@ -32,21 +32,6 @@
         No deleted {{ activeTab }} found.
       </div>
 
-      <!-- Bulk actions -->
-      <div v-if="selected.size > 0" class="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-blue-900/20 border border-blue-800">
-        <span class="text-sm text-blue-200"><b>{{ selected.size }}</b> seleccionados</span>
-        <div class="flex-1"></div>
-        <button @click="bulkRestore" :disabled="bulkBusy"
-          class="text-xs px-3 py-1.5 rounded border border-emerald-700 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40">
-          {{ bulkBusy ? 'Procesando…' : 'Restaurar seleccionados' }}
-        </button>
-        <button @click="bulkConfirm = true" :disabled="bulkBusy"
-          class="text-xs px-3 py-1.5 rounded border border-red-800 text-red-300 hover:bg-red-900/30 disabled:opacity-40">
-          Borrar permanentemente
-        </button>
-        <button @click="clearSel" class="text-xs px-2 py-1.5 text-gray-400 hover:text-gray-200">Limpiar</button>
-      </div>
-
       <!-- Table -->
       <table v-else class="w-full text-sm">
         <thead>
@@ -80,6 +65,21 @@
         </tbody>
       </table>
         <Paginator v-model:page="tPage" v-model:perPage="tPerPage" :total="tTotal" />
+
+        <!-- Barra de acciones colectivas (patrón estándar: Acción… + Aplicar) -->
+        <div v-if="selected.size > 0" class="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg bg-blue-900/20 border border-blue-800">
+          <span class="text-sm text-blue-200"><b>{{ selected.size }}</b> seleccionados</span>
+          <select v-model="bulkAction" class="input text-xs py-1 px-2">
+            <option value="">Acción…</option>
+            <option value="restore">Restaurar</option>
+            <option value="delete">Borrar permanentemente</option>
+          </select>
+          <button @click="aplicarLote" :disabled="!bulkAction || bulkBusy"
+            class="text-xs px-3 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white font-medium disabled:opacity-40">
+            {{ bulkBusy ? 'Aplicando…' : 'Aplicar' }}
+          </button>
+          <button @click="clearSel" class="text-xs px-2 py-1.5 rounded border border-gray-600 text-gray-300 hover:bg-gray-700">Limpiar</button>
+        </div>
     </div>
 
     <!-- Hard-delete confirmation modal -->
@@ -157,13 +157,20 @@ const { page: tPage, perPage: tPerPage, total: tTotal, paged: pagedItems } = use
 const selected = ref(new Set())
 const bulkBusy = ref(false)
 const bulkConfirm = ref(false)
+const bulkAction = ref('')
 function clearSel() { selected.value = new Set() }
 function toggleOne(item) { const id = itemId(item); const s = new Set(selected.value); s.has(id) ? s.delete(id) : s.add(id); selected.value = s }
 const allPageSelected = computed(() => pagedItems.value.length > 0 && pagedItems.value.every(i => selected.value.has(itemId(i))))
 function togglePage() { const s = new Set(selected.value); const on = !allPageSelected.value; pagedItems.value.forEach(i => on ? s.add(itemId(i)) : s.delete(itemId(i))); selected.value = s }
 const itemsSeleccionados = computed(() => currentItems.value.filter(i => selected.value.has(itemId(i))))
 // Al cambiar de pestaña, la selección deja de tener sentido.
-watch(activeTab, () => clearSel())
+watch(activeTab, () => { clearSel(); bulkAction.value = '' })
+
+// Dispatcher de la barra colectiva: restaurar directo; borrar pasa por confirmación.
+function aplicarLote() {
+  if (bulkAction.value === 'restore') bulkRestore()
+  else if (bulkAction.value === 'delete') bulkConfirm.value = true
+}
 
 const counts = computed(() => {
   const c = {}
