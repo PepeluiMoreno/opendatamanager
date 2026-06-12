@@ -58,7 +58,7 @@
         </div>
         <div class="chip pub-chip">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.acronimo || p.nombre }}</option></select>
+          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.nombre || p.acronimo }}</option></select>
         </div>
         <div class="chip">
           <select v-model="fUpgrade"><option value="">Auto-upgrade: todos</option><option v-for="u in upgradeOpts" :key="u" :value="u">{{ u }}</option></select>

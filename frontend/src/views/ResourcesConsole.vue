@@ -72,7 +72,7 @@
         </div>
         <div class="chip pub-chip">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.acronimo || p.nombre }}</option></select>
+          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.nombre || p.acronimo }}</option></select>
         </div>
         <div class="chip">
           <span class="sd-mini"></span>
@@ -116,7 +116,7 @@
             <button v-if="puede('recursos.crear')" class="link" @click="abrirDrawer(null)">Crear el primero</button>
           </div>
 
-          <template v-for="r in topLevel" :key="r.id">
+          <template v-for="r in topLevelPaged" :key="r.id">
             <div :class="['row', { sel: sel.has(r.id) }]">
               <div><input type="checkbox" class="cbx" :checked="sel.has(r.id)" @change="toggleRama(r)" /></div>
               <div class="rname">
@@ -151,6 +151,25 @@
               </div>
             </template>
           </template>
+
+          <div v-if="rTotal > 0" class="pager">
+            <div class="pl">
+              <span>Por página</span>
+              <select v-model.number="rPerPage" @change="rPage=1">
+                <option :value="10">10</option><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option>
+              </select>
+            </div>
+            <div class="pr">
+              <span class="rng">{{ rDesde }}–{{ rHasta }} de {{ rTotal }}</span>
+              <div class="pbtns">
+                <button :disabled="rPage<=1" @click="rPage=1">«</button>
+                <button :disabled="rPage<=1" @click="rPage--">‹</button>
+                <span class="cur">{{ rPage }} / {{ rPaginas }}</span>
+                <button :disabled="rPage>=rPaginas" @click="rPage++">›</button>
+                <button :disabled="rPage>=rPaginas" @click="rPage=rPaginas">»</button>
+              </div>
+            </div>
+          </div>
         </template>
       </div>
     </main>
@@ -177,7 +196,7 @@
               <textarea class="inp" v-model="form.description" placeholder="Qué publica esta fuente y para qué se cosecha"></textarea></div>
             <div class="row2">
               <div class="field"><label>Publisher</label>
-                <select class="inp" v-model="form.publisherId"><option value="">—</option><option v-for="p in publishers" :key="p.id" :value="p.id">{{ p.acronimo || p.nombre }}</option></select></div>
+                <select class="inp" v-model="form.publisherId"><option value="">—</option><option v-for="p in publishers" :key="p.id" :value="p.id">{{ p.nombre || p.acronimo }}</option></select></div>
               <div class="field"><label>Colección</label>
                 <select class="inp" v-model="form.collectionId"><option value="">Sin agrupar</option><option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option></select></div>
             </div>
@@ -268,6 +287,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { usePagination } from '../composables/usePagination'
 import { useAuth } from '../composables/useAuth'
 import {
   fetchResources, fetchResourceCollections, fetchFetchers, fetchPublishers,
@@ -408,6 +428,11 @@ const topLevel = computed(() => enColeccion.value.filter(r => !r.parentResourceI
 }))
 function hijosDe(id) { return resources.value.filter(r => r.parentResourceId === id) }
 function toggleRamaOpen(id) { const s = new Set(abiertas.value); s.has(id)?s.delete(id):s.add(id); abiertas.value = s }
+// Paginación de los recursos de la colección elegida.
+const { page: rPage, perPage: rPerPage, total: rTotal, paged: topLevelPaged } = usePagination(topLevel, 25)
+const rDesde = computed(()=> rTotal.value===0 ? 0 : (rPage.value-1)*rPerPage.value + 1)
+const rHasta = computed(()=> Math.min(rPage.value*rPerPage.value, rTotal.value))
+const rPaginas = computed(()=> Math.max(1, Math.ceil(rTotal.value / rPerPage.value)))
 // Publishers que realmente aparecen en algún recurso (para el filtro).
 const publishersUsados = computed(() => {
   const map = new Map()
@@ -422,8 +447,8 @@ function estadoTexto(r){ if(r.estadoAprobacion==='pendiente')return'Descubierto'
 function ramaDe(r){ return [r.id, ...hijosDe(r.id).map(c=>c.id)] }
 function toggleRama(r){ const ids=ramaDe(r); const s=new Set(sel.value); const on=!ids.every(i=>s.has(i)); ids.forEach(i=>on?s.add(i):s.delete(i)); sel.value=s }
 function toggleUno(id){ const s=new Set(sel.value); s.has(id)?s.delete(id):s.add(id); sel.value=s }
-const todasSel = computed(()=> topLevel.value.length>0 && topLevel.value.every(r=>ramaDe(r).every(i=>sel.value.has(i))))
-function toggleTodas(){ const s=new Set(sel.value); const on=!todasSel.value; topLevel.value.forEach(r=>ramaDe(r).forEach(i=>on?s.add(i):s.delete(i))); sel.value=s }
+const todasSel = computed(()=> topLevelPaged.value.length>0 && topLevelPaged.value.every(r=>ramaDe(r).every(i=>sel.value.has(i))))
+function toggleTodas(){ const s=new Set(sel.value); const on=!todasSel.value; topLevelPaged.value.forEach(r=>ramaDe(r).forEach(i=>on?s.add(i):s.delete(i))); sel.value=s }
 function limpiarSel(){ sel.value=new Set() }
 const seleccionados = computed(()=> resources.value.filter(r=>sel.value.has(r.id)))
 
@@ -729,4 +754,14 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .nx{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
 .nx.manual{color:var(--faint)}.nx.inactivo{color:#3a4654}.nx.ok{color:var(--signal)}
 .col-sched small{font-family:var(--mono);font-size:10px;color:var(--faint)}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 2px 4px;padding:10px 12px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--muted)}
+.pager .pl{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.pager .pl select{background:#0d131b;border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:5px 8px;outline:none}
+.pager .pr{display:flex;align-items:center;gap:14px}
+.pager .rng{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.pager .pbtns{display:flex;align-items:center;gap:4px}
+.pager .pbtns button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer;font-size:14px}
+.pager .pbtns button:hover:not(:disabled){color:var(--signal);border-color:var(--signal-dim);background:#0f201d}
+.pager .pbtns button:disabled{opacity:.3;cursor:not-allowed}
+.pager .pbtns .cur{font-family:var(--mono);font-size:11.5px;color:var(--txt);padding:0 6px}
 </style>
