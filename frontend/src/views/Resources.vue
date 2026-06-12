@@ -31,6 +31,67 @@
     </div>
 
     <div v-else class="card flex flex-col min-h-0 flex-1">
+      <!-- Collections (organizational folders) -->
+      <!-- ── Maestro: Collections (filas, ancho completo, CRUD por fila) ──── -->
+      <div class="border-b border-gray-700 flex-shrink-0">
+        <div class="flex items-center justify-between px-3 py-2">
+          <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Collections</span>
+          <button v-if="puede('recursos.crear')" @click="openCreateCollection"
+                  class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">+ Collection</button>
+        </div>
+        <div class="max-h-[28vh] overflow-y-auto">
+          <table class="w-full text-xs">
+            <thead class="bg-gray-700/40 text-gray-400 sticky top-0">
+              <tr>
+                <th class="text-left px-3 py-2 font-medium">Name</th>
+                <th class="text-right px-3 py-2 font-medium w-24">Resources</th>
+                <th class="text-right px-3 py-2 font-medium w-24">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr @click="selectedGroup = null"
+                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                           selectedGroup === null ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
+                <td class="px-3 py-2 font-medium text-gray-200">📚 All</td>
+                <td class="px-3 py-2 text-right text-gray-500">{{ resources.length }}</td>
+                <td class="px-3 py-2"></td>
+              </tr>
+              <tr v-for="g in groups" :key="g.id" @click="selectedGroup = g.id"
+                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                           selectedGroup === g.id ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']"
+                  :title="g.origin === 'matriz' ? 'Originated by a mothership resource' : 'Organizational folder'">
+                <td class="px-3 py-2 text-gray-200">
+                  <span v-if="g.origin === 'matriz'">🛰️</span><span v-else>🗂️</span>
+                  {{ g.name }}
+                  <span v-if="g.origin === 'matriz'" class="ml-1 text-[9px] uppercase tracking-wide text-purple-300">matriz</span>
+                </td>
+                <td class="px-3 py-2 text-right text-gray-500">{{ memberCount(g.id) }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap" @click.stop>
+                  <template v-if="g.origin !== 'matriz' && puede('recursos.editar')">
+                    <button @click="openRenameCollection(g)" title="Rename collection"
+                            class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30">
+                      <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                    </button>
+                    <button @click="borrarColeccion(g)" title="Delete collection"
+                            class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30">
+                      <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    </button>
+                  </template>
+                  <span v-else class="text-gray-700">—</span>
+                </td>
+              </tr>
+              <tr @click="selectedGroup = '__none__'"
+                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                           selectedGroup === '__none__' ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
+                <td class="px-3 py-2 text-gray-400">🗃️ Uncollected</td>
+                <td class="px-3 py-2 text-right text-gray-500">{{ countSinAgrupar }}</td>
+                <td class="px-3 py-2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Search + filters -->
       <div class="px-3 py-2 border-b border-gray-700 space-y-1.5 text-xs flex-shrink-0" ref="filterEl">
         <input
@@ -119,67 +180,6 @@
               Clear filters
             </button>
           </div>
-        </div>
-      </div>
-
-      <!-- Collections (organizational folders) -->
-      <!-- ── Maestro: Collections (filas, ancho completo, CRUD por fila) ──── -->
-      <div class="border-b border-gray-700 flex-shrink-0">
-        <div class="flex items-center justify-between px-3 py-2">
-          <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Collections</span>
-          <button v-if="puede('recursos.crear')" @click="openCreateCollection"
-                  class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">+ Collection</button>
-        </div>
-        <div class="max-h-[28vh] overflow-y-auto">
-          <table class="w-full text-xs">
-            <thead class="bg-gray-700/40 text-gray-400 sticky top-0">
-              <tr>
-                <th class="text-left px-3 py-2 font-medium">Name</th>
-                <th class="text-right px-3 py-2 font-medium w-24">Resources</th>
-                <th class="text-right px-3 py-2 font-medium w-24">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr @click="selectedGroup = null"
-                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
-                           selectedGroup === null ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
-                <td class="px-3 py-2 font-medium text-gray-200">📚 All</td>
-                <td class="px-3 py-2 text-right text-gray-500">{{ resources.length }}</td>
-                <td class="px-3 py-2"></td>
-              </tr>
-              <tr v-for="g in groups" :key="g.id" @click="selectedGroup = g.id"
-                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
-                           selectedGroup === g.id ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']"
-                  :title="g.origin === 'matriz' ? 'Originated by a mothership resource' : 'Organizational folder'">
-                <td class="px-3 py-2 text-gray-200">
-                  <span v-if="g.origin === 'matriz'">🛰️</span><span v-else>🗂️</span>
-                  {{ g.name }}
-                  <span v-if="g.origin === 'matriz'" class="ml-1 text-[9px] uppercase tracking-wide text-purple-300">matriz</span>
-                </td>
-                <td class="px-3 py-2 text-right text-gray-500">{{ memberCount(g.id) }}</td>
-                <td class="px-3 py-2 text-right whitespace-nowrap" @click.stop>
-                  <template v-if="g.origin !== 'matriz' && puede('recursos.editar')">
-                    <button @click="openRenameCollection(g)" title="Rename collection"
-                            class="p-1.5 rounded transition-colors text-blue-400 hover:text-blue-300 hover:bg-blue-900/30">
-                      <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                    </button>
-                    <button @click="borrarColeccion(g)" title="Delete collection"
-                            class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30">
-                      <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                    </button>
-                  </template>
-                  <span v-else class="text-gray-700">—</span>
-                </td>
-              </tr>
-              <tr @click="selectedGroup = '__none__'"
-                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
-                           selectedGroup === '__none__' ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
-                <td class="px-3 py-2 text-gray-400">🗃️ Uncollected</td>
-                <td class="px-3 py-2 text-right text-gray-500">{{ countSinAgrupar }}</td>
-                <td class="px-3 py-2"></td>
-              </tr>
-            </tbody>
-          </table>
         </div>
       </div>
 
