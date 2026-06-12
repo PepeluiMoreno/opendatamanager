@@ -65,6 +65,20 @@ body {
   @apply bg-gray-800 border border-gray-700 rounded px-3 py-2 text-gray-100 focus:outline-none focus:border-blue-500;
 }
 
+/* Opciones de los desplegables: fondo oscuro y texto claro en TODA la app
+   (por defecto el navegador abre el popup con fondo blanco e ilegible). */
+select { color: #f3f4f6; }
+select option,
+select optgroup {
+  background-color: #1f2937;   /* gray-800 */
+  color: #f3f4f6;
+}
+select option:checked,
+select option:hover {
+  background-color: #2563eb;   /* blue-600 */
+  color: #fff;
+}
+
 /* Card styles */
 .card {
   @apply bg-gray-800 rounded-lg border border-gray-700 p-6;
