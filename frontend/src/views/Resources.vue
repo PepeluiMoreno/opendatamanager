@@ -45,7 +45,7 @@
                :class="['flex items-center gap-2 px-3 py-2 border-b border-gray-700 cursor-pointer select-none transition-colors',
                         selectedGroup === panel.group ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']"
                :title="panel.kind === 'matriz' ? 'Originated by a mothership resource' : (panel.kind === 'col' ? 'Organizational folder' : '')">
-            <span class="w-3 text-gray-400">{{ selectedGroup === panel.group ? '\u25be' : '\u25b8' }}</span>
+            <span class="w-3 text-gray-400">{{ selectedGroup === panel.group ? '▾' : '▸' }}</span>
             <span>{{ panel.icon }}</span>
             <span class="text-sm" :class="panel.kind === 'none' ? 'text-gray-400' : 'text-gray-200'">{{ panel.label }}</span>
             <span v-if="panel.kind === 'matriz'" class="text-[9px] uppercase tracking-wide text-purple-300">matriz</span>
@@ -64,7 +64,7 @@
             </span>
           </div>
           <!-- Cuerpo del panel activo: FilterBar (sobre la lista hija) + acciones en lote + recursos -->
-          <div v-if="selectedGroup === panel.group" class="border-b border-gray-700 bg-gray-900/20 flex flex-col min-h-0">
+          <div v-if="selectedGroup === panel.group" class="border-b border-gray-700 bg-gray-900/20">
       <!-- Search + filters -->
       <div class="px-3 py-2 border-b border-gray-700 space-y-1.5 text-xs flex-shrink-0" ref="filterEl">
         <input
@@ -184,7 +184,7 @@
         <button @click="limpiarSeleccion" class="px-2 py-0.5 rounded border border-gray-700 text-gray-300 hover:bg-gray-700">Limpiar</button>
       </div>
 
-      <div class="overflow-auto flex-1">
+      <div class="overflow-auto max-h-[60vh]">
       <table class="w-full min-w-[20rem]">
         <thead class="sticky top-0 z-10 bg-gray-800">
           <tr class="border-b border-gray-700 text-xs text-gray-400">
