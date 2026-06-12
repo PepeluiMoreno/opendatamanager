@@ -1758,8 +1758,34 @@ class Mutation:
                         f"Variante '{input.variant}' no existe para la especie del hijo")
                 preset_id = preset.id
 
-            # Nombre único (col. varchar 100, unique). Si ya existe (re-promoción o
-            # candidatos duplicados entre discoveries), se sufija " (2)", " (3)"...
+            # Params del hijo, calculados ANTES de crear nada: si el candidato
+            # trae `target_params` (catálogo), se aplican tal cual; si no, legacy:
+            # hereda solo `root_url` del crawler padre.
+            if candidate.target_params:
+                pares = [(k, str(v)) for k, v in candidate.target_params.items()]
+            else:
+                root_url = next((p.value for p in (parent.params or []) if p.key == "root_url"), None)
+                pares = [("root_url", root_url)] if root_url else []
+
+            # Identidad por contenido (igual que createResource): si ya existe un
+            # recurso no borrado con la misma huella de params, NO se duplica —se
+            # devuelve el existente. Esto evita que re-promover un candidato o
+            # relanzar el discovery del catálogo acumule duplicados " (2)", " (3)".
+            ph = huella_params(pares) if params_bound(pares) else None
+            if ph:
+                existente = db.query(Resource).filter(
+                    Resource.params_hash == ph,
+                    Resource.deleted_at.is_(None)).first()
+                if existente:
+                    candidate.status = "promoted"
+                    candidate.promoted_resource_id = existente.id
+                    candidate.reviewed_at = _dt.utcnow()
+                    db.commit()
+                    return map_resource(existente)
+
+            # Nombre único (col. varchar 100, unique). Solo se sufija " (2)" como
+            # último recurso ante una colisión de NOMBRE entre recursos de params
+            # DISTINTOS (la dedup por contenido ya ocurrió arriba).
             base_name = (input.name or "recurso")[:100]
             unique_name = base_name
             n = 2
@@ -1781,21 +1807,13 @@ class Mutation:
                 parent_resource_id=parent.id,
                 auto_generated=True,
                 preset_id=preset_id,
+                params_hash=ph,
             )
             db.add(child)
             db.flush()
 
-            # Params del hijo: si el candidato trae `target_params` (catálogo),
-            # se aplican tal cual (autodescriptivo). Si no, comportamiento legacy:
-            # hereda solo `root_url` del crawler padre (Web Tree lee el resto de
-            # matched_urls/dimensions del propio ResourceCandidate en cada ejecución).
-            if candidate.target_params:
-                for k, v in candidate.target_params.items():
-                    db.add(ResourceParam(resource_id=child.id, key=k, value=str(v)))
-            else:
-                root_url = next((p.value for p in (parent.params or []) if p.key == "root_url"), None)
-                if root_url:
-                    db.add(ResourceParam(resource_id=child.id, key="root_url", value=root_url))
+            for k, v in pares:
+                db.add(ResourceParam(resource_id=child.id, key=k, value=str(v)))
 
             candidate.status = "promoted"
             candidate.promoted_resource_id = child.id
