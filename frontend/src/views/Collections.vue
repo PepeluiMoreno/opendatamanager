@@ -9,7 +9,7 @@
 
     <!-- Filtro (son recursos de recursos) -->
     <FilterBar :canClear="!!(search || tipoFilter)" :count="filtered.length" :total="colecciones.length" @clear="search='';tipoFilter=''">
-      <input v-model="search" type="text" placeholder="Buscar por nombre o publisher…" class="flex-1 min-w-48 bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"/>
+      <input v-model="search" type="text" placeholder="Buscar por nombre o publisher…" class="w-64 max-w-[40%] bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"/>
       <select v-model="tipoFilter" class="bg-gray-700 border border-gray-600 rounded-md px-2 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
         <option value="">Tipo: todos</option>
         <option v-for="t in tiposDisponibles" :key="t" :value="t">{{ t }}</option>
@@ -53,9 +53,9 @@
               <td class="py-3 px-4">
                 <div class="flex gap-2 justify-end whitespace-nowrap">
                   <router-link :to="`/resources/${c.id}/candidates`" title="Ver candidatos"
-                    class="p-1.5 rounded transition-colors text-gray-400 hover:text-purple-300 hover:bg-purple-900/30 inline-flex"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m7-16l2.4 6.6L22 12l-6.6 2.4L13 21l-2.4-6.6L4 12l6.6-2.4L13 3z"/></svg></router-link>
+                    class="act-icon hover:text-purple-300 hover:bg-purple-900/30 inline-flex"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m7-16l2.4 6.6L22 12l-6.6 2.4L13 21l-2.4-6.6L4 12l6.6-2.4L13 3z"/></svg></router-link>
                   <router-link :to="`/resources/${c.id}/test`" title="Abrir"
-                    class="p-1.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-gray-700 inline-flex"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></router-link>
+                    class="act-icon hover:text-white hover:bg-gray-700 inline-flex"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></router-link>
                 </div>
               </td>
             </tr>

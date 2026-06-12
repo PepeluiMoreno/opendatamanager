@@ -24,7 +24,7 @@
       <div class="text-xs uppercase tracking-wide text-gray-500 font-medium mb-2">Solicitudes de alta de suscriptores</div>
       <FilterBar :canClear="!!solQ || estadoFiltro !== 'pendiente'" :count="solicitudesFiltradas.length" :total="solicitudes.length"
                  @clear="solQ=''; estadoFiltro='pendiente'">
-        <input v-model="solQ" type="text" placeholder="Buscar suscriptor…" class="input text-sm flex-1 min-w-[200px]" />
+        <input v-model="solQ" type="text" placeholder="Buscar suscriptor…" class="input text-sm w-64 max-w-[40%]" />
         <select v-model="estadoFiltro" class="input text-sm">
           <option value="">Todas</option>
           <option value="pendiente">Pendientes</option>
@@ -71,7 +71,7 @@
               <td class="px-4 py-3 text-right whitespace-nowrap">
                 <button v-if="(s.estado || 'pendiente')==='pendiente'" @click="aprobarSol(s)" title="Aprobar" class="p-1.5 rounded transition-colors text-emerald-400 hover:text-emerald-300 hover:bg-emerald-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg></button>
                 <button v-if="(s.estado || 'pendiente')==='pendiente'" @click="rechazarSol(s)" title="Rechazar" class="p-1.5 rounded transition-colors text-red-400 hover:text-red-300 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636"/></svg></button>
-                <button @click="eliminarSol(s)" title="Eliminar" class="p-1.5 rounded transition-colors text-gray-500 hover:text-red-400 hover:bg-red-900/30"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                <button @click="eliminarSol(s)" title="Eliminar" class="act-icon danger"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
               </td>
             </tr>
           </tbody>

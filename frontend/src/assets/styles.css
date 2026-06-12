@@ -32,17 +32,15 @@ body {
   @apply px-4 py-2 rounded font-medium transition-colors;
 }
 
-/* Iconos de acción: azul intenso y SIEMPRE visibles (estándar de toda la app). */
+/* Iconos de acción: RECUADRO azul, siempre visibles (estándar de toda la app). */
 .act-icon {
-  @apply text-blue-500 opacity-100 transition-colors;
+  @apply inline-flex items-center justify-center w-7 h-7 rounded-lg border transition-colors;
+  border-color:#1d4ed8; color:#3b82f6; background:rgba(59,130,246,0.08); opacity:1 !important;
 }
-.act-icon:hover {
-  @apply text-blue-400 bg-blue-500/10;
-}
-.act-icon.danger { @apply text-red-500; }
-.act-icon.danger:hover { @apply text-red-400 bg-red-500/10; }
-/* Forzar visibilidad aunque la fila atenúe sus acciones en hover-only. */
-.act-icon { opacity: 1 !important; }
+.act-icon:hover { color:#60a5fa; border-color:#3b82f6; background:rgba(59,130,246,0.18); }
+.act-icon svg { width:15px; height:15px; }
+.act-icon.danger { color:#ef4444; border-color:#b91c1c; background:rgba(239,68,68,0.08); }
+.act-icon.danger:hover { color:#f87171; border-color:#ef4444; background:rgba(239,68,68,0.18); }
 
 .btn-primary {
   @apply bg-blue-600 hover:bg-blue-700 text-white;
