@@ -87,7 +87,7 @@
               Este suscriptor no tiene suscripciones.
               <button class="link" @click="abrirNuevaSusc">Añadir la primera</button>
             </div>
-            <div v-for="su in subsDelActual" :key="su.id" :class="['row', { sel: sel.has(su.id) }]">
+            <div v-for="su in subsPaginadas" :key="su.id" :class="['row', { sel: sel.has(su.id) }]">
               <div><input type="checkbox" class="cbx" :checked="sel.has(su.id)" @change="toggleUno(su.id)" /></div>
               <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ recDe(su.resourceId)?.name || su.resourceId }}</span></div>
               <div class="col-pub pub" :title="recDe(su.resourceId)?.publisherObj?.nombre || ''">{{ recDe(su.resourceId)?.publisherObj?.acronimo || recDe(su.resourceId)?.publisherObj?.nombre || '—' }}</div>
@@ -95,6 +95,25 @@
               <div class="col-sched sched"><span class="nx ok">{{ su.currentVersion || '—' }}</span><small v-if="su.pinnedVersion">pin {{ su.pinnedVersion }}</small></div>
               <div class="col-acts racts">
                 <button class="danger" title="Cancelar suscripción" @click="pedirBaja(su)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg></button>
+              </div>
+            </div>
+
+            <div v-if="total > 0" class="pager">
+              <div class="pl">
+                <span>Por página</span>
+                <select v-model.number="perPage" @change="page=1">
+                  <option :value="10">10</option><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option>
+                </select>
+              </div>
+              <div class="pr">
+                <span class="rng">{{ desde }}–{{ hasta }} de {{ total }}</span>
+                <div class="pbtns">
+                  <button :disabled="page<=1" @click="page=1">«</button>
+                  <button :disabled="page<=1" @click="page--">‹</button>
+                  <span class="cur">{{ page }} / {{ totalPaginas }}</span>
+                  <button :disabled="page>=totalPaginas" @click="page++">›</button>
+                  <button :disabled="page>=totalPaginas" @click="page=totalPaginas">»</button>
+                </div>
               </div>
             </div>
           </template>
@@ -186,6 +205,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
+import { usePagination } from '../composables/usePagination'
 import {
   fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
@@ -234,12 +254,18 @@ const subsDelActual = computed(()=> subscriptions.value.filter(x=>x.applicationI
   return true
 }))
 const publishersUsados = computed(()=>{ const m=new Map(); for(const su of subscriptions.value.filter(x=>x.applicationId===selected.value)){ const r=recDe(su.resourceId); if(r?.publisherObj?.id&&!m.has(r.publisherObj.id)) m.set(r.publisherObj.id,r.publisherObj) } return Array.from(m.values()).sort((a,b)=>(a.acronimo||a.nombre).localeCompare(b.acronimo||b.nombre,'es')) })
+
+// paginación de suscripciones (misma lógica que el resto de la app)
+const { page, perPage, total, paged: subsPaginadas } = usePagination(subsDelActual, 25)
+const totalPaginas = computed(()=> Math.max(1, Math.ceil(total.value / perPage.value)))
+const desde = computed(()=> total.value===0 ? 0 : (page.value-1)*perPage.value + 1)
+const hasta = computed(()=> Math.min(page.value*perPage.value, total.value))
 const recursosSuscribibles = computed(()=>{ const ya=new Set(subscriptions.value.filter(x=>x.applicationId===selected.value).map(x=>x.resourceId)); return resources.value.filter(r=>!ya.has(r.id)&&!r.parentResourceId).sort((a,b)=>a.name.localeCompare(b.name,'es')) })
 
 // selección
 function toggleUno(id){ const s=new Set(sel.value); s.has(id)?s.delete(id):s.add(id); sel.value=s }
-const todasSel = computed(()=> subsDelActual.value.length>0 && subsDelActual.value.every(su=>sel.value.has(su.id)))
-function toggleTodas(){ const s=new Set(sel.value); const on=!todasSel.value; subsDelActual.value.forEach(su=>on?s.add(su.id):s.delete(su.id)); sel.value=s }
+const todasSel = computed(()=> subsPaginadas.value.length>0 && subsPaginadas.value.every(su=>sel.value.has(su.id)))
+function toggleTodas(){ const s=new Set(sel.value); const on=!todasSel.value; subsPaginadas.value.forEach(su=>on?s.add(su.id):s.delete(su.id)); sel.value=s }
 function limpiarSel(){ sel.value=new Set() }
 const bulkBusy = ref(false)
 async function bajaLote(){ bulkBusy.value=true; try{ for(const id of sel.value) await unsubscribeResource(id); limpiarSel(); await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false } }
@@ -490,4 +516,16 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .seg button{padding:7px 14px;border-radius:7px;font-size:12.5px;font-weight:500;color:var(--muted);background:none;cursor:pointer}
 .seg button.on{background:var(--raised);color:var(--txt)}
 .seg button.on.sig{background:linear-gradient(180deg,var(--signal),#2bc3b0);color:#042521}
+
+/* paginación */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 2px 4px;padding:10px 12px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--muted)}
+.pager .pl{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.pager .pl select{background:#0d131b;border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:5px 8px;outline:none}
+.pager .pr{display:flex;align-items:center;gap:14px}
+.pager .rng{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.pager .pbtns{display:flex;align-items:center;gap:4px}
+.pager .pbtns button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer;font-size:14px}
+.pager .pbtns button:hover:not(:disabled){color:var(--signal);border-color:var(--signal-dim);background:#0f201d}
+.pager .pbtns button:disabled{opacity:.3;cursor:not-allowed}
+.pager .pbtns .cur{font-family:var(--mono);font-size:11.5px;color:var(--txt);padding:0 6px}
 </style>
