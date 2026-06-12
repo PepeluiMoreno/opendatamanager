@@ -1,5 +1,10 @@
 <template>
-  <div :class="['console', { collapsed: !railOpen }]" :style="{ gridTemplateColumns: railOpen ? (railW + 'px 6px 1fr') : '0 0 1fr' }">
+  <div class="subs-shell">
+    <div class="subs-tabs">
+      <button :class="['stab',{on:tab==='activos'}]" @click="tab='activos'">Activos</button>
+      <button v-if="canApprove" :class="['stab',{on:tab==='pendientes'}]" @click="tab='pendientes'">Pendientes</button>
+    </div>
+    <div v-show="tab==='activos'" :class="['console', { collapsed: !railOpen }]" :style="{ gridTemplateColumns: railOpen ? (railW + 'px 6px 1fr') : '0 0 1fr' }">
     <!-- ===== SUBSCRIBERS RAIL ===== -->
     <aside class="rail">
       <div class="brand">
@@ -202,12 +207,16 @@
         <div class="cf"><button class="ghost" @click="confirm.show=false">Cancelar</button><button class="danger" @click="confirm.onOk">Eliminar</button></div>
       </div>
     </div>
+    </div><!-- /console activos -->
+
+    <div v-if="tab==='pendientes'" class="pend-wrap"><Aprobaciones /></div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
+import Aprobaciones from './Aprobaciones.vue'
 import { usePagination } from '../composables/usePagination'
 import {
   fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber,
@@ -215,6 +224,8 @@ import {
 } from '../api/graphql'
 
 const { puede } = useAuth()
+const tab = ref('activos')
+const canApprove = computed(() => puede('aplicaciones.aprobar') || puede('recursos.aprobar'))
 const loading = ref(true)
 const subscribers = ref([]); const subscriptions = ref([]); const resources = ref([])
 const selected = ref(null)
@@ -303,16 +314,22 @@ async function crearSuscripcion(){ nuevaSusc.value.busy=true
 </script>
 
 <style scoped>
+.subs-shell{margin:-1rem;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#0C0F14}
+.subs-tabs{flex-shrink:0;display:flex;gap:6px;align-items:center;padding:10px 16px;border-bottom:1px solid #222C39;background:#0d1218}
+.subs-tabs .stab{padding:7px 16px;border-radius:9px;font-size:13px;font-weight:600;color:#8595A6;background:none;border:1px solid transparent;cursor:pointer}
+.subs-tabs .stab:hover{color:#E7EEF6}
+.subs-tabs .stab.on{color:#3FE0CB;background:#10211e;border-color:#1c5b54}
+.pend-wrap{flex:1;min-height:0;overflow:auto;padding:18px 22px;background:#0C0F14;color:#E7EEF6}
 .console{
   --ink:#0C0F14;--panel:#12171F;--panel-2:#161D27;--raised:#1B2430;--line:#222C39;--line-soft:#1A222E;
   --txt:#E7EEF6;--muted:#8595A6;--faint:#5A6878;--signal:#3FE0CB;--signal-dim:#1c5b54;--harvest:#F7B85C;--alert:#FF6B6B;--violet:#9C8CFF;
   --mono:'JetBrains Mono',ui-monospace,monospace;--disp:'Space Grotesk',Inter,sans-serif;
-  display:grid;grid-template-columns:264px 1fr;height:calc(100vh - 0px);
+  display:grid;grid-template-columns:264px 1fr;flex:1;min-height:0;
   background:
     radial-gradient(1200px 600px at 80% -10%, #16313044, transparent 60%),
     radial-gradient(900px 500px at -10% 110%, #1d243a55, transparent 55%),
     var(--ink);
-  color:var(--txt);font-size:14px;margin:-1rem;border-radius:0;overflow:hidden;
+  color:var(--txt);font-size:14px;border-radius:0;overflow:hidden;
 }
 .console *{box-sizing:border-box}
 .console.collapsed .rail, .console.collapsed .divider{display:none}
