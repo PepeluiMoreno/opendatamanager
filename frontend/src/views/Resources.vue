@@ -14,10 +14,6 @@
           ↑ Importar
         </button>
         <input ref="importFileInput" type="file" accept=".json" class="hidden" @change="onImportFile" />
-        <button v-if="puede('recursos.crear')" @click="showCreateModal = true"
-                class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors">
-          + Nuevo recurso
-        </button>
       </div>
     </div>
 
@@ -139,7 +135,7 @@
             </label>
           </div>
 
-          <!-- Result count + Clear filters -->
+          <!-- Result count + Clear filters + crear recurso (contextual al panel) -->
           <div class="ml-auto flex items-center gap-3">
             <span class="text-gray-500">
               {{ filteredResources.length }} / {{ resources.length }}
@@ -151,6 +147,10 @@
                       ? 'border-yellow-600 text-yellow-400 hover:bg-yellow-900/30 cursor-pointer'
                       : 'border-gray-700 text-gray-600 cursor-not-allowed'">
               Clear filters
+            </button>
+            <button v-if="puede('recursos.crear')" @click="showCreateModal = true"
+                    class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-medium transition-colors whitespace-nowrap">
+              + Resource
             </button>
           </div>
         </div>
@@ -1883,7 +1883,8 @@ const topLevelResources = computed(() =>
 
 const totalPages = computed(() => Math.ceil(topLevelResources.value.length / pageSize.value))
 const pagedResources = computed(() => { const s = (currentPage.value - 1) * pageSize.value; return topLevelResources.value.slice(s, s + pageSize.value) })
-watch([searchQuery, selectedType, selectedPublisher, selectedApp, selectedKind, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
+watch([searchQuery, selectedType, selectedPublisher, selectedApp, selectedKind, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1; limpiarSeleccion() })
+watch(currentPage, () => { limpiarSeleccion() })
 
 // ── Selección en lote (estilo WordPress): a nivel de RAMA ──────────────────
 // Marcar una nodriza marca también sus hijos descubiertos; las acciones se
@@ -1912,10 +1913,20 @@ function toggleTodas() {
   selectedIds.value = s
 }
 function limpiarSeleccion() { selectedIds.value = new Set() }
-const numSeleccionados = computed(() => selectedIds.value.size)
-// Recursos seleccionados resueltos (objetos), respetando suscripciones en borrado.
+// IDs de la página actual (ramas: top-level + sus hijos descubiertos).
+const idsPaginaActual = computed(() => {
+  const s = new Set()
+  for (const r of pagedResources.value) for (const id of ramaDe(r)) s.add(id)
+  return s
+})
+// El contador y las acciones se refieren a lo seleccionado EN LA PÁGINA ACTUAL.
+const numSeleccionados = computed(() => {
+  let n = 0
+  for (const id of selectedIds.value) if (idsPaginaActual.value.has(id)) n++
+  return n
+})
 const recursosSeleccionados = computed(() =>
-  resources.value.filter(r => selectedIds.value.has(r.id)))
+  resources.value.filter(r => selectedIds.value.has(r.id) && idsPaginaActual.value.has(r.id)))
 
 async function aplicarAccionLote() {
   const accion = bulkAction.value
