@@ -27,65 +27,46 @@
     <!-- Tabla -->
     <div class="card">
       <div v-if="loading" class="p-8"><Spinner /></div>
-      <div v-else-if="publishersFiltrados.length === 0" class="p-8 text-center text-gray-400">
-        {{ publishers.length === 0 ? 'No publishers yet. Create the first one.' : 'No publishers match the filters.' }}
-      </div>
-      <div v-else class="overflow-x-auto max-h-[calc(100vh-260px)] overflow-y-auto">
-        <table class="w-full text-sm">
-          <thead class="sticky top-0 z-10 bg-gray-800">
-            <tr class="text-left text-gray-400 border-b border-gray-700">
-              <th class="py-3 px-4 font-medium">Name</th>
-              <th class="py-3 px-4 font-medium">Acronym</th>
-              <th class="py-3 px-4 font-medium">Scope</th>
-              <th class="py-3 px-4 font-medium">Contact</th>
-              <th class="py-3 px-4 font-medium">Resources</th>
-              <th class="py-3 px-4 font-medium text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in pagedPublishers" :key="p.id"
-                class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors">
-              <td class="py-3 px-4 text-white font-medium">
-                {{ p.nombre }}
-                <a v-if="p.portalUrl" :href="p.portalUrl" target="_blank"
-                   class="ml-1 text-blue-400 hover:text-blue-300 text-xs">↗</a>
-              </td>
-              <td class="py-3 px-4">
-                <span v-if="p.acronimo" class="px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-xs font-mono">
-                  {{ p.acronimo }}
-                </span>
-              </td>
-              <td class="py-3 px-4">
-                <div class="flex items-center gap-2">
-                  <span :class="nivelClass(p.nivel)" class="px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">
-                    {{ p.nivel }}
-                  </span>
-                  <span class="text-gray-300 text-xs">{{ ambitoLabel(p) }}</span>
-                </div>
-              </td>
-              <td class="py-3 px-4 text-gray-400 text-xs space-y-0.5">
-                <div v-if="p.email">
-                  <a :href="`mailto:${p.email}`" class="hover:text-blue-300">{{ p.email }}</a>
-                </div>
-                <div v-if="p.telefono">{{ p.telefono }}</div>
-                <span v-if="!p.email && !p.telefono">—</span>
-              </td>
-              <td class="py-3 px-4 text-gray-400">{{ resourceCount(p.id) }}</td>
-              <td class="py-3 px-4">
-                <div class="flex gap-2 justify-end">
-                  <button v-if="puede('publishers.gestionar')" @click="openEdit(p)" title="Editar"
-                          class="act-icon hover:text-white hover:bg-gray-700"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
-                  <button v-if="puede('publishers.gestionar')" @click="confirmDelete(p)"
-                          :disabled="resourceCount(p.id) > 0"
-                          :title="resourceCount(p.id) > 0 ? 'Tiene recursos asociados' : 'Borrar'"
-                          class="act-icon danger disabled:opacity-30 disabled:cursor-not-allowed"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <Paginator v-model:page="pubPage" v-model:perPage="pubPerPage" :total="pubTotal" />
-      </div>
+      <ListView v-else :items="publishersFiltrados" row-key="id"
+                :bulk-actions="[{ value: 'delete', label: 'Borrar', danger: true }]"
+                @bulk="onBulk">
+        <template #empty>{{ publishers.length === 0 ? 'No publishers yet. Create the first one.' : 'No publishers match the filters.' }}</template>
+        <template #columns>
+          <th class="py-3 px-4 font-medium">Name</th>
+          <th class="py-3 px-4 font-medium">Acronym</th>
+          <th class="py-3 px-4 font-medium">Scope</th>
+          <th class="py-3 px-4 font-medium">Contact</th>
+          <th class="py-3 px-4 font-medium">Resources</th>
+          <th class="py-3 px-4 font-medium text-right">Actions</th>
+        </template>
+        <template #cells="{ item: p }">
+          <td class="py-3 px-4 text-white font-medium">
+            {{ p.nombre }}
+            <a v-if="p.portalUrl" :href="p.portalUrl" target="_blank" class="ml-1 text-blue-400 hover:text-blue-300 text-xs">↗</a>
+          </td>
+          <td class="py-3 px-4">
+            <span v-if="p.acronimo" class="px-2 py-0.5 bg-gray-700 text-gray-300 rounded text-xs font-mono">{{ p.acronimo }}</span>
+          </td>
+          <td class="py-3 px-4">
+            <div class="flex items-center gap-2">
+              <span :class="nivelClass(p.nivel)" class="px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">{{ p.nivel }}</span>
+              <span class="text-gray-300 text-xs">{{ ambitoLabel(p) }}</span>
+            </div>
+          </td>
+          <td class="py-3 px-4 text-gray-400 text-xs space-y-0.5">
+            <div v-if="p.email"><a :href="`mailto:${p.email}`" class="hover:text-blue-300">{{ p.email }}</a></div>
+            <div v-if="p.telefono">{{ p.telefono }}</div>
+            <span v-if="!p.email && !p.telefono">—</span>
+          </td>
+          <td class="py-3 px-4 text-gray-400">{{ resourceCount(p.id) }}</td>
+          <td class="py-3 px-4">
+            <div class="flex gap-2 justify-end">
+              <button v-if="puede('publishers.gestionar')" @click="openEdit(p)" title="Editar" class="act-icon"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+              <button v-if="puede('publishers.gestionar')" @click="confirmDelete(p)" :disabled="resourceCount(p.id) > 0" :title="resourceCount(p.id) > 0 ? 'Tiene recursos asociados' : 'Borrar'" class="act-icon danger disabled:opacity-30 disabled:cursor-not-allowed"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+            </div>
+          </td>
+        </template>
+      </ListView>
     </div>
     <!-- Modal -->
     <div v-if="showModal"
@@ -279,8 +260,7 @@ import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchPublishers, createPublisher, updatePublisher, deletePublisher, fetchResources, errorLegible } from '../api/graphql.js'
-import { usePagination } from '../composables/usePagination.js'
-import Paginator from '../components/Paginator.vue'
+import ListView from '../components/ListView.vue'
 import { useAuth } from '../composables/useAuth'
 
 const { puede } = useAuth()
@@ -453,7 +433,6 @@ const publishersFiltrados = computed(() => {
 })
 function limpiarFiltros() { filtroTexto.value = ''; filtroNivel.value = ''; filtroPais.value = '' }
 
-const { page: pubPage, perPage: pubPerPage, total: pubTotal, paged: pagedPublishers } = usePagination(publishersFiltrados, 25)
 
 const showCcaa      = computed(() => ['AUTONOMICO', 'PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
 const showProvincia = computed(() => ['PROVINCIAL', 'LOCAL'].includes(form.value.nivel))
@@ -601,6 +580,20 @@ async function handleDelete() {
   } catch (e) {
     alert(errorLegible(e))
   }
+}
+
+// Acciones colectivas desde ListView. Solo borra los que no tienen recursos.
+async function onBulk({ action, items, done, cancel }) {
+  if (action !== 'delete') { cancel(); return }
+  const borrables = items.filter(p => resourceCount(p.id) === 0)
+  const bloqueados = items.length - borrables.length
+  let msg = `¿Borrar ${borrables.length} publisher(s)?`
+  if (bloqueados > 0) msg += ` (${bloqueados} con recursos asociados se omitirán)`
+  if (borrables.length === 0 || !window.confirm(msg)) { cancel(); return }
+  try {
+    for (const p of borrables) await deletePublisher(p.id, false)
+    done(); await load()
+  } catch (e) { cancel(); alert(errorLegible(e)) }
 }
 
 onMounted(load)
