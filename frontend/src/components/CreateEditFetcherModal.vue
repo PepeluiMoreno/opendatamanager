@@ -1,6 +1,6 @@
 <template>
-  <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+  <div class="fixed inset-0 bg-black bg-opacity-50 z-[9000]" @click.self="$emit('close')">
+      <div class="fixed top-0 right-0 h-full w-[min(960px,96vw)] bg-gray-800 p-6 overflow-y-auto border-l border-gray-700 shadow-2xl">
       <div class="flex items-start justify-between mb-6">
         <h2 class="text-2xl font-bold">
           {{ Fetcher ? 'Edit Fetcher' : 'New Fetcher' }}

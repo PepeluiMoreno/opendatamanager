@@ -87,6 +87,7 @@
           <select v-model="bulkAction" class="bsel">
             <option value="">Acción…</option>
             <option value="toggle">Activar/Desactivar (invertir)</option>
+            <option value="run">Ejecutar (Run)</option>
             <option value="move">Mover a colección</option>
             <option value="group">Agrupar (nueva colección)</option>
             <option value="ungroup">Desagrupar</option>
@@ -266,7 +267,7 @@
         <p>{{ confirm.msg }}</p>
         <div class="cf">
           <button class="ghost" @click="confirm.show=false">Cancelar</button>
-          <button class="danger" @click="confirm.onOk">Eliminar</button>
+          <button :class="confirm.okClass || 'danger'" @click="confirm.onOk">{{ confirm.okText || 'Eliminar' }}</button>
         </div>
       </div>
     </div>
@@ -470,6 +471,16 @@ async function aplicarLote(){
   bulkBusy.value = true
   try {
     if (bulkAction.value === 'toggle') { for(const r of seleccionados.value) await updateResource(r.id,{active:!r.active}) }
+    else if (bulkAction.value === 'run') {
+      // Ejecutar N recursos es costoso: confirmar antes.
+      const n = seleccionados.value.length
+      const objetivos = seleccionados.value.slice()
+      bulkBusy.value = false
+      confirm.value = { show:true, title:'Ejecutar recursos', okText:`Ejecutar ${n}`, okClass:'save',
+        msg:`Se lanzará la ejecución de ${n} recurso${n===1?'':'s'} ahora. Puede consumir tiempo y cuota. ¿Continuar?`,
+        onOk: async()=>{ confirm.value.show=false; bulkBusy.value=true; try{ for(const r of objetivos) await executeResource(r.id); bulkAction.value=''; limpiarSel(); await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false } } }
+      return
+    }
     else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value) await updateResource(r.id,{collectionId:bulkMoveTarget.value}) }
     else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); for(const r of seleccionados.value) await updateResource(r.id,{collectionId:g.id}) }
     else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }

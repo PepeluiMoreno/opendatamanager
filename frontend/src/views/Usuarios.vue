@@ -50,11 +50,11 @@
         <Paginator v-model:page="uPage" v-model:perPage="uPerPage" :total="uTotal" />
     </div>
 
-    <!-- Modal crear/editar -->
-    <div v-if="form" class="fixed inset-0 z-[9000] flex items-center justify-center bg-black/60 p-4" @click.self="form = null">
-      <div class="bg-gray-900 border border-gray-700 rounded-xl max-w-md w-full p-5">
-        <h3 class="text-lg font-semibold text-gray-100 mb-4">{{ form.id ? `Editar ${form.username}` : 'Nuevo usuario' }}</h3>
-
+    <!-- Drawer crear/editar -->
+    <Drawer :model-value="!!form" @update:model-value="v => { if (!v) form = null }"
+            :title="form ? (form.id ? `Editar ${form.username}` : 'Nuevo usuario') : ''"
+            :icon="form && form.id ? '✎' : '＋'" :width="560">
+      <template v-if="form">
         <div class="space-y-3">
           <div v-if="!form.id">
             <label class="block text-xs text-gray-400 mb-1">Usuario</label>
@@ -83,18 +83,17 @@
             <input type="checkbox" v-model="form.notificar_email" class="rounded bg-gray-800 border-gray-700" />
             <span class="text-sm text-gray-200">Avisarme por email de novedades (altas/bajas de recursos)</span>
           </label>
+          <p v-if="formError" class="text-sm text-red-400 mt-1">{{ formError }}</p>
         </div>
-
-        <p v-if="formError" class="text-sm text-red-400 mt-3">{{ formError }}</p>
-
-        <div class="flex justify-end gap-2 mt-5">
-          <button class="text-sm text-gray-400 hover:text-gray-200 px-3 py-2" @click="form = null">Cancelar</button>
-          <button class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm px-4 py-2 rounded" :disabled="guardando" @click="guardar">
-            {{ guardando ? 'Guardando…' : 'Guardar' }}
-          </button>
-        </div>
-      </div>
-    </div>
+      </template>
+      <template #footer>
+        <div class="flex-1"></div>
+        <button class="text-sm text-gray-400 hover:text-gray-200 px-3 py-2" @click="form = null">Cancelar</button>
+        <button class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm px-4 py-2 rounded" :disabled="guardando" @click="guardar">
+          {{ guardando ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </template>
+    </Drawer>
     <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
       :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
       @confirm="okConfirm" @cancel="cerrarConfirm" />
@@ -106,6 +105,7 @@ import { ref, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import Drawer from '../components/Drawer.vue'
 
 const usuarios = ref([])
 const { page: uPage, perPage: uPerPage, total: uTotal, paged: pagedUsuarios } = usePagination(usuarios, 25)

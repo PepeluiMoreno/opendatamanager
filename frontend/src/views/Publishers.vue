@@ -70,8 +70,8 @@
     </div>
     <!-- Modal -->
     <div v-if="showModal"
-         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pointer-events-none">
-      <div class="bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg border border-gray-700 max-h-[90vh] flex flex-col pointer-events-auto"
+         class="fixed inset-0 bg-black bg-opacity-50 z-[9000]" @click.self="showModal = false">
+      <div class="fixed top-0 right-0 h-full w-[min(640px,96vw)] bg-gray-800 shadow-2xl border-l border-gray-700 flex flex-col"
            @click.stop>
         <!-- Cabecera -->
         <div class="flex items-center justify-between p-5 border-b border-gray-700 flex-shrink-0">
