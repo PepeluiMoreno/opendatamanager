@@ -1,5 +1,5 @@
 <template>
-  <div class="console" :style="{ gridTemplateColumns: railW + 'px 6px 1fr' }">
+  <div :class="['console', { collapsed: !railOpen }]" :style="{ gridTemplateColumns: railOpen ? (railW + 'px 6px 1fr') : '0 0 1fr' }">
     <!-- ============ COLLECTIONS RAIL ============ -->
     <aside class="rail">
       <div class="brand">
@@ -54,6 +54,9 @@
     <!-- ============ MAIN ============ -->
     <main class="main">
       <div class="topbar">
+        <button class="rail-toggle" @click="railOpen = !railOpen" :title="railOpen ? 'Ocultar colecciones' : 'Mostrar colecciones'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
         <div class="crumb">
           <div class="big">{{ tituloColeccion }}</div>
           <div class="meta">{{ metaColeccion }}</div>
@@ -311,6 +314,7 @@ const abiertas = ref(new Set())
 
 // ---- rail redimensionable ----
 const railW = ref(264)
+const railOpen = ref(typeof window === 'undefined' || window.innerWidth >= 880)
 let dragging = false
 function startDrag(e){ dragging = true; e.preventDefault()
   const move = ev => { if(!dragging) return; railW.value = Math.min(440, Math.max(200, ev.clientX)) }
@@ -568,7 +572,11 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
   color:var(--txt);font-size:14px;margin:-1rem;border-radius:0;overflow:hidden;
 }
 .console *{box-sizing:border-box}
-@media(max-width:880px){.console{grid-template-columns:1fr}.rail{display:none}}
+.console.collapsed .rail, .console.collapsed .divider{display:none}
+.rail-toggle{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;background:none;cursor:pointer;flex-shrink:0}
+.rail-toggle:hover{color:var(--signal);border-color:var(--signal-dim);background:#0f201d}
+.rail-toggle svg{width:17px;height:17px}
+@media(max-width:880px){.rail{position:relative}}
 
 .rail{background:linear-gradient(180deg,#10151d,#0d1218);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
