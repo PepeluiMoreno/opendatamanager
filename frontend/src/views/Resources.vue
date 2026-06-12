@@ -60,7 +60,7 @@
             </span>
           </div>
           <!-- Cuerpo del panel activo: FilterBar (sobre la lista hija) + acciones en lote + recursos -->
-          <div v-if="selectedGroup === panel.group" class="border-b border-gray-700 bg-gray-900/20">
+          <div v-if="selectedGroup === panel.group" class="border-b border-gray-700 bg-gray-900/20 ml-4 border-l-2 border-l-blue-700/40">
       <!-- Search + filters -->
       <div class="px-3 py-2 border-b border-gray-700 space-y-1.5 text-xs flex-shrink-0" ref="filterEl">
         <input
@@ -1406,6 +1406,23 @@
 
     </div>
 
+    <!-- ── Modal: confirmar borrado de collection (estilo de la app) ── -->
+    <div v-if="showDeleteCollectionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="showDeleteCollectionModal = false">
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700 shadow-2xl">
+        <h2 class="text-xl font-bold mb-4">Delete collection</h2>
+        <p class="mb-4">
+          Are you sure you want to delete <strong class="text-purple-300">{{ collectionToDelete?.name }}</strong>?
+          <span v-if="collectionToDelete && memberCount(collectionToDelete.id) > 0">
+            Its {{ memberCount(collectionToDelete.id) }} resource(s) will become <strong>uncollected</strong> (the resources are not deleted).
+          </span>
+        </p>
+        <div class="flex justify-end gap-2">
+          <button @click="showDeleteCollectionModal = false" class="btn btn-secondary">Cancel</button>
+          <button @click="handleDeleteCollection" class="btn btn-danger">Delete</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ── Modal: crear/editar collection (mismo patrón que Subscribers) ── -->
     <div v-if="showCollectionModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="closeCollectionModal">
       <div class="bg-gray-800 rounded-xl p-6 w-full max-w-md border border-gray-700">
@@ -1828,6 +1845,8 @@ const grupoSeleccionadoEditable = computed(() => {
 // ── Collection CRUD vía modal (mismo patrón que Subscribers) ───────────────
 const showCollectionModal = ref(false)
 const editingCollection = ref(null)   // null = crear
+const showDeleteCollectionModal = ref(false)
+const collectionToDelete = ref(null)
 const collectionName = ref('')
 const collectionBusy = ref(false)
 function openCreateCollection() { editingCollection.value = null; collectionName.value = ''; showCollectionModal.value = true }
@@ -1839,30 +1858,32 @@ async function submitCollection() {
   collectionBusy.value = true
   try {
     if (editingCollection.value) {
-      const r = await renameResourceCollection(editingCollection.value.id, nombre)
-      const ng = r?.renameResourceCollection
-      if (ng) groups.value = groups.value.map(x => x.id === ng.id ? { ...x, name: ng.name } : x).sort((a,b)=>a.name.localeCompare(b.name,'es'))
+      await renameResourceCollection(editingCollection.value.id, nombre)
     } else {
       const r = await createResourceCollection(nombre)
       const g = r?.createResourceCollection
-      if (g) { groups.value = [...groups.value, g].sort((a,b)=>a.name.localeCompare(b.name,'es')); selectedGroup.value = g.id }
+      if (g) selectedGroup.value = g.id
     }
     showCollectionModal.value = false
+    await loadData()   // refresca colecciones y recuentos desde el servidor
   } catch (e) { console.error('Error saving collection:', e); window.alert('Error: ' + (e?.message || e)) }
   finally { collectionBusy.value = false }
 }
-async function borrarColeccion(g) {
+function borrarColeccion(g) {
   if (!g) return
-  const n = memberCount(g.id)
-  const msg = n ? `Delete collection "${g.name}": its ${n} resource(s) will become uncollected (not deleted). Continue?`
-                : `Delete collection "${g.name}"?`
-  if (!window.confirm(msg)) return
+  collectionToDelete.value = g
+  showDeleteCollectionModal.value = true
+}
+async function handleDeleteCollection() {
+  const g = collectionToDelete.value
+  if (!g) return
   try {
     await deleteResourceCollection(g.id)
-    groups.value = groups.value.filter(x => x.id !== g.id)
+    showDeleteCollectionModal.value = false
+    collectionToDelete.value = null
     if (selectedGroup.value === g.id) selectedGroup.value = null
     await loadData()
-  } catch (e) { console.error('Error deleting collection:', e) }
+  } catch (e) { console.error('Error deleting collection:', e); window.alert('Error: ' + (e?.message || e)) }
 }
 
 // ── Jerarquía nodriza → recursos descubiertos ───────────────────────────────
