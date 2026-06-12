@@ -122,42 +122,81 @@
       </div>
 
       <!-- Collections (organizational folders) -->
-      <div class="flex items-center gap-2 flex-wrap px-1 py-2 border-b border-gray-700 text-xs">
-        <span class="text-gray-500 font-medium mr-1">Collections:</span>
-        <button @click="selectedGroup = null"
-                class="px-2 py-0.5 rounded-full border"
-                :class="selectedGroup === null ? 'border-blue-500 bg-blue-900/40 text-blue-200' : 'border-gray-700 text-gray-300 hover:bg-gray-700'">
-          All
-        </button>
-        <button v-for="g in groups" :key="g.id" @click="selectedGroup = g.id"
-                class="px-2 py-0.5 rounded-full border flex items-center gap-1"
-                :class="selectedGroup === g.id ? 'border-blue-500 bg-blue-900/40 text-blue-200' : 'border-gray-700 text-gray-300 hover:bg-gray-700'"
-                :title="g.origin === 'matriz' ? 'Originated by a mothership resource' : 'Organizational folder'">
-          <span v-if="g.origin === 'matriz'">🛰️</span><span v-else>🗂️</span>
-          {{ g.name }}
-          <span class="text-gray-500">{{ memberCount(g.id) }}</span>
-        </button>
-        <button @click="selectedGroup = '__none__'"
-                class="px-2 py-0.5 rounded-full border"
-                :class="selectedGroup === '__none__' ? 'border-blue-500 bg-blue-900/40 text-blue-200' : 'border-gray-700 text-gray-400 hover:bg-gray-700'">
-          Uncollected <span class="text-gray-500">{{ countSinAgrupar }}</span>
-        </button>
+      <!-- ── Maestro: Collections (filas, ancho completo, CRUD por fila) ──── -->
+      <div class="border-b border-gray-700 flex-shrink-0">
+        <div class="flex items-center justify-between px-3 py-2">
+          <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Collections</span>
+          <button v-if="puede('recursos.crear')" @click="nuevaColeccion"
+                  class="text-xs px-2 py-0.5 rounded bg-green-700/80 hover:bg-green-600 text-white">+ Collection</button>
+        </div>
+        <div class="max-h-[28vh] overflow-y-auto">
+          <table class="w-full text-xs">
+            <tbody>
+              <tr @click="selectedGroup = null"
+                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                           selectedGroup === null ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
+                <td class="px-3 py-2 font-medium text-gray-200">📚 All</td>
+                <td class="px-3 py-2 text-right text-gray-500 w-16">{{ resources.length }}</td>
+                <td class="px-3 py-2 w-20"></td>
+              </tr>
+              <tr v-for="g in groups" :key="g.id" @click="selectedGroup = g.id"
+                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                           selectedGroup === g.id ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']"
+                  :title="g.origin === 'matriz' ? 'Originated by a mothership resource' : 'Organizational folder'">
+                <td class="px-3 py-2 text-gray-200">
+                  <span v-if="g.origin === 'matriz'">🛰️</span><span v-else>🗂️</span>
+                  {{ g.name }}
+                  <span v-if="g.origin === 'matriz'" class="ml-1 text-[9px] uppercase tracking-wide text-purple-300">matriz</span>
+                </td>
+                <td class="px-3 py-2 text-right text-gray-500 w-16">{{ memberCount(g.id) }}</td>
+                <td class="px-3 py-2 text-right whitespace-nowrap w-20" @click.stop>
+                  <template v-if="g.origin !== 'matriz' && puede('recursos.editar')">
+                    <button @click="selectedGroup = g.id; renombrarColeccion()" title="Rename collection"
+                            class="p-1 rounded text-blue-400 hover:text-blue-300 hover:bg-blue-900/30">✎</button>
+                    <button @click="selectedGroup = g.id; borrarColeccion()" title="Delete collection"
+                            class="p-1 rounded text-gray-500 hover:text-red-400 hover:bg-red-900/30">🗑</button>
+                  </template>
+                </td>
+              </tr>
+              <tr @click="selectedGroup = '__none__'"
+                  :class="['border-t border-gray-700/60 cursor-pointer transition-colors',
+                           selectedGroup === '__none__' ? 'bg-blue-900/25' : 'hover:bg-gray-700/30']">
+                <td class="px-3 py-2 text-gray-400">🗃️ Uncollected</td>
+                <td class="px-3 py-2 text-right text-gray-500 w-16">{{ countSinAgrupar }}</td>
+                <td class="px-3 py-2 w-20"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <span class="mx-1 text-gray-700">|</span>
-        <button v-if="puede('recursos.crear')" @click="nuevaColeccion"
-                class="px-2 py-0.5 rounded border border-green-700 text-green-400 hover:bg-green-900/30">+ New</button>
-        <template v-if="grupoSeleccionadoEditable && puede('recursos.editar')">
-          <button @click="renombrarColeccion" title="Rename collection"
-                  class="px-2 py-0.5 rounded border border-gray-700 text-gray-300 hover:bg-gray-700">✎ Rename</button>
-          <button @click="borrarColeccion" title="Delete collection"
-                  class="px-2 py-0.5 rounded border border-red-800 text-red-400 hover:bg-red-900/30">🗑 Delete</button>
-        </template>
+      <!-- Barra de acciones en lote (estilo WordPress): aparece con selección -->
+      <div v-if="numSeleccionados > 0"
+           class="flex items-center gap-2 flex-wrap px-3 py-2 border-b border-gray-700 bg-blue-900/20 text-xs flex-shrink-0">
+        <span class="text-blue-200 font-medium">{{ numSeleccionados }} seleccionado(s)</span>
+        <select v-model="bulkAction" class="input py-0.5 px-2 text-xs">
+          <option value="">Acciones en lote…</option>
+          <option value="activate">Activar</option>
+          <option value="deactivate">Desactivar</option>
+          <option v-if="puede('recursos.editar')" disabled>── Mover a colección ──</option>
+          <option v-if="puede('recursos.editar')" value="move:">Sin agrupar</option>
+          <option v-for="g in groups" v-if="puede('recursos.editar')" :key="g.id" :value="'move:' + g.id">{{ g.name }}</option>
+          <option v-if="puede('recursos.borrar')" value="delete">Borrar</option>
+        </select>
+        <button @click="aplicarAccionLote" :disabled="!bulkAction || bulkBusy"
+                class="px-2 py-0.5 rounded border border-blue-600 text-blue-200 hover:bg-blue-800/40 disabled:opacity-40 disabled:cursor-not-allowed">
+          {{ bulkBusy ? 'Aplicando…' : 'Aplicar' }}
+        </button>
+        <button @click="limpiarSeleccion" class="px-2 py-0.5 rounded border border-gray-700 text-gray-300 hover:bg-gray-700">Limpiar</button>
       </div>
 
       <div class="overflow-auto flex-1">
       <table class="w-full min-w-[20rem]">
         <thead class="sticky top-0 z-10 bg-gray-800">
           <tr class="border-b border-gray-700 text-xs text-gray-400">
+            <th class="w-8 px-2 py-2">
+              <input type="checkbox" class="accent-blue-500 align-middle" :checked="todasMarcadas" @change="toggleTodas" title="Marcar/desmarcar todo" />
+            </th>
             <th class="text-left py-2 px-3 font-medium">Name</th>
             <th class="text-left py-2 px-3 font-medium hidden md:table-cell">Publisher</th>
             <th class="text-left py-2 px-3 font-medium hidden lg:table-cell">Apps</th>
@@ -171,6 +210,11 @@
           <tr
             class="border-b border-gray-700/50 hover:bg-gray-700/30 transition-colors"
           >
+            <td class="w-8 px-2 align-middle" @click.stop>
+              <input type="checkbox" class="accent-blue-500 align-middle"
+                     :checked="ramaMarcada(resource)" @change="toggleRama(resource)"
+                     :title="esNodriza(resource) ? 'Marcar/desmarcar toda la rama' : 'Marcar/desmarcar'" />
+            </td>
             <td class="py-1.5 px-3 text-xs font-medium text-white whitespace-nowrap">
               <button v-if="esNodriza(resource) && hijosDe(resource.id).length"
                       @click="toggleNodriza(resource.id)"
@@ -263,6 +307,11 @@
           <!-- Recursos descubiertos por esta nodriza (jerarquía) -->
           <tr v-for="child in (expandedNodrizas.has(resource.id) ? hijosDe(resource.id) : [])" :key="child.id"
               class="border-b border-gray-800 bg-gray-900/40">
+            <td class="w-8 px-2 align-middle" @click.stop>
+              <input type="checkbox" class="accent-blue-500 align-middle opacity-70"
+                     :checked="selectedIds.has(child.id)"
+                     @change="() => { const s = new Set(selectedIds); s.has(child.id) ? s.delete(child.id) : s.add(child.id); selectedIds = s }" />
+            </td>
             <td class="py-1 px-3 text-xs text-gray-200 whitespace-nowrap">
               <span class="text-gray-600 pl-5 mr-1">└─</span>{{ child.name }}
               <span class="ml-1 text-[9px] uppercase tracking-wide font-bold px-1 py-0.5 rounded bg-purple-900/60 text-purple-300">descubierto</span>
@@ -1794,6 +1843,67 @@ const topLevelResources = computed(() =>
 const totalPages = computed(() => Math.ceil(topLevelResources.value.length / pageSize.value))
 const pagedResources = computed(() => { const s = (currentPage.value - 1) * pageSize.value; return topLevelResources.value.slice(s, s + pageSize.value) })
 watch([searchQuery, selectedType, selectedPublisher, selectedApp, selectedKind, selectedNivel, filterStatuses, pageSize], () => { currentPage.value = 1 })
+
+// ── Selección en lote (estilo WordPress): a nivel de RAMA ──────────────────
+// Marcar una nodriza marca también sus hijos descubiertos; las acciones se
+// aplican al conjunto de recursos marcados.
+const selectedIds = ref(new Set())
+const bulkAction = ref('')
+const bulkBusy = ref(false)
+
+// IDs que componen la "rama" de un recurso (él mismo + sus hijos descubiertos).
+function ramaDe(r) { return [r.id, ...hijosDe(r.id).map(c => c.id)] }
+function ramaMarcada(r) { return ramaDe(r).every(id => selectedIds.value.has(id)) }
+function toggleRama(r) {
+  const ids = ramaDe(r); const s = new Set(selectedIds.value)
+  const marcar = !ids.every(id => s.has(id))
+  for (const id of ids) marcar ? s.add(id) : s.delete(id)
+  selectedIds.value = s
+}
+// Cabecera: marca/desmarca todas las ramas visibles de la página.
+const todasMarcadas = computed(() => pagedResources.value.length > 0 &&
+  pagedResources.value.every(r => ramaDe(r).every(id => selectedIds.value.has(id))))
+function toggleTodas() {
+  const s = new Set(selectedIds.value)
+  const marcar = !todasMarcadas.value
+  for (const r of pagedResources.value) for (const id of ramaDe(r)) marcar ? s.add(id) : s.delete(id)
+  selectedIds.value = s
+}
+function limpiarSeleccion() { selectedIds.value = new Set() }
+const numSeleccionados = computed(() => selectedIds.value.size)
+// Recursos seleccionados resueltos (objetos), respetando suscripciones en borrado.
+const recursosSeleccionados = computed(() =>
+  resources.value.filter(r => selectedIds.value.has(r.id)))
+
+async function aplicarAccionLote() {
+  const accion = bulkAction.value
+  if (!accion || selectedIds.value.size === 0) return
+  const items = recursosSeleccionados.value
+  // Confirmación para acciones destructivas.
+  if (accion === 'delete') {
+    const ok = window.confirm(`¿Borrar ${items.length} recurso(s) seleccionado(s)?`)
+    if (!ok) return
+  }
+  bulkBusy.value = true
+  try {
+    for (const r of items) {
+      if (accion === 'activate') await updateResource(r.id, { active: true })
+      else if (accion === 'deactivate') await updateResource(r.id, { active: false })
+      else if (accion === 'delete') await deleteResource(r.id, false)
+      else if (accion.startsWith('move:')) {
+        const colId = accion.slice(5) // '' = sin agrupar
+        await updateResource(r.id, { collectionId: colId })
+      }
+    }
+    limpiarSeleccion(); bulkAction.value = ''
+    await loadData()
+  } catch (e) {
+    window.alert('Error aplicando la acción en lote: ' + (e?.message || e))
+  } finally {
+    bulkBusy.value = false
+  }
+}
+
 
 const selectedOptionalParam = ref('')
 
