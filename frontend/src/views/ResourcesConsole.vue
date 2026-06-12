@@ -70,11 +70,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input v-model="q" placeholder="Buscar en esta colección…" />
         </div>
-        <div class="chip">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
-          <select v-model="fType"><option value="">Tipo: todos</option><option v-for="f in fetchers" :key="f.id" :value="f.code">{{ f.name }}</option></select>
-        </div>
-        <div class="chip">
+        <div class="chip pub-chip">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
           <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.acronimo || p.nombre }}</option></select>
         </div>
@@ -110,7 +106,6 @@
             <div><input type="checkbox" class="cbx" :checked="todasSel" @change="toggleTodas" /></div>
             <div>Recurso</div>
             <div class="col-pub">Publisher</div>
-            <div class="col-fetch">Fetcher</div>
             <div>Estado</div>
             <div class="col-sched">Próxima ejecución</div>
             <div class="col-acts" style="text-align:right">Acciones</div>
@@ -133,7 +128,6 @@
                 </span>
               </div>
               <div class="col-pub pub" :title="r.publisherObj?.nombre || ''">{{ r.publisherObj?.acronimo || r.publisherObj?.nombre || '—' }}</div>
-              <div class="ftype col-fetch"><span class="dot"></span>{{ r.fetcher?.name }}</div>
               <div><span :class="['status', estadoClase(r)]"><span class="sd"></span>{{ estadoTexto(r) }}</span></div>
               <div class="col-sched sched">
                 <span :class="['nx', proximaEjecucion(r).t]">{{ proximaEjecucion(r).txt }}</span>
@@ -149,7 +143,6 @@
                 <div><input type="checkbox" class="cbx" :checked="sel.has(ch.id)" @change="toggleUno(ch.id)" /></div>
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
                 <div class="col-pub pub" :title="ch.publisherObj?.nombre || ''">{{ ch.publisherObj?.acronimo || ch.publisherObj?.nombre || '—' }}</div>
-                <div class="ftype col-fetch"><span class="dot" style="background:#3a4654"></span>{{ ch.fetcher?.name }}</div>
                 <div><span :class="['status', estadoClase(ch)]"><span class="sd"></span>{{ estadoTexto(ch) }}</span></div>
                 <div class="col-sched sched"><span :class="['nx', proximaEjecucion(ch).t]">{{ proximaEjecucion(ch).txt }}</span></div>
                 <div class="col-acts racts">
@@ -584,11 +577,13 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
 .btn.primary{background:linear-gradient(180deg,var(--signal),#2bc3b0);color:#042521;border:none;box-shadow:0 6px 18px #1fd4be33}
 .btn svg{width:15px;height:15px}
 .filters{display:flex;align-items:center;gap:8px;padding:4px 22px 10px;flex-wrap:wrap}
-.search{flex:1;min-width:170px;position:relative}
+.search{flex:0 1 230px;min-width:140px;position:relative}
 .search input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 12px 9px 34px;color:var(--txt);font-size:13px;outline:none}
 .search input:focus{border-color:var(--signal-dim)}
 .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint)}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:9px;border:1px solid var(--line);background:var(--panel);font-size:12.5px;color:var(--muted)}
+.pub-chip{flex:1 1 auto;min-width:170px}
+.pub-chip select{flex:1;min-width:0}
 .chip select{background:transparent;border:none;color:var(--txt);outline:none;font-size:12.5px}
 .chip svg{width:13px;height:13px;color:var(--faint)}
 .sd-mini{width:8px;height:8px;border-radius:50%;background:var(--signal);display:inline-block}
@@ -596,12 +591,12 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
 .listwrap{flex:1;overflow-y:auto;padding:2px 16px 90px}
 .empty{text-align:center;color:var(--faint);padding:40px;font-size:13px}
 .link{color:var(--signal);background:none;border:none;cursor:pointer;margin-left:6px}
-.lhead{display:grid;grid-template-columns:30px minmax(0,1fr) 110px 140px 104px 140px 78px;gap:8px;padding:9px 14px 8px;font-family:var(--disp);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--muted);position:sticky;top:0;background:var(--ink);z-index:3;border-bottom:1px solid var(--line)}
-.row{display:grid;grid-template-columns:30px minmax(0,1fr) 110px 140px 104px 140px 78px;gap:8px;align-items:center;padding:11px 14px;border-radius:12px;margin:3px 0;background:var(--panel);border:1px solid var(--line-soft)}
+.lhead{display:grid;grid-template-columns:30px minmax(0,1fr) 150px 104px 150px 78px;gap:8px;padding:9px 14px 8px;font-family:var(--disp);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--muted);position:sticky;top:0;background:var(--ink);z-index:3;border-bottom:1px solid var(--line)}
+.row{display:grid;grid-template-columns:30px minmax(0,1fr) 150px 104px 150px 78px;gap:8px;align-items:center;padding:11px 14px;border-radius:12px;margin:3px 0;background:var(--panel);border:1px solid var(--line-soft)}
 .row:hover{border-color:#2c3a48;background:var(--panel-2)}
 .row.sel{border-color:var(--signal-dim);background:#10211e}
 .row.child{background:#0f141bcc;margin-left:30px;border-style:dashed;border-color:#1c2733}
-@media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 104px 78px}.col-sched,.col-fetch,.col-pub{display:none}}
+@media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 110px 78px}.col-sched,.col-pub{display:none}}
 .cbx{appearance:none;width:17px;height:17px;border-radius:5px;border:1.5px solid #36434f;background:#0d1219;cursor:pointer;position:relative}
 .cbx:checked{background:var(--signal);border-color:var(--signal)}
 .cbx:checked::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#042521;font-size:11px;font-weight:800}
