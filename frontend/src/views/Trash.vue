@@ -32,10 +32,26 @@
         No deleted {{ activeTab }} found.
       </div>
 
+      <!-- Bulk actions -->
+      <div v-if="selected.size > 0" class="flex items-center gap-3 mb-3 px-3 py-2 rounded-lg bg-blue-900/20 border border-blue-800">
+        <span class="text-sm text-blue-200"><b>{{ selected.size }}</b> seleccionados</span>
+        <div class="flex-1"></div>
+        <button @click="bulkRestore" :disabled="bulkBusy"
+          class="text-xs px-3 py-1.5 rounded border border-emerald-700 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40">
+          {{ bulkBusy ? 'Procesando…' : 'Restaurar seleccionados' }}
+        </button>
+        <button @click="bulkConfirm = true" :disabled="bulkBusy"
+          class="text-xs px-3 py-1.5 rounded border border-red-800 text-red-300 hover:bg-red-900/30 disabled:opacity-40">
+          Borrar permanentemente
+        </button>
+        <button @click="clearSel" class="text-xs px-2 py-1.5 text-gray-400 hover:text-gray-200">Limpiar</button>
+      </div>
+
       <!-- Table -->
       <table v-else class="w-full text-sm">
         <thead>
           <tr class="text-left text-gray-400 border-b border-gray-700">
+            <th class="py-2 pr-3 w-8"><input type="checkbox" class="w-4 h-4 accent-blue-500 cursor-pointer" :checked="allPageSelected" @change="togglePage" /></th>
             <th class="py-2 pr-4 font-medium">Name</th>
             <th class="py-2 pr-4 font-medium">Deleted at</th>
             <th class="py-2 font-medium text-right">Actions</th>
@@ -47,21 +63,16 @@
             :key="itemId(item)"
             class="border-b border-gray-800 hover:bg-gray-800/40"
           >
+            <td class="py-3 pr-3"><input type="checkbox" class="w-4 h-4 accent-blue-500 cursor-pointer" :checked="selected.has(itemId(item))" @change="toggleOne(item)" /></td>
             <td class="py-3 pr-4 text-gray-200">{{ itemName(item) }}</td>
             <td class="py-3 pr-4 text-gray-500 text-xs">{{ formatDate(item.deletedAt) }}</td>
             <td class="py-3 text-right">
               <div class="flex justify-end gap-2">
-                <button
-                  @click="restore(item)"
-                  class="text-green-400 hover:text-green-300 text-xs px-3 py-1 rounded border border-green-800 hover:border-green-600 transition-colors"
-                >
-                  Restore
+                <button @click="restore(item)" class="act-icon" title="Restaurar">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h5M4 9a9 9 0 11-1 4"/></svg>
                 </button>
-                <button
-                  @click="confirmHardDelete(item)"
-                  class="text-red-400 hover:text-red-300 text-xs px-3 py-1 rounded border border-red-900 hover:border-red-700 transition-colors"
-                >
-                  Delete permanently
+                <button @click="confirmHardDelete(item)" class="act-icon danger" title="Eliminar permanentemente">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
             </td>
@@ -88,11 +99,25 @@
         </div>
       </div>
     </div>
+
+    <!-- Bulk hard-delete confirmation modal -->
+    <div v-if="bulkConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click.self="bulkConfirm = false">
+      <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4">Borrar permanentemente</h2>
+        <p class="mb-6 text-gray-300">
+          Se eliminarán de forma permanente <strong class="text-red-300">{{ selected.size }}</strong> registros. Esta acción no se puede deshacer.
+        </p>
+        <div class="flex justify-end gap-2">
+          <button @click="bulkConfirm = false" class="btn btn-secondary">Cancelar</button>
+          <button @click="bulkHardDelete" :disabled="bulkBusy" class="btn btn-danger">{{ bulkBusy ? 'Borrando…' : 'Borrar permanentemente' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
 import {
@@ -127,6 +152,18 @@ const data = ref({
 
 const currentItems = computed(() => data.value[activeTab.value] || [])
 const { page: tPage, perPage: tPerPage, total: tTotal, paged: pagedItems } = usePagination(currentItems, 25)
+
+// Selección y acciones colectivas
+const selected = ref(new Set())
+const bulkBusy = ref(false)
+const bulkConfirm = ref(false)
+function clearSel() { selected.value = new Set() }
+function toggleOne(item) { const id = itemId(item); const s = new Set(selected.value); s.has(id) ? s.delete(id) : s.add(id); selected.value = s }
+const allPageSelected = computed(() => pagedItems.value.length > 0 && pagedItems.value.every(i => selected.value.has(itemId(i))))
+function togglePage() { const s = new Set(selected.value); const on = !allPageSelected.value; pagedItems.value.forEach(i => on ? s.add(itemId(i)) : s.delete(itemId(i))); selected.value = s }
+const itemsSeleccionados = computed(() => currentItems.value.filter(i => selected.value.has(itemId(i))))
+// Al cambiar de pestaña, la selección deja de tener sentido.
+watch(activeTab, () => clearSel())
 
 const counts = computed(() => {
   const c = {}
@@ -184,52 +221,62 @@ async function load() {
   }
 }
 
-async function restore(item) {
-  try {
-    if (activeTab.value === 'datasets') {
-      const resp = await fetch(`/api/datasets/${item.datasetId}/restore`, { method: 'POST' })
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    } else {
-      const fn = {
-        resources:    restoreResource,
-        subscribers: restoreSubscriber,
-        publishers:   restorePublisher,
-        fetchers:     restoreFetcher,
-        executions:   restoreExecution,
-      }[activeTab.value]
-      await fn(item.id)
-    }
-    await load()
-  } catch (e) {
-    error.value = e.message
+async function doRestore(item) {
+  if (activeTab.value === 'datasets') {
+    const resp = await fetch(`/api/datasets/${item.datasetId}/restore`, { method: 'POST' })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  } else {
+    const fn = {
+      resources:    restoreResource,
+      subscribers: restoreSubscriber,
+      publishers:   restorePublisher,
+      fetchers:     restoreFetcher,
+      executions:   restoreExecution,
+    }[activeTab.value]
+    await fn(item.id)
   }
+}
+async function restore(item) {
+  try { await doRestore(item); await load() }
+  catch (e) { error.value = e.message }
 }
 
 function confirmHardDelete(item) {
   itemToDelete.value = item
 }
 
-async function hardDelete() {
-  try {
-    if (activeTab.value === 'datasets') {
-      const resp = await fetch(`/api/datasets/${itemToDelete.value.datasetId}?hard=true`, { method: 'DELETE' })
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    } else {
-      const fn = {
-        resources:    (id) => deleteResource(id, true),
-        subscribers: (id) => deleteSubscriber(id, true),
-        publishers:   (id) => deletePublisher(id, true),
-        fetchers:     (id) => deleteFetcher(id, true),
-        executions:   (id) => deleteExecution(id, true),
-      }[activeTab.value]
-      if (fn) await fn(itemToDelete.value.id)
-    }
-    itemToDelete.value = null
-    await load()
-  } catch (e) {
-    error.value = e.message
-    itemToDelete.value = null
+async function doHardDelete(item) {
+  if (activeTab.value === 'datasets') {
+    const resp = await fetch(`/api/datasets/${item.datasetId}?hard=true`, { method: 'DELETE' })
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+  } else {
+    const fn = {
+      resources:    (id) => deleteResource(id, true),
+      subscribers: (id) => deleteSubscriber(id, true),
+      publishers:   (id) => deletePublisher(id, true),
+      fetchers:     (id) => deleteFetcher(id, true),
+      executions:   (id) => deleteExecution(id, true),
+    }[activeTab.value]
+    if (fn) await fn(item.id)
   }
+}
+async function hardDelete() {
+  try { await doHardDelete(itemToDelete.value); itemToDelete.value = null; await load() }
+  catch (e) { error.value = e.message }
+}
+
+// Acciones colectivas
+async function bulkRestore() {
+  bulkBusy.value = true
+  try { for (const it of itemsSeleccionados.value) await doRestore(it); clearSel(); await load() }
+  catch (e) { error.value = e.message }
+  finally { bulkBusy.value = false }
+}
+async function bulkHardDelete() {
+  bulkBusy.value = true
+  try { for (const it of itemsSeleccionados.value) await doHardDelete(it); clearSel(); bulkConfirm.value = false; await load() }
+  catch (e) { error.value = e.message }
+  finally { bulkBusy.value = false }
 }
 
 onMounted(load)
