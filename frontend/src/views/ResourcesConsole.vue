@@ -659,7 +659,7 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
 
 .scrim{position:fixed;inset:0;background:#04060a99;backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:50}
 .scrim.show{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:min(560px,94vw);background:linear-gradient(180deg,#131922,#0f141b);border-left:1px solid var(--line);transform:translateX(102%);transition:.3s cubic-bezier(.3,.8,.3,1);z-index:60;display:flex;flex-direction:column}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(760px,96vw);background:linear-gradient(180deg,#131922,#0f141b);border-left:1px solid var(--line);transform:translateX(102%);transition:.3s cubic-bezier(.3,.8,.3,1);z-index:60;display:flex;flex-direction:column}
 .drawer.show{transform:translateX(0)}
 .dh{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 16px;border-bottom:1px solid var(--line)}
 .dh .di{width:40px;height:40px;border-radius:11px;background:#10211d;border:1px solid var(--signal-dim);display:grid;place-items:center;font-size:19px;flex-shrink:0}
@@ -697,8 +697,8 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .sw{width:40px;height:23px;border-radius:20px;background:#26313d;position:relative;transition:.2s;flex-shrink:0;cursor:pointer}
 .sw::after{content:"";position:absolute;top:2.5px;left:2.5px;width:18px;height:18px;border-radius:50%;background:#cdd7e1;transition:.2s}
 .sw.on{background:var(--signal-dim)}.sw.on::after{left:19px;background:var(--signal)}
-.params .ph{display:grid;grid-template-columns:1fr 1.4fr 30px;gap:8px;font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--faint);padding:0 2px 6px}
-.prow{display:grid;grid-template-columns:1fr 1.4fr 30px;gap:8px;margin-bottom:7px}
+.params .ph{display:grid;grid-template-columns:minmax(120px,0.8fr) 2fr 30px;gap:8px;font-family:var(--mono);font-size:10px;text-transform:uppercase;color:var(--faint);padding:0 2px 6px}
+.prow{display:grid;grid-template-columns:minmax(120px,0.8fr) 2fr 30px;gap:8px;margin-bottom:7px}
 .prow input{background:#0d131b;border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--txt);font-family:var(--mono);font-size:12px;outline:none}
 .prow .rm{border:1px solid var(--line);border-radius:8px;color:var(--faint);background:none;cursor:pointer}.prow .rm:hover{color:var(--alert)}
 .addp{font-size:12px;color:var(--signal);background:none;border:none;cursor:pointer;margin-top:4px;font-weight:500}
