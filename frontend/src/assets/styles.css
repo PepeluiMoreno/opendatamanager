@@ -100,3 +100,38 @@ select option:hover {
 .modal-card-lg {
   @apply bg-gray-800 border border-gray-600 rounded-xl shadow-2xl flex flex-col w-[1024px] max-w-[92vw] max-h-[85vh];
 }
+
+/* ============================================================
+   Capa responsive móvil (≤640px) — usabilidad en teléfono.
+   !important para vencer estilos scoped y el grid inline de las consolas.
+   ============================================================ */
+@media (max-width: 640px) {
+  /* ViewLayout: menos aire en pantalla pequeña */
+  .view { padding: 1rem !important; }
+  .view--fill .view__inner { padding: .75rem !important; }
+
+  /* Consolas (rail + main): apilar en vertical; el raíl se oculta al colapsar */
+  .console { display: block !important; grid-template-columns: 1fr !important; height: auto !important; }
+  .subs-shell { height: auto !important; overflow: visible !important; }
+  .console .rail { width: 100% !important; height: auto !important; max-height: 52vh; border-right: none !important; }
+  .console.collapsed .rail { display: none !important; }
+  .console .divider { display: none !important; }
+  .console .main { width: 100% !important; height: auto !important; }
+
+  /* Drawer de detalle/edición a pantalla completa */
+  .drawer { width: 100vw !important; max-width: 100vw !important; }
+
+  /* Cabeceras y barras: envolver en lugar de desbordar */
+  .page-header, .filters, .topbar, .bulkbar { flex-wrap: wrap !important; }
+  .filters .search { flex: 1 1 100%; }
+
+  /* Tablas en rejilla: scroll horizontal conservando las columnas */
+  .listwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .lhead, .row { min-width: 480px; }
+
+  /* Formularios de dos columnas del drawer → una columna */
+  .row2 { grid-template-columns: 1fr !important; }
+
+  /* sin desbordes horizontales de página */
+  html, body { overflow-x: hidden; }
+}
