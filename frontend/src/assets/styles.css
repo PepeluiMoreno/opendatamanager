@@ -133,6 +133,11 @@ select option:hover {
   .row { grid-template-columns: 22px minmax(0,1fr) auto auto !important; gap: 6px !important; min-width: 0 !important; }
   .listwrap { overflow-x: hidden; }
 
+  /* Botones de acción (ejecutar/editar) con área táctil cómoda en móvil */
+  .racts { gap: 10px !important; }
+  .racts button { width: 38px !important; height: 38px !important; }
+  .racts button svg { width: 18px !important; height: 18px !important; }
+
   /* Formularios de dos columnas del drawer → una columna */
   .row2 { grid-template-columns: 1fr !important; }
 
