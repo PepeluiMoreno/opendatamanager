@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "CARM",
+    "nombre": "Comunidad Autónoma de la Región de Murcia",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://datosabiertos.regiondemurcia.es"
+  },
+  "resources": [
+    {
+      "name": "Región de Murcia - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 22 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (CARM). Señal de fines: TEXTO de fin (campo 'FIN') + 'TIPO'. Identificador: CIF. Municipio: MUNICIPIO. NIF + fines: completa.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datosabiertos.regiondemurcia.es/admin/dataset/ee4483f1-f4ee-4141-b9cf-a5ee3d612b45/resource/5eecca78-fe04-4c32-a5a4-398eb03e369e/download/asociaciones_20260506.xlsx",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "xlsx",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

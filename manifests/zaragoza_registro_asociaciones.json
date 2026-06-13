@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "AYTOZGZ",
+    "nombre": "Ayuntamiento de Zaragoza",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://www.zaragoza.es/sede/portal/datos-abiertos/"
+  },
+  "resources": [
+    {
+      "name": "Zaragoza - Registro Municipal de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro MUNICIPAL de asociaciones (Ayuntamiento de Zaragoza, >50k hab). Señal de fines: clasificación por 'category'. Identificador: CIF. Web: 'link'. Municipio implícito (Zaragoza). Primer recurso de ámbito municipal de la colección.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.zaragoza.es/sede/servicio/asociacion/list.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
