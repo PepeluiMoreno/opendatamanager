@@ -56,7 +56,8 @@
           "is_external": false
         }
       ],
-      "collection": "Asociaciones"
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de entidades jurídicas (Generalitat de Catalunya). Señal de fines: TEXTO LIBRE de finalidades estatutarias (contingut_finalitats, finalitats2-6) + tipología propia (incluye 'entitats religioses') + classificacio_general/especifica. Identificador: CIF (parcial). Municipio: nom_poblacio. Web: pagina_web. La señal de fines más rica del conjunto."
     }
   ]
 }

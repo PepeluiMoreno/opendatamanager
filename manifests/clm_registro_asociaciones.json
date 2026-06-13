@@ -31,7 +31,8 @@
           "is_external": false
         }
       ],
-      "collection": "Asociaciones"
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (JCCM). Señal de fines: NINGUNA (solo identificación y contacto). Identificador: CIF (parcial). Municipio: L_MUNICIPIO. Clasificación por fines no disponible: el consumidor debe clasificar por denominación."
     }
   ]
 }

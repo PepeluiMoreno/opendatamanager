@@ -31,7 +31,8 @@
           "is_external": false
         }
       ],
-      "collection": "Asociaciones"
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Gobierno de Canarias). Señal de fines: CLASIFICACIÓN POR ACTIVIDAD (campo 'actividades') + 'seccion' (sin categoría 'religiosas' limpia → al motor léxico). Identificador: NIF (parcial; '_U' = no informado). Municipio: direccion_municipio_nombre."
     }
   ]
 }

@@ -369,6 +369,7 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
                 active=bool(r.get("active", True)), schedule=r.get("schedule"),
                 preset_id=preset.id if preset else None,
                 genera_colecciones=bool(r.get("genera_colecciones", False)),
+                description=r.get("description"),
                 auto_generated=True, origin="manifest",
             )
             session.add(resource)
@@ -387,7 +388,11 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
         # arranque, idempotente, al margen del hash que no incluye la collection).
         _asignar_collection(resource, r.get("collection"))
 
-        # Detección a tres bandas: base (last_synced) vs fichero vs BD.
+        # Reconciliación de description (idempotente, producer-side: documenta el
+        # CONTENIDO de la fuente — p. ej. qué señal de fines aporta —, no destino).
+        _desc = r.get("description")
+        if _desc and resource.description != _desc:
+            resource.description = _desc
         db_hash = manifest_hash(_canonical_from_db(session, resource))
         base = resource.last_synced_hash
 

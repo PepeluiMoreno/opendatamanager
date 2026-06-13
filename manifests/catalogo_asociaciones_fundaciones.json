@@ -62,7 +62,8 @@
           "is_external": false
         }
       ],
-      "collection": "Asociaciones"
+      "collection": "Asociaciones",
+      "description": "Catch-all DCAT de registros de asociaciones y fundaciones de las CCAA AÚN NO CURADAS (excluye los portales ya cubiertos directo). Señal de fines: VARIABLE según la fuente descubierta. Calidad heterogénea por diseño; los registros buenos deben promoverse a recurso curado."
     }
   ]
 }

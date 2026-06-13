@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "CAIB",
+    "nombre": "Govern de les Illes Balears",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://intranet.caib.es/opendatacataleg"
+  },
+  "resources": [
+    {
+      "name": "Illes Balears - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 14 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Govern de les Illes Balears). Señal de fines: TEXTO de finalidad (campo 'Finalitat'). Identificador: NIF. Municipio: Població. Ámbito: Àmbit. Aporta NIF + fines, de las fuentes más completas.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://intranet.caib.es/opendatacataleg/dataset/d21127e0-b34d-4916-a467-3891ff56b9a9/resource/f5909cc8-36ec-4087-9ed8-95f7cf2822f9/download/associacions-illes-balears.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
