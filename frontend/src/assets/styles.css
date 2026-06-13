@@ -125,9 +125,13 @@ select option:hover {
   .page-header, .filters, .topbar, .bulkbar { flex-wrap: wrap !important; }
   .filters .search { flex: 1 1 100%; }
 
-  /* Tablas en rejilla: scroll horizontal conservando las columnas */
-  .listwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .lhead, .row { min-width: 480px; }
+  /* Tabla de recursos/suscriptores: compacta, sin scroll horizontal.
+     Se ocultan cabecera de columnas, publisher y "Próxima ejecución" (secundarios);
+     queda nombre + estado + acciones, que cabe en pantalla de teléfono. */
+  .lhead { display: none !important; }
+  .col-pub, .col-sched { display: none !important; }
+  .row { grid-template-columns: 22px minmax(0,1fr) auto auto !important; gap: 6px !important; min-width: 0 !important; }
+  .listwrap { overflow-x: hidden; }
 
   /* Formularios de dos columnas del drawer → una columna */
   .row2 { grid-template-columns: 1fr !important; }
