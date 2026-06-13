@@ -23,7 +23,7 @@
         <h2 class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
           <span>⚡</span> Concurrency
         </h2>
-        <p class="text-xs text-gray-600 mb-4">Controls how many processes run in parallel and fetcher limits.</p>
+        <p class="text-xs text-gray-600 mb-4">Controla cuántos procesos corren en paralelo y los límites de los fetchers.</p>
         <div class="grid grid-cols-2 gap-x-10 divide-y-0">
           <SettingRow
             v-for="k in concurrencyKeys" :key="k"
@@ -39,7 +39,7 @@
         <h2 class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
           <span>🛠️</span> Fetcher execution defaults
         </h2>
-        <p class="text-xs text-gray-600 mb-4">Per-resource advanced execution parameters inherit these when left blank.</p>
+        <p class="text-xs text-gray-600 mb-4">Los parámetros de ejecución avanzada por recurso heredan estos valores cuando se dejan en blanco.</p>
         <div class="grid grid-cols-2 gap-x-10 divide-y-0">
           <SettingRow
             v-for="k in fetcherDefaultKeys" :key="k"
@@ -59,14 +59,14 @@
             <h2 class="text-sm font-semibold text-gray-300 flex items-center gap-2">
               <span>🗄️</span> Data retention
             </h2>
-            <p class="text-xs text-gray-600 mt-0.5">How long to keep logs and execution history.</p>
+            <p class="text-xs text-gray-600 mt-0.5">Cuánto tiempo se conservan los registros y el histórico de ejecuciones.</p>
           </div>
           <!-- Right header -->
           <div class="mb-4">
             <h2 class="text-sm font-semibold text-gray-300 flex items-center gap-2">
               <span>🔧</span> Behaviour
             </h2>
-            <p class="text-xs text-gray-600 mt-0.5">Runtime behaviour and notifications.</p>
+            <p class="text-xs text-gray-600 mt-0.5">Comportamiento en ejecución y notificaciones.</p>
           </div>
 
           <!-- Rows interleaved: left col then right col per row -->

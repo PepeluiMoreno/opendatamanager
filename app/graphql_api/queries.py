@@ -729,12 +729,12 @@ class Query:
             # no tener fila aún (así el campo aparece en Settings y es ajustable).
             faltan = {
                 "execute_cooldown_minutes": (60, "Minutos mínimos entre re-ejecuciones de un recurso. 0 = sin cooldown."),
-                "num_workers": (1, "Default parallel workers per fetch when a resource does not set it."),
-                "max_concurrent_requests": (4, "Default max concurrent HTTP requests per fetch."),
-                "rate_limit_per_second": (0, "Default request rate cap per second (0 = unlimited)."),
-                "request_delay_ms": (0, "Default delay between requests in milliseconds (0 = none)."),
-                "retry_attempts": (5, "Default retry attempts on failure."),
-                "batch_size": (1000, "Default rows per processing batch."),
+                "num_workers": (1, "Workers en paralelo por defecto al cosechar cuando un recurso no lo fija."),
+                "max_concurrent_requests": (4, "Máximo de peticiones HTTP concurrentes por defecto en cada cosecha."),
+                "rate_limit_per_second": (0, "Límite de peticiones por segundo por defecto (0 = sin límite)."),
+                "request_delay_ms": (0, "Retardo por defecto entre peticiones en milisegundos (0 = ninguno)."),
+                "retry_attempts": (5, "Reintentos por defecto ante fallo."),
+                "batch_size": (1000, "Filas por lote de procesamiento por defecto."),
             }
             presentes = {r.key for r in rows}
             for k, (val, desc) in faltan.items():
