@@ -109,17 +109,22 @@ LEXICO_FUERTE = {
     "jesus-maria": 4, "santisimo sacramento": 5, "santisima trinidad": 5,
     "nuestra senora de": 4, "nuestra senora del": 4, "amor de dios": 4, "casa de dios": 4,
 }
-LEXICO_MODIF = {
-    # Suman solo con otra señal (evitan falsos positivos de palabras genéricas).
-    "iglesia": 2, "religiosa": 2, "religioso": 2, "catolica": 2, "catolico": 2,
-    "apostolica": 2, "eclesial": 2, "eclesiastica": 2, "canonica": 2,
-    "diocesano": 2, "diocesana": 2, "parroquial": 2, "pastoral": 1,
-    "evangelizacion": 2, "catequesis": 2, "liturgia": 1, "oracion": 1,
-    "sagrada": 1, "sagrado": 1, "nuestra senora": 2, "virgen": 1,
-    "santisima": 1, "santisimo": 1, "san ": 1, "santa ": 1, "santo ": 1,
-    "del santisimo": 2, "del carmen": 1, "del rosario": 1, "sagrada familia": 2,
-    "colegio": 1, "casa": 1, "capilla": 2, "fraternidad": 2, "fundacion": 1,
-    "mision": 1, "asociacion": 0,
+# Adjetivos confesionales: SÍ son señal por sí solos (cuentan siempre).
+# catolica/diocesana/parroquial a 3 → alcanzan "probable" sin otra señal.
+LEXICO_MODIF_ALWAYS = {
+    "catolica": 3, "catolico": 3, "diocesano": 3, "diocesana": 3, "parroquial": 3,
+    "eclesial": 2, "eclesiastica": 2, "canonica": 2, "apostolica": 2,
+    "religiosa": 2, "religioso": 2,
+    "evangelizacion": 2, "catequesis": 2, "pastoral": 1,
+}
+# Hagiónimos y genéricos: en España casi todo callejero/patrón lleva un santo.
+# Solo cuentan si hay un término ESTRUCTURAL (FUERTE) o confesional presente.
+LEXICO_MODIF_GATED = {
+    "sagrada familia": 2, "del santisimo": 2, "nuestra senora": 2, "capilla": 2,
+    "sagrada": 1, "sagrado": 1, "virgen": 1, "santisima": 1, "santisimo": 1,
+    "san ": 1, "santa ": 1, "santo ": 1, "del carmen": 1, "del rosario": 1,
+    "liturgia": 1, "oracion": 1, "colegio": 1, "casa": 1, "fundacion": 1,
+    "mision": 1, "iglesia": 1, "fraternidad": 1,
 }
 # Entidades SECULARES que toman prestadas palabras de sonido religioso (NO católicas).
 LEXICO_NEGATIVO = {
@@ -166,17 +171,32 @@ def letra_nif(nif: str) -> str:
 
 
 def puntua_lexico(nombre: str) -> Tuple[int, List[str]]:
-    """Score determinista de la denominación. Devuelve (score, evidencia)."""
+    """Score determinista de la denominación. Devuelve (score, evidencia).
+
+    Gating: los hagiónimos (san/santa/virgen…) y genéricos (colegio/casa/
+    fundación) solo puntúan si hay un término ESTRUCTURAL fuerte o un adjetivo
+    confesional presente. Un santo suelto no es señal religiosa (medio callejero
+    español es hagiotopónimo).
+    """
     n = " " + _norm(nombre).lower() + " "
     score, evid = 0, []
+    fuerte = False
     for term, w in LEXICO_FUERTE.items():
         if term in n:
             score += w
             evid.append(f"+{w} «{term}»")
-    for term, w in LEXICO_MODIF.items():
+            fuerte = True
+    confesional = False
+    for term, w in LEXICO_MODIF_ALWAYS.items():
         if term in n:
             score += w
-            evid.append(f"+{w} mod «{term.strip()}»")
+            evid.append(f"+{w} conf «{term.strip()}»")
+            confesional = True
+    if fuerte or confesional:
+        for term, w in LEXICO_MODIF_GATED.items():
+            if term in n:
+                score += w
+                evid.append(f"+{w} mod «{term.strip()}»")
     for term, w in LEXICO_NEGATIVO.items():
         if term in n:
             score -= w
