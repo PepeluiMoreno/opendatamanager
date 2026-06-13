@@ -1,0 +1,61 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "GENCAT-DGDEJ",
+    "nombre": "Generalitat de Catalunya — Direcció General de Dret i d'Entitats Jurídiques",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://analisi.transparenciacatalunya.cat"
+  },
+  "resources": [
+    {
+      "name": "Cataluña - Registro de Entidades Jurídicas (asociaciones, fundaciones, entidades religiosas)",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 8 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://analisi.transparenciacatalunya.cat/resource/y6fz-g3ff.json",
+          "is_external": false
+        },
+        {
+          "key": "pagination",
+          "value": "query_offset",
+          "is_external": false
+        },
+        {
+          "key": "start_param",
+          "value": "$offset",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "$limit",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "id_field",
+          "value": "id_entitat",
+          "is_external": false
+        },
+        {
+          "key": "delay",
+          "value": "0.2",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "30",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
