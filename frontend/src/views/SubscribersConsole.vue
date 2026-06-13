@@ -395,7 +395,7 @@ async function crearSuscripcion(){ nuevaSusc.value.busy=true
 .row:hover{border-color:#2c3a48;background:var(--panel-2)}
 .row.sel{border-color:var(--signal-dim);background:#10211e}
 .row.child{background:#0f141bcc;margin-left:30px;border-style:dashed;border-color:#1c2733}
-@media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 110px 78px}.col-sched,.col-pub{display:none}}
+@media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 110px 78px}.col-sched,.col-pub{display:none!important}}
 .cbx{appearance:none;width:17px;height:17px;border-radius:5px;border:1.5px solid #36434f;background:#0d1219;cursor:pointer;position:relative}
 .cbx:checked{background:var(--signal);border-color:var(--signal)}
 .cbx:checked::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#042521;font-size:11px;font-weight:800}
