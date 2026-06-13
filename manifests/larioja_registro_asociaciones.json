@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "LARIOJA",
+    "nombre": "Gobierno de La Rioja",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://www.larioja.org/opendata"
+  },
+  "resources": [
+    {
+      "name": "La Rioja - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 18 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Gobierno de La Rioja). Señal de fines: TEXTO de fines (campo 'FINES') + clasificación ('ACTIVIDADES'). Identificador: CIF. Municipio: MUNICIPIO. NIF + fines: de las más completas, junto a Cataluña y Baleares.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://ias1.larioja.org/opendata/download?r=Y2Q9ODUzfGNmPTAz",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

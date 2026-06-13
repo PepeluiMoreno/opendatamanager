@@ -1,0 +1,48 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "PRAST",
+    "nombre": "Principado de Asturias",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://transparencia.asturias.es"
+  },
+  "resources": [
+    {
+      "name": "Asturias - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 20 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Principado de Asturias). Señal de fines: clasificación por 'DIVISION' + 'SECCION'. Identificador: CIF. Municipio: 'CIUDAD'/'MUNICIPIO'. Fichero delimitado por '§', codificación latin-1.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://descargas.asturias.es/asturias/opendata/CulturayOcio/dataset-rapa.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "delimiter",
+          "value": "§",
+          "is_external": false
+        },
+        {
+          "key": "encoding",
+          "value": "latin-1",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

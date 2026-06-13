@@ -105,6 +105,22 @@ def _extract_gz(content: bytes) -> tuple[bytes, str]:
     return gzip.decompress(content), ""
 
 
+def _extract_7z(content: bytes, entry: str) -> tuple[bytes, str]:
+    """Extrae una entrada de un archivo .7z (requiere py7zr, import perezoso)."""
+    import py7zr, tempfile, os
+    with tempfile.TemporaryDirectory() as tmp:
+        with py7zr.SevenZipFile(io.BytesIO(content), mode="r") as z:
+            names = [n for n in z.getnames() if not n.endswith("/")]
+            target = entry or (names[0] if len(names) == 1 else "")
+            if not target:
+                raise ValueError(f"Especifica 'entry'; el 7z contiene varias: {names}")
+            if target not in names:
+                raise ValueError(f"Entrada '{target}' no encontrada en el 7z. Disponibles: {names}")
+            z.extract(path=tmp, targets=[target])
+        with open(os.path.join(tmp, target), "rb") as fh:
+            return fh.read(), target
+
+
 def _infer_inner_format(entry_name: str) -> str:
     """Infiere el formato del fichero extraído a partir de su extensión."""
     inferred = infer_file_format(entry_name)
@@ -125,12 +141,12 @@ class CompressedFileFetcher(BaseFetcher):
         fmt = self.params.get("format", "").lower().strip()
         if not fmt:
             # Inferir del nombre del fichero
-            for ext in ("tar.gz", "tar.bz2", "tar", "zip", "gz"):
+            for ext in ("tar.gz", "tar.bz2", "tar", "zip", "gz", "7z"):
                 if url.lower().endswith(f".{ext}") or f".{ext}?" in url.lower():
                     fmt = ext
                     break
         if not fmt:
-            raise ValueError("El parámetro 'format' es obligatorio. Valores: zip | tar | tar.gz | tar.bz2 | gz")
+            raise ValueError("El parámetro 'format' es obligatorio. Valores: zip | 7z | tar | tar.gz | tar.bz2 | gz")
 
         entry      = self.params.get("entry", "").strip()
         inner_fmt  = self.params.get("inner_format", "").lower().strip()
@@ -151,10 +167,12 @@ class CompressedFileFetcher(BaseFetcher):
             raw, used_entry = _extract_zip(response.content, entry)
         elif fmt == "gz":
             raw, used_entry = _extract_gz(response.content)
+        elif fmt == "7z":
+            raw, used_entry = _extract_7z(response.content, entry)
         elif fmt in _TAR_MODES:
             raw, used_entry = _extract_tar(response.content, _TAR_MODES[fmt], entry)
         else:
-            raise ValueError(f"Formato '{fmt}' no soportado. Valores: zip | tar | tar.gz | tar.bz2 | gz")
+            raise ValueError(f"Formato '{fmt}' no soportado. Valores: zip | 7z | tar | tar.gz | tar.bz2 | gz")
 
         logger.info(f"[CompressedFileFetcher] Extraído '{used_entry}' — {len(raw):,} bytes")
 
@@ -190,12 +208,12 @@ class CompressedFileFetcher(BaseFetcher):
     def _resolve_fmt(self, url: str) -> str:
         fmt = self.params.get("format", "").lower().strip()
         if not fmt:
-            for ext in ("tar.gz", "tar.bz2", "tar", "zip", "gz"):
+            for ext in ("tar.gz", "tar.bz2", "tar", "zip", "gz", "7z"):
                 if url.lower().endswith(f".{ext}") or f".{ext}?" in url.lower():
                     fmt = ext
                     break
         if not fmt:
-            raise ValueError("El parámetro 'format' es obligatorio. Valores: zip | tar | tar.gz | tar.bz2 | gz")
+            raise ValueError("El parámetro 'format' es obligatorio. Valores: zip | 7z | tar | tar.gz | tar.bz2 | gz")
         return fmt
 
     def propose(self) -> List[Dict[str, Any]]:
@@ -225,7 +243,7 @@ class CompressedFileFetcher(BaseFetcher):
         elif fmt == "gz":
             members = []   # gz = un único fichero, no es contenedor de varios
         else:
-            raise ValueError(f"Formato '{fmt}' no soportado. Valores: zip | tar | tar.gz | tar.bz2 | gz")
+            raise ValueError(f"Formato '{fmt}' no soportado. Valores: zip | 7z | tar | tar.gz | tar.bz2 | gz")
 
         proposals: List[Dict[str, Any]] = []
         omitidos = 0

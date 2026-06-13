@@ -17,3 +17,4 @@ psutil>=5.9
 openpyxl>=3.1,<4.0
 xlrd>=2.0,<3.0
 pdfplumber>=0.10,<1.0
+py7zr

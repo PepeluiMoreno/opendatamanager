@@ -1,0 +1,48 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "JA-CJALFP",
+    "nombre": "Junta de Andalucía — Consejería de Justicia, Administración Local y Función Pública",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://www.juntadeandalucia.es/datosabiertos"
+  },
+  "resources": [
+    {
+      "name": "Andalucía - Registro de Asociaciones",
+      "fetcher": "Compressed File",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 16 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Junta de Andalucía). Señal de fines: ninguna en el volcado (la 'sección' del registro no se exporta). Identificador: NIF. Municipio: LOCALIDAD. Web: WEB (habilita enriquecimiento por aviso legal). Volcado XLS comprimido en 7z.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.juntadeandalucia.es/datosabiertos/portal/dataset/4399a263-ad6f-48df-a947-f76bd6451f3c/resource/88f8e17a-1aba-4e58-bd36-bcd38ee96b5d/download/asociaciones_2025.xls.7z",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "7z",
+          "is_external": false
+        },
+        {
+          "key": "inner_format",
+          "value": "xls",
+          "is_external": false
+        },
+        {
+          "key": "entry",
+          "value": "asociaciones_2025.xls",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
