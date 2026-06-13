@@ -353,15 +353,6 @@
     </div>
 
   <!-- Confirm dialog (abort) -->
-  <ConfirmDialog
-    v-if="dialog.show"
-    :title="dialog.title"
-    :message="dialog.message"
-    :confirmText="dialog.confirmText"
-    :dangerMode="true"
-    @confirm="handleDialogConfirm"
-    @cancel="dialog.show = false"
-  />
 
   <!-- Delete process modal -->
   <div
@@ -393,12 +384,12 @@
 <script setup>
 import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useConfirm } from '../composables/useConfirm'
 import Spinner from '../components/Spinner.vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'
 import { useAuth } from '../composables/useAuth'
 
 const { puede } = useAuth()
-import ConfirmDialog from '../components/ConfirmDialog.vue'
 
 const executions = ref([])
 const resources = ref([])
@@ -560,18 +551,12 @@ function resourceParamTags(resourceId) {
 }
 
 // ---- confirm dialog (abort only) ----
-const dialog = ref({ show: false, title: '', message: '', confirmText: 'Confirm', _resolve: null })
+const { confirm } = useConfirm()
 
 function showConfirm(title, message, confirmText = 'Confirm') {
-  return new Promise(resolve => {
-    dialog.value = { show: true, title, message, confirmText, _resolve: resolve }
-  })
+  return confirm({ title, message, confirmText }).then(r => r.ok)
 }
 
-function handleDialogConfirm() {
-  dialog.value.show = false
-  dialog.value._resolve?.(true)
-}
 
 // ---- delete execution modal ----
 const showDeleteModal = ref(false)

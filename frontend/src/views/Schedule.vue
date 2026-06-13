@@ -139,24 +139,15 @@
     </div>
 
   <!-- Confirm dialog -->
-  <ConfirmDialog
-    v-if="dialog.show"
-    :title="dialog.title"
-    :message="dialog.message"
-    :confirmText="dialog.confirmText"
-    :dangerMode="true"
-    @confirm="handleDialogConfirm"
-    @cancel="dialog.show = false"
-  />
   </ViewLayout>
 </template>
 
 <script setup>
 import ViewLayout from '../components/ViewLayout.vue'
 import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { useConfirm } from '../composables/useConfirm'
 import Spinner from '../components/Spinner.vue'
 import { fetchResources, updateResource } from '../api/graphql.js'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
 import ScheduleEditor from '../components/ScheduleEditor.vue'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -291,18 +282,12 @@ async function saveForm() {
   }
 }
 
-const dialog = ref({ show: false, title: '', message: '', confirmText: 'Confirm', _resolve: null })
+const { confirm } = useConfirm()
 
 function showConfirm(title, message, confirmText = 'Confirm') {
-  return new Promise(resolve => {
-    dialog.value = { show: true, title, message, confirmText, _resolve: resolve }
-  })
+  return confirm({ title, message, confirmText }).then(r => r.ok)
 }
 
-function handleDialogConfirm() {
-  dialog.value.show = false
-  dialog.value._resolve?.(true)
-}
 
 async function confirmRemove(res) {
   const ok = await showConfirm('Eliminar programación', `¿Eliminar la programación de "${res.name}"?`, 'Eliminar')

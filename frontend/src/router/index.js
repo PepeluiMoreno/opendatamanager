@@ -2,7 +2,6 @@ import { sesionLista, puedePermiso } from '../composables/useAuth'
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
 import MisDatos from '../views/MisDatos.vue'
-import Resources from '../views/Resources.vue'
 import ResourcesConsole from '../views/ResourcesConsole.vue'
 import SubscribersConsole from '../views/SubscribersConsole.vue'
 import ResourceTest from '../views/ResourceTest.vue'
@@ -16,21 +15,17 @@ import Trash from '../views/Trash.vue'
 import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
 import Collections from '../views/Collections.vue'
-import Aprobaciones from '../views/Aprobaciones.vue'
-import Subscribers from '../views/SubscribersTabs.vue'
 
 const routes = [
   { path: '/mis-datos',      name: 'MisDatos',      component: MisDatos },
   { path: '/',               name: 'Dashboard',    component: Dashboard },
   { path: '/resources',      name: 'Resources',     component: ResourcesConsole },
-  { path: '/resources-classic', name: 'ResourcesClassic', component: Resources },
   { path: '/console',        redirect: '/resources' },
   { path: '/subscribers-console', redirect: '/subscribers' },
   { path: '/collections',    name: 'Collections',   component: Collections },
   { path: '/fetchers',       name: 'Fetchers',      component: Fetchers },
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
   { path: '/subscribers',    name: 'Subscribers',   component: SubscribersConsole },
-  { path: '/subscribers-classic', name: 'SubscribersClassic', component: Subscribers },
   { path: '/applications',   redirect: '/subscribers' },
   { path: '/aprobaciones',   redirect: '/subscribers' },
   { path: '/processes',      name: 'Processes',     component: Executions },

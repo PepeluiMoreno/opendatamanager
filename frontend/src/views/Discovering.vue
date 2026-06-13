@@ -357,18 +357,21 @@
     </div>
 
   </div>
-    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
-      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
-      @confirm="okConfirm" @cancel="cerrarConfirm" />
 </template>
 
 <script setup>
 import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import { useConfirm } from '../composables/useConfirm'
 const confirmar = ref(null)
-function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
-function cerrarConfirm() { confirmar.value = null }
+const { confirm } = useConfirm()
+watch(confirmar, async (val) => {
+  if (!val) return
+  const f = val.onConfirm
+  const { ok } = await confirm({ title: val.title, message: val.message, confirmText: val.confirmText, danger: true })
+  confirmar.value = null
+  if (ok && f) await f()
+})
 
 import { useRoute } from 'vue-router'
 import {

@@ -125,18 +125,23 @@
         </div>
       </div>
     </div>
-    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
-      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
-      @confirm="okConfirm" @cancel="cerrarConfirm" />
   </ViewLayout>
 </template>
 
 <script setup>
 import ViewLayout from '../components/ViewLayout.vue'
-import { ref, computed, onMounted } from 'vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useConfirm } from '../composables/useConfirm'
 import FilterBar from '../components/FilterBar.vue'
 const confirmar = ref(null)
+const { confirm } = useConfirm()
+watch(confirmar, async (val) => {
+  if (!val) return
+  const f = val.onConfirm
+  const { ok } = await confirm({ title: val.title, message: val.message, confirmText: val.confirmText, danger: true })
+  confirmar.value = null
+  if (ok && f) await f()
+})
 const rechazo = ref(null)
 const accionError = ref('')
 function cerrarRechazo() { rechazo.value = null }
@@ -150,8 +155,6 @@ async function confirmarRechazo() {
     accionError.value = 'No se pudo rechazar: ' + (e?.message || e)
   }
 }
-function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) f() }
-function cerrarConfirm() { confirmar.value = null }
 
 import { useAuth } from '../composables/useAuth'
 import {

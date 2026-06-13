@@ -91,18 +91,15 @@
         </button>
       </template>
     </Drawer>
-    <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
-      :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
-      @confirm="okConfirm" @cancel="cerrarConfirm" />
   </ViewLayout>
 </template>
 
 <script setup>
 import ViewLayout from '../components/ViewLayout.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
+import { useConfirm } from '../composables/useConfirm'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Drawer from '../components/Drawer.vue'
 
 const usuarios = ref([])
@@ -113,6 +110,14 @@ const form = ref(null)
 const formError = ref('')
 const guardando = ref(false)
 const confirmar = ref(null)
+const { confirm } = useConfirm()
+watch(confirmar, async (val) => {
+  if (!val) return
+  const f = val.onConfirm
+  const { ok } = await confirm({ title: val.title, message: val.message, confirmText: val.confirmText, danger: true })
+  confirmar.value = null
+  if (ok && f) await f()
+})
 
 async function api(path, options = {}) {
   const r = await fetch(`/api/usuarios${path}`, {
@@ -182,8 +187,6 @@ function confirmarBorrado(u) {
     },
   }
 }
-async function okConfirm() { const f = confirmar.value?.onConfirm; confirmar.value = null; if (f) await f() }
-function cerrarConfirm() { confirmar.value = null }
 
 onMounted(cargar)
 </script>
