@@ -25,7 +25,7 @@
           <div class="cmeta">
             <span class="nm">{{ c.label }}</span>
             <span class="attrs">
-              <span class="at">{{ c.kind==='matriz' ? 'nodriza' : c.kind==='none' ? 'sin agrupar' : 'organizativa' }}</span>
+              <span class="at">{{ c.kind==='matriz' ? 'nodriza' : c.kind==='none' ? 'sin agrupar' : c.kind==='all' ? 'todas' : 'organizativa' }}</span>
               <span class="at">· {{ c.count }} rec.</span>
             </span>
           </div>
@@ -295,7 +295,7 @@ const groups = ref([])
 const fetchers = ref([])
 const publishers = ref([])
 
-const selected = ref('__none__')   // colección abierta: id | '__none__'
+const selected = ref('__all__')   // colección abierta: '__all__' | id | '__none__'
 const q = ref(''); const fType = ref(''); const fStatus = ref(''); const fPublisher = ref('')
 const sel = ref(new Set())
 const abiertas = ref(new Set())
@@ -396,6 +396,7 @@ function esNodriza(r) { return r?.generaColecciones === true }
 function memberCount(id) { return resources.value.filter(r => r.collectionId === id).length }
 const countSinAgrupar = computed(() => resources.value.filter(r => !r.collectionId).length)
 const panels = computed(() => [
+  { key:'all', group:'__all__', label:'Todos los recursos', icon:'📚', kind:'all', count: resources.value.length },
   ...groups.value.map(g => ({
     key:g.id, group:g.id, label:g.name, g,
     icon: g.origin === 'matriz' ? '🛰️' : '🗂️',
@@ -408,7 +409,7 @@ const tituloColeccion = computed(() => panels.value.find(p => p.group === select
 const metaColeccion = computed(() => {
   const p = panels.value.find(x => x.group === selected.value)
   if (!p) return ''
-  const k = p.kind === 'matriz' ? 'nodriza' : p.kind === 'none' ? 'sin colección' : 'organizativa'
+  const k = p.kind === 'all' ? 'todas las colecciones' : p.kind === 'matriz' ? 'nodriza' : p.kind === 'none' ? 'sin colección' : 'organizativa'
   return `${p.count} recursos · ${k}`
 })
 const nActivos = computed(() => resources.value.filter(r => r.active).length)
@@ -416,7 +417,9 @@ const nPend = computed(() => resources.value.filter(r => r.estadoAprobacion === 
 
 // ---- lista de la colección abierta ----
 const enColeccion = computed(() => resources.value.filter(r =>
-  selected.value === '__none__' ? !r.collectionId : r.collectionId === selected.value))
+  selected.value === '__all__' ? true
+    : selected.value === '__none__' ? !r.collectionId
+    : r.collectionId === selected.value))
 const topLevel = computed(() => enColeccion.value.filter(r => !r.parentResourceId).filter(r => {
   if (q.value && !r.name.toLowerCase().includes(q.value.toLowerCase())) return false
   if (fType.value && r.fetcher?.code !== fType.value) return false
@@ -462,7 +465,7 @@ async function agruparSel(){ const n=grpName.value.trim(); if(!n)return; await a
 const panelsFiltradas = computed(() => {
   const f = colFilter.value.trim().toLowerCase()
   if (!f) return panels.value
-  return panels.value.filter(p => p.label.toLowerCase().includes(f) || p.kind === 'none')
+  return panels.value.filter(p => p.label.toLowerCase().includes(f) || p.kind === 'none' || p.kind === 'all')
 })
 async function aplicarLote(){
   if (!bulkAction.value || sel.value.size===0) return
@@ -497,7 +500,7 @@ async function crearColeccion(){ const n=addName.value.trim(); if(!n)return; try
 const rename = ref({show:false,g:null,name:''})
 function abrirRename(g){ rename.value={show:true,g,name:g.name} }
 async function confirmarRename(){ const n=rename.value.name.trim(); if(!n)return; try{ await renameResourceCollection(rename.value.g.id,n); rename.value.show=false; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
-async function pedirBorrarCol(g){ const { ok } = await confirm({ title:'Eliminar colección', message:`¿Eliminar "${g.name}"? Sus recursos quedarán sin agrupar (no se borran).`, confirmText:'Eliminar', danger:true }); if(!ok) return; try{ await deleteResourceCollection(g.id); if(selected.value===g.id) selected.value='__none__'; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
+async function pedirBorrarCol(g){ const { ok } = await confirm({ title:'Eliminar colección', message:`¿Eliminar "${g.name}"? Sus recursos quedarán sin agrupar (no se borran).`, confirmText:'Eliminar', danger:true }); if(!ok) return; try{ await deleteResourceCollection(g.id); if(selected.value===g.id) selected.value='__all__'; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 
 // ---- drawer recurso ----
 const drawer = ref(false); const editing = ref(null); const saving = ref(false); const advOpen = ref(false)
@@ -528,7 +531,7 @@ function abrirDrawer(r){
     }
     steppers.value = STEP_KEYS.map(s=>({ ...s, val:(r.params||[]).find(p=>p.key===s.key)?.value || '' }))
   } else {
-    form.value = { name:'', description:'', publisherId:'', collectionId:(selected.value==='__none__'?'':selected.value), fetcherId:'', params:[], schedule:'', active:true }
+    form.value = { name:'', description:'', publisherId:'', collectionId:((selected.value==='__none__'||selected.value==='__all__')?'':selected.value), fetcherId:'', params:[], schedule:'', active:true }
     steppers.value = STEP_KEYS.map(s=>({...s,val:''}))
   }
   drawer.value = true
