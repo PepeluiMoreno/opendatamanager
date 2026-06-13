@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "EJ-GV",
+    "nombre": "Eusko Jaurlaritza — Gobierno Vasco",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://opendata.euskadi.eus"
+  },
+  "resources": [
+    {
+      "name": "País Vasco - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 24 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Gobierno Vasco, actualización semanal). El más completo: identificador CIF; señal de fines en TEXTO ('Fines' + 'Finalidad') + 'Clasificación' + 'Tipo de asociación'; municipio; web. Incluye utilidad pública y tercer sector. XLSX.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://opendata.euskadi.eus/contenidos/ds_registros/asociaciones_euskadi/opendata/asociaciones.xlsx",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "xlsx",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "XUNTA",
+    "nombre": "Xunta de Galicia",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://abertos.xunta.gal"
+  },
+  "resources": [
+    {
+      "name": "Galicia - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 26 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro autonómico de asociaciones (Xunta de Galicia). Identificador: CIF. Señal de fines: 'ámbito' (sin texto de finalidades). Municipio en domicilio. CSV de descarga directa del portal abertos.xunta.gal.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://abertos.xunta.gal/catalogo/administracion-publica/-/dataset/0050/rexistro-asociacions/001/descarga-directa-ficheiro.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
