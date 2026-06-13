@@ -605,6 +605,51 @@ class SearchLoopHtmlFetcher(BaseFetcher):
         logger.info(f"Fetch completado: {len(all_records)} registros totales")
         return all_records
 
+    # ------------------------------------------------------------------
+    # Modo DESCUBRIR: emitir hijos heterogéneos sembrados por URL
+    # ------------------------------------------------------------------
+    def propose(self) -> List[Dict[str, Any]]:
+        """Descubrimiento heterogéneo: por cada registro crawleado emite un
+        candidato hijo de la especie `child_fetcher` (def. "Web Tree") sembrado
+        con la URL contenida en el campo `root_url_from_field`. Pensado para
+        nodrizas tipo «índice de diócesis → un Web Tree por diócesis»: el padre
+        DESCUBRE las webs, cada hijo CRAWLEA su portal.
+
+        Contrato idéntico al de la nodriza de catálogo DCAT (target_fetcher_code
+        + target_params). Es retro-compatible: si `root_url_from_field` no está
+        definido, no propone nada y el fetcher sigue siendo extractor puro.
+        """
+        url_field = (self.params.get("root_url_from_field") or "").strip()
+        if not url_field:
+            return []
+        child = self.params.get("child_fetcher") or "Web Tree"
+        child_params = _parse_json_param(self.params.get("child_params", {}))
+        if not isinstance(child_params, dict):
+            child_params = {}
+        name_field = (self.params.get("child_name_field") or "nombre").strip()
+        seen: set = set()
+        proposals: List[Dict[str, Any]] = []
+        for rec in self.fetch():
+            raw_url = str(rec.get(url_field) or "").strip()
+            if not raw_url.lower().startswith(("http://", "https://")):
+                continue
+            url = raw_url.split("#")[0].strip().rstrip("/") + "/"
+            if url in seen:
+                continue
+            seen.add(url)
+            name = str(rec.get(name_field) or rec.get("nombre") or url)[:200]
+            proposals.append({
+                "suggested_name": name,
+                "matched_urls": [url],
+                "file_types": {},
+                "confidence": 0.85,
+                "target_fetcher_code": child,
+                "target_params": {"root_url": url, **child_params},
+            })
+        self.profile_stats = {"total_files": len(proposals), "file_extensions": {}}
+        logger.info(f"[propose] {len(proposals)} hijos {child} sembrados por '{url_field}'")
+        return proposals
+
     def parse(self, raw: RawData) -> ParsedData:
         return raw
 

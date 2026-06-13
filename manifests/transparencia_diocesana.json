@@ -16,14 +16,46 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "root_url", "value": "https://www.diocesisdejerez.org/portal-de-transparencia/", "is_external": false },
-        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
-        { "key": "include_patterns", "value": "transparencia,inmatricul,parroquia,directorio,convenio,cuentas,memoria,balance,bienes", "is_external": false },
-        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia,evento", "is_external": false },
-        { "key": "max_depth", "value": "3", "is_external": false },
-        { "key": "page_delay", "value": "0.5", "is_external": false },
-        { "key": "max_file_mb", "value": "40", "is_external": false },
-        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+        {
+          "key": "root_url",
+          "value": "https://www.diocesisdejerez.org/portal-de-transparencia/",
+          "is_external": false
+        },
+        {
+          "key": "file_extensions",
+          "value": "pdf,csv,xlsx,xls",
+          "is_external": false
+        },
+        {
+          "key": "include_patterns",
+          "value": "transparencia,inmatricul,parroquia,directorio,convenio,cuentas,memoria,balance,bienes",
+          "is_external": false
+        },
+        {
+          "key": "exclude_patterns",
+          "value": "noticia,blog,agenda,homilia,evento",
+          "is_external": false
+        },
+        {
+          "key": "max_depth",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "page_delay",
+          "value": "0.5",
+          "is_external": false
+        },
+        {
+          "key": "max_file_mb",
+          "value": "40",
+          "is_external": false
+        },
+        {
+          "key": "crawl_timeout",
+          "value": "1800",
+          "is_external": false
+        }
       ]
     },
     {
@@ -34,14 +66,46 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "root_url", "value": "https://transparencia.bizkeliza.org/", "is_external": false },
-        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
-        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria,auditoria", "is_external": false },
-        { "key": "exclude_patterns", "value": "noticia,blog,agenda", "is_external": false },
-        { "key": "max_depth", "value": "3", "is_external": false },
-        { "key": "page_delay", "value": "0.5", "is_external": false },
-        { "key": "max_file_mb", "value": "40", "is_external": false },
-        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+        {
+          "key": "root_url",
+          "value": "https://transparencia.bizkeliza.org/",
+          "is_external": false
+        },
+        {
+          "key": "file_extensions",
+          "value": "pdf,csv,xlsx,xls",
+          "is_external": false
+        },
+        {
+          "key": "include_patterns",
+          "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria,auditoria",
+          "is_external": false
+        },
+        {
+          "key": "exclude_patterns",
+          "value": "noticia,blog,agenda",
+          "is_external": false
+        },
+        {
+          "key": "max_depth",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "page_delay",
+          "value": "0.5",
+          "is_external": false
+        },
+        {
+          "key": "max_file_mb",
+          "value": "40",
+          "is_external": false
+        },
+        {
+          "key": "crawl_timeout",
+          "value": "1800",
+          "is_external": false
+        }
       ]
     },
     {
@@ -52,14 +116,46 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "root_url", "value": "https://diocesisalmeria.org/transparencia/", "is_external": false },
-        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
-        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
-        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
-        { "key": "max_depth", "value": "3", "is_external": false },
-        { "key": "page_delay", "value": "0.5", "is_external": false },
-        { "key": "max_file_mb", "value": "40", "is_external": false },
-        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+        {
+          "key": "root_url",
+          "value": "https://diocesisalmeria.org/transparencia/",
+          "is_external": false
+        },
+        {
+          "key": "file_extensions",
+          "value": "pdf,csv,xlsx,xls",
+          "is_external": false
+        },
+        {
+          "key": "include_patterns",
+          "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria",
+          "is_external": false
+        },
+        {
+          "key": "exclude_patterns",
+          "value": "noticia,blog,agenda,homilia",
+          "is_external": false
+        },
+        {
+          "key": "max_depth",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "page_delay",
+          "value": "0.5",
+          "is_external": false
+        },
+        {
+          "key": "max_file_mb",
+          "value": "40",
+          "is_external": false
+        },
+        {
+          "key": "crawl_timeout",
+          "value": "1800",
+          "is_external": false
+        }
       ]
     },
     {
@@ -70,14 +166,46 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "root_url", "value": "https://www.obispadodeibiza.es/portal-de-trasparencia/", "is_external": false },
-        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
-        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
-        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
-        { "key": "max_depth", "value": "3", "is_external": false },
-        { "key": "page_delay", "value": "0.5", "is_external": false },
-        { "key": "max_file_mb", "value": "40", "is_external": false },
-        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+        {
+          "key": "root_url",
+          "value": "https://www.obispadodeibiza.es/portal-de-trasparencia/",
+          "is_external": false
+        },
+        {
+          "key": "file_extensions",
+          "value": "pdf,csv,xlsx,xls",
+          "is_external": false
+        },
+        {
+          "key": "include_patterns",
+          "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria",
+          "is_external": false
+        },
+        {
+          "key": "exclude_patterns",
+          "value": "noticia,blog,agenda,homilia",
+          "is_external": false
+        },
+        {
+          "key": "max_depth",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "page_delay",
+          "value": "0.5",
+          "is_external": false
+        },
+        {
+          "key": "max_file_mb",
+          "value": "40",
+          "is_external": false
+        },
+        {
+          "key": "crawl_timeout",
+          "value": "1800",
+          "is_external": false
+        }
       ]
     },
     {
@@ -88,14 +216,46 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "root_url", "value": "https://obispadodeourense.com/portal/ptransparencia/", "is_external": false },
-        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
-        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
-        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
-        { "key": "max_depth", "value": "3", "is_external": false },
-        { "key": "page_delay", "value": "0.5", "is_external": false },
-        { "key": "max_file_mb", "value": "40", "is_external": false },
-        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+        {
+          "key": "root_url",
+          "value": "https://obispadodeourense.com/portal/ptransparencia/",
+          "is_external": false
+        },
+        {
+          "key": "file_extensions",
+          "value": "pdf,csv,xlsx,xls",
+          "is_external": false
+        },
+        {
+          "key": "include_patterns",
+          "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria",
+          "is_external": false
+        },
+        {
+          "key": "exclude_patterns",
+          "value": "noticia,blog,agenda,homilia",
+          "is_external": false
+        },
+        {
+          "key": "max_depth",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "page_delay",
+          "value": "0.5",
+          "is_external": false
+        },
+        {
+          "key": "max_file_mb",
+          "value": "40",
+          "is_external": false
+        },
+        {
+          "key": "crawl_timeout",
+          "value": "1800",
+          "is_external": false
+        }
       ]
     },
     {
@@ -106,14 +266,116 @@
       "active": true,
       "clase_fuente": "scraping_publico",
       "params": [
-        { "key": "root_url", "value": "https://www.obispadodetenerife.com/portal-transparencia/", "is_external": false },
-        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
-        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
-        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
-        { "key": "max_depth", "value": "3", "is_external": false },
-        { "key": "page_delay", "value": "0.5", "is_external": false },
-        { "key": "max_file_mb", "value": "40", "is_external": false },
-        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+        {
+          "key": "root_url",
+          "value": "https://www.obispadodetenerife.com/portal-transparencia/",
+          "is_external": false
+        },
+        {
+          "key": "file_extensions",
+          "value": "pdf,csv,xlsx,xls",
+          "is_external": false
+        },
+        {
+          "key": "include_patterns",
+          "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria",
+          "is_external": false
+        },
+        {
+          "key": "exclude_patterns",
+          "value": "noticia,blog,agenda,homilia",
+          "is_external": false
+        },
+        {
+          "key": "max_depth",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "page_delay",
+          "value": "0.5",
+          "is_external": false
+        },
+        {
+          "key": "max_file_mb",
+          "value": "40",
+          "is_external": false
+        },
+        {
+          "key": "crawl_timeout",
+          "value": "1800",
+          "is_external": false
+        }
+      ]
+    },
+    {
+      "name": "Descubridor de portales diocesanos (CEE → Web Tree por diócesis)",
+      "fetcher": "HTML SearchLoop",
+      "schedule": "0 5 5 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "genera_colecciones": true,
+      "params": [
+        {
+          "key": "navigation",
+          "value": "searchloop",
+          "is_external": false
+        },
+        {
+          "key": "url_template",
+          "value": "https://www.conferenciaepiscopal.es/diocesis/",
+          "is_external": false
+        },
+        {
+          "key": "search_field_name",
+          "value": "ambito",
+          "is_external": false
+        },
+        {
+          "key": "search_field_values",
+          "value": "es",
+          "is_external": false
+        },
+        {
+          "key": "levels",
+          "value": "[{\"level_name\": \"indice\", \"subpage_link_selector\": \"figure.wp-block-table table a[href*='diocesis-de-']\", \"subpage_link_attr\": \"href\", \"subpage_base_url\": \"https://www.conferenciaepiscopal.es/\", \"inherit_fields\": []}, {\"level_name\": \"diocesis\", \"field_selectors\": {\"nombre\": \"h1\"}, \"field_attr_selectors\": {\"web\": {\"selector\": \".entry-content a[href^='http']\", \"attr\": \"href\"}}}]",
+          "is_external": false
+        },
+        {
+          "key": "subpage_delay",
+          "value": "1.0",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "30",
+          "is_external": false
+        },
+        {
+          "key": "max_retries",
+          "value": "3",
+          "is_external": false
+        },
+        {
+          "key": "child_fetcher",
+          "value": "Web Tree",
+          "is_external": false
+        },
+        {
+          "key": "root_url_from_field",
+          "value": "web",
+          "is_external": false
+        },
+        {
+          "key": "child_name_field",
+          "value": "nombre",
+          "is_external": false
+        },
+        {
+          "key": "child_params",
+          "value": "{\"file_extensions\": \"pdf,csv,xlsx,xls\", \"include_patterns\": \"transparencia,inmatricul,parroquia,directorio,convenio,balance,memoria,bienes,cuentas\", \"exclude_patterns\": \"noticia,blog,agenda,homilia,evento\", \"max_depth\": \"2\", \"page_delay\": \"0.5\", \"max_file_mb\": \"40\", \"crawl_timeout\": \"1800\"}",
+          "is_external": false
+        }
       ]
     }
   ]
