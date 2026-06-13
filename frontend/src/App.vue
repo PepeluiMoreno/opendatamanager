@@ -44,6 +44,10 @@
 
   <!-- Overlay de inicio de sesión (bajo demanda; invitado por defecto) -->
   <Login v-if="mostrarLogin" />
+
+  <!-- Únicos para toda la app -->
+  <ConfirmHost />
+  <ToastHost />
 </template>
 
 <script setup>
@@ -51,6 +55,8 @@ import { ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import BackendStatus from './components/BackendStatus.vue'
 import Login from './components/Login.vue'
+import ConfirmHost from './components/ConfirmHost.vue'
+import ToastHost from './components/ToastHost.vue'
 import { useAuth } from './composables/useAuth'
 
 const { mostrarLogin } = useAuth()

@@ -200,13 +200,6 @@
       </div>
     </div>
 
-    <!-- ===== confirm ===== -->
-    <div v-if="confirm.show" class="scrim show" @click.self="confirm.show=false">
-      <div class="confirm">
-        <h2>{{ confirm.title }}</h2><p>{{ confirm.msg }}</p>
-        <div class="cf"><button class="ghost" @click="confirm.show=false">Cancelar</button><button class="danger" @click="confirm.onOk">Eliminar</button></div>
-      </div>
-    </div>
     </div><!-- /console activos -->
 
     <div v-if="tab==='pendientes'" class="pend-wrap"><Aprobaciones /></div>
@@ -218,12 +211,16 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import Aprobaciones from './Aprobaciones.vue'
 import { usePagination } from '../composables/usePagination'
+import { useConfirm } from '../composables/useConfirm'
+import { useToast } from '../composables/useToast'
 import {
   fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber,
   fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
 } from '../api/graphql'
 
 const { puede } = useAuth()
+const { confirm } = useConfirm()
+const { toast } = useToast()
 const tab = ref('activos')
 const canApprove = computed(() => puede('aplicaciones.aprobar') || puede('recursos.aprobar'))
 const loading = ref(true)
@@ -282,7 +279,7 @@ const todasSel = computed(()=> subsPaginadas.value.length>0 && subsPaginadas.val
 function toggleTodas(){ const s=new Set(sel.value); const on=!todasSel.value; subsPaginadas.value.forEach(su=>on?s.add(su.id):s.delete(su.id)); sel.value=s }
 function limpiarSel(){ sel.value=new Set() }
 const bulkBusy = ref(false)
-async function bajaLote(){ bulkBusy.value=true; try{ for(const id of sel.value) await unsubscribeResource(id); limpiarSel(); await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false } }
+async function bajaLote(){ bulkBusy.value=true; try{ for(const id of sel.value) await unsubscribeResource(id); limpiarSel(); await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false } }
 
 // drawer suscriptor
 const drawer=ref(false); const editing=ref(null); const saving=ref(false)
@@ -298,19 +295,18 @@ async function guardar(){ saving.value=true
     const input={ name:f.name, description:f.description||null, webhookUrl: f.consumptionMode==='graphql'?null:(f.webhookUrl||null), consumptionMode:f.consumptionMode, active:f.active, personaContacto:f.personaContacto||null, email:f.email||null, telefono:f.telefono||null, githubUrl:f.githubUrl||null, proposito:f.proposito||null }
     if(editing.value) await updateSubscriber(editing.value.id,input); else await createSubscriber(input)
     drawer.value=false; await load()
-  }catch(e){ window.alert('Error guardando: '+(e?.message||e)) } finally{ saving.value=false } }
+  }catch(e){ toast.error('Error guardando: '+(e?.message||e)) } finally{ saving.value=false } }
 
-const confirm=ref({show:false,title:'',msg:'',onOk:()=>{}})
-function pedirBorrarSub(s){ confirm.value={show:true,title:'Eliminar suscriptor',msg:`¿Eliminar "${s.name}"? Se eliminará el suscriptor y sus suscripciones.`,onOk:async()=>{ try{ await deleteSubscriber(s.id,false); confirm.value.show=false; if(selected.value===s.id) selected.value=null; await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } }} }
+async function pedirBorrarSub(s){ const { ok } = await confirm({ title:'Eliminar suscriptor', message:`¿Eliminar "${s.name}"? Se eliminará el suscriptor y sus suscripciones.`, confirmText:'Eliminar', danger:true }); if(!ok) return; try{ await deleteSubscriber(s.id,false); if(selected.value===s.id) selected.value=null; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 function pedirBorrarSubDrawer(){ const s=editing.value; drawer.value=false; pedirBorrarSub(s) }
-function pedirBaja(su){ const r=recDe(su.resourceId); confirm.value={show:true,title:'Cancelar suscripción',msg:`¿Cancelar la suscripción a "${r?.name||su.resourceId}"?`,onOk:async()=>{ try{ await unsubscribeResource(su.id); confirm.value.show=false; await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } }} }
+async function pedirBaja(su){ const r=recDe(su.resourceId); const { ok } = await confirm({ title:'Cancelar suscripción', message:`¿Cancelar la suscripción a "${r?.name||su.resourceId}"?`, confirmText:'Cancelar suscripción', danger:true }); if(!ok) return; try{ await unsubscribeResource(su.id); await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 
 // nueva suscripción
 const nuevaSusc=ref({show:false,resourceId:'',autoUpgrade:'patch',busy:false})
 function abrirNuevaSusc(){ nuevaSusc.value={show:true,resourceId:'',autoUpgrade:'patch',busy:false} }
 async function crearSuscripcion(){ nuevaSusc.value.busy=true
   try{ await subscribeResource(selected.value, nuevaSusc.value.resourceId, null, nuevaSusc.value.autoUpgrade, null); nuevaSusc.value.show=false; await load() }
-  catch(e){ window.alert('Error: '+(e?.message||e)) } finally{ nuevaSusc.value.busy=false } }
+  catch(e){ toast.error('Error: '+(e?.message||e)) } finally{ nuevaSusc.value.busy=false } }
 </script>
 
 <style scoped>

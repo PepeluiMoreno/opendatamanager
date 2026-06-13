@@ -180,7 +180,8 @@
 
     <!-- ============ DRAWER (resource editor) ============ -->
     <div :class="['scrim',{show:drawer}]" @click="cerrarDrawer"></div>
-    <aside :class="['drawer',{show:drawer}]">
+    <aside :class="['drawer',{show:drawer}]" :style="{ width: 'min('+drawerW+'px, 96vw)' }">
+      <div class="dgrip" @mousedown.prevent="startDrawerDrag" title="Arrastra para ensanchar"></div>
       <div class="dh">
         <div class="di">{{ editing ? '✎' : '＋' }}</div>
         <div>
@@ -212,14 +213,8 @@
           <div class="sbody">
             <div class="field"><label>Fetcher <span class="req">*</span></label>
               <select class="inp" v-model="form.fetcherId"><option value="">—</option><option v-for="f in fetchers" :key="f.id" :value="f.id">{{ f.name }}</option></select></div>
-            <div class="params">
-              <div class="ph"><span>Parámetro</span><span>Valor</span><span></span></div>
-              <div v-for="(p,i) in form.params" :key="i" class="prow">
-                <input v-model="p.key" placeholder="clave">
-                <input v-model="p.value" placeholder="valor">
-                <button class="rm" @click="form.params.splice(i,1)">✕</button>
-              </div>
-              <button class="addp" @click="form.params.push({key:'',value:''})">＋ Añadir parámetro</button>
+            <div class="field"><label>Parámetros</label>
+              <ResourceParamsEditor :fetcher="selectedFetcher" v-model="form.params" />
             </div>
           </div>
         </div>
@@ -263,17 +258,6 @@
       </div>
     </aside>
 
-    <!-- ============ CONFIRM DELETE (collection / resource) ============ -->
-    <div v-if="confirm.show" class="scrim show" @click.self="confirm.show=false">
-      <div class="confirm">
-        <h2>{{ confirm.title }}</h2>
-        <p>{{ confirm.msg }}</p>
-        <div class="cf">
-          <button class="ghost" @click="confirm.show=false">Cancelar</button>
-          <button :class="confirm.okClass || 'danger'" @click="confirm.onOk">{{ confirm.okText || 'Eliminar' }}</button>
-        </div>
-      </div>
-    </div>
 
     <!-- rename collection (reuse drawer-lite modal) -->
     <div v-if="rename.show" class="scrim show" @click.self="rename.show=false">
@@ -293,6 +277,9 @@
 import { ref, computed, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination'
 import { useAuth } from '../composables/useAuth'
+import ResourceParamsEditor from '../components/ResourceParamsEditor.vue'
+import { useConfirm } from '../composables/useConfirm'
+import { useToast } from '../composables/useToast'
 import {
   fetchResources, fetchResourceCollections, fetchFetchers, fetchPublishers,
   createResource, updateResource, deleteResource, executeResource,
@@ -300,6 +287,8 @@ import {
 } from '../api/graphql'
 
 const { puede } = useAuth()
+const { confirm } = useConfirm()
+const { toast } = useToast()
 
 const loading = ref(true)
 const resources = ref([])
@@ -458,7 +447,7 @@ function limpiarSel(){ sel.value=new Set() }
 const seleccionados = computed(()=> resources.value.filter(r=>sel.value.has(r.id)))
 
 const moveTarget = ref(''); const grpName = ref('')
-async function aplicar(fn){ try{ await fn(); limpiarSel(); await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } }
+async function aplicar(fn){ try{ await fn(); limpiarSel(); await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 async function invertirEstado(){ await aplicar(async()=>{ for(const r of seleccionados.value) await updateResource(r.id,{active:!r.active}) }) }
 async function moverSel(){ if(!moveTarget.value)return; await aplicar(async()=>{ for(const r of seleccionados.value) await updateResource(r.id,{collectionId:moveTarget.value}) }); moveTarget.value='' }
 async function desagruparSel(){ await aplicar(async()=>{ for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }) }
@@ -480,9 +469,12 @@ async function aplicarLote(){
       const n = seleccionados.value.length
       const objetivos = seleccionados.value.slice()
       bulkBusy.value = false
-      confirm.value = { show:true, title:'Ejecutar recursos', okText:`Ejecutar ${n}`, okClass:'save',
-        msg:`Se lanzará la ejecución de ${n} recurso${n===1?'':'s'} ahora. Puede consumir tiempo y cuota. ¿Continuar?`,
-        onOk: async()=>{ confirm.value.show=false; bulkBusy.value=true; try{ for(const r of objetivos) await executeResource(r.id); bulkAction.value=''; limpiarSel(); await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false } } }
+      const { ok } = await confirm({ title:'Ejecutar recursos', confirmText:`Ejecutar ${n}`,
+        message:`Se lanzará la ejecución de ${n} recurso${n===1?'':'s'} ahora. Puede consumir tiempo y cuota. ¿Continuar?` })
+      if (!ok) return
+      bulkBusy.value = true
+      try { for(const r of objetivos) await executeResource(r.id); bulkAction.value=''; limpiarSel(); await load() }
+      catch(e){ toast.error('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false }
       return
     }
     else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value) await updateResource(r.id,{collectionId:bulkMoveTarget.value}) }
@@ -490,21 +482,35 @@ async function aplicarLote(){
     else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }
     bulkAction.value=''; bulkMoveTarget.value=''; bulkGroupName.value=''
     limpiarSel(); await load()
-  } catch(e){ window.alert('Error: '+(e?.message||e)) }
+  } catch(e){ toast.error('Error: '+(e?.message||e)) }
   finally { bulkBusy.value=false }
 }
 
 // ---- colecciones CRUD ----
 const showAdd = ref(false); const addName = ref('')
-async function crearColeccion(){ const n=addName.value.trim(); if(!n)return; try{ const r=await createResourceCollection(n); const g=r?.createResourceCollection; addName.value=''; showAdd.value=false; await load(); if(g) selected.value=g.id }catch(e){ window.alert('Error: '+(e?.message||e)) } }
+async function crearColeccion(){ const n=addName.value.trim(); if(!n)return; try{ const r=await createResourceCollection(n); const g=r?.createResourceCollection; addName.value=''; showAdd.value=false; await load(); if(g) selected.value=g.id }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 const rename = ref({show:false,g:null,name:''})
 function abrirRename(g){ rename.value={show:true,g,name:g.name} }
-async function confirmarRename(){ const n=rename.value.name.trim(); if(!n)return; try{ await renameResourceCollection(rename.value.g.id,n); rename.value.show=false; await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } }
-const confirm = ref({show:false,title:'',msg:'',onOk:()=>{}})
-function pedirBorrarCol(g){ confirm.value={show:true,title:'Eliminar colección',msg:`¿Eliminar "${g.name}"? Sus recursos quedarán sin agrupar (no se borran).`,onOk:async()=>{ try{ await deleteResourceCollection(g.id); confirm.value.show=false; if(selected.value===g.id) selected.value='__none__'; await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } }} }
+async function confirmarRename(){ const n=rename.value.name.trim(); if(!n)return; try{ await renameResourceCollection(rename.value.g.id,n); rename.value.show=false; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
+async function pedirBorrarCol(g){ const { ok } = await confirm({ title:'Eliminar colección', message:`¿Eliminar "${g.name}"? Sus recursos quedarán sin agrupar (no se borran).`, confirmText:'Eliminar', danger:true }); if(!ok) return; try{ await deleteResourceCollection(g.id); if(selected.value===g.id) selected.value='__none__'; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 
 // ---- drawer recurso ----
 const drawer = ref(false); const editing = ref(null); const saving = ref(false); const advOpen = ref(false)
+const drawerW = ref((typeof localStorage !== 'undefined' && parseInt(localStorage.getItem('odm:dw:resources') || '', 10)) || 760)
+let drawerDragging = false
+function startDrawerDrag(){
+  drawerDragging = true
+  const move = ev => { if (!drawerDragging) return; drawerW.value = Math.min(window.innerWidth * 0.96, Math.max(480, window.innerWidth - ev.clientX)) }
+  const up = () => {
+    drawerDragging = false
+    document.removeEventListener('mousemove', move)
+    document.removeEventListener('mouseup', up)
+    if (typeof localStorage !== 'undefined') localStorage.setItem('odm:dw:resources', String(Math.round(drawerW.value)))
+  }
+  document.addEventListener('mousemove', move)
+  document.addEventListener('mouseup', up)
+}
+const selectedFetcher = computed(() => fetchers.value.find(f => f.id === form.value.fetcherId) || null)
 const STEP_KEYS = [
   {key:'num_workers',lab:'Workers',unit:''},
   {key:'max_concurrent_requests',lab:'Concurrencia',unit:'req'},
@@ -524,7 +530,7 @@ function abrirDrawer(r){
     form.value = {
       name:r.name, description:r.description||'', publisherId:r.publisherObj?.id||'',
       collectionId:r.collectionId||'', fetcherId:r.fetcher?.id||'',
-      params:(r.params||[]).filter(p=>!stepKeys.includes(p.key)).map(p=>({key:p.key,value:p.value})),
+      params:(r.params||[]).filter(p=>!stepKeys.includes(p.key)).map(p=>({key:p.key,value:p.value,isExternal:p.isExternal||false})),
       schedule:r.schedule||'', active:r.active!==false,
     }
     steppers.value = STEP_KEYS.map(s=>({ ...s, val:(r.params||[]).find(p=>p.key===s.key)?.value || '' }))
@@ -538,7 +544,7 @@ function cerrarDrawer(){ drawer.value=false }
 async function guardar(){
   saving.value = true
   try {
-    const params = form.value.params.filter(p=>p.key&&p.value!=='').map(p=>({key:p.key,value:String(p.value),isExternal:false}))
+    const params = form.value.params.filter(p=>p.key&&(p.value!==''||p.isExternal)).map(p=>({key:p.key,value:String(p.value??''),isExternal:!!p.isExternal}))
     for (const s of steppers.value) if (s.val!=='' && s.val!=null) params.push({key:s.key,value:String(s.val),isExternal:false})
     const input = {
       name:form.value.name, description:form.value.description||null,
@@ -549,14 +555,16 @@ async function guardar(){
     else await createResource(input)
     drawer.value = false
     await load()
-  } catch(e){ window.alert('Error guardando: '+(e?.message||e)) }
+  } catch(e){ toast.error('Error guardando: '+(e?.message||e)) }
   finally { saving.value = false }
 }
-function pedirBorrarRecurso(){
+async function pedirBorrarRecurso(){
   const r = editing.value
-  confirm.value = { show:true, title:'Eliminar recurso', msg:`¿Eliminar "${r.name}"? Se borrará el recurso y su histórico.`, onOk:async()=>{ try{ await deleteResource(r.id,false); confirm.value.show=false; drawer.value=false; await load() }catch(e){ window.alert('Error: '+(e?.message||e)) } } }
+  const { ok } = await confirm({ title:'Eliminar recurso', message:`¿Eliminar "${r.name}"? Se borrará el recurso y su histórico.`, confirmText:'Eliminar', danger:true })
+  if(!ok) return
+  try{ await deleteResource(r.id,false); drawer.value=false; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) }
 }
-async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.alert('No se pudo ejecutar: '+(e?.message||e)) } }
+async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ toast.error('No se pudo ejecutar: '+(e?.message||e)) } }
 </script>
 
 <style scoped>
@@ -680,6 +688,9 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ window.a
 .scrim.show{opacity:1;pointer-events:auto}
 .drawer{position:fixed;top:0;right:0;height:100vh;width:min(760px,96vw);background:linear-gradient(180deg,#131922,#0f141b);border-left:1px solid var(--line);transform:translateX(102%);transition:.3s cubic-bezier(.3,.8,.3,1);z-index:60;display:flex;flex-direction:column}
 .drawer.show{transform:translateX(0)}
+.dgrip{position:absolute;left:0;top:0;height:100%;width:7px;cursor:ew-resize;z-index:61}
+.dgrip:hover{background:linear-gradient(90deg,var(--signal-dim),transparent)}
+.dgrip:active{background:linear-gradient(90deg,var(--signal),transparent)}
 .dh{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 16px;border-bottom:1px solid var(--line)}
 .dh .di{width:40px;height:40px;border-radius:11px;background:#10211d;border:1px solid var(--signal-dim);display:grid;place-items:center;font-size:19px;flex-shrink:0}
 .dh h2{font-family:var(--disp);font-size:18px;margin:0 0 2px;font-weight:600}
