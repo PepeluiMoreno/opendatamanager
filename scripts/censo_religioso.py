@@ -77,34 +77,65 @@ except Exception:  # pragma: no cover - fallback autocontenido
 # Términos "fuertes" identifican por sí solos; "modificadores" suman con apoyo.
 # --------------------------------------------------------------------------- #
 LEXICO_FUERTE = {
-    # Católico
-    "parroquia": 5, "diocesis": 5, "archidiocesis": 5, "obispado": 5,
-    "arzobispado": 5, "cabildo catedral": 5, "cofradia": 4, "hermandad": 4,
+    # — Organismos católicos (RER + webs diocesanas + CEE) —
+    "parroquia": 5, "diocesis": 5, "archidiocesis": 5, "arquidiocesis": 5,
+    "obispado": 5, "arzobispado": 5, "cabildo catedral": 5, "catedral": 3,
+    "curia diocesana": 5, "vicaria": 4, "arciprestazgo": 5, "arcipreste": 4,
+    "delegacion diocesana": 5, "secretariado diocesano": 5, "seminario": 4,
+    "cofradia": 4, "hermandad": 4, "archicofradia": 5, "sacramental": 3,
     "congregacion": 4, "orden religiosa": 5, "monasterio": 5, "convento": 5,
-    "abadia": 5, "seminario": 4, "caritas": 5, "ermita": 4, "santuario": 4,
-    "vicaria": 4, "curia": 4, "carmelitas": 4, "franciscanos": 4,
-    "dominicos": 4, "jesuitas": 4, "salesianos": 4, "misioneras": 4,
-    "hijas de la caridad": 5, "siervas": 3,
-    # Evangélico / protestante
+    "abadia": 5, "ermita": 4, "santuario": 4, "basilica": 4, "oratorio": 3,
+    "caritas": 5, "manos unidas": 5, "fundacion diocesana": 5, "patronato": 3,
+    "instituto secular": 4, "instituto de vida consagrada": 5, "entidad canonica": 5,
+    "obra social": 2, "pia union": 4, "casa colegio": 4, "casa sacerdotal": 5,
+    "pontificia": 4, "pontificio": 4, "apostolado": 4, "obra pia": 4,
+    # — Órdenes / colectivos religiosos —
+    "carmelitas": 4, "franciscanos": 4, "dominicos": 4, "jesuitas": 4,
+    "salesianos": 4, "salesianas": 4, "capuchinos": 4, "claretianos": 4,
+    "escolapios": 4, "redentoristas": 4, "agustinos": 4, "mercedarias": 4,
+    "adoratrices": 4, "clarisas": 4, "hijas de la caridad": 5, "siervas de": 4,
+    "hermanitas de": 4, "esclavas de": 4, "religiosas de": 4, "religiosos de": 4,
+    "misioneros": 4, "misioneras": 4, "hermanos de": 3,
+    # — Advocaciones marianas / cristológicas —
+    "sagrado corazon": 5, "corazon de jesus": 5, "inmaculada concepcion": 5,
+    "cristo rey": 5, "divina pastora": 5, "verbo divino": 5, "espiritu santo": 4,
+    "jesus maria": 4, "jesus y maria": 4, "jesus-maria": 4, "santisimo sacramento": 5,
+    "santisima trinidad": 5, "nuestra senora de": 4, "nuestra senora del": 4,
+    "amor de dios": 4, "casa de dios": 4,
+    # — Evangélicos / protestantes (corpus RER) —
     "iglesia evangelica": 5, "iglesia bautista": 5, "iglesia pentecostal": 5,
     "iglesia adventista": 5, "asambleas de dios": 5, "iglesia de filadelfia": 5,
-    # Otras confesiones
+    "centro cristiano": 4, "comunidad cristiana": 4, "asamblea cristiana": 4,
+    "iglesia de dios": 4, "iglesia cristiana": 4,
+    # — Ortodoxos (corpus RER: dominante en España) —
+    "parroquia ortodoxa": 5, "iglesia ortodoxa": 5, "santo jerarca": 4,
+    "ortodoxa": 3, "ortodoxo": 3, "martir": 3,
+    # — Otras confesiones —
     "comunidad islamica": 5, "centro islamico": 5, "mezquita": 5,
     "comunidad judia": 5, "sinagoga": 5, "comunidad israelita": 5,
-    "testigos de jehova": 5, "iglesia de jesucristo": 4, "santos de los ultimos dias": 5,
-    "fe bahai": 5, "comunidad budista": 5, "centro budista": 4,
-    "iglesia ortodoxa": 5,
-    # Adjetivos/colectivos de alto valor
-    "diocesana": 5, "diocesano": 5, "parroquial": 4, "cofrade": 4,
-    "religiosas de": 4, "religiosos de": 4, "hermanas de": 3, "hermanos de": 3,
-    "monjas": 4, "monjes": 4, "clarisas": 4, "capuchinos": 4, "claretianos": 4,
-    "escolapios": 4, "redentoristas": 4, "agustinos": 4, "obispo": 4, "padres": 2,
+    "testigos de jehova": 5, "santos de los ultimos dias": 5, "fe bahai": 5,
+    "comunidad budista": 5, "centro budista": 4, "comunidad hindu": 4,
+    # — Refuerzos derivados del corpus RER (femeninos, órdenes, advocaciones) —
+    "cartuja": 5, "agustinas": 4, "franciscanas": 4, "dominicas": 4,
+    "carmelitas descalzas": 4, "concepcionistas": 4, "benedictinas": 4,
+    "benedictinos": 4, "trinitarias": 4, "reparadoras": 3, "oblatas": 4,
+    "beato": 3, "beata": 3, "sacerdotal": 4, "sacerdotes": 3, "clero": 3,
+    "san juan de dios": 5, "hospitalarias": 4, "hospitalidad": 3,
+    "inmaculada": 3, "purisima": 3, "santutegia": 4, "noviciado": 4,
+    "abadesa": 4, "priorato": 4, "colegiata": 4, "capellania": 4,
 }
-LEXICO_MODIF = {  # solo suman si hay otra señal (NIF-G, confesión RER, o fuerte)
+LEXICO_MODIF = {
+    # Suman solo con otra señal (evita falsos positivos de palabras genéricas).
     "iglesia": 2, "religiosa": 2, "religioso": 2, "cristiana": 2, "cristiano": 2,
-    "catolica": 2, "catolico": 2, "evangelica": 2, "biblica": 1, "espiritual": 1,
-    "apostolica": 2, "del santisimo": 2, "nuestra senora": 1, "san ": 1, "santa ": 1,
-    "sagrada familia": 2, "del rosario": 1, "del carmen": 1, "fundacion": 1,
+    "catolica": 2, "catolico": 2, "evangelica": 2, "evangelico": 2, "biblica": 1,
+    "espiritual": 1, "apostolica": 2, "eclesial": 2, "eclesiastica": 2, "canonica": 2,
+    "diocesano": 2, "diocesana": 2, "parroquial": 2, "pastoral": 1, "evangelizacion": 2,
+    "catequesis": 2, "liturgia": 1, "oracion": 1, "sagrada": 1, "sagrado": 1,
+    "nuestra senora": 2, "virgen": 1, "santisima": 1, "santisimo": 1,
+    "san ": 1, "santa ": 1, "santo ": 1, "del santisimo": 2, "del carmen": 1,
+    "del rosario": 1, "sagrada familia": 2, "colegio": 1, "casa": 1, "centro": 1,
+    "comunidad": 1, "capilla": 2, "asamblea": 1, "mision": 1, "fraternidad": 2,
+    "fundacion": 1, "asociacion": 0,
 }
 
 UMBRAL_CONFIRMA = 5    # score determinista → naturaleza "religiosa" confirmada
