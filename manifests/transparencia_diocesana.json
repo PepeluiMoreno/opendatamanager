@@ -1,0 +1,66 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "CEE",
+    "nombre": "Conferencia Episcopal Española — portales de transparencia diocesanos",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.conferenciaepiscopal.es/"
+  },
+  "resources": [
+    {
+      "name": "Transparencia diocesana — Diócesis de Asidonia-Jerez",
+      "fetcher": "Web Tree",
+      "preset": "Censo documental",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "root_url", "value": "https://www.diocesisdejerez.org/portal-de-transparencia/", "is_external": false },
+        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
+        { "key": "include_patterns", "value": "transparencia,inmatricul,parroquia,directorio,convenio,cuentas,memoria,balance,bienes", "is_external": false },
+        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia,evento", "is_external": false },
+        { "key": "max_depth", "value": "3", "is_external": false },
+        { "key": "page_delay", "value": "0.5", "is_external": false },
+        { "key": "max_file_mb", "value": "40", "is_external": false },
+        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+      ]
+    },
+    {
+      "name": "Transparencia diocesana — Diócesis de Bilbao (inmatriculados/auditoría)",
+      "fetcher": "Web Tree",
+      "preset": "Censo documental",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "root_url", "value": "https://transparencia.bizkeliza.org/", "is_external": false },
+        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
+        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria,auditoria", "is_external": false },
+        { "key": "exclude_patterns", "value": "noticia,blog,agenda", "is_external": false },
+        { "key": "max_depth", "value": "3", "is_external": false },
+        { "key": "page_delay", "value": "0.5", "is_external": false },
+        { "key": "max_file_mb", "value": "40", "is_external": false },
+        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+      ]
+    },
+    {
+      "name": "Transparencia diocesana — Diócesis de Almería (convenios/parroquias)",
+      "fetcher": "Web Tree",
+      "preset": "Censo documental",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "root_url", "value": "https://diocesisalmeria.org/transparencia/", "is_external": false },
+        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
+        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
+        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
+        { "key": "max_depth", "value": "3", "is_external": false },
+        { "key": "page_delay", "value": "0.5", "is_external": false },
+        { "key": "max_file_mb", "value": "40", "is_external": false },
+        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "DATOSGOB",
+    "nombre": "datos.gob.es — Catálogo Nacional de Datos Abiertos",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://datos.gob.es/"
+  },
+  "resources": [
+    {
+      "name": "Catálogo: registros de entidades de acción social y voluntariado (CCAA)",
+      "fetcher": "Catálogo DCAT",
+      "schedule": "0 5 7 * *",
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "genera_colecciones": true,
+      "params": [
+        { "key": "catalog_api", "value": "https://datos.gob.es/apidata", "is_external": false },
+        { "key": "query_terms", "value": "entidades servicios sociales,voluntariado,acción social,tercer sector,entidades sin ánimo de lucro", "is_external": false },
+        { "key": "formats", "value": "csv,json,xlsx", "is_external": false },
+        { "key": "drop_url_contains", "value": "diccionario", "is_external": false },
+        { "key": "child_fetcher", "value": "File Download", "is_external": false },
+        { "key": "prefer_format", "value": "csv,json", "is_external": false },
+        { "key": "page_size", "value": "50", "is_external": false },
+        { "key": "max_pages", "value": "20", "is_external": false },
+        { "key": "timeout", "value": "30", "is_external": false }
+      ]
+    }
+  ]
+}
