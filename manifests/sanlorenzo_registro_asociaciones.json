@@ -1,0 +1,33 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "AYTOSLE",
+    "nombre": "Ayuntamiento de San Lorenzo de El Escorial",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://datosabiertos.aytosanlorenzo.es"
+  },
+  "resources": [
+    {
+      "name": "San Lorenzo de El Escorial - Registro Municipal de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 5 13 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro municipal de asociaciones de San Lorenzo de El Escorial. Identificador: CIF. Señal de fines: 'Objetivo' (texto) + Ámbito. Municipio implícito. CSV del portal CKAN municipal.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datosabiertos.aytosanlorenzo.es/dataset/f6c65970-e790-4a47-8227-0795a9f17517/resource/6b1e3ba9-69c0-4b7c-b22c-1b2a5b9bb3c5/download/registro-municipal-de-asociaciones.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
