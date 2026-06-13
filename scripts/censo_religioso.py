@@ -80,15 +80,15 @@ LEXICO_FUERTE = {
     # ALCANCE: SOLO CONFESIÓN CATÓLICA.
     # — Organismos católicos (corpus RER + webs diocesanas + CEE) —
     "parroquia": 5, "diocesis": 5, "archidiocesis": 5, "arquidiocesis": 5,
-    "obispado": 5, "arzobispado": 5, "cabildo catedral": 5, "catedral": 3,
+    "obispado": 5, "arzobispado": 5, "cabildo catedral": 5,
     "curia diocesana": 5, "vicaria": 4, "arciprestazgo": 5, "arcipreste": 4,
     "delegacion diocesana": 5, "secretariado diocesano": 5, "seminario": 4,
     "cofradia": 4, "hermandad": 4, "archicofradia": 5, "sacramental": 3,
     "congregacion": 4, "orden religiosa": 5, "monasterio": 5, "convento": 5,
-    "abadia": 5, "ermita": 4, "santuario": 4, "basilica": 4, "oratorio": 3,
+    "abadia": 5,
     "caritas": 5, "manos unidas": 5, "fundacion diocesana": 5, "patronato": 3,
     "instituto secular": 4, "instituto de vida consagrada": 5, "entidad canonica": 5,
-    "pia union": 4, "casa colegio": 4, "casa sacerdotal": 5, "colegiata": 4,
+    "pia union": 4, "casa colegio": 4, "casa sacerdotal": 5,
     "pontificia": 4, "pontificio": 4, "apostolado": 4, "obra pia": 4,
     "capellania": 4, "priorato": 4, "abadesa": 4, "noviciado": 4, "santutegia": 4,
     "cartuja": 5, "san juan de dios": 5, "hospitalarias": 4, "martir": 3,
@@ -102,12 +102,6 @@ LEXICO_FUERTE = {
     "hermanitas de": 4, "esclavas de": 4, "religiosas de": 4, "religiosos de": 4,
     "misioneros": 4, "misioneras": 4, "hermanas de la caridad": 5,
     "sacerdotal": 4, "sacerdotes": 3, "beato": 3, "beata": 3,
-    # — Advocaciones marianas / cristológicas —
-    "sagrado corazon": 5, "corazon de jesus": 5, "inmaculada concepcion": 5,
-    "inmaculada": 3, "purisima": 3, "cristo rey": 5, "divina pastora": 5,
-    "verbo divino": 5, "espiritu santo": 4, "jesus maria": 4, "jesus y maria": 4,
-    "jesus-maria": 4, "santisimo sacramento": 5, "santisima trinidad": 5,
-    "nuestra senora de": 4, "nuestra senora del": 4, "amor de dios": 4, "casa de dios": 4,
 }
 # Adjetivos confesionales: SÍ son señal por sí solos (cuentan siempre).
 # catolica/diocesana/parroquial a 3 → alcanzan "probable" sin otra señal.
@@ -125,6 +119,12 @@ LEXICO_MODIF_GATED = {
     "san ": 1, "santa ": 1, "santo ": 1, "del carmen": 1, "del rosario": 1,
     "liturgia": 1, "oracion": 1, "colegio": 1, "casa": 1, "fundacion": 1,
     "mision": 1, "iglesia": 1, "fraternidad": 1,
+    # advocaciones (= nombre de patrón) y edificios de culto: solo con estructural
+    "sagrado corazon": 2, "corazon de jesus": 2, "inmaculada": 2, "purisima": 2,
+    "cristo rey": 2, "divina pastora": 2, "verbo divino": 2, "espiritu santo": 2,
+    "jesus maria": 2, "jesus y maria": 2, "jesus-maria": 2, "santisimo sacramento": 2,
+    "santisima trinidad": 2, "amor de dios": 2, "casa de dios": 2,
+    "ermita": 2, "santuario": 2, "basilica": 2, "oratorio": 2, "catedral": 2, "colegiata": 2,
 }
 # Entidades SECULARES que toman prestadas palabras de sonido religioso (NO católicas).
 LEXICO_NEGATIVO = {
