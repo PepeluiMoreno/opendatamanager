@@ -216,7 +216,8 @@ LEXICO_NO_CATOLICO = (
     "islamic", "musulman", "mezquita", "morabito", "comunidad islam",
     "budist", "hindu", "krishna", "soka gakkai",
     "judia", "judio", "israelita", "hebrea", "sinagoga", "sefardi", "comunidad judia",
-    "ortodox", "testigos de jehova", "testigos cristianos de jehova",
+    "ortodox", "anglican", "metodist", "luteran", "calvinist", "cuaquer", "menonita",
+    "testigos de jehova", "testigos cristianos de jehova",
     "mormon", "santos de los ultimos dias", "jesucristo de los santos",
     "cienciolog", "bahai", "fe bahai", "sij", "gurdwara", "iglesia de la unificacion",
 )
