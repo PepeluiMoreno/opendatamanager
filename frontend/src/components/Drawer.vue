@@ -2,7 +2,7 @@
   <teleport to="body">
     <div :class="['odm-scrim', { show: modelValue }]" @click="$emit('update:modelValue', false)"></div>
     <aside :class="['odm-drawer', { show: modelValue }]" :style="{ width: widthCss }" role="dialog" aria-modal="true">
-      <div class="odm-dgrip" @mousedown.prevent="startResize" title="Arrastra para ensanchar"></div>
+      <DrawerResizeHandle v-model="w" :storage-key="storageKey" :min="360" />
       <div class="odm-dh">
         <div v-if="icon" class="odm-di">{{ icon }}</div>
         <div class="odm-dt">
@@ -19,6 +19,7 @@
 
 <script setup>
 import { computed, ref } from 'vue'
+import DrawerResizeHandle from './DrawerResizeHandle.vue'
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
   title: { type: String, default: '' },
@@ -28,37 +29,16 @@ const props = defineProps({
   storageKey: { type: String, default: '' },
 })
 defineEmits(['update:modelValue'])
-const baseW = typeof props.width === 'number' ? props.width : 620
-const w = ref(baseW)
-if (props.storageKey && typeof localStorage !== 'undefined') {
-  const saved = parseInt(localStorage.getItem('odm:dw:' + props.storageKey) || '', 10)
-  if (!isNaN(saved)) w.value = saved
-}
+const w = ref(typeof props.width === 'number' ? props.width : 620)
 const widthCss = computed(() => `min(${w.value}px, 96vw)`)
-let dragging = false
-function startResize() {
-  dragging = true
-  const move = ev => { if (!dragging) return; w.value = Math.min(window.innerWidth * 0.96, Math.max(360, window.innerWidth - ev.clientX)) }
-  const up = () => {
-    dragging = false
-    document.removeEventListener('mousemove', move)
-    document.removeEventListener('mouseup', up)
-    if (props.storageKey && typeof localStorage !== 'undefined') localStorage.setItem('odm:dw:' + props.storageKey, String(Math.round(w.value)))
-  }
-  document.addEventListener('mousemove', move)
-  document.addEventListener('mouseup', up)
-}
 </script>
 
 <style>
 .odm-scrim{position:fixed;inset:0;background:#04060a99;backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:9000}
 .odm-scrim.show{opacity:1;pointer-events:auto}
 .odm-drawer{position:fixed;top:0;right:0;height:100vh;background:linear-gradient(180deg,#131922,#0f141b);border-left:1px solid #222C39;
-  transform:translateX(102%);transition:.3s cubic-bezier(.3,.8,.3,1);z-index:9001;display:flex;flex-direction:column;box-shadow:-30px 0 70px #000a}
+  transform:translateX(102%);transition:transform .3s cubic-bezier(.3,.8,.3,1);z-index:9001;display:flex;flex-direction:column;box-shadow:-30px 0 70px #000a}
 .odm-drawer.show{transform:translateX(0)}
-.odm-dgrip{position:absolute;left:0;top:0;height:100%;width:7px;cursor:ew-resize;z-index:2}
-.odm-dgrip:hover{background:linear-gradient(90deg,#3FE0CB55,transparent)}
-.odm-dgrip:active{background:linear-gradient(90deg,#3FE0CB99,transparent)}
 .odm-dh{display:flex;align-items:flex-start;gap:12px;padding:20px 24px 16px;border-bottom:1px solid #222C39}
 .odm-di{width:40px;height:40px;border-radius:11px;background:#10211d;border:1px solid #1c5b54;display:grid;place-items:center;font-size:19px;flex-shrink:0}
 .odm-dt h2{font-family:'Space Grotesk',sans-serif;font-size:18px;margin:0 0 2px;font-weight:600;color:#E7EEF6}

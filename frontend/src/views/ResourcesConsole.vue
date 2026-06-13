@@ -20,6 +20,8 @@
       </div>
 
       <div class="roster">
+        <div v-if="!loaded" class="rail-load">Cargando…</div>
+        <template v-else>
         <div v-for="c in panelsFiltradas" :key="c.key"
              :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz' }]"
              @click="selected = c.group; limpiarSel()">
@@ -36,6 +38,7 @@
             <button class="del" title="Eliminar" @click="pedirBorrarCol(c.g)">🗑</button>
           </span>
         </div>
+        </template>
       </div>
 
       <!-- panel de filtro de colecciones -->
@@ -181,7 +184,7 @@
     <!-- ============ DRAWER (resource editor) ============ -->
     <div :class="['scrim',{show:drawer}]" @click="cerrarDrawer"></div>
     <aside :class="['drawer',{show:drawer}]" :style="{ width: 'min('+drawerW+'px, 96vw)' }">
-      <div class="dgrip" @mousedown.prevent="startDrawerDrag" title="Arrastra para ensanchar"></div>
+      <DrawerResizeHandle v-model="drawerW" storage-key="resources" />
       <div class="dh">
         <div class="di">{{ editing ? '✎' : '＋' }}</div>
         <div>
@@ -222,14 +225,9 @@
         <div class="sect">
           <div class="sh"><span class="nidx">03</span><h3>Programación</h3></div>
           <div class="sbody">
-            <div class="field"><label>Cuándo se cosecha (cron)</label>
-              <div class="cron">
-                <button :class="{on:form.schedule==='0 4 1 * *'}" @click="form.schedule='0 4 1 * *'">Mensual</button>
-                <button :class="{on:form.schedule==='0 4 * * 1'}" @click="form.schedule='0 4 * * 1'">Semanal</button>
-                <button :class="{on:form.schedule==='0 4 * * *'}" @click="form.schedule='0 4 * * *'">Diario</button>
-                <button :class="{on:!form.schedule}" @click="form.schedule=''">Manual</button>
-              </div>
-              <input class="inp mono" v-model="form.schedule" placeholder="0 4 1 * *"></div>
+            <div class="field"><label>Cuándo se cosecha</label>
+              <ScheduleEditor v-model="form.schedule" />
+            </div>
             <div class="tog"><div><div class="t">Activo</div><div class="s">Se ejecuta según la programación</div></div>
               <div :class="['sw',{on:form.active}]" @click="form.active=!form.active"></div></div>
           </div>
@@ -242,10 +240,10 @@
               <div v-for="s in steppers" :key="s.key" class="stp">
                 <div class="lab"><span>{{ s.lab }}</span><span class="u">{{ s.unit }}</span></div>
                 <div class="ctl"><button @click="s.val=Math.max(0,(+s.val||0)-1)">−</button>
-                  <input v-model="s.val"><button @click="s.val=(+s.val||0)+1">＋</button></div>
+                  <input v-model="s.val" :placeholder="globalCfg[s.key] != null ? String(globalCfg[s.key]) : ''"><button @click="s.val=(+s.val||0)+1">＋</button></div>
               </div>
             </div>
-            <p class="hint">Estos valores se guardan como parámetros del recurso (num_workers, rate_limit_per_second…).</p>
+            <p class="hint">Vacío = usa el valor por defecto de Ajustes. Lo que pongas aquí lo sobreescribe solo para este recurso.</p>
           </div>
         </div>
       </div>
@@ -278,12 +276,15 @@ import { ref, computed, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination'
 import { useAuth } from '../composables/useAuth'
 import ResourceParamsEditor from '../components/ResourceParamsEditor.vue'
+import ScheduleEditor from '../components/ScheduleEditor.vue'
+import DrawerResizeHandle from '../components/DrawerResizeHandle.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
 import {
   fetchResources, fetchResourceCollections, fetchFetchers, fetchPublishers,
   createResource, updateResource, deleteResource, executeResource,
   createResourceCollection, renameResourceCollection, deleteResourceCollection,
+  fetchAppConfig,
 } from '../api/graphql'
 
 const { puede } = useAuth()
@@ -291,6 +292,7 @@ const { confirm } = useConfirm()
 const { toast } = useToast()
 
 const loading = ref(true)
+const loaded = ref(false)
 const resources = ref([])
 const groups = ref([])
 const fetchers = ref([])
@@ -382,9 +384,15 @@ async function load() {
     publishers.value = pd?.publishers || []
     const gids = panels.value.map(p => p.group)
     if (!gids.includes(selected.value)) selected.value = gids[0] ?? '__none__'
-  } finally { loading.value = false }
+  } finally { loading.value = false; loaded.value = true }
 }
 onMounted(load)
+onMounted(async () => {
+  try {
+    const c = await fetchAppConfig()
+    globalCfg.value = Object.fromEntries((c?.appConfig || []).map(x => [x.key, x.value ?? x.defaultValue]))
+  } catch {}
+})
 
 // ---- panels (colecciones + sin agrupar) ----
 function esNodriza(r) { return r?.generaColecciones === true }
@@ -496,20 +504,7 @@ async function pedirBorrarCol(g){ const { ok } = await confirm({ title:'Eliminar
 
 // ---- drawer recurso ----
 const drawer = ref(false); const editing = ref(null); const saving = ref(false); const advOpen = ref(false)
-const drawerW = ref((typeof localStorage !== 'undefined' && parseInt(localStorage.getItem('odm:dw:resources') || '', 10)) || 760)
-let drawerDragging = false
-function startDrawerDrag(){
-  drawerDragging = true
-  const move = ev => { if (!drawerDragging) return; drawerW.value = Math.min(window.innerWidth * 0.96, Math.max(480, window.innerWidth - ev.clientX)) }
-  const up = () => {
-    drawerDragging = false
-    document.removeEventListener('mousemove', move)
-    document.removeEventListener('mouseup', up)
-    if (typeof localStorage !== 'undefined') localStorage.setItem('odm:dw:resources', String(Math.round(drawerW.value)))
-  }
-  document.addEventListener('mousemove', move)
-  document.addEventListener('mouseup', up)
-}
+const drawerW = ref(760)
 const selectedFetcher = computed(() => fetchers.value.find(f => f.id === form.value.fetcherId) || null)
 const STEP_KEYS = [
   {key:'num_workers',lab:'Workers',unit:''},
@@ -520,6 +515,7 @@ const STEP_KEYS = [
   {key:'batch_size',lab:'Batch',unit:'filas'},
 ]
 const steppers = ref(STEP_KEYS.map(s=>({...s,val:''})))
+const globalCfg = ref({})   // defaults globales (Ajustes/Settings) por clave
 const form = ref({ name:'', description:'', publisherId:'', collectionId:'', fetcherId:'', params:[], schedule:'', active:true })
 
 function abrirDrawer(r){
@@ -686,11 +682,8 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ toast.er
 
 .scrim{position:fixed;inset:0;background:#04060a99;backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:.25s;z-index:50}
 .scrim.show{opacity:1;pointer-events:auto}
-.drawer{position:fixed;top:0;right:0;height:100vh;width:min(760px,96vw);background:linear-gradient(180deg,#131922,#0f141b);border-left:1px solid var(--line);transform:translateX(102%);transition:.3s cubic-bezier(.3,.8,.3,1);z-index:60;display:flex;flex-direction:column}
+.drawer{position:fixed;top:0;right:0;height:100vh;width:min(760px,96vw);background:linear-gradient(180deg,#131922,#0f141b);border-left:1px solid var(--line);transform:translateX(102%);transition:transform .3s cubic-bezier(.3,.8,.3,1);z-index:60;display:flex;flex-direction:column}
 .drawer.show{transform:translateX(0)}
-.dgrip{position:absolute;left:0;top:0;height:100%;width:7px;cursor:ew-resize;z-index:61}
-.dgrip:hover{background:linear-gradient(90deg,var(--signal-dim),transparent)}
-.dgrip:active{background:linear-gradient(90deg,var(--signal),transparent)}
 .dh{display:flex;align-items:flex-start;gap:12px;padding:20px 22px 16px;border-bottom:1px solid var(--line)}
 .dh .di{width:40px;height:40px;border-radius:11px;background:#10211d;border:1px solid var(--signal-dim);display:grid;place-items:center;font-size:19px;flex-shrink:0}
 .dh h2{font-family:var(--disp);font-size:18px;margin:0 0 2px;font-weight:600}
@@ -794,4 +787,5 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .pager .pbtns button:hover:not(:disabled){color:var(--signal);border-color:var(--signal-dim);background:#0f201d}
 .pager .pbtns button:disabled{opacity:.3;cursor:not-allowed}
 .pager .pbtns .cur{font-family:var(--mono);font-size:11.5px;color:var(--txt);padding:0 6px}
+.rail-load{padding:1rem .4rem;color:#6b7280;font-size:.78rem}
 </style>
