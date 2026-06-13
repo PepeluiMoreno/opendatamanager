@@ -138,7 +138,6 @@
       </div>
     </div>
 
-  <!-- Confirm dialog -->
   </ViewLayout>
 </template>
 

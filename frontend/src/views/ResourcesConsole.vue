@@ -581,8 +581,6 @@ async function ejecutar(r){ try{ await executeResource(r.id) }catch(e){ toast.er
 
 .rail{background:linear-gradient(180deg,#10151d,#0d1218);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
-.brand h1{font-family:var(--disp);font-size:15px;font-weight:600;margin:0}
-.brand .sub{font-size:10px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase;font-family:var(--mono)}
 .roster-h{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 6px}
 .roster-h span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
 .roster-h button{width:22px;height:22px;border-radius:6px;color:var(--muted);font-size:16px;display:grid;place-items:center;border:1px solid var(--line);background:none;cursor:pointer}

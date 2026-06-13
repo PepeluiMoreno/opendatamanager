@@ -352,7 +352,6 @@
       </div>
     </div>
 
-  <!-- Confirm dialog (abort) -->
 
   <!-- Delete process modal -->
   <div
@@ -550,7 +549,6 @@ function resourceParamTags(resourceId) {
     .map(p => `${p.key}=${p.value}`)
 }
 
-// ---- confirm dialog (abort only) ----
 const { confirm } = useConfirm()
 
 function showConfirm(title, message, confirmText = 'Confirm') {
