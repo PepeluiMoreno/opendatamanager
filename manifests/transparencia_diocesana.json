@@ -338,7 +338,7 @@
         },
         {
           "key": "levels",
-          "value": "[{\"level_name\": \"indice\", \"subpage_link_selector\": \"figure.wp-block-table table a[href*='diocesis-de-']\", \"subpage_link_attr\": \"href\", \"subpage_base_url\": \"https://www.conferenciaepiscopal.es/\", \"inherit_fields\": []}, {\"level_name\": \"diocesis\", \"field_selectors\": {\"nombre\": \"h1\"}, \"field_attr_selectors\": {\"web\": {\"selector\": \".entry-content a[href^='http']\", \"attr\": \"href\"}}}]",
+          "value": "[{\"level_name\": \"indice\", \"subpage_link_selector\": \"figure.wp-block-table table a[href*='diocesis-de-']\", \"subpage_link_attr\": \"href\", \"subpage_base_url\": \"https://www.conferenciaepiscopal.es/\", \"inherit_fields\": []}, {\"level_name\": \"diocesis\", \"field_selectors\": {\"nombre\": \"h1\"}, \"field_attr_selectors\": {\"web\": {\"selector\": \".entry-content a[href^='http']:not([href*='conferenciaepiscopal']):not([href*='facebook']):not([href*='twitter']):not([href*='youtube']):not([href*='instagram']):not([href*='x.com']):not([href*='flickr'])\", \"attr\": \"href\"}}}]",
           "is_external": false
         },
         {
