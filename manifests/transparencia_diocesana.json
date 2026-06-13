@@ -61,6 +61,60 @@
         { "key": "max_file_mb", "value": "40", "is_external": false },
         { "key": "crawl_timeout", "value": "1800", "is_external": false }
       ]
+    },
+    {
+      "name": "Transparencia diocesana — Obispado de Ibiza",
+      "fetcher": "Web Tree",
+      "preset": "Censo documental",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "root_url", "value": "https://www.obispadodeibiza.es/portal-de-trasparencia/", "is_external": false },
+        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
+        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
+        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
+        { "key": "max_depth", "value": "3", "is_external": false },
+        { "key": "page_delay", "value": "0.5", "is_external": false },
+        { "key": "max_file_mb", "value": "40", "is_external": false },
+        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+      ]
+    },
+    {
+      "name": "Transparencia diocesana — Obispado de Ourense",
+      "fetcher": "Web Tree",
+      "preset": "Censo documental",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "root_url", "value": "https://obispadodeourense.com/portal/ptransparencia/", "is_external": false },
+        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
+        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
+        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
+        { "key": "max_depth", "value": "3", "is_external": false },
+        { "key": "page_delay", "value": "0.5", "is_external": false },
+        { "key": "max_file_mb", "value": "40", "is_external": false },
+        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+      ]
+    },
+    {
+      "name": "Transparencia diocesana — Obispado de Tenerife (Nivariense)",
+      "fetcher": "Web Tree",
+      "preset": "Censo documental",
+      "schedule": "0 5 6 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        { "key": "root_url", "value": "https://www.obispadodetenerife.com/portal-transparencia/", "is_external": false },
+        { "key": "file_extensions", "value": "pdf,csv,xlsx,xls", "is_external": false },
+        { "key": "include_patterns", "value": "inmatricul,bienes,parroquia,directorio,convenio,balance,memoria", "is_external": false },
+        { "key": "exclude_patterns", "value": "noticia,blog,agenda,homilia", "is_external": false },
+        { "key": "max_depth", "value": "3", "is_external": false },
+        { "key": "page_delay", "value": "0.5", "is_external": false },
+        { "key": "max_file_mb", "value": "40", "is_external": false },
+        { "key": "crawl_timeout", "value": "1800", "is_external": false }
+      ]
     }
   ]
 }
