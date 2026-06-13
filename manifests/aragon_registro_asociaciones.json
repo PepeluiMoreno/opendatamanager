@@ -1,0 +1,105 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "ARAGON",
+    "nombre": "Gobierno de Aragón — Aragón Open Data",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://opendata.aragon.es"
+  },
+  "resources": [
+    {
+      "name": "Aragón (Huesca) - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 6 15 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro de Asociaciones de Aragón, provincia de Huesca, vía Aragón Open Data (BRSCGI, perfil OPENDATAASHUJSON). SIN NIF. Señal de clasificación: 'Tematica' — incluye categoría explícita '025 RELIGIOSAS' (y '442 JUVENILES RELIGIOSAS'), oro para el clasificador del consumidor. Municipio en 'Localidad'. JSON latin-1.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://gd.aragon.es/cgi-bin/AODB/BRSCGI?CMD=VERLST&OUTPUTMODE=JSON&BASE=ASHU&DOCS=1-10000&SEC=OPENDATAASHUJSON&SORT=DENO&SEPARADOR=&OP1=Y&DENO-C=&OP2=Y&DOMI-C=&OP3=Y&LOCA-C=&OP4=Y&NUM-C=&OP5=Y&ANYO-C=&OP6=Y&FIN-C=&OP7=NO&UTIL-C=&OP10=Y&PROV-C=H&OP8=NO&BAJA-C=S*&OP9=O&ANYO-C=",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "json",
+          "is_external": false
+        },
+        {
+          "key": "encoding",
+          "value": "latin-1",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ]
+    },
+    {
+      "name": "Aragón (Zaragoza) - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 6 15 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro de Asociaciones de Aragón, provincia de Zaragoza, vía Aragón Open Data (BRSCGI, perfil OPENDATAASHUJSON). SIN NIF. Señal de clasificación: 'Tematica' — incluye categoría explícita '025 RELIGIOSAS' (y '442 JUVENILES RELIGIOSAS'), oro para el clasificador del consumidor. Municipio en 'Localidad'. JSON latin-1.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://gd.aragon.es/cgi-bin/AODB/BRSCGI?CMD=VERLST&OUTPUTMODE=JSON&BASE=ASSC&DOCS=1-10000&SEC=OPENDATAASHUJSON&SORT=DENO&SEPARADOR=&OP1=Y&DENO-C=&OP2=Y&DOMI-C=&OP3=Y&LOCA-C=&OP4=Y&NUM-C=&OP5=Y&ANYO-C=&OP6=Y&FIN-C=&OP7=NO&UTIL-C=&OP10=Y&PROV-C=Z&OP8=NO&BAJA-C=S*&OP9=O&ANYO-C=",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "json",
+          "is_external": false
+        },
+        {
+          "key": "encoding",
+          "value": "latin-1",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ]
+    },
+    {
+      "name": "Aragón (Teruel) - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 6 15 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro de Asociaciones de Aragón, provincia de Teruel, vía Aragón Open Data (BRSCGI, perfil OPENDATAASHUJSON). SIN NIF. Señal de clasificación: 'Tematica' — incluye categoría explícita '025 RELIGIOSAS' (y '442 JUVENILES RELIGIOSAS'), oro para el clasificador del consumidor. Municipio en 'Localidad'. JSON latin-1.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://gd.aragon.es/cgi-bin/AODB/BRSCGI?CMD=VERLST&OUTPUTMODE=JSON&BASE=ASTE&DOCS=1-10000&SEC=OPENDATAASHUJSON&SORT=DENO&SEPARADOR=&OP1=Y&DENO-C=&OP2=Y&DOMI-C=&OP3=Y&LOCA-C=&OP4=Y&NUM-C=&OP5=Y&ANYO-C=&OP6=Y&FIN-C=&OP7=NO&UTIL-C=&OP10=Y&PROV-C=T&OP8=NO&BAJA-C=S*&OP9=O&ANYO-C=",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "json",
+          "is_external": false
+        },
+        {
+          "key": "encoding",
+          "value": "latin-1",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
