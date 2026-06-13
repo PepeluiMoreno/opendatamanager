@@ -86,7 +86,7 @@ LEXICO_FUERTE = {
     "cofradia": 4, "hermandad": 4, "archicofradia": 5, "sacramental": 3,
     "congregacion": 4, "orden religiosa": 5, "monasterio": 5, "convento": 5,
     "abadia": 5,
-    "caritas": 5, "manos unidas": 5, "fundacion diocesana": 5, "patronato": 3,
+    "caritas": 5, "manos unidas": 5, "fundacion diocesana": 5,
     "instituto secular": 4, "instituto de vida consagrada": 5, "entidad canonica": 5,
     "pia union": 4, "casa colegio": 4, "casa sacerdotal": 5,
     "pontificia": 4, "pontificio": 4, "apostolado": 4, "obra pia": 4,
@@ -137,6 +137,7 @@ LEXICO_NEGATIVO = {
     "hermandad de veteranos": 8, "hermandad de empleados": 8,
     # Cofradías de pescadores (gremio pesquero) — también sin "de" y con patrón mariano
     "cofradia pescadores": 8, "cofradias pescadores": 8, "cofradia de pescadores": 8,
+    "cofradias de pescadores": 8, "moros y cristianos": 8, "hermandad gallega": 8, "gastronom": 8, "cofradias pescadore": 8,
     "federacion de cofradias": 8, "posito": 5,
     # Comisiones/sociedades de fiestas y festejos de pueblo (patrón ≠ entidad católica)
     "comision de fiestas": 8, "comision de festas": 8, "comision de festexos": 8,
@@ -233,6 +234,17 @@ def naturaleza(*, nombre: str, nif: str, en_rer: bool,
         if marca in _n:
             return {"naturaleza": "descartada", "via": "no_catolica",
                     "score": score, "evidencia": [f"no católica «{marca.strip()}»"] + evid}
+    # NIF-P = corporación local (ayuntamientos, parroquias rurales/concejos civiles
+    # de Asturias-Galicia, juntas vecinales). Nunca es entidad eclesial católica.
+    if letra == "P":
+        return {"naturaleza": "descartada", "via": "ente_local",
+                "score": score, "evidencia": ["NIF-P: corporación local civil"] + evid}
+    # Solo R/G/V/Q son formas jurídicas posibles de entidad eclesial católica.
+    # A/B/C/D/E/F/H/J = sociedades/comunidades mercantiles o de propietarios;
+    # I/N = extranjeras (fuera de censo español); DNI personal = persona física.
+    if letra and letra not in ("R", "G", "V", "Q"):
+        return {"naturaleza": "descartada", "via": "forma_no_eclesial",
+                "score": score, "evidencia": [f"NIF-{letra}: forma jurídica no eclesial"] + evid}
     if confesion and str(confesion).strip():
         score += 3; evid.append("+3 confesión RER")
     fed = federaciones if isinstance(federaciones, list) else (
