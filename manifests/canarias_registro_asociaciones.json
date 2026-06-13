@@ -1,0 +1,37 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "GOBCAN",
+    "nombre": "Gobierno de Canarias",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://datos.canarias.es"
+  },
+  "resources": [
+    {
+      "name": "Canarias - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 12 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datos.canarias.es/catalogos/general/dataset/2c3c9915-3fae-4085-9f82-bd01911c1126/resource/94cf0ff3-521b-4526-9609-520e6d2379ba/download/resultado_asociaciones_20012021.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ],
+      "collection": "Asociaciones"
+    }
+  ]
+}

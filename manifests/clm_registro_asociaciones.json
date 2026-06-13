@@ -1,0 +1,37 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "JCCM",
+    "nombre": "Junta de Comunidades de Castilla-La Mancha",
+    "nivel": "AUTONOMICO",
+    "pais": "España",
+    "portal_url": "https://datosabiertos.castillalamancha.es"
+  },
+  "resources": [
+    {
+      "name": "Castilla-La Mancha - Registro de Asociaciones",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 4 10 * *",
+      "active": true,
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datosabiertos.castillalamancha.es/sites/datosabiertos.castillalamancha.es/files/Registro%20de%20Asociaciones%20de%20Castilla-La%20Mancha%202026.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ],
+      "collection": "Asociaciones"
+    }
+  ]
+}
