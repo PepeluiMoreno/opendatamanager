@@ -1,11 +1,6 @@
 <template>
-  <div class="p-6 space-y-6" style="min-height:100%">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-white">Collections</h1>
-      </div>
-    </div>
+  <div class="p-8 space-y-6" style="min-height:100%">
+    <PageHeader title="Collections" />
 
     <!-- Filtro (son recursos de recursos) -->
     <FilterBar :canClear="!!(search || tipoFilter)" :count="filtered.length" :total="colecciones.length" @clear="search='';tipoFilter=''">
@@ -69,6 +64,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import { fetchCollections } from '../api/graphql.js'

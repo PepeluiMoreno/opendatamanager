@@ -1,10 +1,11 @@
 <template>
   <div class="p-8">
     <template v-if="!showCreateModal">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">Fetchers</h1>
-      <button v-if="puede('fetchers.gestionar')" @click="showCreateModal = true" class="btn btn-primary">Add Fetcher</button>
-    </div>
+    <PageHeader title="Fetchers">
+      <template #actions>
+        <button v-if="puede('fetchers.gestionar')" @click="showCreateModal = true" class="btn btn-primary">Add Fetcher</button>
+      </template>
+    </PageHeader>
 
     <!-- Filters -->
     <FilterBar :canClear="!!(filterText || filterDateFrom || filterDateTo || incluirNoImplementados)" @clear="filterText=''; filterDateFrom=''; filterDateTo=''; incluirNoImplementados=false">
@@ -184,6 +185,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, watch } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import { fetchFetchers, deleteFetcher as deleteFetcherAPI } from '../api/graphql'

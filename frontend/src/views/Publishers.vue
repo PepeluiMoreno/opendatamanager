@@ -1,15 +1,12 @@
 <template>
-  <div class="p-6 space-y-6" style="min-height:100%">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-white">Publishers</h1>
-        <p class="text-gray-400 text-sm mt-1">Organisations and portals publishing open data</p>
-      </div>
-      <button v-if="puede('publishers.gestionar')" @click="openCreate" class="btn btn-primary flex items-center gap-2">
-        <span class="text-lg leading-none">+</span> New publisher
-      </button>
-    </div>
+  <div class="p-8 space-y-6" style="min-height:100%">
+    <PageHeader title="Publishers" subtitle="Organisations and portals publishing open data">
+      <template #actions>
+        <button v-if="puede('publishers.gestionar')" @click="openCreate" class="btn btn-primary flex items-center gap-2">
+          <span class="text-lg leading-none">+</span> New publisher
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Filtros -->
     <FilterBar :canClear="!!(filtroTexto || filtroNivel || filtroPais)" :count="publishersFiltrados.length" :total="publishers.length" @clear="limpiarFiltros">
@@ -256,6 +253,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import Spinner from '../components/Spinner.vue'

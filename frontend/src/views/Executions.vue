@@ -1,16 +1,14 @@
 <template>
   <div class="p-8">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-3xl font-bold">Processes</h1>
-      <div class="flex items-center gap-3">
+    <PageHeader title="Processes">
+      <template #actions>
         <span class="text-xs text-gray-500">Auto-refresh every 5s</span>
         <span class="relative flex h-2 w-2">
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
         </span>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <!-- Status filter tabs -->
     <div class="flex items-center gap-2 mb-4">
@@ -395,6 +393,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'

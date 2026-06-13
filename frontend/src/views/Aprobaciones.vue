@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 space-y-6" style="min-height:100%">
+  <div class="p-8 space-y-6" style="min-height:100%">
     <div v-if="accionError" class="bg-red-900/40 border border-red-700 text-red-200 text-sm rounded-lg px-3 py-2">
       {{ accionError }}
       <button @click="accionError=''" class="float-right text-red-300 hover:text-white">✕</button>

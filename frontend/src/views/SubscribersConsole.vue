@@ -8,7 +8,6 @@
     <!-- ===== SUBSCRIBERS RAIL ===== -->
     <aside class="rail">
       <div class="brand">
-        <div class="logo"></div>
         <div><h1>Suscriptores</h1><div class="sub">Vista nueva · beta</div></div>
       </div>
       <div class="roster-h">
@@ -339,8 +338,6 @@ async function crearSuscripcion(){ nuevaSusc.value.busy=true
 
 .rail{background:linear-gradient(180deg,#10151d,#0d1218);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
 .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
-.brand .logo{width:30px;height:30px;border-radius:9px;background:conic-gradient(from 200deg,var(--signal),var(--violet),var(--harvest),var(--signal));position:relative}
-.brand .logo::after{content:"";position:absolute;inset:6px;border-radius:5px;background:var(--ink)}
 .brand h1{font-family:var(--disp);font-size:15px;font-weight:600;margin:0}
 .brand .sub{font-size:10px;color:var(--faint);letter-spacing:.14em;text-transform:uppercase;font-family:var(--mono)}
 .roster-h{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 6px}

@@ -1,6 +1,6 @@
 <template>
   <div class="p-6 max-w-3xl mx-auto space-y-6">
-    <h1 class="text-2xl font-semibold text-white">👤 Mis datos</h1>
+    <PageHeader title="👤 Mis datos" />
 
     <!-- Datos personales -->
     <section class="bg-gray-800 rounded-lg p-5 border border-gray-700">
@@ -88,6 +88,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, reactive, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { usePagination } from '../composables/usePagination.js'

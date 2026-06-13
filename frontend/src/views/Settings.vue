@@ -1,18 +1,17 @@
 <template>
   <div class="p-8">
-    <div class="flex items-center justify-between mb-8">
-      <div>
-        <h1 class="text-3xl font-bold">Settings</h1>
-        <p v-if="sysInfo" class="text-xs text-gray-500 mt-1">
+    <PageHeader title="Settings">
+      <template #subtitle>
+        <p v-if="sysInfo" class="page-subtitle">
           Backend: {{ sysInfo.ram_total_gb }} GB RAM
           ({{ sysInfo.source === 'cgroup' ? 'container limit' : 'host' }}) ·
           {{ sysInfo.cpu_logical }} logical CPUs · {{ sysInfo.cpu_physical }} physical
         </p>
-      </div>
-      <transition name="fade">
-        <span v-if="saved" class="text-xs text-green-400 font-medium">Saved</span>
-      </transition>
-    </div>
+      </template>
+      <template #actions>
+        <transition name="fade"><span v-if="saved" class="text-xs text-green-400 font-medium">Saved</span></transition>
+      </template>
+    </PageHeader>
 
     <div v-if="loading" class="text-gray-400 text-center py-16">Loading...</div>
 
@@ -98,6 +97,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, onMounted } from 'vue'
 import { fetchAppConfig, setConfig } from '../api/graphql.js'
 import SettingRow from '../components/SettingRow.vue'

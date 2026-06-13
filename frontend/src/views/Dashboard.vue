@@ -1,11 +1,12 @@
 <template>
   <div class="p-8">
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-3xl font-bold">Dashboard</h1>
-      <button @click="loadAll" class="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 border border-gray-700 rounded-lg transition-colors">
-        ↻ Refresh
-      </button>
-    </div>
+    <PageHeader title="Dashboard">
+      <template #actions>
+        <button @click="loadAll" class="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 border border-gray-700 rounded-lg transition-colors">
+          ↻ Refresh
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Top KPI cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -127,6 +128,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 

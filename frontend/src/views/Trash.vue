@@ -1,7 +1,6 @@
 <template>
   <div class="p-8">
-    <h1 class="text-3xl font-bold mb-2">Trash</h1>
-    <p class="text-gray-400 text-sm mb-6">Soft-deleted records. Restore them or permanently delete them.</p>
+    <PageHeader title="Trash" subtitle="Soft-deleted records. Restore them or permanently delete them." />
 
     <!-- Tabs -->
     <div class="flex gap-1 mb-6 border-b border-gray-700">
@@ -117,6 +116,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'

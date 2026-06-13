@@ -1,22 +1,17 @@
 <template>
   <div class="p-8">
 
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h1 class="text-3xl font-bold">Schedule</h1>
-        <p class="text-xs text-gray-500 mt-1">
-          {{ scheduledResources.length }} active schedule{{ scheduledResources.length !== 1 ? 's' : '' }}
-        </p>
-      </div>
-      <button
-        v-if="!showForm"
-        @click="openNew"
-        class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
-      >
-        <span class="text-lg leading-none">+</span> New schedule
-      </button>
-    </div>
+    <PageHeader title="Schedule">
+      <template #subtitle>
+        <p class="page-subtitle">{{ scheduledResources.length }} active schedule{{ scheduledResources.length !== 1 ? 's' : '' }}</p>
+      </template>
+      <template #actions>
+        <button v-if="!showForm" @click="openNew"
+          class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors">
+          <span class="text-lg leading-none">+</span> New schedule
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- ── Scheduled tasks table ───────────────────────────────────────────── -->
     <div v-if="loading" class="py-16"><Spinner /></div>
@@ -161,6 +156,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchResources, updateResource } from '../api/graphql.js'
