@@ -204,12 +204,35 @@ def puntua_lexico(nombre: str) -> Tuple[int, List[str]]:
     return score, evid
 
 
+# Marcadores de confesiones NO católicas. El censo es católico-only, y la letra R
+# del NIF marca "entidad religiosa" de CUALQUIER confesión: hay que excluir el resto
+# incluso cuando vienen con NIF-R o inscritas en el RER. Stems elegidos sin colisión
+# con términos católicos (p.ej. "evangelic" no casa con "evangelizacion"/"evangelista",
+# y NO se incluye "bautista" por San Juan Bautista).
+LEXICO_NO_CATOLICO = (
+    "evangelic", "evangelista de", "protestant", "pentecostal", "adventist",
+    "asamblea de dios", "asambleas de dios", "filadelfia", "iglesia de filadelfia",
+    "islamic", "musulman", "mezquita", "morabito", "comunidad islam",
+    "budist", "hindu", "krishna", "soka gakkai",
+    "judia", "judio", "israelita", "hebrea", "sinagoga", "sefardi", "comunidad judia",
+    "ortodox", "testigos de jehova", "testigos cristianos de jehova",
+    "mormon", "santos de los ultimos dias", "jesucristo de los santos",
+    "cienciolog", "bahai", "fe bahai", "sij", "gurdwara", "iglesia de la unificacion",
+)
+
+
 def naturaleza(*, nombre: str, nif: str, en_rer: bool,
                confesion: str = "", federaciones: Any = None) -> Dict[str, Any]:
     """Clasificación determinista de la naturaleza religiosa de una entidad."""
     letra = letra_nif(nif)
     lex, evid = puntua_lexico(nombre)
     score = lex
+    # Exclusión de confesiones no católicas (prevalece sobre RER y NIF-R).
+    _n = " " + _norm(nombre).lower() + " "
+    for marca in LEXICO_NO_CATOLICO:
+        if marca in _n:
+            return {"naturaleza": "descartada", "via": "no_catolica",
+                    "score": score, "evidencia": [f"no católica «{marca.strip()}»"] + evid}
     if confesion and str(confesion).strip():
         score += 3; evid.append("+3 confesión RER")
     fed = federaciones if isinstance(federaciones, list) else (
