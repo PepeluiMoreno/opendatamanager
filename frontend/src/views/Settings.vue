@@ -34,6 +34,22 @@
         </div>
       </section>
 
+      <!-- Fetcher execution defaults -->
+      <section class="card p-5">
+        <h2 class="text-sm font-semibold text-gray-300 mb-1 flex items-center gap-2">
+          <span>🛠️</span> Fetcher execution defaults
+        </h2>
+        <p class="text-xs text-gray-600 mb-4">Per-resource advanced execution parameters inherit these when left blank.</p>
+        <div class="grid grid-cols-2 gap-x-10 divide-y-0">
+          <SettingRow
+            v-for="k in fetcherDefaultKeys" :key="k"
+            :cfg="get(k)" :sysInfo="sysInfo"
+            @save="save"
+            class="border-t border-gray-700 first:border-t-0 col-span-1"
+          />
+        </div>
+      </section>
+
       <!-- Retention + Behaviour: shared card, 2-column grid so rows align -->
       <section class="card p-5">
         <div class="grid grid-cols-2 gap-x-10">
@@ -92,6 +108,7 @@ const loading = ref(true)
 const saved   = ref(false)
 
 const concurrencyKeys = ['max_concurrent_processes', 'default_fetch_timeout', 'max_pages_per_run', 'default_page_size']
+const fetcherDefaultKeys = ['num_workers', 'max_concurrent_requests', 'rate_limit_per_second', 'request_delay_ms', 'retry_attempts', 'batch_size']
 const retentionKeys   = ['log_retention_days', 'execution_retention_days']
 const behaviourKeys   = ['auto_run_on_startup', 'notify_on_failure', 'execute_cooldown_minutes']
 

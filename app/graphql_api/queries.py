@@ -727,7 +727,15 @@ class Query:
             ]
             # Defaults para claves conocidas que se LEEN con un fallback pero pueden
             # no tener fila aún (así el campo aparece en Settings y es ajustable).
-            faltan = {"execute_cooldown_minutes": (60, "Minutos mínimos entre re-ejecuciones de un recurso. 0 = sin cooldown.")}
+            faltan = {
+                "execute_cooldown_minutes": (60, "Minutos mínimos entre re-ejecuciones de un recurso. 0 = sin cooldown."),
+                "num_workers": (1, "Default parallel workers per fetch when a resource does not set it."),
+                "max_concurrent_requests": (4, "Default max concurrent HTTP requests per fetch."),
+                "rate_limit_per_second": (0, "Default request rate cap per second (0 = unlimited)."),
+                "request_delay_ms": (0, "Default delay between requests in milliseconds (0 = none)."),
+                "retry_attempts": (5, "Default retry attempts on failure."),
+                "batch_size": (1000, "Default rows per processing batch."),
+            }
             presentes = {r.key for r in rows}
             for k, (val, desc) in faltan.items():
                 if k not in presentes:

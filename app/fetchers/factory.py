@@ -80,6 +80,10 @@ class FetcherFactory:
         # especie (FetcherPreset); fetcher.preset_params queda como fallback
         # transitorio de filas-variante aún no migradas.
         params_dict = FetcherFactory._build_defaults_dict(resource.fetcher.params_def)
+        # Defaults globales (Ajustes): para las claves de ejecución conocidas, si el
+        # recurso no las fija, se hereda el valor configurado en AppConfig. Quedan por
+        # encima de los defaults de clase y por debajo del preset/recurso/ejecución.
+        params_dict.update(FetcherFactory._global_exec_defaults(resource))
         preset = getattr(resource, "preset", None)
         if preset is not None and getattr(preset, "deleted_at", None) is None and preset.params:
             params_dict.update(preset.params)
@@ -125,6 +129,28 @@ class FetcherFactory:
                 if k not in bloqueados or k.startswith("_"):
                     params_dict[k] = v
         return fetcher_class(params_dict)
+
+    # Claves de ejecución que pueden tener un default global en Ajustes (AppConfig).
+    EXEC_DEFAULT_KEYS = (
+        "num_workers", "max_concurrent_requests", "rate_limit_per_second",
+        "request_delay_ms", "retry_attempts", "batch_size",
+    )
+
+    @staticmethod
+    def _global_exec_defaults(resource) -> Dict[str, str]:
+        """Lee de AppConfig los defaults globales de ejecución (si están fijados)."""
+        try:
+            from sqlalchemy.orm import object_session
+            from app.models import AppConfig
+            sess = object_session(resource)
+            if sess is None:
+                return {}
+            rows = (sess.query(AppConfig)
+                    .filter(AppConfig.key.in_(FetcherFactory.EXEC_DEFAULT_KEYS))
+                    .all())
+            return {r.key: str(r.value) for r in rows if r.value not in (None, "")}
+        except Exception:  # noqa: BLE001 — best-effort; sin config global no cambia nada
+            return {}
 
     @staticmethod
     def _build_defaults_dict(params_def: list) -> Dict[str, str]:

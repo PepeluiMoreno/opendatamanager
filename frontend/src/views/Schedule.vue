@@ -114,112 +114,9 @@
         </select>
       </div>
 
-      <!-- Frequency selector -->
+      <!-- Programación -->
       <div class="mb-6">
-        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Frequency</label>
-        <div class="flex gap-2 flex-wrap">
-          <button
-            v-for="m in MODES" :key="m.key"
-            type="button"
-            @click="setMode(m.key)"
-            :class="[
-              'px-4 py-2 text-sm rounded-lg border font-medium transition-colors',
-              form.mode === m.key
-                ? 'bg-blue-600 border-blue-500 text-white shadow-md'
-                : 'bg-gray-800 border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-            ]"
-          >{{ m.label }}</button>
-        </div>
-      </div>
-
-      <!-- Conditional fields -->
-      <div class="mb-6 px-5 py-4 bg-gray-800 border border-gray-700 rounded-xl min-h-[90px] flex items-start">
-
-        <!-- Every N minutes -->
-        <div v-if="form.mode === 'minutes'" class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm text-gray-300">Every</span>
-          <input v-model.number="form.interval" type="number" min="1" max="59"
-            class="w-20 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-          <span class="text-sm text-gray-300">minutes</span>
-        </div>
-
-        <!-- Hourly -->
-        <div v-else-if="form.mode === 'hourly'" class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm text-gray-300">At minute</span>
-          <input v-model.number="form.minute" type="number" min="0" max="59"
-            class="w-20 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-          <span class="text-sm text-gray-300">past every hour &nbsp;→&nbsp; :{{ String(form.minute).padStart(2,'0') }} each hour</span>
-        </div>
-
-        <!-- Daily -->
-        <div v-else-if="form.mode === 'daily'" class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm text-gray-300">Every day at</span>
-          <div class="flex items-center gap-1">
-            <input v-model.number="form.hour" type="number" min="0" max="23"
-              class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-            <span class="text-gray-400 font-bold text-lg">:</span>
-            <input v-model.number="form.minute" type="number" min="0" max="59"
-              class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-          </div>
-        </div>
-
-        <!-- Weekly -->
-        <div v-else-if="form.mode === 'weekly'" class="space-y-4 w-full">
-          <div>
-            <p class="text-xs text-gray-500 mb-2">Days of the week</p>
-            <div class="flex gap-2 flex-wrap">
-              <button
-                v-for="(day, i) in WEEK_DAYS" :key="i"
-                type="button"
-                @click="toggleDay(i)"
-                :class="[
-                  'w-10 h-10 rounded-full text-xs font-bold border-2 transition-colors select-none',
-                  form.weekdays.includes(i)
-                    ? 'bg-blue-600 border-blue-400 text-white'
-                    : 'bg-gray-700 border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-200'
-                ]"
-              >{{ day }}</button>
-            </div>
-          </div>
-          <div class="flex items-center gap-3">
-            <span class="text-sm text-gray-300">At</span>
-            <div class="flex items-center gap-1">
-              <input v-model.number="form.hour" type="number" min="0" max="23"
-                class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-              <span class="text-gray-400 font-bold text-lg">:</span>
-              <input v-model.number="form.minute" type="number" min="0" max="59"
-                class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Monthly -->
-        <div v-else-if="form.mode === 'monthly'" class="flex items-center gap-3 flex-wrap">
-          <span class="text-sm text-gray-300">On day</span>
-          <input v-model.number="form.monthDay" type="number" min="1" max="31"
-            class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-          <span class="text-sm text-gray-300">of the month at</span>
-          <div class="flex items-center gap-1">
-            <input v-model.number="form.hour" type="number" min="0" max="23"
-              class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-            <span class="text-gray-400 font-bold text-lg">:</span>
-            <input v-model.number="form.minute" type="number" min="0" max="59"
-              class="w-16 text-center font-semibold text-base bg-gray-700 border border-gray-600 text-white rounded-lg px-2 py-1.5 focus:outline-none focus:border-blue-500" />
-          </div>
-        </div>
-
-        <!-- Custom cron -->
-        <div v-else-if="form.mode === 'custom'" class="w-full space-y-2">
-          <div class="flex items-center gap-3">
-            <input v-model="form.cron" type="text" placeholder="* * * * *"
-              class="flex-1 font-mono text-sm bg-gray-700 border text-gray-200 rounded-lg px-3 py-2.5 focus:outline-none focus:border-blue-500"
-              :class="form.cron && !isValidCron(form.cron) ? 'border-red-600' : 'border-gray-600'" />
-          </div>
-          <p class="text-xs text-gray-600">
-            <span class="font-mono text-gray-500">minute&nbsp;&nbsp;hour&nbsp;&nbsp;day-of-month&nbsp;&nbsp;month&nbsp;&nbsp;day-of-week</span>
-            &nbsp;·&nbsp; * = any &nbsp;·&nbsp; */N = every N &nbsp;·&nbsp; 1,3,5 = list &nbsp;·&nbsp; 1-5 = range
-          </p>
-        </div>
+        <ScheduleEditor v-model="form.cron" />
       </div>
 
       <!-- Preview -->
@@ -268,6 +165,7 @@ import { ref, reactive, computed, watch, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchResources, updateResource } from '../api/graphql.js'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
+import ScheduleEditor from '../components/ScheduleEditor.vue'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -318,7 +216,7 @@ const editingResource = computed(() =>
 )
 
 const previewCron = computed(() => {
-  const c = buildCron()
+  const c = (form.cron || '').trim()
   return c && isValidCron(c) ? c : null
 })
 
@@ -366,7 +264,7 @@ function openNew() {
 function openEdit(res) {
   resetForm()
   editingId.value = res.id
-  parseCronIntoForm(res.schedule)
+  form.cron = res.schedule || ''
   showForm.value  = true
 }
 
@@ -378,7 +276,7 @@ function closeForm() {
 
 async function saveForm() {
   formError.value = ''
-  const cron = buildCron()
+  const cron = (form.cron || '').trim()
   if (!cron || !isValidCron(cron)) {
     formError.value = 'Invalid schedule configuration.'
     return
