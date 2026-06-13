@@ -1,0 +1,74 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "AOC",
+    "nombre": "Consorci Administració Oberta de Catalunya — Dades obertes dels ens locals (seu-e)",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://dadesobertes.seu-e.cat"
+  },
+  "resources": [
+    {
+      "name": "Asociaciones municipales de Cataluña (AOC seu-e) — registros con CIF",
+      "fetcher": "Catálogo DCAT",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 5 9 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "genera_colecciones": true,
+      "description": "Nave nodriza CKAN sobre el portal de la AOC (seu-e), que federa los registros municipales de asociaciones/entidades de los ayuntamientos catalanes. Cubre el ámbito MUNICIPAL >50k de Cataluña (l'Hospitalet, Badalona, Terrassa, Sabadell...). Muchos publican CIF y categoría. Señal de fines: variable por municipio.",
+      "params": [
+        {
+          "key": "catalog_type",
+          "value": "ckan",
+          "is_external": false
+        },
+        {
+          "key": "catalog_api",
+          "value": "https://dadesobertes.seu-e.cat",
+          "is_external": false
+        },
+        {
+          "key": "query_terms",
+          "value": "registre associacions,registre entitats,registre municipal associacions",
+          "is_external": false
+        },
+        {
+          "key": "title_include",
+          "value": "regist(re|ro)\\s+.*(associaci|asociaci|entitat|entidad)",
+          "is_external": false
+        },
+        {
+          "key": "title_exclude",
+          "value": "(juvenil|esportiv|deportiv|equipament|subvenci|paciente)",
+          "is_external": false
+        },
+        {
+          "key": "formats",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "child_fetcher",
+          "value": "File Download",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "50",
+          "is_external": false
+        },
+        {
+          "key": "max_pages",
+          "value": "6",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "40",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}

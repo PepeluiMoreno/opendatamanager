@@ -51,6 +51,7 @@ class CatalogFetcher(BaseFetcher):
         p = self.params
         return {
             "api": (p.get("catalog_api") or "https://datos.gob.es/apidata").rstrip("/"),
+            "type": (p.get("catalog_type") or "datosgob").strip().lower(),
             "terms": [t.strip() for t in (p.get("query_terms") or "asociaciones,fundaciones").split(",") if t.strip()],
             "page_size": int(p.get("page_size", 50)),
             "max_pages": int(p.get("max_pages", 20)),
@@ -107,46 +108,91 @@ class CatalogFetcher(BaseFetcher):
                 if len(items) < cfg["page_size"]:
                     break
 
-    def _entries(self) -> List[Dict[str, Any]]:
-        """Devuelve las entradas pertinentes: (title, publisher, url, format)."""
-        cfg = self._cfg()
-        seen = set()
-        out: List[Dict[str, Any]] = []
-        for it in self._iter_datasets(cfg):
-            title = self._val(it.get("title")) or ""
-            if not cfg["include"].search(title) or cfg["exclude"].search(title):
+    def _iter_datasets_ckan(self, cfg: Dict) -> Generator[Dict, None, None]:
+        """Pagina package_search de un portal CKAN (api = base del portal)."""
+        base = cfg["api"]
+        for term in cfg["terms"]:
+            start = 0
+            for _ in range(cfg["max_pages"]):
+                try:
+                    resp = self._request(None, "GET", f"{base}/api/3/action/package_search",
+                                         params={"q": term, "rows": cfg["page_size"], "start": start},
+                                         headers={"Accept": "application/json"},
+                                         timeout=int(self.params.get("timeout", 30)))
+                    resp.raise_for_status()
+                    data = resp.json()
+                except Exception as exc:
+                    logger.error(f"[catalog/ckan] término '{term}' start {start}: {exc}")
+                    break
+                if not data.get("success"):
+                    break
+                results = (data.get("result") or {}).get("results") or []
+                if not results:
+                    break
+                for pkg in results:
+                    yield pkg
+                start += len(results)
+                if len(results) < cfg["page_size"]:
+                    break
+
+    def _consider(self, title: str, publisher: str, dist_iter, cfg: Dict,
+                  seen: set, out: List[Dict[str, Any]]) -> None:
+        """Filtro de pertinencia común a DCAT y CKAN. `dist_iter` produce
+        tuplas (url, format, dist_label)."""
+        if not title or not cfg["include"].search(title) or cfg["exclude"].search(title):
+            return
+        for url, fmt, dlabel in dist_iter:
+            if not url or fmt not in cfg["formats"]:
                 continue
-            publisher = it.get("publisher", "")
-            publisher = publisher.split("/")[-1] if isinstance(publisher, str) else ""
-            dists = it.get("distribution", []) or []
-            if isinstance(dists, dict):
-                dists = [dists]
-            for d in dists:
-                if not isinstance(d, dict):
-                    continue
-                fmt = self._fmt(d)
-                if fmt not in cfg["formats"]:
-                    continue
-                url = d.get("downloadURL") or d.get("accessURL")
-                if not url:
-                    continue
-                low = url.lower()
-                if any(s in low for s in cfg["drop"]):
-                    continue
-                if url in seen:
-                    continue
-                seen.add(url)
-                # Etiqueta para desambiguar distribuciones del mismo dataset
-                # (p. ej. un fichero por provincia, o csv vs json): título de la
-                # distribución si lo trae, si no el nombre de fichero de la URL.
-                dlabel = self._val(d.get("title")) or url.rstrip("/").split("/")[-1].split("?")[0]
-                # El exclude también se aplica a la etiqueta de la distribución: un
-                # dataset con título de registro puede traer distribuciones que NO
-                # son el registro (Balance, Cuentas de resultados por ejercicio...).
-                if dlabel and cfg["exclude"].search(dlabel):
-                    continue
-                out.append({"title": title.strip(), "publisher": publisher,
-                            "url": url, "format": fmt, "dist_label": dlabel})
+            low = url.lower()
+            if any(s in low for s in cfg["drop"]):
+                continue
+            if url in seen:
+                continue
+            # El exclude también se aplica a la etiqueta de la distribución: un
+            # registro puede traer distribuciones que NO lo son (Balance, Cuentas...).
+            if dlabel and cfg["exclude"].search(dlabel):
+                continue
+            seen.add(url)
+            out.append({"title": title.strip(), "publisher": publisher or "",
+                        "url": url, "format": fmt, "dist_label": dlabel})
+
+    def _entries(self) -> List[Dict[str, Any]]:
+        """Devuelve las entradas pertinentes: (title, publisher, url, format).
+        Soporta dos catálogos: la apidata de datos.gob.es (DCAT-AP-ES) y CKAN."""
+        cfg = self._cfg()
+        seen: set = set()
+        out: List[Dict[str, Any]] = []
+
+        if cfg["type"] == "ckan":
+            for pkg in self._iter_datasets_ckan(cfg):
+                title = pkg.get("title") or pkg.get("name") or ""
+                org = pkg.get("organization") or {}
+                publisher = (org.get("title") or org.get("name") or "") if isinstance(org, dict) else ""
+                def _ckan_dists(resources):
+                    for r in resources or []:
+                        u = r.get("url")
+                        fmt = str(r.get("format") or "").strip().lower()
+                        dl = r.get("name") or (u.rstrip("/").split("/")[-1].split("?")[0] if u else "")
+                        yield u, fmt, dl
+                self._consider(title, publisher, _ckan_dists(pkg.get("resources")), cfg, seen, out)
+        else:
+            for it in self._iter_datasets(cfg):
+                title = self._val(it.get("title")) or ""
+                publisher = it.get("publisher", "")
+                publisher = publisher.split("/")[-1] if isinstance(publisher, str) else ""
+                dists = it.get("distribution", []) or []
+                if isinstance(dists, dict):
+                    dists = [dists]
+                def _dcat_dists(distribs):
+                    for d in distribs:
+                        if not isinstance(d, dict):
+                            continue
+                        url = d.get("downloadURL") or d.get("accessURL")
+                        dl = self._val(d.get("title")) or (url.rstrip("/").split("/")[-1].split("?")[0] if url else "")
+                        yield url, self._fmt(d), dl
+                self._consider(title, publisher, _dcat_dists(dists), cfg, seen, out)
+
         logger.info(f"[catalog] {len(out)} distribución(es) pertinente(s) tras filtro.")
         if cfg["prefer"]:
             out = self._collapse_formats(out, cfg["prefer"])
