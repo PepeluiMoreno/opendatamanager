@@ -1,7 +1,7 @@
 <template>
   <div class="h-full flex flex-col">
     <div class="px-6 pt-6 pb-3 flex items-center gap-4 flex-shrink-0">
-      <h1 class="text-xl font-bold text-white">📦 Subscribers</h1>
+      <PageHeader title="📦 Subscribers" tight />
       <div class="flex gap-1">
         <button v-if="verActivos" @click="tab='activos'"
           class="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors"
@@ -21,6 +21,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed } from 'vue'
 import Subscribers from './Subscribers.vue'
 import Aprobaciones from './Aprobaciones.vue'

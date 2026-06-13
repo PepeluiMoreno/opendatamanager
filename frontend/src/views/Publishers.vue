@@ -1,12 +1,10 @@
 <template>
-  <div class="p-8 space-y-6" style="min-height:100%">
-    <PageHeader title="Publishers" subtitle="Organisations and portals publishing open data">
+  <ViewLayout title="Publishers" subtitle="Organisations and portals publishing open data" body-class="space-y-6">
       <template #actions>
         <button v-if="puede('publishers.gestionar')" @click="openCreate" class="btn btn-primary flex items-center gap-2">
           <span class="text-lg leading-none">+</span> New publisher
         </button>
       </template>
-    </PageHeader>
 
     <!-- Filtros -->
     <FilterBar :canClear="!!(filtroTexto || filtroNivel || filtroPais)" :count="publishersFiltrados.length" :total="publishers.length" @clear="limpiarFiltros">
@@ -249,11 +247,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import Spinner from '../components/Spinner.vue'

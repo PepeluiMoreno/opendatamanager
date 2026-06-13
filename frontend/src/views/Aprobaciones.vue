@@ -1,5 +1,5 @@
 <template>
-  <div class="p-8 space-y-6" style="min-height:100%">
+  <ViewLayout title="Aprobaciones" body-class="space-y-6">
     <div v-if="accionError" class="bg-red-900/40 border border-red-700 text-red-200 text-sm rounded-lg px-3 py-2">
       {{ accionError }}
       <button @click="accionError=''" class="float-right text-red-300 hover:text-white">✕</button>
@@ -114,7 +114,6 @@
       </div>
     </section>
 
-  </div>
     <div v-if="rechazo" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="cerrarRechazo">
       <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
         <h3 class="text-lg font-bold text-white mb-1">Rechazar</h3>
@@ -129,9 +128,11 @@
     <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
       :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
       @confirm="okConfirm" @cancel="cerrarConfirm" />
+  </ViewLayout>
 </template>
 
 <script setup>
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, onMounted } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import FilterBar from '../components/FilterBar.vue'

@@ -1,5 +1,6 @@
 <template>
   <div class="p-6 flex flex-col gap-6 h-full">
+    <PageHeader title="Subscribers" tight />
 
     <!-- ── Maestro: suscriptores (FilterBar + datatable) ──────────────── -->
     <div class="flex flex-col min-h-0">
@@ -271,6 +272,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 const confirmar = ref(null)

@@ -5,7 +5,7 @@
     <!-- ── Top bar ── -->
     <div class="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-4 sm:px-6 py-4 space-y-3">
       <div class="flex items-center justify-between gap-3">
-        <h1 class="text-lg sm:text-xl font-bold text-white">Discovering</h1>
+        <PageHeader title="Discovering" tight />
         <span v-if="phase === 'running'" class="text-xs px-2 py-0.5 rounded-full bg-blue-900 text-blue-300 animate-pulse">Crawleando…</span>
       </div>
 
@@ -363,6 +363,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 const confirmar = ref(null)

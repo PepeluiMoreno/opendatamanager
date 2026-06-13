@@ -3,10 +3,7 @@
     <!-- ============ COLLECTIONS RAIL ============ -->
     <aside class="rail">
       <div class="brand">
-        <div>
-          <h1>Recursos</h1>
-          <div class="sub">Vista nueva · beta</div>
-        </div>
+        <PageHeader title="Recursos" subtitle="Vista nueva · beta" tight />
       </div>
 
       <div class="roster-h">
@@ -271,6 +268,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination'
 import { useAuth } from '../composables/useAuth'

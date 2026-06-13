@@ -1,6 +1,5 @@
 <template>
-  <div class="p-6 max-w-3xl mx-auto space-y-6">
-    <PageHeader title="👤 Mis datos" />
+  <ViewLayout title="👤 Mis datos" max-width="48rem" body-class="space-y-6">
 
     <!-- Datos personales -->
     <section class="bg-gray-800 rounded-lg p-5 border border-gray-700">
@@ -84,11 +83,11 @@
       </table>
           <Paginator v-model:page="hPage" v-model:perPage="hPerPage" :total="hTotal" />
     </section>
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, reactive, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { usePagination } from '../composables/usePagination.js'

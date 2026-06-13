@@ -1,6 +1,5 @@
 <template>
-  <div class="p-8">
-    <PageHeader title="Processes">
+  <ViewLayout title="Processes">
       <template #actions>
         <span class="text-xs text-gray-500">Auto-refresh every 5s</span>
         <span class="relative flex h-2 w-2">
@@ -8,7 +7,6 @@
           <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
         </span>
       </template>
-    </PageHeader>
 
     <!-- Status filter tabs -->
     <div class="flex items-center gap-2 mb-4">
@@ -353,7 +351,6 @@
         </div>
       </div>
     </div>
-  </div>
 
   <!-- Confirm dialog (abort) -->
   <ConfirmDialog
@@ -390,10 +387,11 @@
       </div>
     </div>
   </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'

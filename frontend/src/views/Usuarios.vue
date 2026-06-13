@@ -1,10 +1,8 @@
 <template>
-  <div class="p-8">
-    <PageHeader title="👥 Users">
+  <ViewLayout title="👥 Users">
       <template #actions>
         <button class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded-lg" @click="abrirCrear">+ Nuevo usuario</button>
       </template>
-    </PageHeader>
 
     <p v-if="error" class="text-sm text-red-400 mb-4">{{ error }}</p>
 
@@ -96,11 +94,11 @@
     <ConfirmDialog v-if="confirmar" :title="confirmar.title" :message="confirmar.message"
       :confirmText="confirmar.confirmText || 'Confirmar'" cancelText="Cancelar"
       @confirm="okConfirm" @cancel="cerrarConfirm" />
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'

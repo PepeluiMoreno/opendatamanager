@@ -1,12 +1,10 @@
 <template>
-  <div class="p-8">
-    <PageHeader title="Dashboard">
+  <ViewLayout title="Dashboard">
       <template #actions>
         <button @click="loadAll" class="text-xs text-gray-500 hover:text-gray-300 px-3 py-1.5 border border-gray-700 rounded-lg transition-colors">
           ↻ Refresh
         </button>
       </template>
-    </PageHeader>
 
     <!-- Top KPI cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -124,11 +122,11 @@
       </div>
     </div>
 
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 

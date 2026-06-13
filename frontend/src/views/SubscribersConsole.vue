@@ -8,7 +8,7 @@
     <!-- ===== SUBSCRIBERS RAIL ===== -->
     <aside class="rail">
       <div class="brand">
-        <div><h1>Suscriptores</h1><div class="sub">Vista nueva · beta</div></div>
+        <PageHeader title="Suscriptores" subtitle="Vista nueva · beta" tight />
       </div>
       <div class="roster-h">
         <span>Suscriptores</span>
@@ -207,6 +207,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
 import Aprobaciones from './Aprobaciones.vue'

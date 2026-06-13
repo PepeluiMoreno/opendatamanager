@@ -1,6 +1,5 @@
 <template>
-  <div class="p-8">
-    <PageHeader title="Settings">
+  <ViewLayout title="Settings">
       <template #subtitle>
         <p v-if="sysInfo" class="page-subtitle">
           Backend: {{ sysInfo.ram_total_gb }} GB RAM
@@ -11,7 +10,6 @@
       <template #actions>
         <transition name="fade"><span v-if="saved" class="text-xs text-green-400 font-medium">Saved</span></transition>
       </template>
-    </PageHeader>
 
     <div v-if="loading" class="text-gray-400 text-center py-16">Loading...</div>
 
@@ -93,11 +91,11 @@
         </div>
       </section>
     </div>
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, onMounted } from 'vue'
 import { fetchAppConfig, setConfig } from '../api/graphql.js'
 import SettingRow from '../components/SettingRow.vue'

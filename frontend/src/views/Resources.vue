@@ -2,7 +2,7 @@
   <div class="p-6 flex flex-col h-full" ref="viewEl">
     <template v-if="!(showCreateModal || showEditModal)">
     <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
-      <h1 class="text-2xl font-bold">Resources</h1>
+      <PageHeader title="Resources" tight />
       <div class="flex gap-2 items-center">
         <span v-if="cuota && puede('ejecuciones.lanzar')"
               :title="`Refrescos a demanda consumidos hoy: ${cuota.usadosHoy} de ${cuota.limite}. Los refrescos programados (schedule) no cuentan.`"
@@ -1448,6 +1448,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'

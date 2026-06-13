@@ -11,7 +11,7 @@
     <div class="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-5 py-3 space-y-3">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h2 class="text-sm font-semibold text-white">Data Explorer</h2>
+          <PageHeader title="Data Explorer" tight />
           <p class="text-xs text-gray-500 mt-0.5">{{ summary }}</p>
         </div>
         <button @click="loadTree" class="text-xs text-gray-400 hover:text-white px-2.5 py-1.5 rounded bg-gray-700 hover:bg-gray-600 flex items-center gap-1.5">
@@ -356,6 +356,7 @@
 </template>
 
 <script setup>
+import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'

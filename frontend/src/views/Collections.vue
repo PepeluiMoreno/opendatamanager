@@ -1,6 +1,5 @@
 <template>
-  <div class="p-8 space-y-6" style="min-height:100%">
-    <PageHeader title="Collections" />
+  <ViewLayout title="Collections" body-class="space-y-6">
 
     <!-- Filtro (son recursos de recursos) -->
     <FilterBar :canClear="!!(search || tipoFilter)" :count="filtered.length" :total="colecciones.length" @clear="search='';tipoFilter=''">
@@ -60,11 +59,11 @@
     </div>
 
     <Paginator v-if="!cargando" v-model:page="page" v-model:perPage="perPage" :total="total" />
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, onMounted } from 'vue'
 import FilterBar from '../components/FilterBar.vue'
 import { fetchCollections } from '../api/graphql.js'

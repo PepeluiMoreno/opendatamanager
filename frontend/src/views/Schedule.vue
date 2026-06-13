@@ -1,7 +1,5 @@
 <template>
-  <div class="p-8">
-
-    <PageHeader title="Schedule">
+  <ViewLayout title="Schedule">
       <template #subtitle>
         <p class="page-subtitle">{{ scheduledResources.length }} active schedule{{ scheduledResources.length !== 1 ? 's' : '' }}</p>
       </template>
@@ -11,7 +9,6 @@
           <span class="text-lg leading-none">+</span> New schedule
         </button>
       </template>
-    </PageHeader>
 
     <!-- ── Scheduled tasks table ───────────────────────────────────────────── -->
     <div v-if="loading" class="py-16"><Spinner /></div>
@@ -77,8 +74,6 @@
         </tbody>
       </table>
     </div>
-
-  </div>
 
     <!-- ── Create / Edit panel ─────────────────────────────────────────────── -->
     <div v-if="showForm" class="card mt-6 p-6">
@@ -153,10 +148,11 @@
     @confirm="handleDialogConfirm"
     @cancel="dialog.show = false"
   />
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import Spinner from '../components/Spinner.vue'
 import { fetchResources, updateResource } from '../api/graphql.js'

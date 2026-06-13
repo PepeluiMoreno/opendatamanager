@@ -1,6 +1,5 @@
 <template>
-  <div class="p-8">
-    <PageHeader title="Trash" subtitle="Soft-deleted records. Restore them or permanently delete them." />
+  <ViewLayout title="Trash" subtitle="Soft-deleted records. Restore them or permanently delete them.">
 
     <!-- Tabs -->
     <div class="flex gap-1 mb-6 border-b border-gray-700">
@@ -112,11 +111,11 @@
         </div>
       </div>
     </div>
-  </div>
+  </ViewLayout>
 </template>
 
 <script setup>
-import PageHeader from '../components/PageHeader.vue'
+import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { usePagination } from '../composables/usePagination.js'
 import Paginator from '../components/Paginator.vue'
