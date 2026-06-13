@@ -130,6 +130,17 @@ LEXICO_NEGATIVO = {
     "hermandad de jubilados": 8, "hermandad de pensionistas": 8,
     "hermandad de excombatientes": 8, "hermandad sindical": 8,
     "hermandad de veteranos": 8, "hermandad de empleados": 8,
+    # Cofradías de pescadores (gremio pesquero) — también sin "de" y con patrón mariano
+    "cofradia pescadores": 8, "cofradias pescadores": 8, "cofradia de pescadores": 8,
+    "federacion de cofradias": 8, "posito": 5,
+    # Comisiones/sociedades de fiestas y festejos de pueblo (patrón ≠ entidad católica)
+    "comision de fiestas": 8, "comision de festas": 8, "comision de festexos": 8,
+    "comision de festejos": 8, "comissio de festes": 8, "sociedad de fiestas": 8,
+    "asociacion de fiestas": 8, "asociacion de festas": 8, "asoc de festas": 8,
+    "junta de fiestas": 8, "pena": 4,
+    # Asociaciones de vecinos / tercera edad
+    "asociacion de vecinos": 8, "asociacion de veciños": 8, "asoc de vecinos": 8,
+    "asoc de veciños": 8, "asociacion de veciñas": 8, "tercera edad": 8,
 }
 
 UMBRAL_CONFIRMA = 5    # score determinista → naturaleza "religiosa" confirmada
