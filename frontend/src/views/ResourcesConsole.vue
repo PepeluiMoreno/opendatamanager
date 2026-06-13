@@ -560,7 +560,11 @@ async function pedirBorrarRecurso(){
   if(!ok) return
   try{ await deleteResource(r.id,false); drawer.value=false; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) }
 }
-async function ejecutar(r){ try{ await executeResource(r.id); toast.success('Ejecución lanzada'); await load() }catch(e){ toast.error('No se pudo ejecutar: '+(e?.message||e)) } }
+async function ejecutar(r){
+  const { ok } = await confirm({ title:'Ejecutar recurso', message:`¿Lanzar ahora la ejecución de "${r.name}"?`, confirmText:'Ejecutar' })
+  if(!ok) return
+  try{ await executeResource(r.id); toast.success('Ejecución lanzada'); await load() }catch(e){ toast.error('No se pudo ejecutar: '+(e?.message||e)) }
+}
 </script>
 
 <style scoped>
