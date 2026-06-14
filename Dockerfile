@@ -4,6 +4,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends postgresql-clie
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+# Navegador para la especie Headless (HeadlessFetcher / Playwright)
+RUN python -m playwright install --with-deps chromium
 COPY . .
 COPY docker/app/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
