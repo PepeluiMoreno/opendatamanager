@@ -149,6 +149,39 @@ class HeadlessFetcher(BaseFetcher):
                 break
         return out
 
+    def _harvest_emails_bfs(self, context, seed: str, *, keywords, same_domain, max_follow,
+                            follow_depth, max_pages, wait_until, nav_timeout, text_emails) -> Set[str]:
+        """Recorre en anchura desde la semilla siguiendo enlaces que casen con las
+        palabras clave, hasta `follow_depth` niveles y `max_pages` páginas, y
+        acumula los correos de cada página visitada."""
+        emails: Set[str] = set()
+        visited: Set[str] = set()
+        queue: List[tuple] = [(seed, 0)]
+        pages = 0
+        while queue and pages < max_pages:
+            url, depth = queue.pop(0)
+            key = url.rstrip("/")
+            if key in visited:
+                continue
+            visited.add(key)
+            try:
+                page = self._goto(context, url, wait_until, nav_timeout)
+            except Exception:
+                continue
+            pages += 1
+            try:
+                emails |= self._emails_from_page(page, text_emails)
+                if depth < follow_depth:
+                    for t in self._follow_targets(page, url, keywords, same_domain, max_follow):
+                        if t.rstrip("/") not in visited:
+                            queue.append((t, depth + 1))
+            finally:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+        return emails
+
     def _goto(self, context, url: str, wait_until: str, nav_timeout: int):
         """Abre una página nueva y navega de forma tolerante: documento cargado
         y, best-effort, espera a networkidle (para que el JS de cloaking inyecte
@@ -181,6 +214,8 @@ class HeadlessFetcher(BaseFetcher):
         nav_timeout = int(self.params.get("page_timeout_ms", 45000))
         keywords = [k.strip().lower() for k in str(self.params.get("follow_keywords", _DEF_KEYWORDS)).split(",") if k.strip()]
         max_follow = int(self.params.get("max_follow", 6) or 0)
+        follow_depth = int(self.params.get("follow_depth", 1) or 1)
+        max_pages = int(self.params.get("max_pages", 40) or 40)
         same_domain = str(self.params.get("same_domain_only", "true")).lower() not in ("false", "0", "no")
         text_emails = str(self.params.get("text_emails", "false")).lower() in ("true", "1", "yes", "si", "sí")
         block_assets = str(self.params.get("block_assets", "true")).lower() not in ("false", "0", "no")
@@ -199,15 +234,14 @@ class HeadlessFetcher(BaseFetcher):
                 context.route("**/*", self._route_block)
 
             for i, seed in enumerate(seeds):
-                try:
-                    page = self._goto(context, seed, wait_until, nav_timeout)
-                except Exception as exc:
-                    logger.warning(f"[headless] no se pudo cargar {seed}: {str(exc)[:120]}")
-                    if str(self.params.get("stop_on_error", "")).lower() in ("true", "1"):
-                        raise
-                    continue
-
                 if extract == "fields":
+                    try:
+                        page = self._goto(context, seed, wait_until, nav_timeout)
+                    except Exception as exc:
+                        logger.warning(f"[headless] no se pudo cargar {seed}: {str(exc)[:120]}")
+                        if str(self.params.get("stop_on_error", "")).lower() in ("true", "1"):
+                            raise
+                        continue
                     rec = {"url": seed}
                     for field, sel in field_selectors.items():
                         try:
@@ -221,19 +255,10 @@ class HeadlessFetcher(BaseFetcher):
                     except Exception:
                         pass
                 else:
-                    emails: Set[str] = set(self._emails_from_page(page, text_emails))
-                    targets = self._follow_targets(page, seed, keywords, same_domain, max_follow)
-                    try:
-                        page.close()
-                    except Exception:
-                        pass
-                    for t in targets:
-                        try:
-                            tp = self._goto(context, t, wait_until, nav_timeout)
-                            emails |= self._emails_from_page(tp, text_emails)
-                            tp.close()
-                        except Exception:
-                            continue
+                    emails = self._harvest_emails_bfs(
+                        context, seed, keywords=keywords, same_domain=same_domain,
+                        max_follow=max_follow, follow_depth=follow_depth, max_pages=max_pages,
+                        wait_until=wait_until, nav_timeout=nav_timeout, text_emails=text_emails)
                     for em in sorted(emails):
                         records.append({"url": seed, "email": em, "fuente": "headless"})
 
