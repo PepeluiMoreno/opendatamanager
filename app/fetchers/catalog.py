@@ -135,6 +135,88 @@ class CatalogFetcher(BaseFetcher):
                 if len(results) < cfg["page_size"]:
                     break
 
+    @staticmethod
+    def _rdf_fmt(v) -> str:
+        """Normaliza un dct:format / dcat:mediaType (URI o literal) a etiqueta corta."""
+        if not v:
+            return ""
+        s = str(v).strip().lower().rstrip("/")
+        s = s.split("/")[-1].split("#")[-1]
+        for k in ("geojson", "xlsx", "csv", "xls", "json", "xml", "zip", "rdf", "ttl", "kml"):
+            if k in s:
+                return k
+        return s
+
+    def _iter_datasets_rdf(self, cfg: Dict) -> Generator[Dict, None, None]:
+        """Recorre un catálogo DCAT-AP servido como RDF (RDF/XML, Turtle o JSON-LD).
+        `catalog_api` es la URL del feed. Sigue paginación hydra:next si la hay.
+        Mismo contrato que las otras variantes: produce {title, publisher, dists}
+        donde dists son tuplas (url, formato, etiqueta)."""
+        import rdflib
+        from rdflib.namespace import RDF
+        DCAT = rdflib.Namespace("http://www.w3.org/ns/dcat#")
+        DCT = rdflib.Namespace("http://purl.org/dc/terms/")
+        FOAF = rdflib.Namespace("http://xmlns.com/foaf/0.1/")
+        HYDRA = rdflib.Namespace("http://www.w3.org/ns/hydra/core#")
+        url = cfg["api"]
+        visited: set = set()
+        for _ in range(cfg["max_pages"]):
+            if not url or url in visited:
+                break
+            visited.add(url)
+            try:
+                resp = self._request(None, "GET", url,
+                                     headers={"Accept": "application/rdf+xml, text/turtle, application/ld+json;q=0.9"},
+                                     timeout=int(self.params.get("timeout", 60)))
+                resp.raise_for_status()
+                raw = resp.content
+            except Exception as exc:
+                logger.error(f"[catalog/rdf] {url}: {exc}")
+                break
+            g = rdflib.Graph()
+            parsed = False
+            for fmt in ("xml", "turtle", "json-ld", "nt"):
+                try:
+                    g.parse(data=raw, format=fmt)
+                    parsed = True
+                    break
+                except Exception:
+                    continue
+            if not parsed:
+                logger.error(f"[catalog/rdf] no se pudo parsear RDF de {url}")
+                break
+
+            def _lit(subj, pred):
+                best = None
+                for o in g.objects(subj, pred):
+                    if isinstance(o, rdflib.Literal):
+                        if (o.language or "es") == "es":
+                            return str(o)
+                        best = best or str(o)
+                    else:
+                        best = best or str(o)
+                return best
+
+            for ds in g.subjects(RDF.type, DCAT.Dataset):
+                title = _lit(ds, DCT.title) or ""
+                pub = ""
+                pnode = g.value(ds, DCT.publisher)
+                if pnode is not None:
+                    pub = _lit(pnode, FOAF.name) or str(pnode).rstrip("/").split("/")[-1]
+                dists = []
+                for dist in g.objects(ds, DCAT.distribution):
+                    du = g.value(dist, DCAT.downloadURL) or g.value(dist, DCAT.accessURL)
+                    fmt = g.value(dist, DCT["format"]) or g.value(dist, DCAT.mediaType)
+                    label = _lit(dist, DCT.title) or (str(du).rstrip("/").split("/")[-1].split("?")[0] if du else "")
+                    dists.append((str(du) if du else None, self._rdf_fmt(fmt), label))
+                yield {"title": title, "publisher": pub, "dists": dists}
+
+            nxt = None
+            for o in g.objects(None, HYDRA.next):
+                nxt = str(o)
+                break
+            url = nxt
+
     def _consider(self, title: str, publisher: str, dist_iter, cfg: Dict,
                   seen: set, out: List[Dict[str, Any]]) -> None:
         """Filtro de pertinencia común a DCAT y CKAN. `dist_iter` produce
@@ -176,6 +258,9 @@ class CatalogFetcher(BaseFetcher):
                         dl = r.get("name") or (u.rstrip("/").split("/")[-1].split("?")[0] if u else "")
                         yield u, fmt, dl
                 self._consider(title, publisher, _ckan_dists(pkg.get("resources")), cfg, seen, out)
+        elif cfg["type"] in ("dcat-rdf", "rdf"):
+            for ds in self._iter_datasets_rdf(cfg):
+                self._consider(ds["title"], ds["publisher"], iter(ds["dists"]), cfg, seen, out)
         else:
             for it in self._iter_datasets(cfg):
                 title = self._val(it.get("title")) or ""
