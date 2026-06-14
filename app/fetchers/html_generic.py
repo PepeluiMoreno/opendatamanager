@@ -93,6 +93,11 @@ class HTMLFetcher(BaseFetcher):
             while url and visited < max_pages:
                 html = self._get(url, pivot=value)
                 batch = self._extract(html)
+                pf = self.params.get("pivot_field")
+                if pf and value is not None:
+                    for _r in batch:
+                        if isinstance(_r, dict):
+                            _r.setdefault(pf, value)
                 all_records.extend(batch)
                 visited += 1
                 if (preview and len(all_records) >= preview) or (max_records and len(all_records) >= max_records):
