@@ -1,0 +1,43 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "DIPCOR",
+    "nombre": "Diputación de Córdoba",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://dipucordoba-opendata.e-admin.es"
+  },
+  "resources": [
+    {
+      "name": "Córdoba (Diputación) - Asociaciones registradas",
+      "fetcher": "File Download",
+      "description": "Asociaciones registradas de la provincia de Córdoba (Diputación, plataforma e-admin). AGREGADOR provincial: ~5.600 asociaciones de los municipios cordobeses en una sola fuente. Sin NIF; señal: 'Categoria' (clasificación) + 'Municipio' + web. Código interno: 'Identificador'. CSV latin-1.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://enlaza.eprinsa.es/file/datahub/c983ddac-ca2e-4e68-ac7c-575ae7d26a92.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "encoding",
+          "value": "latin-1",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ],
+      "clase_fuente": "api_abierta",
+      "active": true,
+      "collection": "Asociaciones",
+      "schedule": "0 6 19 * *"
+    }
+  ]
+}

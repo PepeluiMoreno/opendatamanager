@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "AYTOVIGO",
+    "nombre": "Concello de Vigo",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://datos.vigo.org"
+  },
+  "resources": [
+    {
+      "name": "Vigo - Asociaciones",
+      "fetcher": "File Download",
+      "description": "Registro de asociaciones del Concello de Vigo (~1.350). Sin NIF; señal RICA: 'objeto_social' (fines en texto) + 'tema' (clasificación) + 'localidad'/'parroquia'. Código interno: 'num_registro'. JSON.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datos.vigo.org/data/sociedad/asociacions.json",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "json",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ],
+      "clase_fuente": "api_abierta",
+      "active": true,
+      "collection": "Asociaciones",
+      "schedule": "0 6 19 * *"
+    }
+  ]
+}

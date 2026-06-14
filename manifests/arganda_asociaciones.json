@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "AYTOARG",
+    "nombre": "Ayuntamiento de Arganda del Rey",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://datosabiertos.ayto-arganda.es"
+  },
+  "resources": [
+    {
+      "name": "Arganda del Rey - Directorio de asociaciones",
+      "fetcher": "File Download",
+      "description": "Directorio de asociaciones del Ayuntamiento de Arganda del Rey. Sin NIF; señal débil: 'TIPO'. Dirección, email, teléfono. CSV.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datosabiertos.ayto-arganda.es/dataset/f1ea46f6-9cf2-4cfb-9877-9bea35e051de/resource/d5996617-89a9-4c6f-95ff-155bc34146fd/download/asociaciones.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ],
+      "clase_fuente": "api_abierta",
+      "active": true,
+      "collection": "Asociaciones",
+      "schedule": "0 6 19 * *"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "AYTOSAL",
+    "nombre": "Ayuntamiento de Salamanca",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://datosabiertossalamanca.es"
+  },
+  "resources": [
+    {
+      "name": "Salamanca - Listado de asociaciones y colectivos",
+      "fetcher": "File Download",
+      "description": "Listado de asociaciones y colectivos del Ayuntamiento de Salamanca. Sin NIF; señal: 'CATEGORIA' + 'TIPO COLECTIVO' (clasificación) + 'MUNICIPIO'. Coordenadas. CSV.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://datosabiertossalamanca.es/dataset/27882b68-a063-4269-ab17-8427825cfa44/resource/582817a4-81af-4c05-8fde-cb1c65db9802/download/soc04.csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "60",
+          "is_external": false
+        }
+      ],
+      "clase_fuente": "api_abierta",
+      "active": true,
+      "collection": "Asociaciones",
+      "schedule": "0 6 19 * *"
+    }
+  ]
+}
