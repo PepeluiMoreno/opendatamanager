@@ -56,7 +56,8 @@
           "value": "1800",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     },
     {
       "name": "Transparencia diocesana — Diócesis de Bilbao (inmatriculados/auditoría)",
@@ -106,7 +107,8 @@
           "value": "1800",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     },
     {
       "name": "Transparencia diocesana — Diócesis de Almería (convenios/parroquias)",
@@ -156,7 +158,8 @@
           "value": "1800",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     },
     {
       "name": "Transparencia diocesana — Obispado de Ibiza",
@@ -206,7 +209,8 @@
           "value": "1800",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     },
     {
       "name": "Transparencia diocesana — Obispado de Ourense",
@@ -256,7 +260,8 @@
           "value": "1800",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     },
     {
       "name": "Transparencia diocesana — Obispado de Tenerife (Nivariense)",
@@ -306,7 +311,8 @@
           "value": "1800",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     },
     {
       "name": "Descubridor de portales diocesanos (CEE → Web Tree por diócesis)",
@@ -376,7 +382,8 @@
           "value": "{\"file_extensions\": \"pdf,csv,xlsx,xls\", \"include_patterns\": \"transparencia,inmatricul,parroquia,directorio,convenio,balance,memoria,bienes,cuentas\", \"exclude_patterns\": \"noticia,blog,agenda,homilia,evento\", \"max_depth\": \"2\", \"page_delay\": \"0.5\", \"max_file_mb\": \"40\", \"crawl_timeout\": \"1800\"}",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     }
   ]
 }
