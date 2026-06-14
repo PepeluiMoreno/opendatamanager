@@ -38,6 +38,12 @@ class FetchersEnum(Enum):
         "description": "Reports públicos de Power BI embebidos (API querydata con paginación DSR)"
     }
 
+    HEADLESS = {
+        "code": "Headless (navegador)",
+        "class_path": "app.fetchers.headless.HeadlessFetcher",
+        "description": "Renderizado JS con navegador headless (Playwright). Cosecha lo que requests no ve: correos ofuscados (Joomla email cloaking, Cloudflare data-cfemail, reensamblado por script), listados AJAX. Itera sobre una o varias URLs y opcionalmente salta un nivel a páginas de contacto/directorio."
+    }
+
     SOAP = {
         "code": "SOAP",
         "class_path": "app.fetchers.soap.SoapFetcher",

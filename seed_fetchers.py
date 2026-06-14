@@ -17,6 +17,33 @@ from app.graphql.schema import schema
 
 FETCHERS: List[Dict[str, Any]] = [
     {
+        "name": "Headless (navegador)",
+        "class_path": "app.fetchers.headless.HeadlessFetcher",
+        "description": "Renderizado JS con navegador headless (Playwright). Para fuentes cuyo dato solo existe tras ejecutar JavaScript: correos ofuscados (Joomla email cloaking, Cloudflare data-cfemail, reensamblado por script) y listados AJAX. Itera sobre una o varias URLs y, opcionalmente, salta un nivel a páginas internas de contacto/directorio.",
+        "params": [
+            {"param_name": "url", "data_type": "string", "required": False, "group": "fuente", "hint": "URL única a renderizar. Alternativa a 'urls' o 'url_template'."},
+            {"param_name": "urls", "data_type": "json", "required": False, "group": "fuente", "hint": "Lista JSON de URLs semilla. Ej.: [\"https://a.org/\", \"https://b.es/\"]"},
+            {"param_name": "url_template", "data_type": "string", "required": False, "group": "fuente", "hint": "Plantilla con {value}; se combina con pivot_values."},
+            {"param_name": "pivot_values", "data_type": "json", "required": False, "group": "fuente", "hint": "Lista JSON de valores para sustituir {value} en url_template."},
+            {"param_name": "extract", "data_type": "enum", "required": False, "default_value": "emails", "group": "extraccion",
+             "hint": "Qué extraer del DOM renderizado.",
+             "enum_values": [
+                 {"value": "emails", "label": "Correos", "help": "Un registro por (url, email): mailto + data-cfemail (+texto opcional)."},
+                 {"value": "fields", "label": "Campos CSS", "help": "Un registro por URL con field_selectors aplicados sobre el DOM ya renderizado."},
+             ]},
+            {"param_name": "follow_keywords", "data_type": "string", "required": False, "default_value": "contacto,contact,directorio,curia,secretaria,delegacion,equipo,organigrama", "group": "navegacion", "hint": "Palabras clave (CSV) en enlaces a seguir UN nivel desde cada semilla."},
+            {"param_name": "max_follow", "data_type": "integer", "required": False, "default_value": 6, "group": "navegacion", "hint": "Máx. subpáginas a seguir por semilla. 0 = no seguir."},
+            {"param_name": "same_domain_only", "data_type": "boolean", "required": False, "default_value": True, "group": "navegacion", "hint": "Seguir solo enlaces del mismo dominio que la semilla."},
+            {"param_name": "wait_until", "data_type": "string", "required": False, "default_value": "networkidle", "group": "render", "hint": "Evento de carga: load | domcontentloaded | networkidle."},
+            {"param_name": "page_timeout_ms", "data_type": "integer", "required": False, "default_value": 45000, "group": "render", "hint": "Timeout de navegación por página, en ms."},
+            {"param_name": "block_assets", "data_type": "boolean", "required": False, "default_value": True, "group": "render", "hint": "Bloquea imágenes/fuentes/CSS para acelerar el render."},
+            {"param_name": "text_emails", "data_type": "boolean", "required": False, "default_value": False, "group": "extraccion", "hint": "Incluir correos por regex sobre el texto (propenso a ruido; off por defecto)."},
+            {"param_name": "field_selectors", "data_type": "json", "required": False, "group": "extraccion", "hint": "Para extract=fields: {campo: selector_css}."},
+            {"param_name": "delay", "data_type": "float", "required": False, "default_value": 0.5, "group": "cortesia", "hint": "Segundos de pausa entre semillas."},
+            {"param_name": "max_urls", "data_type": "integer", "required": False, "default_value": 0, "group": "fuente", "hint": "Límite de semillas a procesar. 0 = sin límite."},
+        ],
+    },
+    {
         "name": "API REST",
         "class_path": "app.fetchers.rest.RestFetcher",
         "description": "APIs REST que devuelven JSON. Sin paginación hace una sola petición; eligiendo una estrategia de paginación (offset, número de página, enlace siguiente, cursor o bucle de pivotes) recorre el conjunto completo y acumula los registros.",
