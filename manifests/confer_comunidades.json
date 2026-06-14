@@ -1,0 +1,67 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "CONFER",
+    "nombre": "Conferencia Española de Religiosos",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://confer.es/"
+  },
+  "resources": [
+    {
+      "name": "Comunidades religiosas (CONFER, mapa de congregaciones)",
+      "fetcher": "Power BI",
+      "schedule": "0 6 1 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        {
+          "key": "resource_key",
+          "value": "5a615f34-c120-4fed-bcc1-36363c54ff04",
+          "is_external": false
+        },
+        {
+          "key": "model_id",
+          "value": "2721370",
+          "is_external": false
+        },
+        {
+          "key": "dataset_id",
+          "value": "6f51204d-cbf7-43c8-ac29-dfc58aad4bef",
+          "is_external": false
+        },
+        {
+          "key": "report_id",
+          "value": "b55dc753-a2c9-4bc1-9b3a-08a4e08f03b4",
+          "is_external": false
+        },
+        {
+          "key": "visual_id",
+          "value": "5db35b33b48d207fc294",
+          "is_external": false
+        },
+        {
+          "key": "query_json",
+          "value": "{\"Version\": 2, \"From\": [{\"Name\": \"e\", \"Entity\": \"Entidades\", \"Type\": 0}], \"Select\": [{\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"e\"}}, \"Property\": \"Nombre oficial CONFER\"}, \"Name\": \"Entidades.Nombre oficial CONFER\", \"NativeReferenceName\": \"Nombre oficial CONFER\"}, {\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"e\"}}, \"Property\": \"Localidad\"}, \"Name\": \"Entidades.Localidad\", \"NativeReferenceName\": \"Localidad\"}, {\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"e\"}}, \"Property\": \"Provincia\"}, \"Name\": \"Entidades.Provincia\", \"NativeReferenceName\": \"Provincia\"}, {\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"e\"}}, \"Property\": \"País\"}, \"Name\": \"Entidades.País\", \"NativeReferenceName\": \"País\"}, {\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"e\"}}, \"Property\": \"Dirección 1: calle 1\"}, \"Name\": \"Entidades.Dirección 1: calle 1\", \"NativeReferenceName\": \"Dirección 1: calle 1\"}, {\"Column\": {\"Expression\": {\"SourceRef\": {\"Source\": \"e\"}}, \"Property\": \"Tipo de casa Congregación\"}, \"Name\": \"e.Tipo de casa Congregación\"}]}",
+          "is_external": false
+        },
+        {
+          "key": "field_mapping",
+          "value": "{\"G0\": \"nombre_confer\", \"G1\": \"localidad\", \"G2\": \"provincia\", \"G3\": \"pais\", \"G4\": \"direccion\", \"G5\": \"tipo_casa\"}",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "500",
+          "is_external": false
+        },
+        {
+          "key": "delay",
+          "value": "0.3",
+          "is_external": false
+        }
+      ],
+      "collection": "Iglesia católica (red nuclear)"
+    }
+  ]
+}
