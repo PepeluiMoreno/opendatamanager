@@ -149,6 +149,19 @@ class HeadlessFetcher(BaseFetcher):
                 break
         return out
 
+    def _goto(self, context, url: str, wait_until: str, nav_timeout: int):
+        """Abre una página nueva y navega de forma tolerante: documento cargado
+        y, best-effort, espera a networkidle (para que el JS de cloaking inyecte
+        los correos) sin colgarse si la web nunca queda inactiva."""
+        page = context.new_page()
+        page.goto(url, wait_until="domcontentloaded", timeout=nav_timeout)
+        if wait_until == "networkidle":
+            try:
+                page.wait_for_load_state("networkidle", timeout=min(8000, nav_timeout))
+            except Exception:
+                pass
+        return page
+
     # ------------------------------------------------------------------
     def fetch(self) -> RawData:
         try:
@@ -184,11 +197,10 @@ class HeadlessFetcher(BaseFetcher):
             context = browser.new_context(user_agent=ua)
             if block_assets:
                 context.route("**/*", self._route_block)
-            page = context.new_page()
 
             for i, seed in enumerate(seeds):
                 try:
-                    page.goto(seed, wait_until=wait_until, timeout=nav_timeout)
+                    page = self._goto(context, seed, wait_until, nav_timeout)
                 except Exception as exc:
                     logger.warning(f"[headless] no se pudo cargar {seed}: {str(exc)[:120]}")
                     if str(self.params.get("stop_on_error", "")).lower() in ("true", "1"):
@@ -204,13 +216,22 @@ class HeadlessFetcher(BaseFetcher):
                         except Exception:
                             rec[field] = None
                     records.append(rec)
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
                 else:
                     emails: Set[str] = set(self._emails_from_page(page, text_emails))
                     targets = self._follow_targets(page, seed, keywords, same_domain, max_follow)
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
                     for t in targets:
                         try:
-                            page.goto(t, wait_until=wait_until, timeout=nav_timeout)
-                            emails |= self._emails_from_page(page, text_emails)
+                            tp = self._goto(context, t, wait_until, nav_timeout)
+                            emails |= self._emails_from_page(tp, text_emails)
+                            tp.close()
                         except Exception:
                             continue
                     for em in sorted(emails):

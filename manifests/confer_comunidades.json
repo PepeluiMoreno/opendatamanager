@@ -117,6 +117,46 @@
         }
       ],
       "collection": "Iglesia católica (red nuclear)"
+    },
+    {
+      "name": "Correos de institutos religiosos (headless, webs propias)",
+      "fetcher": "Headless (navegador)",
+      "schedule": "0 7 1 * *",
+      "active": true,
+      "clase_fuente": "scraping_publico",
+      "params": [
+        {
+          "key": "urls",
+          "value": "[\"http://adoratrici-asc.org\", \"http://aunamendi.eusko-ikaskuntza.eus\", \"http://celadoras.org\", \"http://chanoines-du-latran.com\", \"http://ciasalvador.org\", \"http://crsdop.op\", \"http://divinavocacion.blogspot.com\", \"http://figliedellachiesa.org\", \"http://franciscanasnatividad.com\", \"http://hermanascarmelitasscj.com\", \"http://hermanosdebelenlalaguna.es\", \"http://hijasdelamisericordia.com\", \"http://jasnagora.pl\", \"http://mcm22.blogspot.com.es\", \"http://mercedariasdelacaridad.org\", \"http://misericordesees.org\", \"http://misionerasdelsantisimosacramento.org\", \"http://mscsr.org\", \"http://msscc.es\", \"http://ocso.org\", \"http://patrociniodemaria.com\", \"http://regnumchristi.es\", \"http://rgs.gssweb.org\", \"http://sagradafamiliadeurgell.org\", \"http://sainte-famille-villefranche.org\", \"http://sanchinas.org\", \"http://villateresita.org\", \"http://www.adcspinola.org\", \"http://www.adoratrices.com\", \"http://www.africamission-mafr.org\", \"http://www.agustinashermanasdelamparo.com\", \"http://www.agustinasmisioneras.net\", \"http://www.agustinosrecoletos.com\", \"http://www.alcantarine.org\", \"http://www.amigonianoscg.org\", \"http://www.amordedios.net\", \"http://www.anamogas.net\", \"http://www.angelicas.org\", \"http://www.assomption-psa.org\", \"http://www.assumpta.org\", \"http://www.auxiliaresparroquiales.es\", \"http://www.avemarianas.org\", \"http://www.barnabitas.org\", \"http://www.barnabiti.it\", \"http://www.beatamariapilarizquierdo.com\", \"http://www.bethlemitas.org.co\", \"http://www.camilliani.org\", \"http://www.carlosdefoucauld.org\", \"http://www.carmelitaniscalzi.com\", \"http://www.carmelitasdesanjose.com\", \"http://www.carmelitasmisioneras.org\", \"http://www.carmelitastsj.org\", \"http://www.cgfmanet.org\", \"http://www.champagnat.org\", \"http://www.chcsa.org\", \"http://www.claret.org\", \"http://www.claretianasrmi.org\", \"http://www.cmglobal.org\", \"http://www.coindre.org\", \"http://www.comboni.org\", \"http://www.comboniane.org\", \"http://www.companiamisionera.es\", \"http://www.concepcionistas.com\", \"http://www.congregacionsiervasdelospobres.es\", \"http://www.congregatiojesu.org\", \"http://www.consolacion.org\", \"http://www.cooperatoresveritatis.org\", \"http://www.cottolengopalegre.org\", \"http://www.cpcr.org\", \"http://www.cruzblanca.org\", \"http://www.cssr.com\", \"http://www.dcjm.org\", \"http://www.dehoniani.org\", \"http://www.dillinger-franziskanerinnen.de\", \"http://www.discipulasdejesus.com\", \"http://www.divinainfantita.org\", \"http://www.dominicasanunciata.org\", \"http://www.dominicascsd.com\", \"http://www.dominicasdeic.com\", \"http://www.dominicasmsf.org\", \"http://www.domipresen.com\", \"http://www.erzabtei.de\", \"http://www.esclavascarmelitas.org\", \"http://www.esclavasdecristorey.com\", \"http://www.esclavasdelaeucaristia.org\", \"http://www.esclavasdemaria.org\", \"http://www.esclavasmisionerasdejesus.org\", \"http://www.esclavosdemariaydelospobres.org\", \"http://www.escolapias.org\", \"http://www.estigmatinas.org\", \"http://www.fhjnazareno.org\", \"http://www.fmdelapaz.org\", \"http://www.fmi-adele.org\", \"http://www.fmm.org\", \"http://www.francescanitor.org\", \"http://www.franciscanasdelainmaculada.com\", \"http://www.franciscanasdelapurisimaconcepcion.org\", \"http://www.franciscanasdelespiritusanto.org\", \"http://www.franciscanasmisioneras.org\", \"http://www.fsfbelley.net\", \"http://www.hermanasamico.org\", \"http://www.hermanasjosefinas.es\", \"http://www.hermanasoblatas.org\", \"http://www.hermanaspresentacionistas.com\", \"http://www.hermanitas.net\", \"http://www.hermanosdejesus.es\", \"http://www.hhsantacruz.org\", \"http://www.hijascristorey.com\", \"http://www.hijasdelavirgendelosdolores.org\", \"http://www.hijosdelacaridad.es\", \"http://www.hospitalarias.org\", \"http://www.ibsagradocorazon.org\", \"http://www.institutocalasancio.es\", \"http://www.irsjg.org\", \"http://www.javerianas.net\", \"http://www.josefinas-trinitarias.org\", \"http://www.lamennais.org\", \"http://www.lasalle.org\", \"http://www.legionariesofchrist.org\", \"http://www.lestonnac.org\", \"http://www.luzcasanova.es\", \"http://www.madrecarmen.org\", \"http://www.madresdedesamparados.org\", \"http://www.manete-in-me.org\", \"http://www.manyanet.org\", \"http://www.marianist.org\", \"http://www.maristsm.org\", \"http://www.mercedariosdescalzos.org\", \"http://www.misacor.org\", \"http://www.misioneras-sc.com\", \"http://www.misionerascruzadasdelaiglesia.net\", \"http://www.misionerasdecristosacerdote.es\", \"http://www.misionerasdelaprovidencia.org\", \"http://www.misionerasdelpilar.org\", \"http://www.misionerasdominicas.org\", \"http://www.misionerasesclavas.es\", \"http://www.misioneraseucaristicas.org\", \"http://www.misionerasinmaculadaconcepcion.com.es\", \"http://www.misionerasmar.org\", \"http://www.missionariefigliecalvario.org\", \"http://www.mmberrizglobal.org\", \"http://www.mmediadora.es\", \"http://www.mmsscc.es\", \"http://www.msolafrica.org\", \"http://www.murialdo.org\", \"http://www.nazaret.org\", \"http://www.nsprovidenciap.es\", \"http://www.oblatas.org\", \"http://www.ocarm.org\", \"http://www.ocist.org\", \"http://www.ocso.es\", \"http://www.ofm.org\", \"http://www.ofmconv.org\", \"http://www.ohsjd.org\", \"http://www.omiworld.org\", \"http://www.operadonguanella.it\", \"http://www.osjcuria.org\", \"http://www.passiochristi.org\", \"http://www.paulus.net\", \"http://www.pavoniani.it\", \"http://www.pmaria.es\", \"http://www.religiosasmariainmaculada.org\", \"http://www.rfilipenses.com\", \"http://www.rjmgeneral.org\", \"http://www.rrcompasion.com\", \"http://www.rscjinternational.org\", \"http://www.sainte-bernadette-nevers.com\", \"http://www.salesianas-scj.com\", \"http://www.sancarlo.org\", \"http://www.sanfrancescodapaola.com\", \"http://www.sanpelayomonasterio.org\", \"http://www.scalabriniane.org\", \"http://www.scolopi.net\", \"http://www.sdb.org\", \"http://www.sds.org\", \"http://www.sdvi.org\", \"http://www.servidoras.org\", \"http://www.siervasdejesus.com\", \"http://www.siervasdelapasion.org\", \"http://www.siervasdesanjose.org\", \"http://www.sj-cluny.org\", \"http://www.sjweb.info\", \"http://www.smainter.org\", \"http://www.smr.org\", \"http://www.ssccpicpus.com\", \"http://www.ssscongregatio.org\", \"http://www.stgabrielinst.org\", \"http://www.stjteresianas.org\", \"http://www.suoregesuredentore.com\", \"http://www.svdcuria.org\", \"http://www.teatinos.org\", \"http://www.theaugustinians.com\", \"http://www.trinitari.org\", \"http://www.trinitarias.net\", \"http://www.trinitariasmallorca.org\", \"http://www.vedruna.org\", \"http://www.verboencarnado.org.mx\", \"http://www.wikiwand.com\", \"http://www3.planalfa.es\", \"https://capmdp.org\", \"https://chartreux.org\", \"https://cmtpalau.org\", \"https://confhic.com\", \"https://csviator.es\", \"https://encontrarmivocacion.com\", \"https://espanalei.es\", \"https://filipenses.com\", \"https://franciscanas.org\", \"https://franciscanascooperadoras.org\", \"https://hermanasdecristocrucificado.org\", \"https://hermanasfranciscanas.com.mx\", \"https://hermanastrinitarias.net\", \"https://hermanitasdelospobresdespc.com\", \"https://hsmcj.org\", \"https://lumendei.org\", \"https://montfortian.info\", \"https://presentaciondemaria.org\", \"https://provinciasantateresita.org\", \"https://rcj.org\", \"https://screparadoras.es\", \"https://verbumdei.org\", \"https://www.brigidine.org\", \"https://www.ciccastres-es.net\", \"https://www.donorione.org\", \"https://www.esclavasvirgendolorosa.es\", \"https://www.figliedivinozelo.it\", \"https://www.hijasdesanjose.org\", \"https://www.hijassc.org\", \"https://www.ibvm.org\", \"https://www.misionerasjmj.com\", \"https://www.missionariedellaconsolata.org\", \"https://www.monasteriodelaconversion.com\", \"https://www.ocrs.it\", \"https://www.op.org\", \"https://www.passioniste.org\", \"https://www.proecclesiasancta.org\", \"https://www.servantesducoeurdejesus.com\", \"https://www.siervosdejesus.net\", \"https://www.suoredellacarita.org\", \"https://www.worldssps.org\"]",
+          "is_external": false
+        },
+        {
+          "key": "extract",
+          "value": "emails",
+          "is_external": false
+        },
+        {
+          "key": "follow_keywords",
+          "value": "contacto,contact,directorio,donde-estamos,quienes-somos,comunidades",
+          "is_external": false
+        },
+        {
+          "key": "max_follow",
+          "value": "6",
+          "is_external": false
+        },
+        {
+          "key": "page_timeout_ms",
+          "value": "30000",
+          "is_external": false
+        },
+        {
+          "key": "delay",
+          "value": "0.4",
+          "is_external": false
+        }
+      ],
+      "collection": "Iglesia católica (red nuclear)"
     }
   ]
 }
