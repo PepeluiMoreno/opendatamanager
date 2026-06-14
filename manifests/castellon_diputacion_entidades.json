@@ -1,0 +1,38 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "DIPCAS",
+    "nombre": "Diputación Provincial de Castellón",
+    "nivel": "LOCAL",
+    "pais": "España",
+    "portal_url": "https://dipcas.opendatasoft.com"
+  },
+  "resources": [
+    {
+      "name": "Castellón (Diputación) - Registro de Entidades Ciudadanas",
+      "fetcher": "File Download",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 6 17 * *",
+      "active": true,
+      "collection": "Asociaciones",
+      "description": "Registro de entidades ciudadanas de la Diputación de Castellón (OpenDataSoft). AGREGADOR provincial: engloba asociaciones de los municipios de Castellón — vía de cobertura para la C. Valenciana, que no publica registro autonómico. Identificador: CIF (cif_asociacion). Señal de fines: 'finalidad' (texto). Dirección, nº socios, email. Código interno: num_generalitat / fechaalta. CSV export ODS.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://dipcas.opendatasoft.com/api/v2/catalog/datasets/asociaciones/exports/csv",
+          "is_external": false
+        },
+        {
+          "key": "format",
+          "value": "csv",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "90",
+          "is_external": false
+        }
+      ]
+    }
+  ]
+}
