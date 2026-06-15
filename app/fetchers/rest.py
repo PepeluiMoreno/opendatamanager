@@ -1,9 +1,37 @@
+import re
 import requests
 import json
 import time
 from app.fetchers.base import BaseFetcher, RawData, ParsedData, DomainData
 from app.fetchers.pagination import build as build_pagination
 from app.fetchers.request_building import build_request
+
+
+_TOKEN_RX = re.compile(r"\{(\w+)\}")
+
+
+def _resolve_runtime_tokens(query: dict, params: dict) -> dict:
+    """Sustituye marcadores `{token}` en los VALORES de los query-params con el
+    valor homónimo de `params` (defaults del recurso + execution_params de la
+    ejecución). Esto hace que cualquier filtro —en particular el intervalo
+    temporal `fechaDesde`/`fechaHasta`— sea un parámetro de RUNTIME: el recurso
+    declara `query_params={"fechaDesde":"{fecha_desde}", ...}` y la ejecución
+    aporta `fecha_desde`/`fecha_hasta`.
+
+    Si algún token de un valor no tiene valor en `params`, ese query-param se
+    OMITE por completo (sin valor → sin filtro → trae todo). Así, sin intervalo
+    de ejecución el recurso cosecha el corpus íntegro; con intervalo, la ventana.
+    Los valores no-string y los que no llevan `{}` pasan tal cual.
+    """
+    out = {}
+    for k, v in (query or {}).items():
+        if isinstance(v, str) and "{" in v:
+            toks = _TOKEN_RX.findall(v)
+            if toks and any(not str(params.get(t, "")).strip() for t in toks):
+                continue  # token sin valor → se omite el filtro
+            v = _TOKEN_RX.sub(lambda m: str(params.get(m.group(1), "")), v)
+        out[k] = v
+    return out
 
 
 def _dig(obj, path):
@@ -56,7 +84,7 @@ class RESTFetcher(BaseFetcher):
         def _send(target_url, extra_query, pivot=None):
             rq = build_request(request_strategy, self.params, pivot=pivot)
             merged_headers = {**headers, **rq.get("headers", {})}
-            q = {**query_params, **(extra_query or {})}
+            q = _resolve_runtime_tokens({**query_params, **(extra_query or {})}, self.params)
             kwargs = {"headers": merged_headers, "params": q, "timeout": timeout}
             if rq.get("json") is not None:
                 kwargs["json"] = rq["json"]

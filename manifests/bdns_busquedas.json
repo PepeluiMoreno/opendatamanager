@@ -1,0 +1,596 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "BDNS",
+    "nombre": "Base de Datos Nacional de Subvenciones",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.infosubvenciones.es"
+  },
+  "resources": [
+    {
+      "name": "BDNS - Convocatorias de Subvenciones",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Todas las convocatorias de subvenciones publicadas en la BDNS (SNPSAP). Intervalo temporal por parámetros de ejecución fecha_desde/fecha_hasta (ISO); sin ellos, corpus íntegro.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/convocatorias/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Concesiones de Subvenciones",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Todas las concesiones de subvenciones de la BDNS (beneficiario, importe, convocatoria, NIF). Intervalo por fecha_desde/fecha_hasta de ejecución; sin ellos, corpus íntegro.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/concesiones/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Mínimis",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Todas las ayudas de mínimis registradas en la BDNS.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/minimis/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Ayudas de Estado",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Todas las ayudas de Estado registradas en la BDNS.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/ayudasestado/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Grandes Beneficiarios",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Grandes beneficiarios de subvenciones (umbral de transparencia) en la BDNS.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/grandesbeneficiarios/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Sanciones",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Sanciones por infracciones en materia de subvenciones (BDNS).",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/sanciones/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Partidos Políticos",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Subvenciones a partidos políticos registradas en la BDNS.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/partidospoliticos/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    },
+    {
+      "name": "BDNS - Planes Estratégicos",
+      "fetcher": "API REST",
+      "clase_fuente": "api_abierta",
+      "schedule": "0 3 5 * *",
+      "active": true,
+      "description": "Planes estratégicos de subvenciones publicados en la BDNS.",
+      "params": [
+        {
+          "key": "url",
+          "value": "https://www.infosubvenciones.es/bdnstrans/api/planesestrategicos/busqueda",
+          "is_external": false
+        },
+        {
+          "key": "method",
+          "value": "GET",
+          "is_external": false
+        },
+        {
+          "key": "query_params",
+          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "is_external": false,
+          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+        },
+        {
+          "key": "pagination",
+          "value": "page_number",
+          "is_external": false
+        },
+        {
+          "key": "page_param",
+          "value": "page",
+          "is_external": false
+        },
+        {
+          "key": "page_size_param",
+          "value": "pageSize",
+          "is_external": false
+        },
+        {
+          "key": "page_size",
+          "value": "1000",
+          "is_external": false
+        },
+        {
+          "key": "start_page",
+          "value": "0",
+          "is_external": false
+        },
+        {
+          "key": "content_field",
+          "value": "content",
+          "is_external": false
+        },
+        {
+          "key": "timeout",
+          "value": "120",
+          "is_external": false
+        },
+        {
+          "key": "delay_between_pages",
+          "value": "0.3",
+          "is_external": false,
+          "help": "Cortesía entre páginas para no saturar el SNPSAP en backfills largos."
+        },
+        {
+          "key": "max_records",
+          "value": "0",
+          "is_external": false,
+          "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        }
+      ]
+    }
+  ]
+}
