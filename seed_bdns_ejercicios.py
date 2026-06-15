@@ -184,7 +184,7 @@ def generar(endpoints: List[str], suelo: Optional[int], umbral_mensual: int, for
             col = _upsert_resource(
                 db, name=col_name,
                 fetcher_id=fetcher.id, publisher_id=pub.id, target_table=tabla,
-                schedule="0 3 5 * *", params=_params_base(ep, order),
+                schedule=None, params=_params_base(ep, order),
                 parent_id=None, genera_colecciones=True)
 
             anios = [y for y, _ in pares]
