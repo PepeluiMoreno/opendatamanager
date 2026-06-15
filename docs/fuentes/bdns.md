@@ -113,3 +113,16 @@ y **sub-trocear por mes los años de gran volumen** (2025 sin trocear no es prá
 por offset; por mes cada ventana pagina independiente y rápido en cabeza). El
 intervalo es runtime: `execution_params={"fecha_desde":"01/03/2025","fecha_hasta":"31/03/2025"}`.
 El barrido pesado corre en ODM (background + scheduler), no en cliente.
+
+## Serie por ejercicio + colección (seed_bdns_ejercicios.py)
+
+`seed_bdns_ejercicios.py` da de alta, por cada búsqueda con ventana temporal:
+una COLECCIÓN (recurso padre, `genera_colecciones=True`, corre con fechas de
+runtime y representa el histórico) y un RECURSO HIJO por EJERCICIO
+(`parent_resource_id` → colección) acotado a su año con `fecha_desde`/`fecha_hasta`.
+Los ejercicios NO se hardcodean: se detectan sondeando el SNPSAP de hoy hacia
+atrás hasta el primero con registros (concesiones: 2022→2026). Idempotente
+(upsert por nombre). Ojo: la fecha se envía al SNPSAP en dd/mm/yyyy y SOLO filtra
+con `fechaDesde`/`fechaHasta` (camelCase); `fecha_desde`/`fecha_hasta` snake_case
+son ignoradas por la API y devuelven el corpus íntegro — por eso el fetcher mapea
+los params de runtime `fecha_desde`→`fechaDesde`.
