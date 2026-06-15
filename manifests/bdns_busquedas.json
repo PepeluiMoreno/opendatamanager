@@ -28,9 +28,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"numeroConvocatoria\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -49,7 +49,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -78,6 +78,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -101,9 +106,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -122,7 +127,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -151,6 +156,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -174,9 +184,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"numeroConvocatoria\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -195,7 +205,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -224,6 +234,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -247,9 +262,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -268,7 +283,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -297,6 +312,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -320,9 +340,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"beneficiario\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -341,7 +361,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -370,6 +390,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -393,9 +418,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"fechaConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -414,7 +439,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -443,6 +468,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -466,9 +496,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -487,7 +517,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -516,6 +546,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     },
@@ -539,9 +574,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"vigenciaDesde\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
           "is_external": false,
-          "help": "vpd + ventana temporal. fechaDesde/fechaHasta son marcadores de RUNTIME: la ejecución aporta fecha_desde/fecha_hasta en formato dd/mm/yyyy (verificado contra el SNPSAP; ISO da 400). Si faltan, se omiten y trae todo el corpus."
+          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
         },
         {
           "key": "pagination",
@@ -560,7 +595,7 @@
         },
         {
           "key": "page_size",
-          "value": "1000",
+          "value": "10000",
           "is_external": false
         },
         {
@@ -589,6 +624,11 @@
           "value": "0",
           "is_external": false,
           "help": "0 = sin límite (corpus completo). Útil acotar en pruebas."
+        },
+        {
+          "key": "id_field",
+          "value": "id",
+          "is_external": false
         }
       ]
     }

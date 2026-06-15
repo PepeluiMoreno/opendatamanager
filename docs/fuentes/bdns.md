@@ -83,3 +83,33 @@ recurso.
 concesiones, mínimis, ayudas de Estado, grandes beneficiarios, sanciones,
 partidos políticos, planes estratégicos. Backfill por año:
 `execution_params={"fecha_desde":"01/01/2022","fecha_hasta":"31/12/2022"}`.
+
+## Paginación profunda y orden estable (verificado 2026-06-15, año a año hacia atrás)
+
+Probando la extracción año a año (2025 primero) salieron dos lecciones, ambas
+resueltas alineándose con la config que ya usaba ODM:
+
+1. **El `order` debe ser una clave ÚNICA/monótona, no una con empates.** Con
+   `order=fechaConcesion` la paginación profunda de un dataset grande se rompe
+   (la página 2 da timeout) porque hay millones de filas con la misma fecha. Con
+   `order=codConcesion` (clave única) la paginación profunda sobrevive (página 20+
+   sin timeout). Por eso el recurso de convocatorias que SÍ funcionaba usaba
+   `numeroConvocatoria`. El manifest fija ahora una clave única por endpoint:
+   concesiones/ayudasestado/partidospoliticos → `codConcesion`; convocatorias/
+   minimis → `numeroConvocatoria`; resto → la más estable disponible.
+
+2. **`fechaDesde/fechaHasta` deben ir en `query_params`** (el RESTFetcher solo
+   envía `query_params`; las claves sueltas del recurso NO se enviaban — por eso
+   los `fechaDesde/fechaHasta=2026` sueltos no filtraban y ODM acababa trayendo
+   los ~2M más recientes, todos de 2026, hasta que la paginación se agotaba).
+
+**Volumen real por año (`/concesiones/busqueda`, vpd=GE, verificado):**
+2024 ≈ 1.156.212 (normal, paginable de un tirón). **2025 ≈ 19.667.739** —
+anómalo: el grueso está volcado a fin de año (dic-2025 ≈ 6,06M; gran parte con
+`fechaConcesion=2025-12-31`, típico de cargas masivas tipo PAC). 2026 (parcial) ≈ 3,9M.
+
+**Estrategia de backfill:** lanzar ejecuciones por ventana, año a año hacia atrás,
+y **sub-trocear por mes los años de gran volumen** (2025 sin trocear no es práctico
+por offset; por mes cada ventana pagina independiente y rápido en cabeza). El
+intervalo es runtime: `execution_params={"fecha_desde":"01/03/2025","fecha_hasta":"31/03/2025"}`.
+El barrido pesado corre en ODM (background + scheduler), no en cliente.
