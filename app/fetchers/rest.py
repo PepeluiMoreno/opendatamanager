@@ -35,6 +35,55 @@ def _resolve_runtime_tokens(query: dict, params: dict) -> dict:
     return out
 
 
+def _parse_fecha_flexible(v):
+    """date a partir de v (date/datetime, ISO `AAAA-MM-DD[THH..]`, o `dd/mm/aaaa`)."""
+    import datetime as _d
+    if isinstance(v, (_d.date, _d.datetime)):
+        return v.date() if isinstance(v, _d.datetime) else v
+    s = str(v or "").strip()
+    if not s:
+        return None
+    s = s.split("T")[0].split(" ")[0]
+    for fmt in ("%Y-%m-%d", "%d/%m/%Y"):
+        try:
+            return _d.datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _fmt_fecha(v, fmt):
+    """Reescribe la fecha al formato de la fuente. Sin `fmt` → tal cual. Si no
+    parsea, se devuelve el valor original (no se rompe la petición)."""
+    if v is None or v == "":
+        return None
+    if not fmt:
+        return v if isinstance(v, str) else str(v)
+    d = _parse_fecha_flexible(v)
+    return d.strftime(fmt) if d else (v if isinstance(v, str) else str(v))
+
+
+def _fecha_desde_incremental(params: dict):
+    """Suelo temporal incremental (solo si el recurso pide `desde=auto`):
+      - con `_watermark` (lo inyecta el manager): watermark − incremental_margen_dias.
+      - sin watermark (1ª vez): hoy − incremental_fallback_dias si se declara, para
+        acotar la carga inicial (relativo, sin fecha fija); si no, None → sin filtro.
+    Devuelve un date o None."""
+    import datetime as _d
+    if params.get("desde") != "auto":
+        return None
+    wm = params.get("_watermark")
+    if wm:
+        d = _parse_fecha_flexible(wm)
+        if d:
+            margen = int(params.get("incremental_margen_dias", 0) or 0)
+            return d - _d.timedelta(days=margen) if margen else d
+    fb = int(params.get("incremental_fallback_dias", 0) or 0)
+    if fb:
+        return _d.date.today() - _d.timedelta(days=fb)
+    return None
+
+
 def _dig(obj, path):
     """Navega un dict por una ruta con puntos. None si no existe."""
     if not path:
@@ -87,10 +136,21 @@ class RESTFetcher(BaseFetcher):
         # query bajo el nombre que entiende la fuente (por defecto fechaDesde/fechaHasta,
         # configurable con fecha_param_desde/fecha_param_hasta). Ausentes → no se envían
         # → la fuente devuelve el corpus íntegro. Sin fechas hardcodeadas en ninguna parte.
+        #
+        # Modo INCREMENTAL: si el recurso pide `desde=auto`, el manager inyecta
+        # `_watermark` (fecha de la última ejecución − 1 día, ISO). El fetcher lo usa
+        # como `fecha_desde` —restándole `incremental_margen_dias` para no perder altas
+        # tardías— salvo que haya un `fecha_desde` explícito (que manda). La primera vez
+        # no hay watermark → sin filtro → carga inicial (acótala con max_records o un
+        # backfill aparte). `fecha_formato` (strftime) reescribe la fecha al formato de
+        # la fuente (BDNS exige dd/mm/yyyy; ISO da 400).
         fp_desde = self.params.get("fecha_param_desde", "fechaDesde")
         fp_hasta = self.params.get("fecha_param_hasta", "fechaHasta")
-        fecha_desde = self.params.get("fecha_desde")
+        fecha_fmt = self.params.get("fecha_formato")
+        fecha_desde = self.params.get("fecha_desde") or _fecha_desde_incremental(self.params)
         fecha_hasta = self.params.get("fecha_hasta")
+        fecha_desde = _fmt_fecha(fecha_desde, fecha_fmt)
+        fecha_hasta = _fmt_fecha(fecha_hasta, fecha_fmt)
 
         def _send(target_url, extra_query, pivot=None):
             rq = build_request(request_strategy, self.params, pivot=pivot)

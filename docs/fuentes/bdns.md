@@ -153,3 +153,19 @@ concesiones 2025 ≈ 19,67M, dic ≈ 6M). Ventanas mensuales = offsets más some
 - El BACKFILL (`seed_bdns_backfill.py`, cosecha de millones de registros) NO va en
   el entrypoint: bloquearía el arranque y se relanzaría en cada deploy. Es un job
   de operador (docker exec / kubectl exec) o del scheduler.
+
+## Actualización incremental (evita el pull de 27M en cada schedule)
+
+Los recursos planos de búsqueda son los que se PROGRAMAN para mantenerse al día.
+Sin filtro, una corrida mensual traería el corpus íntegro (≈27M). Para evitarlo
+van en modo incremental:
+- `desde=auto` → el manager inyecta `_watermark` (fecha de la última ejecución).
+- el RESTFetcher lo usa como `fecha_desde` restando `incremental_margen_dias` (30)
+  para no perder altas tardías, y lo reescribe a `fecha_formato` (`%d/%m/%Y`,
+  porque el SNPSAP rechaza ISO).
+- 1ª ejecución sin watermark: `incremental_fallback_dias` (400) acota la carga
+  inicial a los últimos ~13 meses (relativo a hoy, sin fecha fija). El histórico
+  profundo (2022→) lo hace el backfill por ejercicio, no el schedule.
+Un `fecha_desde` explícito (p. ej. en un hijo por ejercicio) siempre manda sobre
+el watermark; los hijos del backfill no llevan `desde=auto`, así que no son
+incrementales (son ventanas fijas).

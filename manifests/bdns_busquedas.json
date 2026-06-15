@@ -83,6 +83,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -161,6 +185,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -239,6 +287,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -317,6 +389,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -395,6 +491,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -473,6 +593,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -551,6 +695,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     },
@@ -629,6 +797,30 @@
           "key": "id_field",
           "value": "id",
           "is_external": false
+        },
+        {
+          "key": "desde",
+          "value": "auto",
+          "is_external": false,
+          "help": "Modo incremental: el scheduler inyecta _watermark (fecha de la última ejecución) y el fetcher trae solo lo posterior, en vez del corpus completo."
+        },
+        {
+          "key": "fecha_formato",
+          "value": "%d/%m/%Y",
+          "is_external": false,
+          "help": "El SNPSAP exige dd/mm/yyyy; el watermark llega en ISO y se reescribe a este formato."
+        },
+        {
+          "key": "incremental_margen_dias",
+          "value": "30",
+          "is_external": false,
+          "help": "Reprocesa los últimos 30 días en cada corrida para no perder altas tardías (dedup por id en la carga)."
+        },
+        {
+          "key": "incremental_fallback_dias",
+          "value": "400",
+          "is_external": false,
+          "help": "1ª ejecución (sin watermark): acota la carga inicial a los últimos 400 días en vez del corpus íntegro. El histórico profundo lo hace el backfill por ejercicio."
         }
       ]
     }
