@@ -126,3 +126,18 @@ atrás hasta el primero con registros (concesiones: 2022→2026). Idempotente
 con `fechaDesde`/`fechaHasta` (camelCase); `fecha_desde`/`fecha_hasta` snake_case
 son ignoradas por la API y devuelven el corpus íntegro — por eso el fetcher mapea
 los params de runtime `fecha_desde`→`fechaDesde`.
+
+## Concurrencia y troceo mensual (backfill)
+
+El trabajo es I/O-bound (HTTP + escritura de dataset) → paralelismo con HILOS,
+acotado. `seed_bdns_backfill.py` usa un pool (`--workers`, tope =
+`max_concurrent_processes` de AppConfig, def. 3), cada worker con su propia sesión;
+ejecuta las ventanas de más reciente a más antigua vía FetcherManager.run (camino
+del scheduler, sin cooldown/cuota). La cortesía por página la pone el fetcher
+(`delay_between_pages`); no se paraleliza dentro de un mismo crawl.
+
+Donde la concurrencia rinde es entre ventanas pequeñas: `seed_bdns_ejercicios.py`
+trocea en 12 hijos MENSUALES los años de gran volumen (> umbral, def. 2M; p. ej.
+concesiones 2025 ≈ 19,67M, dic ≈ 6M). Ventanas mensuales = offsets más someros
+(páginas más rápidas) + N unidades paralelizables. `--mensual` fuerza el troceo;
+`--mensual-umbral N` ajusta el corte.

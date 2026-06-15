@@ -1,116 +1,138 @@
-"""Backfill BDNS por ejercicio — encola hacia atrás los hijos de la colección.
+"""Backfill BDNS por ejercicio/mes — concurrencia acotada, hacia atrás.
 
-Ejecuta, de MÁS RECIENTE a MÁS ANTIGUO, los recursos hijos por ejercicio creados
-por `seed_bdns_ejercicios.py` (p. ej. `BDNS · Concesiones 2026` … `2022`). Usa el
-camino del SCHEDULER —`FetcherManager.run(session, resource_id)`— que NO pasa por
-los guards del refresco on-demand (cooldown, cuota diaria, principal autenticado):
-es un backfill de operador.
+Ejecuta, de MÁS RECIENTE a MÁS ANTIGUO, los recursos hijos de una colección BDNS
+creados por `seed_bdns_ejercicios.py` (`BDNS · Concesiones 2026`, `… 2025-12`…).
+Usa el camino del SCHEDULER —`FetcherManager.run(session, resource_id)`— que NO
+pasa por los guards del refresco on-demand (cooldown, cuota, principal).
 
-Síncrono y secuencial: procesa un ejercicio entero antes del siguiente (un año
-grande como 2025 ≈ 19,67M puede tardar). Pensado para correr en ODM como job de
-fondo (DATABASE_URL).
+Concurrencia ACOTADA (I/O-bound → hilos): un pool de `--workers` ejecuta varias
+ventanas a la vez, cada worker con su PROPIA sesión de BD. El tope por defecto es
+`max_concurrent_processes` (AppConfig, def. 3) para no saturar el SNPSAP ni pisar
+otras ejecuciones programadas. La cortesía por página la pone el fetcher
+(`delay_between_pages`). Corre en ODM (DATABASE_URL) como job de fondo.
 
-    python seed_bdns_backfill.py                     # concesiones, todos los años (hoy→suelo)
-    python seed_bdns_backfill.py convocatorias        # otra búsqueda
-    python seed_bdns_backfill.py concesiones --hasta 2024   # solo 2026,2025,2024
-    python seed_bdns_backfill.py concesiones --solo 2023    # un único ejercicio
-    python seed_bdns_backfill.py concesiones --dry-run      # solo lista, no ejecuta
+    python seed_bdns_backfill.py                          # concesiones, 2026→suelo, workers=cap
+    python seed_bdns_backfill.py concesiones --workers 4
+    python seed_bdns_backfill.py concesiones --hasta 2024  # solo >=2024
+    python seed_bdns_backfill.py concesiones --solo 2025   # un ejercicio (todos sus meses)
+    python seed_bdns_backfill.py concesiones --secuencial  # workers=1
+    python seed_bdns_backfill.py concesiones --dry-run
 """
 from __future__ import annotations
 
 import re
 import sys
 import datetime as _dt
-from typing import List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Optional, Tuple
 
 from app.database import SessionLocal
 from app.models import Resource
 
-# etiqueta de colección por endpoint (debe casar con seed_bdns_ejercicios.py)
 ETIQUETAS = {
     "convocatorias": "Convocatorias", "concesiones": "Concesiones", "minimis": "Mínimis",
     "ayudasestado": "Ayudas de Estado", "grandesbeneficiarios": "Grandes Beneficiarios",
     "sanciones": "Sanciones", "partidospoliticos": "Partidos Políticos",
     "planesestrategicos": "Planes Estratégicos",
 }
-_RE_ANIO = re.compile(r"\b(20\d{2})$")
+# sufijo del nombre: "YYYY" (anual) o "YYYY-MM" (mensual)
+_RE_SUF = re.compile(r"\b(20\d{2})(?:-(\d{2}))?$")
 
 
-def _hijos_por_ejercicio(db, etiqueta: str):
-    """(año, recurso) de los hijos de la colección, ordenados de más reciente a más antiguo."""
+def _cap_concurrencia(db) -> int:
+    try:
+        from app.models import AppConfig
+        cfg = db.query(AppConfig).filter(AppConfig.key == "max_concurrent_processes").first()
+        return int(cfg.value) if cfg and cfg.value else 3
+    except Exception:
+        return 3
+
+
+def _hijos(db, etiqueta: str) -> List[Tuple[Tuple[int, int], str, str]]:
+    """[((año, mes), id, nombre)] de los hijos de la colección, más reciente primero.
+    mes=0 para hijos anuales (ordenan después de cualquier mensual del mismo año)."""
     col = (db.query(Resource)
            .filter(Resource.name == f"BDNS · {etiqueta} (histórico por ejercicio)",
-                   Resource.deleted_at.is_(None))
-           .first())
+                   Resource.deleted_at.is_(None)).first())
     if not col:
         return []
-    hijos = (db.query(Resource)
-             .filter(Resource.parent_resource_id == col.id, Resource.deleted_at.is_(None))
-             .all())
     out = []
-    for r in hijos:
-        m = _RE_ANIO.search(r.name or "")
-        if m:
-            out.append((int(m.group(1)), r))
+    for r in (db.query(Resource)
+              .filter(Resource.parent_resource_id == col.id, Resource.deleted_at.is_(None)).all()):
+        m = _RE_SUF.search(r.name or "")
+        if not m:
+            continue
+        anio = int(m.group(1)); mes = int(m.group(2)) if m.group(2) else 0
+        out.append(((anio, mes), str(r.id), r.name))
     out.sort(key=lambda t: t[0], reverse=True)  # hacia atrás
     return out
 
 
-def backfill(endpoint: str, hasta: Optional[int], solo: Optional[int], dry_run: bool):
+def _ejecutar(resource_id: str, nombre: str) -> str:
+    """Tarea de worker: sesión propia + FetcherManager.run. Devuelve línea de log."""
     from app.manager.fetcher_manager import FetcherManager
-    etiqueta = ETIQUETAS[endpoint]
     db = SessionLocal()
+    t0 = _dt.datetime.utcnow()
     try:
-        objetivos = _hijos_por_ejercicio(db, etiqueta)
-        if not objetivos:
-            raise SystemExit(f"No hay hijos por ejercicio para «{etiqueta}». "
-                             f"Corre antes seed_bdns_ejercicios.py {endpoint}.")
-        if solo is not None:
-            objetivos = [(y, r) for y, r in objetivos if y == solo]
-        elif hasta is not None:
-            objetivos = [(y, r) for y, r in objetivos if y >= hasta]
-        if not objetivos:
-            raise SystemExit("Ningún ejercicio coincide con el filtro.")
-
-        print(f"Backfill {etiqueta} (hacia atrás): " + ", ".join(str(y) for y, _ in objetivos)
-              + (" [DRY-RUN]" if dry_run else ""))
-        for y, r in objetivos:
-            if dry_run:
-                print(f"  · {y}: {r.name} ({r.id}) — no ejecutado (dry-run)")
-                continue
-            t0 = _dt.datetime.utcnow()
-            print(f"  · {y}: ejecutando {r.name} …", flush=True)
-            try:
-                ds = FetcherManager.run(db, str(r.id))
-                n = getattr(ds, "record_count", None) if ds else None
-                secs = int((_dt.datetime.utcnow() - t0).total_seconds())
-                print(f"    ✓ {y}: dataset {'?' if ds is None else ds.id} "
-                      f"({n if n is not None else '?'} registros, {secs}s)")
-            except Exception as e:  # noqa: BLE001
-                print(f"    ✗ {y}: ERROR {e}")
-                # se continúa con el resto de ejercicios
-        print("Backfill terminado.")
+        ds = FetcherManager.run(db, resource_id)
+        n = getattr(ds, "record_count", None) if ds else None
+        secs = int((_dt.datetime.utcnow() - t0).total_seconds())
+        return f"  ✓ {nombre}: {n if n is not None else '?'} registros ({secs}s)"
+    except Exception as e:  # noqa: BLE001
+        return f"  ✗ {nombre}: ERROR {e}"
     finally:
         db.close()
 
 
+def backfill(endpoint: str, hasta: Optional[int], solo: Optional[int],
+             workers: Optional[int], dry_run: bool):
+    etiqueta = ETIQUETAS[endpoint]
+    db = SessionLocal()
+    try:
+        objetivos = _hijos(db, etiqueta)
+        cap = _cap_concurrencia(db)
+    finally:
+        db.close()
+    if not objetivos:
+        raise SystemExit(f"No hay hijos para «{etiqueta}». Corre antes seed_bdns_ejercicios.py {endpoint}.")
+    if solo is not None:
+        objetivos = [o for o in objetivos if o[0][0] == solo]
+    elif hasta is not None:
+        objetivos = [o for o in objetivos if o[0][0] >= hasta]
+    if not objetivos:
+        raise SystemExit("Ninguna ventana coincide con el filtro.")
+
+    w = workers if workers else cap
+    w = max(1, min(w, cap, len(objetivos)))  # nunca por encima del tope de ODM
+    etiquetas = [n for _, _, n in objetivos]
+    print(f"Backfill {etiqueta}: {len(objetivos)} ventanas (hacia atrás), {w} en paralelo"
+          + (" [DRY-RUN]" if dry_run else ""))
+    if dry_run:
+        for _, rid, n in objetivos:
+            print(f"  · {n} ({rid})")
+        return
+
+    # El pool respeta el orden de envío (más reciente primero); se solapan hasta w.
+    with ThreadPoolExecutor(max_workers=w) as ex:
+        futs = {ex.submit(_ejecutar, rid, n): n for _, rid, n in objetivos}
+        for fut in as_completed(futs):
+            print(fut.result(), flush=True)
+    print("Backfill terminado.")
+
+
 def main(argv: List[str]):
-    endpoint = "concesiones"
-    hasta = solo = None
-    dry = False
+    endpoint = "concesiones"; hasta = solo = workers = None; dry = False
     i = 0
     while i < len(argv):
         a = argv[i]
-        if a == "--hasta":
-            hasta = int(argv[i + 1]); i += 2; continue
-        if a == "--solo":
-            solo = int(argv[i + 1]); i += 2; continue
-        if a == "--dry-run":
-            dry = True
-        elif a in ETIQUETAS:
-            endpoint = a
+        if a == "--hasta": hasta = int(argv[i + 1]); i += 2; continue
+        if a == "--solo": solo = int(argv[i + 1]); i += 2; continue
+        if a == "--workers": workers = int(argv[i + 1]); i += 2; continue
+        if a == "--secuencial": workers = 1
+        elif a == "--dry-run": dry = True
+        elif a in ETIQUETAS: endpoint = a
         i += 1
-    backfill(endpoint, hasta, solo, dry)
+    backfill(endpoint, hasta, solo, workers, dry)
 
 
 if __name__ == "__main__":

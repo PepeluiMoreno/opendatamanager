@@ -8,18 +8,23 @@ Para cada búsqueda BDNS con ventana temporal crea:
     fechaDesde/fechaHasta).
 
 Los ejercicios NO se hardcodean: se detectan sondeando el SNPSAP (años con
-registros), de más reciente hacia atrás, hasta el primero con datos. Idempotente:
-upsert por nombre. Pensado para correr en ODM (necesita DATABASE_URL).
+registros), de más reciente hacia atrás, hasta el primero con datos. Los años de
+gran volumen (> umbral, def. 2M; p. ej. concesiones 2025 ≈ 19,67M) se trocean en
+12 hijos MENSUALES — ventanas someras que paginan más rápido y se paralelizan en
+el backfill. Idempotente: upsert por nombre. Pensado para correr en ODM (DATABASE_URL).
 
     python seed_bdns_ejercicios.py                 # todos los endpoints
     python seed_bdns_ejercicios.py concesiones      # solo uno
     python seed_bdns_ejercicios.py --suelo 2022     # fija el suelo (sin sondeo)
+    python seed_bdns_ejercicios.py concesiones --mensual          # fuerza mensual
+    python seed_bdns_ejercicios.py concesiones --mensual-umbral 1000000
 """
 from __future__ import annotations
 
 import sys
 import json
 import datetime as _dt
+import calendar
 from typing import List, Optional
 
 import requests
@@ -62,22 +67,21 @@ def total_anio(session_http: requests.Session, endpoint: str, order: str, anio: 
     return None
 
 
-def ejercicios_con_registros(endpoint: str, order: str) -> List[int]:
-    """Años con registros, de hoy hacia atrás hasta MIN_YEAR. Se detiene tras dos
-    ceros consecutivos una vez vistos datos (corta el barrido sin perder huecos
-    cortos)."""
+def ejercicios_con_registros(endpoint: str, order: str):
+    """[(año, total)] con registros, de hoy hacia atrás hasta MIN_YEAR. Se detiene
+    tras dos ceros consecutivos una vez vistos datos."""
     s = requests.Session()
     actual = _dt.date.today().year
-    anios, ceros, visto = [], 0, False
+    res, ceros, visto = [], 0, False
     for y in range(actual, MIN_YEAR - 1, -1):
-        t = total_anio(s, endpoint, order, y)
-        if t and t > 0:
-            anios.append(y); visto = True; ceros = 0
+        t = total_anio(s, endpoint, order, y) or 0
+        if t > 0:
+            res.append((y, t)); visto = True; ceros = 0
         else:
             ceros += 1
             if visto and ceros >= 2:
                 break
-    return sorted(anios)
+    return sorted(res)
 
 
 # ── upsert de recursos ───────────────────────────────────────────────────────
@@ -118,7 +122,31 @@ def _upsert_resource(db, *, name, fetcher_id, publisher_id, target_table, schedu
     return r
 
 
-def generar(endpoints: List[str], suelo: Optional[int]):
+def _hijo_anual(db, fetcher, pub, ep, order, tabla, col, etiqueta, y):
+    p = _params_base(ep, order); p["fecha_desde"] = f"01/01/{y}"; p["fecha_hasta"] = f"31/12/{y}"
+    _upsert_resource(db, name=f"BDNS · {etiqueta} {y}", fetcher_id=fetcher.id,
+                     publisher_id=pub.id, target_table=tabla, schedule=None,
+                     params=p, parent_id=col.id, genera_colecciones=False)
+
+
+def _hijos_mensuales(db, fetcher, pub, ep, order, tabla, col, etiqueta, y):
+    """12 hijos (o hasta el mes actual si y es el año en curso). Ventanas someras →
+    paginación más rápida y paralelizables."""
+    hoy = _dt.date.today()
+    ult_mes = hoy.month if y == hoy.year else 12
+    n = 0
+    for mes in range(1, ult_mes + 1):
+        fin = calendar.monthrange(y, mes)[1]
+        p = _params_base(ep, order)
+        p["fecha_desde"] = f"01/{mes:02d}/{y}"; p["fecha_hasta"] = f"{fin:02d}/{mes:02d}/{y}"
+        _upsert_resource(db, name=f"BDNS · {etiqueta} {y}-{mes:02d}", fetcher_id=fetcher.id,
+                         publisher_id=pub.id, target_table=tabla, schedule=None,
+                         params=p, parent_id=col.id, genera_colecciones=False)
+        n += 1
+    return n
+
+
+def generar(endpoints: List[str], suelo: Optional[int], umbral_mensual: int, forzar_mensual: bool):
     db = SessionLocal()
     try:
         fetcher = (db.query(Fetcher)
@@ -133,28 +161,28 @@ def generar(endpoints: List[str], suelo: Optional[int]):
 
         for ep in endpoints:
             etiqueta, order, tabla = ENDPOINTS[ep]
-            anios = [y for y in range(_dt.date.today().year, suelo - 1, -1)] if suelo else \
+            # (año, total): con --suelo no se sondea (total desconocido → 0).
+            pares = [(y, 0) for y in range(_dt.date.today().year, suelo - 1, -1)] if suelo else \
                 ejercicios_con_registros(ep, order)
-            if not anios:
+            if not pares:
                 print(f"· {etiqueta}: sin ejercicios con registros — omitido."); continue
 
-            # Colección (padre): histórico completo, corre con fechas de runtime.
             col = _upsert_resource(
                 db, name=f"BDNS · {etiqueta} (histórico por ejercicio)",
                 fetcher_id=fetcher.id, publisher_id=pub.id, target_table=tabla,
                 schedule="0 3 5 * *", params=_params_base(ep, order),
                 parent_id=None, genera_colecciones=True)
 
-            # Un hijo por ejercicio (hacia atrás), acotado por su ventana.
-            for y in sorted(anios, reverse=True):
-                p = _params_base(ep, order)
-                p["fecha_desde"] = f"01/01/{y}"
-                p["fecha_hasta"] = f"31/12/{y}"
-                _upsert_resource(
-                    db, name=f"BDNS · {etiqueta} {y}", fetcher_id=fetcher.id,
-                    publisher_id=pub.id, target_table=tabla, schedule=None,
-                    params=p, parent_id=col.id, genera_colecciones=False)
-            print(f"· {etiqueta}: colección + {len(anios)} ejercicios "
+            anios = [y for y, _ in pares]
+            n_anual = n_mensual = 0
+            for y, total in sorted(pares, reverse=True):  # hacia atrás
+                # Trocea por mes si el volumen del año supera el umbral (o se fuerza).
+                # Con --suelo (total=0) solo se trocea si se fuerza explícitamente.
+                if forzar_mensual or (total and total > umbral_mensual):
+                    n_mensual += _hijos_mensuales(db, fetcher, pub, ep, order, tabla, col, etiqueta, y)
+                else:
+                    _hijo_anual(db, fetcher, pub, ep, order, tabla, col, etiqueta, y); n_anual += 1
+            print(f"· {etiqueta}: colección + {n_anual} anuales + {n_mensual} mensuales "
                   f"({min(anios)}–{max(anios)}).")
         db.commit()
         print("Hecho.")
@@ -166,16 +194,22 @@ def generar(endpoints: List[str], suelo: Optional[int]):
 
 def main(argv: List[str]):
     suelo = None
+    umbral_mensual = 2_000_000   # años con más de ~2M de registros → troceo mensual
+    forzar_mensual = False
     eps = []
     i = 0
     while i < len(argv):
         a = argv[i]
         if a == "--suelo":
             suelo = int(argv[i + 1]); i += 2; continue
-        if a in ENDPOINTS:
+        if a == "--mensual-umbral":
+            umbral_mensual = int(argv[i + 1]); i += 2; continue
+        if a == "--mensual":
+            forzar_mensual = True
+        elif a in ENDPOINTS:
             eps.append(a)
         i += 1
-    generar(eps or list(ENDPOINTS.keys()), suelo)
+    generar(eps or list(ENDPOINTS.keys()), suelo, umbral_mensual, forzar_mensual)
 
 
 if __name__ == "__main__":
