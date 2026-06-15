@@ -146,7 +146,7 @@ def _hijos_mensuales(db, fetcher, pub, ep, order, tabla, col, etiqueta, y):
     return n
 
 
-def generar(endpoints: List[str], suelo: Optional[int], umbral_mensual: int, forzar_mensual: bool):
+def generar(endpoints: List[str], suelo: Optional[int], umbral_mensual: int, forzar_mensual: bool, rehacer: bool = False):
     db = SessionLocal()
     try:
         fetcher = (db.query(Fetcher)
@@ -161,6 +161,20 @@ def generar(endpoints: List[str], suelo: Optional[int], umbral_mensual: int, for
 
         for ep in endpoints:
             etiqueta, order, tabla = ENDPOINTS[ep]
+            col_name = f"BDNS · {etiqueta} (histórico por ejercicio)"
+
+            # Fast-path: si la colección ya tiene hijos, no se re-sondea ni recrea
+            # (clave para el entrypoint: arranques baratos tras la primera vez).
+            existente = db.query(Resource).filter(
+                Resource.name == col_name, Resource.deleted_at.is_(None)).first()
+            if existente and not rehacer:
+                n_hijos = db.query(Resource).filter(
+                    Resource.parent_resource_id == existente.id,
+                    Resource.deleted_at.is_(None)).count()
+                if n_hijos > 0:
+                    print(f"· {etiqueta}: ya existe con {n_hijos} hijos — omitido "
+                          f"(--rehacer para regenerar)."); continue
+
             # (año, total): con --suelo no se sondea (total desconocido → 0).
             pares = [(y, 0) for y in range(_dt.date.today().year, suelo - 1, -1)] if suelo else \
                 ejercicios_con_registros(ep, order)
@@ -168,7 +182,7 @@ def generar(endpoints: List[str], suelo: Optional[int], umbral_mensual: int, for
                 print(f"· {etiqueta}: sin ejercicios con registros — omitido."); continue
 
             col = _upsert_resource(
-                db, name=f"BDNS · {etiqueta} (histórico por ejercicio)",
+                db, name=col_name,
                 fetcher_id=fetcher.id, publisher_id=pub.id, target_table=tabla,
                 schedule="0 3 5 * *", params=_params_base(ep, order),
                 parent_id=None, genera_colecciones=True)
@@ -196,6 +210,7 @@ def main(argv: List[str]):
     suelo = None
     umbral_mensual = 2_000_000   # años con más de ~2M de registros → troceo mensual
     forzar_mensual = False
+    rehacer = False
     eps = []
     i = 0
     while i < len(argv):
@@ -206,10 +221,12 @@ def main(argv: List[str]):
             umbral_mensual = int(argv[i + 1]); i += 2; continue
         if a == "--mensual":
             forzar_mensual = True
+        elif a == "--rehacer":
+            rehacer = True
         elif a in ENDPOINTS:
             eps.append(a)
         i += 1
-    generar(eps or list(ENDPOINTS.keys()), suelo, umbral_mensual, forzar_mensual)
+    generar(eps or list(ENDPOINTS.keys()), suelo, umbral_mensual, forzar_mensual, rehacer)
 
 
 if __name__ == "__main__":

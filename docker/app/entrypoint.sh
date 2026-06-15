@@ -39,5 +39,14 @@ python seed_fetchers.py
 python seed_rbac.py
 python seed_manifests.py
 
+# Colecciones BDNS por ejercicio (colección + recurso/año). Idempotente, con
+# fast-path (no re-sondea si ya hay hijos) y NO-FATAL. En SEGUNDO PLANO para no
+# bloquear el arranque la primera vez (sondea el SNPSAP). El BACKFILL (cosecha de
+# millones de registros) NO va aquí: es un job de operador (seed_bdns_backfill.py)
+# o el scheduler — en el entrypoint bloquearía el arranque y se relanzaría en cada deploy.
+echo "[entrypoint] Lanzando alta de colecciones BDNS por ejercicio en segundo plano..."
+( python seed_bdns_ejercicios.py >> /tmp/seed_bdns_ejercicios.log 2>&1 \
+    || echo "[entrypoint] aviso: seed_bdns_ejercicios falló (no bloquea arranque; ver /tmp/seed_bdns_ejercicios.log)" ) &
+
 echo "[entrypoint] Starting application..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

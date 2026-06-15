@@ -141,3 +141,15 @@ trocea en 12 hijos MENSUALES los años de gran volumen (> umbral, def. 2M; p. ej
 concesiones 2025 ≈ 19,67M, dic ≈ 6M). Ventanas mensuales = offsets más someros
 (páginas más rápidas) + N unidades paralelizables. `--mensual` fuerza el troceo;
 `--mensual-umbral N` ajusta el corte.
+
+## Despliegue (entrypoint)
+
+- Recursos planos de las 8 búsquedas + publisher BDNS: vía `manifests/bdns_busquedas.json`,
+  que `seed_manifests.py` importa en cada arranque (idempotente, no-fatal).
+- Colección + recurso por ejercicio: `seed_bdns_ejercicios.py` corre en el
+  entrypoint EN SEGUNDO PLANO (no bloquea el arranque la primera vez, que sondea
+  el SNPSAP), con fast-path (no re-sondea si la colección ya tiene hijos) y
+  no-fatal. `--rehacer` regenera.
+- El BACKFILL (`seed_bdns_backfill.py`, cosecha de millones de registros) NO va en
+  el entrypoint: bloquearía el arranque y se relanzaría en cada deploy. Es un job
+  de operador (docker exec / kubectl exec) o del scheduler.
