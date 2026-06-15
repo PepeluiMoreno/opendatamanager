@@ -626,8 +626,6 @@ RESOURCE_DEFS = [
             "page_size":      "10000",
             "content_field":  "content",
             "id_field":       "id",
-            "fechaDesde":     {"value": "01/01/2026", "is_external": True},
-            "fechaHasta":     {"value": "31/12/2026", "is_external": True},
         },
     },
     {
@@ -646,8 +644,6 @@ RESOURCE_DEFS = [
             "id_field":       "id",
             "timeout":        "60",
             "query_params":   '{"page": "0", "pageSize": "100", "order": "numeroConvocatoria", "direccion": "desc", "vpd": "GE"}',
-            "fechaDesde":     {"value": "01/01/2026", "is_external": True},
-            "fechaHasta":     {"value": "31/12/2026", "is_external": True},
         },
     },
     {

@@ -14,7 +14,7 @@
       "clase_fuente": "api_abierta",
       "schedule": "0 3 5 * *",
       "active": true,
-      "description": "Todas las convocatorias de subvenciones publicadas en la BDNS (SNPSAP). Intervalo temporal por parámetros de ejecución fecha_desde/fecha_hasta (ISO); sin ellos, corpus íntegro.",
+      "description": "Todas las convocatorias de subvenciones publicadas en la BDNS (SNPSAP). Intervalo temporal por parámetros de ejecución fecha_desde/fecha_hasta; sin ellos, corpus íntegro.",
       "params": [
         {
           "key": "url",
@@ -28,9 +28,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"numeroConvocatoria\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"numeroConvocatoria\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -106,9 +106,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -184,9 +184,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"numeroConvocatoria\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"numeroConvocatoria\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -262,9 +262,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -340,9 +340,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"beneficiario\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"beneficiario\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -418,9 +418,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"fechaConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"fechaConcesion\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -496,9 +496,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"codConcesion\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",
@@ -574,9 +574,9 @@
         },
         {
           "key": "query_params",
-          "value": "{\"vpd\": \"GE\", \"order\": \"vigenciaDesde\", \"direccion\": \"desc\", \"fechaDesde\": \"{fecha_desde}\", \"fechaHasta\": \"{fecha_hasta}\"}",
+          "value": "{\"vpd\": \"GE\", \"order\": \"vigenciaDesde\", \"direccion\": \"desc\"}",
           "is_external": false,
-          "help": "order = clave única para que la paginación profunda sobreviva (clave con muchos empates, p.ej. fechaConcesion, rompe la paginación en datasets grandes como 2025). fechaDesde/fechaHasta: marcadores de runtime (dd/mm/yyyy); ausentes → trae todo."
+          "help": "vpd + order (clave única, imprescindible para que la paginación profunda sobreviva en datasets grandes) + direccion. La ventana temporal NO va aquí: es runtime — la ejecución pasa fecha_desde/fecha_hasta (dd/mm/yyyy) y el fetcher los inyecta como fechaDesde/fechaHasta. Sin ellos → corpus íntegro."
         },
         {
           "key": "pagination",

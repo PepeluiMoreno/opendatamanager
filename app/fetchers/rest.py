@@ -13,10 +13,11 @@ _TOKEN_RX = re.compile(r"\{(\w+)\}")
 def _resolve_runtime_tokens(query: dict, params: dict) -> dict:
     """Sustituye marcadores `{token}` en los VALORES de los query-params con el
     valor homónimo de `params` (defaults del recurso + execution_params de la
-    ejecución). Esto hace que cualquier filtro —en particular el intervalo
-    temporal `fechaDesde`/`fechaHasta`— sea un parámetro de RUNTIME: el recurso
-    declara `query_params={"fechaDesde":"{fecha_desde}", ...}` y la ejecución
-    aporta `fecha_desde`/`fecha_hasta`.
+    ejecución). Mecanismo genérico de runtime para CUALQUIER filtro.
+
+    La ventana temporal tiene además manejo nativo en `fetch` (params
+    `fecha_desde`/`fecha_hasta` → query `fechaDesde`/`fechaHasta`), de modo que no
+    hace falta declarar marcadores para el caso común de fechas.
 
     Si algún token de un valor no tiene valor en `params`, ese query-param se
     OMITE por completo (sin valor → sin filtro → trae todo). Así, sin intervalo
@@ -81,10 +82,24 @@ class RESTFetcher(BaseFetcher):
         request_strategy = self.params.get("request", "query")
         pagination = (self.params.get("pagination") or "none").lower()
 
+        # Ventana temporal como parámetro de RUNTIME (no se almacena en el recurso):
+        # la ejecución aporta fecha_desde/fecha_hasta y el fetcher los inyecta en la
+        # query bajo el nombre que entiende la fuente (por defecto fechaDesde/fechaHasta,
+        # configurable con fecha_param_desde/fecha_param_hasta). Ausentes → no se envían
+        # → la fuente devuelve el corpus íntegro. Sin fechas hardcodeadas en ninguna parte.
+        fp_desde = self.params.get("fecha_param_desde", "fechaDesde")
+        fp_hasta = self.params.get("fecha_param_hasta", "fechaHasta")
+        fecha_desde = self.params.get("fecha_desde")
+        fecha_hasta = self.params.get("fecha_hasta")
+
         def _send(target_url, extra_query, pivot=None):
             rq = build_request(request_strategy, self.params, pivot=pivot)
             merged_headers = {**headers, **rq.get("headers", {})}
             q = _resolve_runtime_tokens({**query_params, **(extra_query or {})}, self.params)
+            if fecha_desde:
+                q[fp_desde] = fecha_desde
+            if fecha_hasta:
+                q[fp_hasta] = fecha_hasta
             kwargs = {"headers": merged_headers, "params": q, "timeout": timeout}
             if rq.get("json") is not None:
                 kwargs["json"] = rq["json"]
