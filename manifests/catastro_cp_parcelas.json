@@ -11,7 +11,7 @@
     {
       "name": "Catastro INSPIRE - Parcelas (CP)",
       "fetcher": "Descubridor ATOM",
-      "collection": "Inmuebles religiosos en España",
+      "genera_colecciones": true,
       "active": true,
       "clase_fuente": "api_abierta",
       "params": [
