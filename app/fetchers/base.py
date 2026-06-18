@@ -33,6 +33,10 @@ class BaseSpecies(ABC):
         self.current_state: Dict[str, Any] = {}
         # Estadísticas de perfilado (descubrimiento/extracción), leídas por el manager.
         self.profile_stats: Dict[str, Any] = {}
+        # Throttle proactivo por host (opt-in): None salvo que se fije
+        # rate_limit_per_second / request_delay_ms / max_per_hour en params.
+        from app.fetchers.throttle import params_to_throttle
+        self._throttle_cfg = params_to_throttle(params)
 
     @property
     def is_parallelizable(self) -> bool:
@@ -50,6 +54,13 @@ class BaseSpecies(ABC):
 
         for attempt in range(self._max_retries + 1):
             try:
+                # Cortesía proactiva: si hay throttle configurado, esperar el turno
+                # de este host ANTES de emitir. Evita el baneo en fuentes con cupo
+                # duro (p. ej. Catastro: 3600/h/IP → veto de 4h).
+                if self._throttle_cfg is not None:
+                    from app.fetchers.throttle import ThrottleRegistry, host_of
+                    min_interval, max_per_hour = self._throttle_cfg
+                    ThrottleRegistry.for_host(host_of(url), min_interval, max_per_hour).acquire()
                 effective_timeout = base_timeout * (1 + attempt)
                 caller = http if http else requests
                 response = caller.request(method, url, timeout=effective_timeout, **kwargs)

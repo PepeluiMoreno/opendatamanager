@@ -1,254 +1,156 @@
 """
-Integration tests para los recursos PLACSP (Plataforma de Contratación del Sector Público).
+Tests del camino PLACSP sobre la especie viva: AtomFetcher + field_map (CODICE).
 
-Tests unitarios (sin red):
-    pytest tests/integration/test_placsp_resources.py
+El antiguo AtomPagingFetcher (parser CODICE hardcodeado) fue retirado: la
+migración de junio-2026 consolidó PLACSP en la especie 'Feeds ATOM/RSS' con el
+preset 'PLACSP CODICE' (field_map). Estos tests validan:
+  1. Que AtomFetcher + field_map extrae los campos CODICE de un feed sintético.
+  2. Que el streaming opt-in (stream_pages) cede página a página y fija el
+     savepoint de reanudación — la única capacidad que aportaba AtomPaging.
+  3. Que SIN stream_pages el comportamiento es el histórico (acumular y ceder
+     de una vez, sin tocar current_state) — PLACSP intacto.
 
-Tests de integración con red real (lentos):
-    pytest tests/integration/test_placsp_resources.py -m integration
+Sin red ni BD: se inyecta _request con respuestas sintéticas.
 """
+import json
 import pytest
-from app.database import SessionLocal
-from app.models import Resource
-from app.fetchers.atom_paging import AtomPagingFetcher
+from app.fetchers.atom import AtomFetcher
 
 
-LICITACIONES_URL = (
-    "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_643"
-    "/licitacionesPerfilesContratanteCompleto3.atom"
-)
-CONTRATOS_MENORES_URL = (
-    "https://contrataciondelsectorpublico.gob.es/sindicacion/sindicacion_1143"
-    "/contratosMenoresPerfilesContratantes.atom"
-)
+# ── Feeds sintéticos estilo PLACSP/CODICE ─────────────────────────────────────
 
-EXPECTED_CODICE_FIELDS = {
-    "expediente", "estado", "organo", "nif_organo", "dir3_organo",
-    "objeto", "tipo_contrato", "presupuesto_sin_iva", "presupuesto_con_iva",
-    "lugar_ejecucion", "cpv", "procedimiento",
-    "resultado", "fecha_adjudicacion", "num_ofertas",
-    "importe_adjudicacion", "adjudicatario", "nif_adjudicatario",
+ENTRY_TPL = """
+  <entry xmlns="http://www.w3.org/2005/Atom"
+         xmlns:cbc="urn:dgpe:names:draft:codice:schema:xsd:CommonBasicComponents-2"
+         xmlns:cac="urn:dgpe:names:draft:codice:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cac-place-ext="urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc-place-ext="urn:dgpe:names:draft:codice-place-ext:schema:xsd:CommonBasicComponents-2">
+    <title>Contrato de prueba</title>
+    <updated>{updated}</updated>
+    <link rel="alternate" href="https://contrataciondelestado.es/wps/poc?idEvl={eid}"/>
+    <cac-place-ext:ContractFolderStatus>
+      <cbc:ContractFolderID>{exp}</cbc:ContractFolderID>
+      <cbc-place-ext:ContractFolderStatusCode>RES</cbc-place-ext:ContractFolderStatusCode>
+      <cac-place-ext:LocatedContractingParty>
+        <cac:Party>
+          <cac:PartyName><cbc:Name>Ayuntamiento de Test</cbc:Name></cac:PartyName>
+        </cac:Party>
+      </cac-place-ext:LocatedContractingParty>
+      <cac:ProcurementProject>
+        <cbc:Name>Servicio de prueba</cbc:Name>
+        <cac:BudgetAmount><cbc:TotalAmount>12100.00</cbc:TotalAmount></cac:BudgetAmount>
+      </cac:ProcurementProject>
+      <cac:TenderResult>
+        <cac:WinningParty>
+          <cac:PartyName><cbc:Name>Empresa Ganadora SL</cbc:Name></cac:PartyName>
+          <cac:PartyIdentification><cbc:ID>B12345678</cbc:ID></cac:PartyIdentification>
+        </cac:WinningParty>
+      </cac:TenderResult>
+    </cac-place-ext:ContractFolderStatus>
+  </entry>"""
+
+
+def _feed(entries_xml: str, next_href: str = None) -> str:
+    next_link = f'<link rel="next" href="{next_href}"/>' if next_href else ""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<feed xmlns="http://www.w3.org/2005/Atom">'
+        '<title>PLACSP</title>'
+        f'{next_link}{entries_xml}'
+        '</feed>'
+    )
+
+
+def _entry(exp, eid, updated="2025-06-15T10:00:00.000+02:00"):
+    return ENTRY_TPL.format(exp=exp, eid=eid, updated=updated)
+
+
+# field_map representativo del preset 'PLACSP CODICE' (esquema VIVO)
+FIELD_MAP = {
+    "expediente": "ContractFolderID",
+    "estado": "ContractFolderStatusCode",
+    "objeto": "ProcurementProject/Name",
+    "importe": "TotalAmount",
+    "organo_contratacion": "LocatedContractingParty/PartyName/Name",
+    "adjudicatario": "WinningParty/PartyName/Name",
+    "nif_adjudicatario": "WinningParty/PartyIdentification/ID",
+    "fecha": "updated",
+    "url": "link@href",
 }
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
-
-@pytest.fixture(scope="module")
-def db():
-    session = SessionLocal()
-    yield session
-    session.close()
-
-
-@pytest.fixture(scope="module")
-def licitaciones_resource(db):
-    r = db.query(Resource).filter(Resource.name == "PLACSP - Licitaciones").first()
-    if not r:
-        pytest.skip("Resource 'PLACSP - Licitaciones' not found in database")
-    return r
+class _FakeResp:
+    def __init__(self, text):
+        self.text = text
+        self.status_code = 200
+    def raise_for_status(self):
+        pass
 
 
-@pytest.fixture(scope="module")
-def contratos_resource(db):
-    r = db.query(Resource).filter(Resource.name == "PLACSP - Contratos Menores").first()
-    if not r:
-        pytest.skip("Resource 'PLACSP - Contratos Menores' not found in database")
-    return r
+def _make(params):
+    f = AtomFetcher({"field_map": json.dumps(FIELD_MAP), **params})
+    return f
 
 
-# ── Tests de configuración (sin red) ──────────────────────────────────────────
+# ── 1. Extracción CODICE vía field_map (mecanismo vivo) ───────────────────────
 
-class TestPlacspResourceConfig:
-
-    def test_licitaciones_exists(self, licitaciones_resource):
-        assert licitaciones_resource.active is True
-        assert licitaciones_resource.fetcher is not None
-
-    def test_licitaciones_params(self, licitaciones_resource):
-        params = {p.key: p.value for p in licitaciones_resource.params}
-        assert params.get("url") == LICITACIONES_URL
-        assert int(params.get("max_pages", 0)) >= 100
-
-    def test_contratos_exists(self, contratos_resource):
-        assert contratos_resource.active is True
-        assert contratos_resource.fetcher is not None
-
-    def test_contratos_params(self, contratos_resource):
-        params = {p.key: p.value for p in contratos_resource.params}
-        assert params.get("url") == CONTRATOS_MENORES_URL
-        assert int(params.get("max_pages", 0)) >= 100
+class TestFieldMapExtraction:
+    def test_campos_codice(self):
+        f = _make({"url": "http://x", "max_pages": "1"})
+        f._request = lambda *a, **k: _FakeResp(_feed(_entry("EXP/2025/001", "abc")))
+        records = f.execute()
+        assert len(records) == 1
+        r = records[0]
+        assert r["expediente"] == "EXP/2025/001"
+        assert r["estado"] == "RES"
+        assert r["objeto"] == "Servicio de prueba"
+        assert r["importe"] == "12100.00"
+        assert r["organo_contratacion"] == "Ayuntamiento de Test"
+        assert r["adjudicatario"] == "Empresa Ganadora SL"
+        assert r["nif_adjudicatario"] == "B12345678"
+        assert r["url"] == "https://contrataciondelestado.es/wps/poc?idEvl=abc"
 
 
-# ── Tests de normalización (sin red, datos sintéticos) ────────────────────────
+# ── 2. Streaming opt-in + savepoint (capacidad absorbida de AtomPaging) ────────
 
-class TestNormalizeEntry:
+class TestStreamPagesSavepoint:
+    def test_cede_por_pagina_y_fija_savepoint(self):
+        seq = iter([
+            _feed(_entry("E1", "1"), next_href="http://x/p2"),
+            _feed(_entry("E2", "2")),  # sin next → fin
+        ])
+        f = _make({"url": "http://x/p1", "pagination": "rel_next", "stream_pages": "true"})
+        f._request = lambda *a, **k: _FakeResp(next(seq))
+        chunks = list(f.stream())
+        assert len(chunks) == 2, "debe ceder una vez por página"
+        assert chunks[0][0]["expediente"] == "E1"
+        assert chunks[1][0]["expediente"] == "E2"
+        # tras la última página sin next, el savepoint no apunta a reanudar
+        assert f.current_state["pages_fetched"] == 2
+        assert f.current_state["resume_url"] is None
 
-    SAMPLE_ENTRY = {
-        "id": "https://contrataciondelestado.es/sindicacion/licitacionesPerfilContratante/12345",
-        "title": "Contrato de prueba",
-        "updated": "2025-06-15T10:00:00.000+02:00",
-        "link": {"@href": "https://contrataciondelestado.es/wps/poc?idEvl=abc"},
-        "cac-place-ext:ContractFolderStatus": {
-            "cbc:ContractFolderID": "EXP/2025/001",
-            "cbc-place-ext:ContractFolderStatusCode": "RES",
-            "cac-place-ext:LocatedContractingParty": {
-                "cac:Party": {
-                    "cac:PartyName": {"cbc:Name": "Ayuntamiento de Test"},
-                    "cac:PartyIdentification": [
-                        {"cbc:ID": {"@schemeName": "NIF", "#text": "P1234567A"}},
-                        {"cbc:ID": {"@schemeName": "DIR3", "#text": "L01234567"}},
-                    ],
-                }
-            },
-            "cac:ProcurementProject": {
-                "cbc:Name": "Servicio de prueba",
-                "cbc:TypeCode": {"@listURI": "...", "#text": "2"},
-                "cac:BudgetAmount": {
-                    "cbc:TaxExclusiveAmount": {"@currencyID": "EUR", "#text": "10000.00"},
-                    "cbc:TotalAmount": {"@currencyID": "EUR", "#text": "12100.00"},
-                },
-                "cac:RealizedLocation": {"cbc:CountrySubentityCode": "ES61"},
-                "cac:RequiredCommodityClassification": {
-                    "cbc:ItemClassificationCode": {"@listURI": "...", "#text": "72000000"},
-                },
-            },
-            "cac:TenderingProcess": {
-                "cbc:ProcedureCode": {"@listURI": "...", "#text": "1"},
-            },
-            "cac:TenderResult": {
-                "cbc:ResultCode": {"@listURI": "...", "#text": "8"},
-                "cbc:AwardDate": "2025-06-10",
-                "cbc:ReceivedTenderQuantity": "3",
-                "cac:AwardedTenderedProject": {
-                    "cac:LegalMonetaryTotal": {
-                        "cbc:TaxExclusiveAmount": {"@currencyID": "EUR", "#text": "9800.00"},
-                    }
-                },
-                "cac:WinningParty": {
-                    "cac:PartyName": {"cbc:Name": "Empresa Ganadora SL"},
-                    "cac:PartyIdentification": {"cbc:ID": {"@schemeName": "NIF", "#text": "B12345678"}},
-                },
-            },
-        },
-    }
-
-    def test_all_codice_fields_present(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        missing = EXPECTED_CODICE_FIELDS - set(result.keys())
-        assert not missing, f"Campos CODICE ausentes: {missing}"
-
-    def test_atom_envelope_fields(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        assert result["id"] == self.SAMPLE_ENTRY["id"]
-        assert result["title"] == "Contrato de prueba"
-        assert result["updated"] == "2025-06-15T10:00:00.000+02:00"
-        assert result["link"] == "https://contrataciondelestado.es/wps/poc?idEvl=abc"
-
-    def test_expediente_and_estado(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        assert result["expediente"] == "EXP/2025/001"
-        assert result["estado"] == "RES"
-
-    def test_organo_and_ids(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        assert result["organo"] == "Ayuntamiento de Test"
-        assert result["nif_organo"] == "P1234567A"
-        assert result["dir3_organo"] == "L01234567"
-
-    def test_proyecto(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        assert result["objeto"] == "Servicio de prueba"
-        assert result["tipo_contrato"] == "2"
-        assert result["presupuesto_sin_iva"] == "10000.00"
-        assert result["presupuesto_con_iva"] == "12100.00"
-        assert result["lugar_ejecucion"] == "ES61"
-        assert result["cpv"] == "72000000"
-
-    def test_adjudicacion(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        assert result["fecha_adjudicacion"] == "2025-06-10"
-        assert result["num_ofertas"] == "3"
-        assert result["importe_adjudicacion"] == "9800.00"
-        assert result["adjudicatario"] == "Empresa Ganadora SL"
-        assert result["nif_adjudicatario"] == "B12345678"
-
-    def test_raw_xml_content_preserved(self):
-        result = AtomPagingFetcher._normalize_entry(self.SAMPLE_ENTRY)
-        assert "raw_xml_content" in result
-        assert result["raw_xml_content"] is self.SAMPLE_ENTRY
-
-    def test_entry_without_codice_returns_minimal(self):
-        entry = {"id": "x", "title": "y", "updated": "2025-01-01T00:00:00Z", "link": {"@href": "http://x"}}
-        result = AtomPagingFetcher._normalize_entry(entry)
-        assert result["id"] == "x"
-        assert "expediente" not in result
-        assert "raw_xml_content" in result
-
-
-# ── Tests de integración con red real ─────────────────────────────────────────
-
-class TestPlacspStreamIntegration:
-
-    @pytest.mark.integration
-    def test_licitaciones_stream_first_page(self):
-        """Descarga la primera página del feed de licitaciones y valida estructura."""
-        f = AtomPagingFetcher({"url": LICITACIONES_URL, "max_pages": "1", "timeout": "60"})
-        pages = list(f.stream())
-        assert len(pages) == 1
-        assert len(pages[0]) > 0
-        rec = pages[0][0]
-        assert "expediente" in rec
-        assert "estado" in rec
-        assert "organo" in rec
-
-    @pytest.mark.integration
-    def test_contratos_stream_first_page(self):
-        """Descarga la primera página del feed de contratos menores y valida estructura."""
-        f = AtomPagingFetcher({"url": CONTRATOS_MENORES_URL, "max_pages": "1", "timeout": "60"})
-        pages = list(f.stream())
-        assert len(pages) == 1
-        assert len(pages[0]) > 0
-        rec = pages[0][0]
-        assert "expediente" in rec
-        assert "adjudicatario" in rec
-
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_licitaciones_anio_filter(self):
-        """Filtra licitaciones por año actual y verifica que todos los registros son de ese año.
-
-        Usa el año en curso para no tener que paginar cientos de páginas hasta años anteriores.
-        La lógica de corte es la misma independientemente del año elegido.
-        Para ejecutar contra 2025 en producción: anio="2025", max_pages=500+.
-        """
-        anio = "2026"
-        f = AtomPagingFetcher({
-            "url": LICITACIONES_URL,
-            "max_pages": "10",
-            "anio": anio,
-            "timeout": "60",
+    def test_reanudacion_desde_resume_state(self):
+        seq = iter([_feed(_entry("E2", "2"))])
+        f = _make({
+            "url": "http://x/p1", "pagination": "rel_next", "stream_pages": "true",
+            "_resume_state": json.dumps({"resume_url": "http://x/p2", "pages_fetched": 1}),
         })
-        records = [r for chunk in f.stream() for r in chunk]
-        assert len(records) > 0, f"No se obtuvieron registros del año {anio}"
-        for rec in records:
-            assert rec["updated"][:4] == anio, f"Registro fuera del año: {rec['updated']}"
+        f._request = lambda *a, **k: _FakeResp(next(seq))
+        chunks = list(f.stream())
+        assert len(chunks) == 1
+        assert chunks[0][0]["expediente"] == "E2"
+        assert f.current_state["pages_fetched"] == 2
 
-    @pytest.mark.integration
-    @pytest.mark.slow
-    def test_contratos_anio_filter(self):
-        """Filtra contratos menores por año actual y verifica que todos son de ese año.
 
-        Usa el año en curso para no tener que paginar cientos de páginas hasta años anteriores.
-        Para ejecutar contra 2025 en producción: anio="2025", max_pages=2000.
-        """
-        anio = "2026"
-        f = AtomPagingFetcher({
-            "url": CONTRATOS_MENORES_URL,
-            "max_pages": "10",
-            "anio": anio,
-            "timeout": "60",
-        })
-        records = [r for chunk in f.stream() for r in chunk]
-        assert len(records) > 0, f"No se obtuvieron registros del año {anio}"
-        for rec in records:
-            assert rec["updated"][:4] == anio, f"Registro fuera del año: {rec['updated']}"
+# ── 3. Sin stream_pages: comportamiento histórico (PLACSP intacto) ────────────
+
+class TestAccumulateUnchanged:
+    def test_sin_stream_pages_acumula_y_no_toca_savepoint(self):
+        seq = iter([_feed(_entry("E1", "1"))])  # una página, sin next
+        f = _make({"url": "http://x", "pagination": "rel_next"})  # NO stream_pages
+        f._request = lambda *a, **k: _FakeResp(next(seq))
+        chunks = list(f.stream())
+        assert len(chunks) == 1, "BaseFetcher.stream acumula y cede una sola vez"
+        assert chunks[0][0]["expediente"] == "E1"
+        # la rama de acumulación NO fija savepoint: current_state queda como al init
+        assert f.current_state == {}

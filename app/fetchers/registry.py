@@ -24,11 +24,6 @@ class FetcherRegistry:
             "description": "Fetcher for CSV files from URLs",
              "name": "CSV File"
          },
-        "ATOM_PAGING": {
-            "class_path": "app.fetchers.atom_paging.AtomPagingFetcher",
-            "description": "Fetcher for Atom feeds with pagination (rel='next')",
-            "name": "Atom Paging"
-        },
         "HTML_PAGINATED": {
             "class_path": "app.fetchers.paginated_html.PaginatedHtmlFetcher",
             "description": "HTML scraper with automatic pagination and CSS selectors",

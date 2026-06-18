@@ -479,3 +479,91 @@ class AtomFetcher(BaseFetcher):
 
     def normalize(self, parsed: ParsedData) -> DomainData:
         return parsed
+
+    # ── Streaming por página con savepoint (opt-in) ───────────────────────────
+    # Absorbe la única capacidad propia del antiguo AtomPagingFetcher: ceder
+    # página a página y fijar current_state (resume_url/pages_fetched) ANTES de
+    # cada yield, para que el FetcherManager pueda reanudar a media corriente.
+    # Se activa SOLO con stream_pages=true en la rama rel_next (no-ZIP); en
+    # cualquier otro caso se delega en el stream() de BaseFetcher (acumula y cede
+    # de una vez), que es el comportamiento histórico de PLACSP — intacto.
+    @staticmethod
+    def _es_verdadero(v) -> bool:
+        return str(v).strip().lower() in ("1", "true", "yes", "si", "sí", "on")
+
+    def stream(self):
+        pagination = (self.params.get("pagination", "query") or "query").lower()
+        url = (self.params.get("url") or "")
+        es_zip = url.lower().split("?")[0].endswith(".zip")
+        if pagination == "rel_next" and not es_zip and self._es_verdadero(self.params.get("stream_pages")):
+            yield from self._stream_rel_next()
+        else:
+            yield from super().stream()
+
+    def _stream_rel_next(self):
+        """Recorre rel_next cediendo cada página y fijando savepoint antes del yield."""
+        import time
+
+        timeout = int(self.params.get("timeout", 30))
+        headers = self.params.get("headers", {})
+        if isinstance(headers, str):
+            headers = json.loads(headers) if headers.strip() else {}
+
+        field_map = self.params.get("field_map")
+        if isinstance(field_map, str):
+            field_map = json.loads(field_map) if field_map.strip() else None
+
+        date_field = self.params.get("date_field", "fecha")
+        desde_raw = self.params.get("desde") or None
+        if desde_raw == "auto":
+            desde_raw = self.params.get("_watermark")
+        desde = _parse_dt(desde_raw)
+        hasta = _parse_dt(self.params.get("hasta") or None)
+
+        delay = float(self.params.get("delay", 0) or 0)
+        max_pages = int(self.params.get("max_pages", 0) or 0)
+        preview_limit = int(self.params.get("_preview_limit", 0) or 0)
+
+        def _entradas(root):
+            if field_map:
+                return [_extract_flat(e, field_map) for e in _entry_elements(root)]
+            return _parse_feed_entries(root)
+
+        resume_state = self.params.get("_resume_state") or {}
+        if isinstance(resume_state, str):
+            resume_state = json.loads(resume_state) if resume_state.strip() else {}
+        next_url: Optional[str] = resume_state.get("resume_url") or self.params.get("url")
+        pages = int(resume_state.get("pages_fetched", 0))
+        emitidos = 0
+        session = requests.Session()
+
+        while next_url and (not max_pages or pages < max_pages):
+            response = self._request(session, "GET", next_url, headers=headers, timeout=timeout)
+            response.raise_for_status()
+            root = ET.fromstring(response.text)
+            batch = _entradas(root)
+            batch, frontera = _filtrar_por_fecha(batch, date_field, desde, hasta)
+
+            siguiente = _next_link(root)
+            # Savepoint ANTES del yield: si el manager corta en el yield, el estado
+            # ya refleja desde dónde reanudar. Al alcanzar frontera no hay reanudación.
+            self.current_state = {
+                "resume_url": None if frontera else siguiente,
+                "pages_fetched": pages + 1,
+            }
+
+            if batch:
+                yield batch
+                emitidos += len(batch)
+
+            pages += 1
+            logger.info(f"  [stream] página {pages} — {len(batch)} entradas (emitidas: {emitidos})")
+
+            if preview_limit and emitidos >= preview_limit:
+                break
+            if frontera:
+                logger.info("  [stream] frontera de fecha alcanzada; fin")
+                break
+            next_url = siguiente
+            if next_url and delay:
+                time.sleep(delay)
