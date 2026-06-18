@@ -12,7 +12,7 @@
     <div class="flex items-center gap-x-6 gap-y-2 flex-wrap mb-3">
       <FilterBar
         class="!mb-0 flex-1 min-w-[340px]"
-        :canClear="!!(search || statusFilter !== 'all' || kindFilter !== 'all' || ageFilter !== 'all')"
+        :canClear="!!(search || statusFilter !== 'all' || ageFilter !== 'all')"
         :count="filteredExecutions.length"
         :total="executions.length"
         @clear="limpiarFiltros"
@@ -20,10 +20,6 @@
         <input v-model="search" type="text" placeholder="Buscar recurso…" class="input text-sm w-56 max-w-[40%]" />
         <select v-model="statusFilter" class="input text-sm" style="min-width:130px">
           <option v-for="tab in statusTabs" :key="tab.value" :value="tab.value">{{ tab.label }} ({{ countByStatus(tab.value) }})</option>
-        </select>
-        <select v-model="kindFilter" class="input text-sm" style="min-width:140px">
-          <option value="all">Tipo: todos</option>
-          <option v-for="k in kindsDisponibles" :key="k" :value="k">{{ kindLabel(k) }}</option>
         </select>
         <select v-model="ageFilter" class="input text-sm" style="min-width:140px">
           <option v-for="o in ageOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
@@ -368,12 +364,11 @@ const loading = ref(true)
 const concurrency = ref({})
 const statusFilter = ref('all')
 const search = ref('')
-const kindFilter = ref('all')
 const ageFilter = ref('all')
 const resumingIds = ref(new Set())
 
 const ageOptions = [
-  { value: 'all',       label: 'Edad: todas' },
+  { value: 'all',       label: 'Todos' },
   { value: '600',       label: 'Últimos 10 min' },
   { value: '3600',      label: 'Última hora' },
   { value: '21600',     label: 'Últimas 6 h' },
@@ -397,7 +392,6 @@ const filteredExecutions = computed(() => {
   const q = search.value.trim().toLowerCase()
   return executions.value.filter(e => {
     if (statusFilter.value !== 'all' && e.status !== statusFilter.value) return false
-    if (kindFilter.value !== 'all' && (e.kind || 'extraccion') !== kindFilter.value) return false
     if (!matchesAge(e)) return false
     if (q && !resourceName(e.resourceId, e).toLowerCase().includes(q)) return false
     return true
@@ -426,17 +420,9 @@ function countByStatus(val) {
   return executions.value.filter(e => e.status === val).length
 }
 
-// Tipos de proceso presentes (extraccion | discovering | …), para el filtro.
-const kindsDisponibles = computed(() => {
-  return [...new Set(executions.value.map(e => e.kind || 'extraccion'))].sort()
-})
-function kindLabel(k) {
-  return { extraccion: 'Extracción', discovering: 'Descubrimiento', descubrir: 'Descubrimiento' }[k] ?? k
-}
 function limpiarFiltros() {
   search.value = ''
   statusFilter.value = 'all'
-  kindFilter.value = 'all'
   ageFilter.value = 'all'
 }
 
