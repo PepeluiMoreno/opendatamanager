@@ -635,7 +635,7 @@ async function ejecutar(r){
 .chip svg{width:13px;height:13px;color:var(--faint)}
 .sd-mini{width:8px;height:8px;border-radius:50%;background:var(--signal);display:inline-block}
 
-.listwrap{flex:1;overflow-y:auto;padding:2px 16px 90px}
+.listwrap{flex:1;overflow-y:auto;padding:2px 16px 8px}
 .empty{text-align:center;color:var(--faint);padding:40px;font-size:13px}
 .link{color:var(--signal);background:none;border:none;cursor:pointer;margin-left:6px}
 .lhead{display:grid;grid-template-columns:30px minmax(0,1fr) 150px 104px 150px 78px;gap:8px;padding:9px 14px 8px;font-family:var(--disp);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--muted);position:sticky;top:0;background:var(--ink);z-index:3;border-bottom:1px solid var(--line)}
@@ -776,7 +776,7 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .nx{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
 .nx.manual{color:var(--faint)}.nx.inactivo{color:#3a4654}.nx.ok{color:var(--signal)}
 .col-sched small{font-family:var(--mono);font-size:10px;color:var(--faint)}
-.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 2px 4px;padding:10px 12px;border-top:1px solid var(--line-soft);font-size:12px;color:var(--muted)}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px;padding:10px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);position:sticky;bottom:0;background:var(--ink);z-index:3}
 .pager .pl{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--faint)}
 .pager .pl select{background:#0d131b;border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:5px 8px;outline:none}
 .pager .pr{display:flex;align-items:center;gap:14px}

@@ -77,3 +77,11 @@ Tras cerrar la apificación con WebTree, evaluar la separación explícita de fa
 del pipeline (fetch / scrape / process / normalize / publish) y la introducción
 de un `CKANPublisher` como destino. Aplazado deliberadamente — no contamina la
 fase actual.
+
+## Política de backup de la aplicación (PENDIENTE — hablar)
+
+Definir la política de copias de seguridad: **qué** se respalda (BD Postgres
+`pgdata`, volumen de datasets `appdata`, configuración/secretos), **frecuencia**,
+**retención**, **destino** (¿MinIO/externo?) y **procedimiento de restauración**.
+Coordinar con el archivado por niveles a MinIO y los parámetros X (retención local)
+y Q (cuota MinIO) — ver `docs/diseno_ciclo_vida_datasets.md`.
