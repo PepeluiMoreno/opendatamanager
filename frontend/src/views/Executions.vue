@@ -8,55 +8,41 @@
         </span>
       </template>
 
-    <!-- Status filter tabs -->
-    <div class="flex items-center gap-2 mb-4">
-      <button
-        v-for="tab in statusTabs"
-        :key="tab.value"
-        @click="statusFilter = tab.value"
-        class="px-3 py-1.5 text-xs rounded-full border transition-colors"
-        :class="statusFilter === tab.value
-          ? 'bg-gray-600 border-gray-500 text-white font-medium'
-          : 'border-gray-700 text-gray-400 hover:text-gray-200 hover:border-gray-600'"
+    <!-- Filtros (barra estándar) + concurrencia inline (media anchura) -->
+    <div class="flex items-center gap-x-6 gap-y-2 flex-wrap mb-3">
+      <FilterBar
+        class="!mb-0 flex-1 min-w-[340px]"
+        :canClear="!!(search || statusFilter !== 'all' || kindFilter !== 'all' || ageFilter !== 'all')"
+        :count="filteredExecutions.length"
+        :total="executions.length"
+        @clear="limpiarFiltros"
       >
-        {{ tab.label }}
-        <span class="ml-1 opacity-60">{{ countByStatus(tab.value) }}</span>
-      </button>
-    </div>
-
-    <!-- Concurrency panel -->
-    <div class="card p-4 mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-semibold text-gray-300">Runtime concurrency</h2>
-        <span class="text-xs text-gray-500">updated every 5s</span>
-      </div>
-      <div class="grid grid-cols-4 gap-4">
-        <div class="bg-gray-900 rounded-lg p-3 border border-gray-700">
-          <p class="text-2xl font-bold" :class="concurrency.running_executions > 0 ? 'text-blue-400' : 'text-gray-400'">
-            {{ concurrency.running_executions ?? '—' }}
-          </p>
-          <p class="text-xs text-gray-500 mt-0.5">Running now</p>
-        </div>
-        <div class="bg-gray-900 rounded-lg p-3 border border-gray-700">
-          <p class="text-2xl font-bold text-gray-300">{{ concurrency.worker_threads ?? '—' }}</p>
-          <p class="text-xs text-gray-500 mt-0.5">Worker threads</p>
-        </div>
-        <div class="bg-gray-900 rounded-lg p-3 border border-gray-700">
-          <p class="text-2xl font-bold text-gray-300">{{ concurrency.total_threads ?? '—' }}</p>
-          <p class="text-xs text-gray-500 mt-0.5">Total threads</p>
-        </div>
-        <div class="bg-gray-900 rounded-lg p-3 border border-gray-700">
-          <p class="text-xs font-mono text-gray-400 leading-5 max-h-12 overflow-hidden">
-            <span
-              v-for="t in (concurrency.threads ?? []).filter(t => t.daemon && t.name.startsWith('Thread-'))"
-              :key="t.name"
-              class="inline-block mr-2"
-              :class="t.alive ? 'text-blue-400' : 'text-gray-600'"
-            >{{ t.name }}</span>
-            <span v-if="!(concurrency.threads ?? []).filter(t => t.daemon && t.name.startsWith('Thread-')).length" class="text-gray-600 italic">idle</span>
-          </p>
-          <p class="text-xs text-gray-500 mt-0.5">Active fetcher threads</p>
-        </div>
+        <input v-model="search" type="text" placeholder="Buscar recurso…" class="input text-sm w-56 max-w-[40%]" />
+        <select v-model="statusFilter" class="input text-sm" style="min-width:130px">
+          <option v-for="tab in statusTabs" :key="tab.value" :value="tab.value">{{ tab.label }} ({{ countByStatus(tab.value) }})</option>
+        </select>
+        <select v-model="kindFilter" class="input text-sm" style="min-width:140px">
+          <option value="all">Tipo: todos</option>
+          <option v-for="k in kindsDisponibles" :key="k" :value="k">{{ kindLabel(k) }}</option>
+        </select>
+        <select v-model="ageFilter" class="input text-sm" style="min-width:140px">
+          <option v-for="o in ageOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
+        </select>
+      </FilterBar>
+      <div class="flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-gray-400">
+        <span><span class="font-bold" :class="concurrency.running_executions > 0 ? 'text-blue-400' : 'text-gray-300'">{{ concurrency.running_executions ?? '—' }}</span> running</span>
+        <span><span class="font-bold text-gray-300">{{ concurrency.worker_threads ?? '—' }}</span> workers</span>
+        <span><span class="font-bold text-gray-300">{{ concurrency.total_threads ?? '—' }}</span> threads</span>
+        <span class="truncate max-w-[280px]">
+          fetchers:
+          <span
+            v-for="t in (concurrency.threads ?? []).filter(t => t.daemon && t.name.startsWith('Thread-'))"
+            :key="t.name"
+            class="font-mono mr-1"
+            :class="t.alive ? 'text-blue-400' : 'text-gray-600'"
+          >{{ t.name }}</span>
+          <span v-if="!(concurrency.threads ?? []).filter(t => t.daemon && t.name.startsWith('Thread-')).length" class="text-gray-600 italic">idle</span>
+        </span>
       </div>
     </div>
 
@@ -66,43 +52,28 @@
       {{ executions.length === 0 ? 'No executions yet. Run a resource to see it here.' : 'No processes match this filter.' }}
     </div>
 
-    <div v-else class="space-y-3 max-h-[calc(100vh-320px)] overflow-y-auto pr-1">
+    <div v-else class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
       <div
         v-for="ex in filteredExecutions"
         :key="ex.id"
         class="card"
       >
         <!-- Card header -->
-        <div class="p-4">
-          <div class="flex items-start justify-between gap-4">
-            <!-- Status badge + name -->
-            <div class="flex items-center gap-3 min-w-0">
-              <span :class="statusClass(ex.status)" class="text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap">
-                {{ statusLabel(ex.status) }}
-              </span>
-              <div class="min-w-0">
-                <p class="font-medium text-sm truncate">
-                  {{ resourceName(ex.resourceId, ex) }}
-                  <span v-if="execLabel(ex)" class="text-yellow-300 font-normal"> — {{ execLabel(ex) }}</span>
-                </p>
-                <p class="text-xs text-gray-500 mt-0.5">{{ formatDate(ex.startedAt) }}</p>
-              </div>
+        <div class="p-3">
+          <div class="flex items-center justify-between gap-3">
+            <!-- Estado + recurso (una línea) -->
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span :class="statusClass(ex.status)" class="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap shrink-0 w-16 text-center">{{ statusLabel(ex.status) }}</span>
+              <span class="text-sm truncate">{{ resourceName(ex.resourceId, ex) }}</span>
+              <span v-if="execLabel(ex)" class="text-yellow-300 text-xs truncate shrink-0">— {{ execLabel(ex) }}</span>
+              <span class="text-xs text-gray-500 shrink-0 hidden sm:inline">{{ formatDate(ex.startedAt) }}</span>
             </div>
 
-            <!-- Stats + actions -->
-            <div class="flex items-center gap-3 flex-shrink-0">
-              <div v-if="ex.totalRecords" class="text-right">
-                <p class="text-lg font-bold text-blue-400">{{ ex.recordsLoaded?.toLocaleString() }}</p>
-                <p class="text-xs text-gray-500">/ {{ ex.totalRecords?.toLocaleString() }} records</p>
-              </div>
-              <div v-if="ex.completedAt || ex.status === 'paused'" class="text-right">
-                <p class="text-sm font-medium text-gray-300">{{ activeDuration(ex) }}</p>
-                <p class="text-xs text-gray-500">{{ ex.activeSeconds ? 'active time' : 'duration' }}</p>
-              </div>
-              <div v-else-if="ex.status === 'running'" class="text-right">
-                <p class="text-sm font-medium text-yellow-400">{{ elapsed(ex.startedAt) }}</p>
-                <p class="text-xs text-gray-500">elapsed</p>
-              </div>
+            <!-- Métricas + acciones (una línea) -->
+            <div class="flex items-center gap-3 flex-shrink-0 text-xs">
+              <span v-if="ex.totalRecords" class="w-24 text-right whitespace-nowrap"><span class="text-blue-400 font-medium">{{ ex.recordsLoaded?.toLocaleString() ?? 0 }}</span><span class="text-gray-600">/{{ ex.totalRecords?.toLocaleString() }}</span></span>
+              <span v-if="ex.completedAt || ex.status === 'paused'" class="w-16 text-right text-gray-300">{{ activeDuration(ex) }}</span>
+              <span v-else-if="ex.status === 'running'" class="w-16 text-right text-yellow-400">{{ elapsed(ex.startedAt) }}</span>
 
               <!-- Log toggle -->
               <button
@@ -198,8 +169,8 @@
             </div>
           </div>
 
-          <!-- Progress bar + stats row -->
-          <div v-if="ex.status === 'running' || ex.status === 'completed' || ex.status === 'failed'" class="mt-3 space-y-2">
+          <!-- Progress + stats (solo al desplegar la fila) -->
+          <div v-if="openLog === ex.id && (ex.status === 'running' || ex.status === 'completed' || ex.status === 'failed')" class="mt-3 space-y-2">
 
             <!-- Bar with % overlay -->
             <div class="relative h-5 bg-gray-700 rounded-full overflow-hidden">
@@ -385,6 +356,7 @@ import ViewLayout from '../components/ViewLayout.vue'
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useConfirm } from '../composables/useConfirm'
 import Spinner from '../components/Spinner.vue'
+import FilterBar from '../components/FilterBar.vue'
 import { fetchResourceExecutions, fetchResources, deleteExecution, abortExecution, pauseExecution, resumeExecution } from '../api/graphql.js'
 import { useAuth } from '../composables/useAuth'
 
@@ -395,7 +367,20 @@ const resources = ref([])
 const loading = ref(true)
 const concurrency = ref({})
 const statusFilter = ref('all')
+const search = ref('')
+const kindFilter = ref('all')
+const ageFilter = ref('all')
 const resumingIds = ref(new Set())
+
+const ageOptions = [
+  { value: 'all',       label: 'Edad: todas' },
+  { value: '600',       label: 'Últimos 10 min' },
+  { value: '3600',      label: 'Última hora' },
+  { value: '21600',     label: 'Últimas 6 h' },
+  { value: '86400',     label: 'Últimas 24 h' },
+  { value: 'today',     label: 'Hoy' },
+  { value: 'yesterday', label: 'Ayer' },
+]
 let timer = null
 const now = ref(Date.now())
 
@@ -409,13 +394,50 @@ const statusTabs = [
 ]
 
 const filteredExecutions = computed(() => {
-  if (statusFilter.value === 'all') return executions.value
-  return executions.value.filter(e => e.status === statusFilter.value)
+  const q = search.value.trim().toLowerCase()
+  return executions.value.filter(e => {
+    if (statusFilter.value !== 'all' && e.status !== statusFilter.value) return false
+    if (kindFilter.value !== 'all' && (e.kind || 'extraccion') !== kindFilter.value) return false
+    if (!matchesAge(e)) return false
+    if (q && !resourceName(e.resourceId, e).toLowerCase().includes(q)) return false
+    return true
+  })
 })
+
+// Filtro por edad de la ejecución (sobre startedAt). Ventanas rodantes en segundos
+// o días de calendario locales (hoy/ayer). 'now' se refresca con el polling de 5s.
+function matchesAge(e) {
+  if (ageFilter.value === 'all') return true
+  const d = utc(e.startedAt)
+  if (!d) return false
+  const t = d.getTime()
+  if (ageFilter.value === 'today' || ageFilter.value === 'yesterday') {
+    const d0 = new Date(now.value); d0.setHours(0, 0, 0, 0)
+    const medianoche = d0.getTime()
+    return ageFilter.value === 'today'
+      ? t >= medianoche
+      : (t >= medianoche - 86400000 && t < medianoche)
+  }
+  return (now.value - t) <= Number(ageFilter.value) * 1000
+}
 
 function countByStatus(val) {
   if (val === 'all') return executions.value.length
   return executions.value.filter(e => e.status === val).length
+}
+
+// Tipos de proceso presentes (extraccion | discovering | …), para el filtro.
+const kindsDisponibles = computed(() => {
+  return [...new Set(executions.value.map(e => e.kind || 'extraccion'))].sort()
+})
+function kindLabel(k) {
+  return { extraccion: 'Extracción', discovering: 'Descubrimiento', descubrir: 'Descubrimiento' }[k] ?? k
+}
+function limpiarFiltros() {
+  search.value = ''
+  statusFilter.value = 'all'
+  kindFilter.value = 'all'
+  ageFilter.value = 'all'
 }
 
 // Log viewer state

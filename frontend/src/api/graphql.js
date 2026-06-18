@@ -198,6 +198,8 @@ export const QUERIES = {
       resourceExecutions(resourceId: $resourceId) {
         id
         resourceId
+        resourceName
+        kind
         startedAt
         completedAt
         status
