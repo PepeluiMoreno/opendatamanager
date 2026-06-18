@@ -112,6 +112,7 @@ class ResourceCollectionType:
     name: str
     origin: str
     root_resource_id: Optional[str] = strawberry.field(default=None, name="rootResourceId")
+    parent_collection_id: Optional[str] = strawberry.field(default=None, name="parentCollectionId")
     miembros: int = 0
 
 

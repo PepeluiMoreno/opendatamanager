@@ -372,14 +372,16 @@ class Mutation:
             if getattr(input, "genera_colecciones", None) is not None:
                 resource.genera_colecciones = bool(input.genera_colecciones)
             if getattr(input, "resource_collection_id", None) is not None:
+                # Set 1:1 del front (transición): escribe membership N:M + espejo.
+                from app.services.collections import set_membership_single
                 if input.resource_collection_id == "":
-                    resource.resource_collection_id = None   # sacar de la collection → «sin agrupar»
+                    set_membership_single(db, resource.id, None)   # «sin agrupar»
                 else:
                     from app.models import ResourceCollection as _RG
                     grupo = db.query(_RG).filter(_RG.id == input.resource_collection_id).first()
                     if grupo is None:
                         raise ValueError("La collection indicada no existe")
-                    resource.resource_collection_id = grupo.id
+                    set_membership_single(db, resource.id, grupo.id)
             if input.schedule is not None:
                 resource.schedule = input.schedule if input.schedule != "" else None
 
@@ -498,6 +500,64 @@ class Mutation:
             db.query(Resource).filter(Resource.resource_collection_id == grupo.id).update(
                 {Resource.resource_collection_id: None}, synchronize_session=False)
             db.delete(grupo)
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
+    def set_collection_parent(self, id: str, parent_id: Optional[str] = None,
+                              info: strawberry.types.Info = None) -> ResourceCollectionType:
+        """Anida (o desanida) una colección bajo otra. Regla: el padre solo puede ser
+        una colección 'organizativa' (nada cuelga de una matriz); sin ciclos."""
+        from app.models import ResourceCollection
+        from app.services.collections import validate_parent, member_count
+        db = get_db()
+        try:
+            col = db.query(ResourceCollection).filter(ResourceCollection.id == id).first()
+            if col is None:
+                raise ValueError("La colección no existe")
+            ok, err = validate_parent(db, col, parent_id or None)
+            if not ok:
+                raise ValueError(err)
+            col.parent_collection_id = (parent_id or None)
+            db.commit()
+            db.refresh(col)
+            return map_resource_collection(col, miembros=member_count(db, col.id))
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
+    def add_resources_to_collection(self, collection_id: str, resource_ids: List[str]) -> bool:
+        """Añade recursos a una colección (N:M; un recurso puede estar en varias)."""
+        from app.models import ResourceCollection
+        from app.services.collections import add_members
+        db = get_db()
+        try:
+            if db.query(ResourceCollection).filter(ResourceCollection.id == collection_id).first() is None:
+                raise ValueError("La colección no existe")
+            add_members(db, collection_id, [r for r in (resource_ids or [])])
+            db.commit()
+            return True
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.editar")])
+    def remove_resource_from_collection(self, collection_id: str, resource_id: str) -> bool:
+        """Saca un recurso de una colección (sin borrar el recurso)."""
+        from app.services.collections import remove_member
+        db = get_db()
+        try:
+            remove_member(db, collection_id, resource_id)
             db.commit()
             return True
         except Exception as e:

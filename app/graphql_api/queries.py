@@ -214,6 +214,7 @@ def map_resource_collection(g: ResourceCollection, miembros: int = 0) -> Resourc
         name=g.name,
         origin=g.origin or "organizativa",
         root_resource_id=str(g.root_resource_id) if g.root_resource_id else None,
+        parent_collection_id=str(g.parent_collection_id) if g.parent_collection_id else None,
         miembros=miembros,
     )
 

@@ -58,19 +58,15 @@ def ensure_matriz_collection(session, resource) -> ResourceCollection | None:
         if col.name != resource.name:
             col.name = _nombre_libre(resource.name)
 
-    # El recurso madre, miembro de su propia colección.
-    if resource.resource_collection_id != col.id:
-        resource.resource_collection_id = col.id
-
-    # Los hijos descubiertos, dentro también.
+    # Madre + hijos como MIEMBROS de su colección matriz (N:M; add_members
+    # sincroniza también el espejo legado resource_collection_id).
+    from app.services.collections import add_members
     hijos = (
         session.query(Resource)
         .filter(Resource.parent_resource_id == resource.id, Resource.deleted_at.is_(None))
         .all()
     )
-    for h in hijos:
-        if h.resource_collection_id != col.id:
-            h.resource_collection_id = col.id
+    add_members(session, col.id, [resource.id] + [h.id for h in hijos])
 
     return col
 

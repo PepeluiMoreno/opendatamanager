@@ -312,20 +312,14 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
         return col
 
     def _asignar_collection(resource, nombre):
-        """Reconcilia la pertenencia a collection declarada en el manifiesto.
-        Asigna si el recurso está sin agrupar; respeta una asignación previa a
-        OTRA collection (puesta a mano por la UI): no la pisa, solo informa.
-        Un recurso pertenece como mucho a una collection."""
+        """Asegura la pertenencia (N:M) a la collection declarada en el manifiesto.
+        Idempotente y aditivo: un recurso puede estar en varias colecciones, así que
+        añadir la del manifiesto no pisa otras membership."""
         if not nombre:
             return
         col = _resolver_collection(nombre)
-        if resource.resource_collection_id == col.id:
-            return                                  # ya en la collection correcta
-        if resource.resource_collection_id is None:
-            resource.resource_collection_id = col.id
-        else:
-            skipped.append(f"{resource.name}: ya pertenece a otra collection; "
-                           f"no se reasigna a '{nombre}'")
+        from app.services.collections import add_members
+        add_members(session, col.id, [resource.id])
 
     for r in manifest["resources"]:
         fetcher = session.query(Fetcher).filter(Fetcher.code == r["fetcher"]).first()
