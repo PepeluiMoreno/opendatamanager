@@ -368,13 +368,12 @@ const ageFilter = ref('all')
 const resumingIds = ref(new Set())
 
 const ageOptions = [
-  { value: 'all',       label: 'Todos' },
-  { value: '600',       label: 'Últimos 10 min' },
-  { value: '3600',      label: 'Última hora' },
-  { value: '21600',     label: 'Últimas 6 h' },
-  { value: '86400',     label: 'Últimas 24 h' },
-  { value: 'today',     label: 'Hoy' },
-  { value: 'yesterday', label: 'Ayer' },
+  { value: 'all',   label: 'Todos' },
+  { value: 'week',  label: 'Esta semana' },
+  { value: 'today', label: 'Hoy' },
+  { value: '18000', label: 'Últimas 5 horas' },
+  { value: '3600',  label: 'Última hora' },
+  { value: '1800',  label: 'Últimos 30 minutos' },
 ]
 let timer = null
 const now = ref(Date.now())
@@ -405,12 +404,14 @@ function matchesAge(e) {
   const d = utc(e.startedAt)
   if (!d) return false
   const t = d.getTime()
-  if (ageFilter.value === 'today' || ageFilter.value === 'yesterday') {
+  if (ageFilter.value === 'today') {
     const d0 = new Date(now.value); d0.setHours(0, 0, 0, 0)
-    const medianoche = d0.getTime()
-    return ageFilter.value === 'today'
-      ? t >= medianoche
-      : (t >= medianoche - 86400000 && t < medianoche)
+    return t >= d0.getTime()
+  }
+  if (ageFilter.value === 'week') {
+    const d0 = new Date(now.value); d0.setHours(0, 0, 0, 0)
+    const dow = (d0.getDay() + 6) % 7   // 0 = lunes
+    return t >= d0.getTime() - dow * 86400000
   }
   return (now.value - t) <= Number(ageFilter.value) * 1000
 }
@@ -480,7 +481,7 @@ function execLabel(ex) {
   }).join(' · ') : null
 }
 function statusLabel(s) {
-  return { running: 'EN CURSO', completed: 'COMPLETADO', failed: 'FALLIDO', pending: 'PENDIENTE', aborted: 'ABORTADO', paused: 'EN PAUSA' }[s] ?? s.toUpperCase()
+  return { running: 'EN CURSO', completed: 'COMPLETADO', failed: 'FALLIDO', pending: 'PAUSADO', aborted: 'ABORTADO', paused: 'EN PAUSA' }[s] ?? s.toUpperCase()
 }
 function statusClass(s) {
   return {
