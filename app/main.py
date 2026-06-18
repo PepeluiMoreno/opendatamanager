@@ -646,6 +646,12 @@ async def system_concurrency():
             ResourceExecution.status == "running",
             ResourceExecution.deleted_at == None,
         ).count()
+        from app.models import Dataset
+        dataset_paths = [
+            p for (p,) in db.query(Dataset.data_path).filter(
+                Dataset.deleted_at == None, Dataset.data_path.isnot(None)
+            ).all()
+        ]
     finally:
         db.close()
 
@@ -677,6 +683,25 @@ async def system_concurrency():
     except Exception:
         ram_total_mb = None
 
+    # Disco: bytes usados por los datasets y total del volumen donde viven.
+    disk_datasets_bytes = 0
+    disk_total_bytes = None
+    disk_used_bytes = None
+    base_dir = None
+    for p in dataset_paths:
+        try:
+            disk_datasets_bytes += os.path.getsize(p)
+            if base_dir is None:
+                base_dir = os.path.dirname(p)
+        except OSError:
+            pass
+    try:
+        st = os.statvfs(base_dir or "/")
+        disk_total_bytes = st.f_blocks * st.f_frsize
+        disk_used_bytes = (st.f_blocks - st.f_bfree) * st.f_frsize
+    except Exception:
+        pass
+
     return {
         "total_threads": len(threads),
         "worker_threads": len(worker_threads),
@@ -685,6 +710,9 @@ async def system_concurrency():
         "process_mem_rss_mb": mem_rss_mb,
         "process_mem_vms_mb": mem_vms_mb,
         "ram_total_mb": ram_total_mb,
+        "disk_datasets_bytes": disk_datasets_bytes,
+        "disk_total_bytes": disk_total_bytes,
+        "disk_used_bytes": disk_used_bytes,
     }
 
 

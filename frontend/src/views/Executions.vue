@@ -8,6 +8,18 @@
         </span>
       </template>
 
+    <!-- Métricas: éxito (arriba) + disco de datasets -->
+    <div class="flex items-center gap-x-5 gap-y-1 flex-wrap text-xs text-gray-400 mb-2">
+      <span v-if="successRate !== null">Éxito
+        <span class="font-bold" :class="successRate >= 90 ? 'text-green-400' : successRate >= 70 ? 'text-yellow-400' : 'text-red-400'">{{ successRate }}%</span>
+        <span class="text-gray-600">({{ completedCount }}/{{ finishedCount }})</span>
+      </span>
+      <span v-if="concurrency.disk_total_bytes">Disco datasets
+        <span class="font-bold text-gray-300">{{ fmtBytes(concurrency.disk_datasets_bytes) }}</span> / {{ fmtBytes(concurrency.disk_total_bytes) }}
+        <span class="text-gray-600">({{ Math.round(concurrency.disk_datasets_bytes / concurrency.disk_total_bytes * 100) }}% del volumen)</span>
+      </span>
+    </div>
+
     <!-- Filtros (barra estándar) + concurrencia inline (media anchura) -->
     <div class="flex items-center gap-x-6 gap-y-2 flex-wrap mb-3">
       <FilterBar
@@ -48,18 +60,18 @@
       {{ executions.length === 0 ? 'No executions yet. Run a resource to see it here.' : 'No processes match this filter.' }}
     </div>
 
-    <div v-else class="space-y-2 max-h-[calc(100vh-200px)] overflow-y-auto pr-1">
+    <div v-else class="max-h-[calc(100vh-180px)] overflow-y-auto pr-1 divide-y divide-gray-800/70 border-y border-gray-800/70">
       <div
         v-for="ex in filteredExecutions"
         :key="ex.id"
-        class="card"
+        class="hover:bg-gray-800/40 transition-colors"
       >
-        <!-- Card header -->
-        <div class="p-3">
+        <!-- Fila -->
+        <div class="px-3 py-2">
           <div class="flex items-center justify-between gap-3">
             <!-- Estado + recurso (una línea) -->
             <div class="flex items-center gap-2 min-w-0 flex-1">
-              <span :class="statusClass(ex.status)" class="text-[10px] font-bold px-1.5 py-0.5 rounded whitespace-nowrap shrink-0 w-16 text-center">{{ statusLabel(ex.status) }}</span>
+              <span :class="statusClass(ex.status)" class="text-xs font-bold px-2 py-1 rounded whitespace-nowrap shrink-0 w-28 text-center">{{ statusLabel(ex.status) }}</span>
               <span class="text-sm truncate">{{ resourceName(ex.resourceId, ex) }}</span>
               <span v-if="execLabel(ex)" class="text-yellow-300 text-xs truncate shrink-0">— {{ execLabel(ex) }}</span>
               <span class="text-xs text-gray-500 shrink-0 hidden sm:inline">{{ formatDate(ex.startedAt) }}</span>
@@ -165,8 +177,8 @@
             </div>
           </div>
 
-          <!-- Progress + stats (solo al desplegar la fila) -->
-          <div v-if="openLog === ex.id && (ex.status === 'running' || ex.status === 'completed' || ex.status === 'failed')" class="mt-3 space-y-2">
+          <!-- Progreso + stats: SIEMPRE en running (barra + %); en completed/failed solo al desplegar -->
+          <div v-if="ex.status === 'running' || (openLog === ex.id && (ex.status === 'completed' || ex.status === 'failed'))" class="mt-2 space-y-2">
 
             <!-- Bar with % overlay -->
             <div class="relative h-5 bg-gray-700 rounded-full overflow-hidden">
@@ -419,6 +431,19 @@ function matchesAge(e) {
 function countByStatus(val) {
   if (val === 'all') return executions.value.length
   return executions.value.filter(e => e.status === val).length
+}
+
+// Porcentaje de éxito: completadas / finalizadas (sobre TODAS, no las filtradas → estable).
+const completedCount = computed(() => executions.value.filter(e => e.status === 'completed').length)
+const finishedCount = computed(() => executions.value.filter(e => ['completed', 'failed', 'aborted'].includes(e.status)).length)
+const successRate = computed(() => finishedCount.value ? Math.round(completedCount.value / finishedCount.value * 100) : null)
+
+function fmtBytes(b) {
+  if (b == null) return '—'
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0, n = b
+  while (n >= 1024 && i < u.length - 1) { n /= 1024; i++ }
+  return `${n.toFixed(i === 0 || n >= 100 ? 0 : 1)} ${u[i]}`
 }
 
 function limpiarFiltros() {
