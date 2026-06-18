@@ -1157,7 +1157,7 @@ def seed() -> None:
     try:
         retirados = []
         # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
-        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"], "Descubridor REST": ["descubrir"]}
+        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"], "Descubridor REST": ["descubrir"], "Descubridor ATOM": ["descubrir"]}
         for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             _f.modos = _MODOS.get(_f.code, ["extraer"])
         db.commit()
