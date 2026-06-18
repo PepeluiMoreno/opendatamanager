@@ -213,6 +213,12 @@ class FetcherManager:
             # especie no sabe descubrir es una misconfiguración: se avisa y se extrae.
             quiere_descubrir = (not is_child) and bool(getattr(resource, "es_coleccion", False))
             puede_descubrir = hasattr(fetcher, "discover") or hasattr(fetcher, "propose")
+            # Robustez: un descubridor PURO (BaseDiscoverer: tiene propose/discover pero
+            # NO stream) no puede extraer. Si el recurso aún no está marcado Colección
+            # (p. ej. falta re-seed de modos/genera_colecciones), forzamos descubrimiento
+            # en vez de caer a stream() y reventar con "object has no attribute 'stream'".
+            if (not is_child) and puede_descubrir and not hasattr(fetcher, "stream"):
+                quiere_descubrir = True
             if quiere_descubrir and not puede_descubrir:
                 logger.log(f"  Recurso marcado Colección pero su especie no descubre; se extrae.")
                 quiere_descubrir = False
