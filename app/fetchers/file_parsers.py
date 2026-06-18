@@ -17,7 +17,6 @@ import re
 from typing import Any, Callable, Dict, List, Optional
 
 import pandas as pd
-import pdfplumber
 
 
 def _clean(s: str) -> str:
@@ -41,6 +40,7 @@ _EXT_TO_FORMAT = {
     ".xls": "xls",
     ".pdf": "pdf",
     ".json": "json",
+    ".gml": "gml",
 }
 
 
@@ -289,6 +289,8 @@ def _parse_csv_like(content: bytes, params: Dict[str, Any], delimiter: str = "")
 
 
 def parse_pdf_table(content: bytes, params: Dict[str, Any]) -> List[Dict[str, str]]:
+    import pdfplumber  # import perezoso: solo si de verdad se parsea un PDF
+
     table_index = int(params.get("table_index", 0))
     header_row = int(params.get("header_row", 0))
 
@@ -362,7 +364,10 @@ def parse_structured_file(
         return _parse_json_records(content, params)
     if fmt == "pdf":
         return parse_pdf_table(content, params)
+    if fmt == "gml":
+        from app.fetchers.gml_parser import parse_gml
+        return parse_gml(content, params)
 
     raise ValueError(
-        f"Formato '{fmt}' no soportado. Valores válidos: pdf, xls, xlsx, csv, tsv, json"
+        f"Formato '{fmt}' no soportado. Valores válidos: pdf, xls, xlsx, csv, tsv, json, gml"
     )

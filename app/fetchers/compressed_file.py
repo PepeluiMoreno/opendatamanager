@@ -76,7 +76,15 @@ def _extract_zip(content: bytes, entry: str) -> tuple[bytes, str]:
                 f"Disponibles: {names}"
             )
     if entry not in zf.namelist():
-        raise ValueError(f"Entrada '{entry}' no encontrada en el ZIP. Disponibles: {names}")
+        # Fallback glob (p. ej. 'entry=*.gml'): si casa exactamente una, se usa.
+        import fnmatch
+        candidatos = fnmatch.filter(names, entry)
+        if len(candidatos) == 1:
+            entry = candidatos[0]
+        elif len(candidatos) > 1:
+            raise ValueError(f"El patrón '{entry}' casa {len(candidatos)} ficheros: {candidatos}")
+        else:
+            raise ValueError(f"Entrada '{entry}' no encontrada en el ZIP. Disponibles: {names}")
     return zf.read(entry), entry
 
 

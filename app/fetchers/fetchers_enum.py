@@ -74,6 +74,12 @@ class FetchersEnum(Enum):
         "description": "Descubridor de API REST: lee el OpenAPI de una API (por defecto SNPSAP/BDNS) y emite un hijo API REST por cada dataset (patrón /{nombre}/busqueda, paginado) y opcionalmente por cada catálogo lookup. Los hijos usan 'busqueda' (JSON estructurado, filtrable por nifCif/fecha), no 'exportar'. Solo modo descubrir."
     }
 
+    DESCUBRIDOR_ATOM = {
+        "code": "Descubridor ATOM",
+        "class_path": "app.fetchers.atom_download_discoverer.AtomDownloadDiscoverer",
+        "description": "Descubridor de servicios ATOM de descarga (INSPIRE/OpenSearch): recorre la jerarquía de feeds (servicio→territorio→ficheros) y emite un hijo por fichero hoja descargable (GML/GZ/ZIP), normalmente uno por municipio. Agnóstico de dominio. Solo modo descubrir."
+    }
+
     # Futuros tipos (comentados hasta implementación)
     # FILES = {
     #     "code": "FILES",
