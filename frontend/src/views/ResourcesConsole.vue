@@ -2,7 +2,7 @@
   <div :class="['console', { collapsed: !railOpen }]" :style="{ gridTemplateColumns: railOpen ? (railW + 'px 6px 1fr') : '0 0 1fr' }">
     <!-- ============ COLLECTIONS RAIL ============ -->
     <aside class="rail">
-      <div class="brand">
+      <div class="brand" :class="{ active: selected === '__all__' }" @click="selected='__all__'; limpiarSel()" title="Ver todos los recursos">
         <PageHeader title="Recursos" tight />
       </div>
 
@@ -115,6 +115,7 @@
             <button v-if="puede('recursos.crear')" class="link" @click="abrirDrawer(null)">Crear el primero</button>
           </div>
 
+          <div class="rows">
           <template v-for="r in topLevelPaged" :key="r.id">
             <div :class="['row', { sel: sel.has(r.id) }]">
               <div><input type="checkbox" class="cbx" :checked="sel.has(r.id)" @change="toggleRama(r)" /></div>
@@ -127,7 +128,7 @@
                 </span>
               </div>
               <div class="col-pub pub" :title="r.publisherObj?.nombre || ''">{{ r.publisherObj?.acronimo || r.publisherObj?.nombre || '—' }}</div>
-              <div><span :class="['status', estadoClase(r)]"><span class="sd"></span>{{ estadoTexto(r) }}</span></div>
+              <div><span :class="['status', estadoClase(r)]">{{ estadoTexto(r) }}</span></div>
               <div class="col-sched sched">
                 <span :class="['nx', proximaEjecucion(r).t]">{{ proximaEjecucion(r).txt }}</span>
                 <small v-if="proximaEjecucion(r).rel">{{ proximaEjecucion(r).rel }}</small>
@@ -143,7 +144,7 @@
                 <div><input type="checkbox" class="cbx" :checked="sel.has(ch.id)" @change="toggleUno(ch.id)" /></div>
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
                 <div class="col-pub pub" :title="ch.publisherObj?.nombre || ''">{{ ch.publisherObj?.acronimo || ch.publisherObj?.nombre || '—' }}</div>
-                <div><span :class="['status', estadoClase(ch)]"><span class="sd"></span>{{ estadoTexto(ch) }}</span></div>
+                <div><span :class="['status', estadoClase(ch)]">{{ estadoTexto(ch) }}</span></div>
                 <div class="col-sched sched"><span :class="['nx', proximaEjecucion(ch).t]">{{ proximaEjecucion(ch).txt }}</span></div>
                 <div class="col-acts racts">
                   <button v-if="puede('recursos.editar')" title="Editar" @click="abrirDrawer(ch)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -151,6 +152,7 @@
               </div>
             </template>
           </template>
+          </div>
 
           <div v-if="rTotal > 0" class="pager">
             <div class="pl">
@@ -462,9 +464,12 @@ async function agruparSel(){ const n=grpName.value.trim(); if(!n)return; await a
 
 // dispatcher estilo master: una acción + control contextual
 const panelsFiltradas = computed(() => {
+  // "Todos los recursos" (kind 'all') NO se lista como colección: es el estado por
+  // defecto y se vuelve a él pulsando el rótulo "Recursos" de la cabecera del rail.
+  const base = panels.value.filter(p => p.kind !== 'all')
   const f = colFilter.value.trim().toLowerCase()
-  if (!f) return panels.value
-  return panels.value.filter(p => p.label.toLowerCase().includes(f) || p.kind === 'none' || p.kind === 'all')
+  if (!f) return base
+  return base.filter(p => p.label.toLowerCase().includes(f) || p.kind === 'none')
 })
 async function aplicarLote(){
   if (!bulkAction.value || sel.value.size===0) return
@@ -586,7 +591,9 @@ async function ejecutar(r){
 @media(max-width:880px){.rail{position:relative}}
 
 .rail{background:linear-gradient(180deg,#10151d,#0d1218);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
-.brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px}
+.brand{display:flex;align-items:center;gap:10px;padding:18px 22px 14px;cursor:pointer;border-radius:10px}
+.brand:hover{background:#161e29}
+.brand.active{background:linear-gradient(90deg,#15302c,#13202a)}
 .roster-h{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 6px}
 .roster-h span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
 .roster-h button{width:22px;height:22px;border-radius:6px;color:var(--muted);font-size:16px;display:grid;place-items:center;border:1px solid var(--line);background:none;cursor:pointer}
@@ -621,7 +628,8 @@ async function ejecutar(r){
 .spacer{flex:1}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:13px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer}
 .btn:hover{border-color:#34424f;color:var(--txt)}
-.btn.primary{background:linear-gradient(180deg,var(--signal),#2bc3b0);color:#042521;border:none;box-shadow:0 6px 18px #1fd4be33}
+.btn.primary{background:#2563eb;color:#fff;border:none}
+.btn.primary:hover{background:#3b82f6;color:#fff}
 .btn svg{width:15px;height:15px}
 .filters{display:flex;align-items:center;gap:8px;padding:4px 22px 10px;flex-wrap:wrap}
 .search{flex:0 1 230px;min-width:140px;position:relative}
@@ -635,7 +643,8 @@ async function ejecutar(r){
 .chip svg{width:13px;height:13px;color:var(--faint)}
 .sd-mini{width:8px;height:8px;border-radius:50%;background:var(--signal);display:inline-block}
 
-.listwrap{flex:1;overflow-y:auto;padding:2px 16px 8px}
+.listwrap{flex:1;display:flex;flex-direction:column;min-height:0;padding:2px 16px 8px}
+.rows{flex:1;min-height:0;overflow-y:auto}
 .empty{text-align:center;color:var(--faint);padding:40px;font-size:13px}
 .link{color:var(--signal);background:none;border:none;cursor:pointer;margin-left:6px}
 .lhead{display:grid;grid-template-columns:30px minmax(0,1fr) 150px 104px 150px 78px;gap:8px;padding:9px 14px 8px;font-family:var(--disp);font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--muted);position:sticky;top:0;background:var(--ink);z-index:3;border-bottom:1px solid var(--line)}
@@ -776,7 +785,7 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .nx{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
 .nx.manual{color:var(--faint)}.nx.inactivo{color:#3a4654}.nx.ok{color:var(--signal)}
 .col-sched small{font-family:var(--mono);font-size:10px;color:var(--faint)}
-.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px;padding:10px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);position:sticky;bottom:0;background:var(--ink);z-index:3}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 2px;padding:10px 12px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 .pager .pl{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--faint)}
 .pager .pl select{background:#0d131b;border:1px solid var(--line);border-radius:7px;color:var(--txt);padding:5px 8px;outline:none}
 .pager .pr{display:flex;align-items:center;gap:14px}
