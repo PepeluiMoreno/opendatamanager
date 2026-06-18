@@ -627,6 +627,55 @@ async def system_info():
     }
 
 
+# Métricas de disco de los datasets — CACHEADAS. Recorrer todos los data_path con
+# getsize en cada sondeo de /concurrency (cada 5s desde la vista de Procesos)
+# penalizaba la carga. Se recalcula como mucho cada 60s.
+_DISK_CACHE = {"ts": 0.0, "data": {"disk_datasets_bytes": None, "disk_total_bytes": None, "disk_used_bytes": None}}
+
+
+def _disk_metrics_cached(ttl: float = 60.0) -> dict:
+    import time, os
+    ahora = time.time()
+    if (ahora - _DISK_CACHE["ts"]) < ttl and _DISK_CACHE["data"].get("disk_datasets_bytes") is not None:
+        return _DISK_CACHE["data"]
+
+    db = SessionLocal()
+    try:
+        from app.models import Dataset
+        paths = [
+            p for (p,) in db.query(Dataset.data_path).filter(
+                Dataset.deleted_at == None, Dataset.data_path.isnot(None)
+            ).all()
+        ]
+    finally:
+        db.close()
+
+    datasets_bytes = 0
+    base_dir = None
+    for p in paths:
+        try:
+            datasets_bytes += os.path.getsize(p)
+            if base_dir is None:
+                base_dir = os.path.dirname(p)
+        except OSError:
+            pass
+    total_bytes = used_bytes = None
+    try:
+        sv = os.statvfs(base_dir or "/")
+        total_bytes = sv.f_blocks * sv.f_frsize
+        used_bytes = (sv.f_blocks - sv.f_bfree) * sv.f_frsize
+    except Exception:
+        pass
+
+    _DISK_CACHE["data"] = {
+        "disk_datasets_bytes": datasets_bytes,
+        "disk_total_bytes": total_bytes,
+        "disk_used_bytes": used_bytes,
+    }
+    _DISK_CACHE["ts"] = ahora
+    return _DISK_CACHE["data"]
+
+
 @app.get("/api/system/concurrency")
 async def system_concurrency():
     """Returns live thread and execution stats for the concurrency panel."""
@@ -646,12 +695,6 @@ async def system_concurrency():
             ResourceExecution.status == "running",
             ResourceExecution.deleted_at == None,
         ).count()
-        from app.models import Dataset
-        dataset_paths = [
-            p for (p,) in db.query(Dataset.data_path).filter(
-                Dataset.deleted_at == None, Dataset.data_path.isnot(None)
-            ).all()
-        ]
     finally:
         db.close()
 
@@ -683,25 +726,6 @@ async def system_concurrency():
     except Exception:
         ram_total_mb = None
 
-    # Disco: bytes usados por los datasets y total del volumen donde viven.
-    disk_datasets_bytes = 0
-    disk_total_bytes = None
-    disk_used_bytes = None
-    base_dir = None
-    for p in dataset_paths:
-        try:
-            disk_datasets_bytes += os.path.getsize(p)
-            if base_dir is None:
-                base_dir = os.path.dirname(p)
-        except OSError:
-            pass
-    try:
-        st = os.statvfs(base_dir or "/")
-        disk_total_bytes = st.f_blocks * st.f_frsize
-        disk_used_bytes = (st.f_blocks - st.f_bfree) * st.f_frsize
-    except Exception:
-        pass
-
     return {
         "total_threads": len(threads),
         "worker_threads": len(worker_threads),
@@ -710,9 +734,7 @@ async def system_concurrency():
         "process_mem_rss_mb": mem_rss_mb,
         "process_mem_vms_mb": mem_vms_mb,
         "ram_total_mb": ram_total_mb,
-        "disk_datasets_bytes": disk_datasets_bytes,
-        "disk_total_bytes": disk_total_bytes,
-        "disk_used_bytes": disk_used_bytes,
+        **_disk_metrics_cached(),
     }
 
 
