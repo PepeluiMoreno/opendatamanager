@@ -18,14 +18,17 @@
       <div class="roster">
         <div v-if="!loaded" class="rail-load">Cargando…</div>
         <template v-else>
-        <div v-for="c in panelsFiltradas" :key="c.key"
+        <div v-for="c in railNodes" :key="c.key"
              :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz' }]"
+             :style="{ paddingLeft: (10 + (c.depth || 0) * 16) + 'px' }"
              @click="selected = c.group; limpiarSel()">
+          <span v-if="c.hasChildren" class="tw" :class="{ open: expandedCols.has(c.group) }" @click.stop="toggleColExpand(c.group)">▸</span>
+          <span v-else-if="c.depth" class="tw" style="visibility:hidden">▸</span>
           <span class="gi">{{ c.icon }}</span>
           <div class="cmeta">
             <span class="nm">{{ c.label }}</span>
             <span class="attrs">
-              <span class="at">{{ c.kind==='matriz' ? 'nodriza' : c.kind==='none' ? 'sin agrupar' : c.kind==='all' ? 'todas' : 'organizativa' }}</span>
+              <span class="at">{{ c.kind==='matriz' ? 'nodriza' : c.kind==='none' ? 'sin agrupar' : 'organizativa' }}</span>
               <span class="at">· {{ c.count }} rec.</span>
             </span>
           </div>
@@ -394,8 +397,9 @@ onMounted(async () => {
 
 // ---- panels (colecciones + sin agrupar) ----
 function esNodriza(r) { return r?.generaColecciones === true }
-function memberCount(id) { return resources.value.filter(r => r.collectionId === id).length }
-const countSinAgrupar = computed(() => resources.value.filter(r => !r.collectionId).length)
+// N:M: un recurso pertenece a varias colecciones (collectionIds).
+function memberCount(id) { return resources.value.filter(r => (r.collectionIds || []).includes(id)).length }
+const countSinAgrupar = computed(() => resources.value.filter(r => !(r.collectionIds || []).length).length)
 const panels = computed(() => [
   { key:'all', group:'__all__', label:'Todos los recursos', icon:'📚', kind:'all', count: resources.value.length },
   ...groups.value.map(g => ({
@@ -419,8 +423,8 @@ const nPend = computed(() => resources.value.filter(r => r.estadoAprobacion === 
 // ---- lista de la colección abierta ----
 const enColeccion = computed(() => resources.value.filter(r =>
   selected.value === '__all__' ? true
-    : selected.value === '__none__' ? !r.collectionId
-    : r.collectionId === selected.value))
+    : selected.value === '__none__' ? !(r.collectionIds || []).length
+    : (r.collectionIds || []).includes(selected.value)))
 const topLevel = computed(() => enColeccion.value.filter(r => !r.parentResourceId).filter(r => {
   if (q.value && !r.name.toLowerCase().includes(q.value.toLowerCase())) return false
   if (fType.value && r.fetcher?.code !== fType.value) return false
@@ -470,6 +474,51 @@ const panelsFiltradas = computed(() => {
   const f = colFilter.value.trim().toLowerCase()
   if (!f) return base
   return base.filter(p => p.label.toLowerCase().includes(f) || p.kind === 'none')
+})
+
+// ---- Árbol del rail (colecciones anidadas por parentCollectionId) ----
+const expandedCols = ref(new Set())
+function toggleColExpand(id) {
+  const s = new Set(expandedCols.value)
+  s.has(id) ? s.delete(id) : s.add(id)
+  expandedCols.value = s
+}
+const railNodes = computed(() => {
+  const cols = groups.value || []
+  const ids = new Set(cols.map(c => c.id))
+  const childrenOf = new Map()
+  for (const c of cols) {
+    const pid = (c.parentCollectionId && ids.has(c.parentCollectionId)) ? c.parentCollectionId : null
+    if (!childrenOf.has(pid)) childrenOf.set(pid, [])
+    childrenOf.get(pid).push(c)
+  }
+  for (const arr of childrenOf.values()) arr.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  const f = colFilter.value.trim().toLowerCase()
+  const out = []
+  const mkNode = (c, depth) => ({
+    key: c.id, group: c.id, label: c.name, g: c, depth,
+    icon: c.origin === 'matriz' ? '🛰️' : '🗂️',
+    kind: c.origin === 'matriz' ? 'matriz' : 'col',
+    count: memberCount(c.id),
+    hasChildren: (childrenOf.get(c.id) || []).length > 0,
+  })
+  const walk = (pid, depth) => {
+    for (const c of (childrenOf.get(pid) || [])) {
+      const casa = !f || c.name.toLowerCase().includes(f)
+      if (casa) {
+        const n = mkNode(c, depth)
+        out.push(n)
+        if (n.hasChildren && (f || expandedCols.value.has(c.id))) walk(c.id, depth + 1)
+      } else {
+        walk(c.id, depth)  // con filtro: aplana buscando coincidencias en descendientes
+      }
+    }
+  }
+  walk(null, 0)
+  if (!f || 'sin agrupar'.includes(f)) {
+    out.push({ key: 'none', group: '__none__', label: 'Sin agrupar', icon: '🗃️', kind: 'none', count: countSinAgrupar.value, depth: 0, hasChildren: false })
+  }
+  return out
 })
 async function aplicarLote(){
   if (!bulkAction.value || sel.value.size===0) return
@@ -604,6 +653,8 @@ async function ejecutar(r){
 .col.active{background:linear-gradient(90deg,#15302c,#13202a);box-shadow:inset 0 0 0 1px #2b6a61}
 .col.active::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--signal);box-shadow:0 0 10px var(--signal)}
 .col .gi{width:18px;text-align:center;font-size:15px}
+.col .tw{width:13px;flex-shrink:0;text-align:center;cursor:pointer;color:var(--faint);font-size:10px;transition:transform .15s}
+.col .tw.open{transform:rotate(90deg)}
 .col .nm{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .col .ct{font-family:var(--mono);font-size:11px;color:var(--faint);background:#0e151d;padding:1px 7px;border-radius:20px;border:1px solid var(--line-soft)}
 .col.active .ct{color:var(--signal);border-color:var(--signal-dim)}

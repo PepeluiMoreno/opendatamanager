@@ -192,6 +192,7 @@ def map_resource(resource: Resource) -> ResourceType:
         deleted_at=resource.deleted_at,
         parent_resource_id=str(resource.parent_resource_id) if resource.parent_resource_id else None,
         resource_collection_id=str(resource.resource_collection_id) if getattr(resource, 'resource_collection_id', None) else None,
+        collection_ids=[str(c.id) for c in (getattr(resource, 'collections', None) or [])],
         auto_generated=getattr(resource, 'auto_generated', False) or False,
         genera_colecciones=bool(getattr(resource, 'genera_colecciones', False)),
         created_by_kind=_created_by_kind(resource),

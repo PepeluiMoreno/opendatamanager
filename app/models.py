@@ -188,6 +188,9 @@ class Resource(AuditMixin, Base):
     # Collection organizativa a la que pertenece (carpeta). Nullable = «sin agrupar».
     # Al borrar la collection, este campo vuelve a NULL (no se borra el recurso).
     resource_collection_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_collection.id", ondelete="SET NULL"), nullable=True)
+    # Pertenencia N:M a colecciones (fuente de verdad). selectin = carga en lote
+    # (sin N+1). viewonly: se escribe vía app.services.collections, no por aquí.
+    collections = relationship("ResourceCollection", secondary=resource_collection_member, lazy="selectin", viewonly=True)
     auto_generated = Column(Boolean, default=False, nullable=False)
     # Rol del recurso frente a un fetcher capaz de descubrir (p. ej. Web Tree):
     # marca si ESTE recurso actúa como nave nodriza (descubre candidatos y los
