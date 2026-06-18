@@ -14,9 +14,8 @@
         <span class="font-bold" :class="successRate >= 90 ? 'text-green-400' : successRate >= 70 ? 'text-yellow-400' : 'text-red-400'">{{ successRate }}%</span>
         <span class="text-gray-600">({{ completedCount }}/{{ finishedCount }})</span>
       </span>
-      <span v-if="concurrency.disk_total_bytes">Disco datasets
-        <span class="font-bold text-gray-300">{{ fmtBytes(concurrency.disk_datasets_bytes) }}</span> / {{ fmtBytes(concurrency.disk_total_bytes) }}
-        <span class="text-gray-600">({{ Math.round(concurrency.disk_datasets_bytes / concurrency.disk_total_bytes * 100) }}% del volumen)</span>
+      <span v-if="concurrency.disk_datasets_bytes != null">Espacio ocupado:
+        <span class="font-bold text-gray-300">{{ fmtBytes(concurrency.disk_datasets_bytes) }}</span>
       </span>
     </div>
 
