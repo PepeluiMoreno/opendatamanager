@@ -60,6 +60,12 @@
           <div class="meta">{{ metaColeccion }}</div>
         </div>
         <div class="spacer"></div>
+        <select v-if="esColeccionSeleccionada && puede('recursos.editar')" :value="parentDeSeleccionada"
+                @change="anidarSeleccionada($event.target.value)" class="bsel" title="Anidar esta colección bajo otra organizativa"
+                style="max-width:220px">
+          <option value="">Anidar bajo… (raíz)</option>
+          <option v-for="o in organizativasParaPadre" :key="o.id" :value="o.id">{{ o.name }}</option>
+        </select>
         <button v-if="puede('recursos.crear')" class="btn primary" @click="abrirDrawer(null)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
           Nuevo recurso
@@ -89,16 +95,18 @@
             <option value="">Acción…</option>
             <option value="toggle">Activar/Desactivar (invertir)</option>
             <option value="run">Ejecutar (Run)</option>
-            <option value="move">Mover a colección</option>
+            <option value="add">Añadir a colección (sin sacar de otras)</option>
+            <option value="move">Mover a colección (solo esa)</option>
+            <option v-if="selected!=='__all__' && selected!=='__none__'" value="remove_current">Quitar de esta colección</option>
             <option value="group">Agrupar (nueva colección)</option>
-            <option value="ungroup">Desagrupar</option>
+            <option value="ungroup">Quitar de todas (sin agrupar)</option>
           </select>
-          <select v-if="bulkAction==='move'" v-model="bulkMoveTarget" class="bsel">
+          <select v-if="bulkAction==='move' || bulkAction==='add'" v-model="bulkMoveTarget" class="bsel">
             <option value="">Elige colección…</option>
             <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
           <input v-if="bulkAction==='group'" v-model="bulkGroupName" class="bsel" placeholder="Nombre de la colección…" @keyup.enter="aplicarLote" />
-          <button class="bapply" :disabled="bulkBusy || !bulkAction || (bulkAction==='move'&&!bulkMoveTarget) || (bulkAction==='group'&&!bulkGroupName.trim())" @click="aplicarLote">{{ bulkBusy?'Aplicando…':'Aplicar' }}</button>
+          <button class="bapply" :disabled="bulkBusy || !bulkAction || ((bulkAction==='move'||bulkAction==='add')&&!bulkMoveTarget) || (bulkAction==='group'&&!bulkGroupName.trim())" @click="aplicarLote">{{ bulkBusy?'Aplicando…':'Aplicar' }}</button>
           <button class="bclear" @click="limpiarSel">Limpiar</button>
         </div>
 
@@ -284,6 +292,7 @@ import {
   fetchResources, fetchResourceCollections, fetchFetchers, fetchPublishers,
   createResource, updateResource, deleteResource, executeResource,
   createResourceCollection, renameResourceCollection, deleteResourceCollection,
+  addResourcesToCollection, removeResourceFromCollection, setCollectionParent,
   fetchAppConfig,
 } from '../api/graphql'
 
@@ -520,6 +529,17 @@ const railNodes = computed(() => {
   }
   return out
 })
+// ---- Anidar la colección seleccionada bajo otra organizativa ----
+const esColeccionSeleccionada = computed(() => groups.value.some(g => g.id === selected.value))
+const parentDeSeleccionada = computed(() => groups.value.find(g => g.id === selected.value)?.parentCollectionId || '')
+const organizativasParaPadre = computed(() => groups.value
+  .filter(g => g.origin === 'organizativa' && g.id !== selected.value)
+  .sort((a, b) => a.name.localeCompare(b.name, 'es')))
+async function anidarSeleccionada(parentId) {
+  try { await setCollectionParent(selected.value, parentId || null); await load() }
+  catch (e) { toast.error('Error al anidar: ' + (e?.message || e)) }
+}
+
 async function aplicarLote(){
   if (!bulkAction.value || sel.value.size===0) return
   bulkBusy.value = true
@@ -540,6 +560,8 @@ async function aplicarLote(){
     }
     else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value) await updateResource(r.id,{collectionId:bulkMoveTarget.value}) }
     else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); for(const r of seleccionados.value) await updateResource(r.id,{collectionId:g.id}) }
+    else if (bulkAction.value === 'add') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} await addResourcesToCollection(bulkMoveTarget.value, seleccionados.value.map(r=>r.id)) }
+    else if (bulkAction.value === 'remove_current') { if(selected.value==='__all__'||selected.value==='__none__'){bulkBusy.value=false;return} for(const r of seleccionados.value) await removeResourceFromCollection(selected.value, r.id) }
     else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }
     bulkAction.value=''; bulkMoveTarget.value=''; bulkGroupName.value=''
     limpiarSel(); await load()

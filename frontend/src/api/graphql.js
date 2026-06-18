@@ -715,6 +715,26 @@ export async function fetchResourceCollections() {
   }
 }
 
+// N:M + anidamiento (F3b composer).
+export async function addResourcesToCollection(collectionId, resourceIds) {
+  return await client.request(
+    `mutation($c: String!, $r: [String!]!) { addResourcesToCollection(collectionId: $c, resourceIds: $r) }`,
+    { c: collectionId, r: resourceIds }
+  )
+}
+export async function removeResourceFromCollection(collectionId, resourceId) {
+  return await client.request(
+    `mutation($c: String!, $r: String!) { removeResourceFromCollection(collectionId: $c, resourceId: $r) }`,
+    { c: collectionId, r: resourceId }
+  )
+}
+export async function setCollectionParent(id, parentId) {
+  return await client.request(
+    `mutation($id: String!, $p: String) { setCollectionParent(id: $id, parentId: $p) { id name parentCollectionId } }`,
+    { id, p: parentId || null }
+  )
+}
+
 export async function createResourceCollection(name) {
   try {
     return await client.request(MUTATIONS.CREATE_RESOURCE_COLLECTION, { name })
