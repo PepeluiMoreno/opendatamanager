@@ -85,3 +85,11 @@ Definir la política de copias de seguridad: **qué** se respalda (BD Postgres
 **retención**, **destino** (¿MinIO/externo?) y **procedimiento de restauración**.
 Coordinar con el archivado por niveles a MinIO y los parámetros X (retención local)
 y Q (cuota MinIO) — ver `docs/diseno_ciclo_vida_datasets.md`.
+
+## Suscripciones a colecciones (PENDIENTE)
+
+Los suscriptores podrán suscribirse a **colecciones enteras** de recursos (no solo a
+recursos sueltos). Encaja con el modelo N:M + árbol de colecciones: una suscripción a
+una colección abarca sus miembros (¿y los de sus sub-colecciones? decidir) y se
+actualiza sola cuando la colección gana/pierde miembros. Revisar `DatasetSubscription`
+/ `Subscriber` y la vista de Suscriptores. Convive con la suscripción a recurso suelto.
