@@ -1820,6 +1820,14 @@ class Mutation:
             candidate.reviewed_at = _dt.utcnow()
             db.commit()
 
+            # El hijo cae dentro de la colección matriz de su nave nodriza.
+            try:
+                from app.services.matriz_collections import ensure_matriz_collection
+                ensure_matriz_collection(db, parent)
+                db.commit()
+            except Exception:
+                db.rollback()
+
             child_obj = db.query(Resource).filter(Resource.id == child.id).first()
             return map_resource(child_obj)
 

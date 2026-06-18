@@ -54,6 +54,19 @@ def main() -> int:
     print(f"[seed_manifests] TOTAL creados={creados} actualizados={actualizados} "
           f"db_ahead={len(db_ahead)} conflictos={len(conflictos)} errores={len(errores)}")
 
+    # Asegura la colección matriz de cada nave nodriza (la crea y mete dentro al
+    # recurso madre y sus hijos). Idempotente; arregla también las existentes.
+    try:
+        from app.services.matriz_collections import backfill_matriz_collections
+        db = SessionLocal()
+        try:
+            n = backfill_matriz_collections(db)
+            print(f"[seed_manifests] colecciones matriz aseguradas: {n} nave(s) nodriza")
+        finally:
+            db.close()
+    except Exception as e:  # noqa: BLE001 — no-fatal
+        print(f"[seed_manifests] AVISO backfill colecciones matriz: {e}")
+
     # Despacho de avisos por email de las novedades (no-fatal).
     try:
         from app.services.eventos import enviar_digest
