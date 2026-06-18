@@ -3,7 +3,7 @@
     <!-- ============ COLLECTIONS RAIL ============ -->
     <aside class="rail">
       <div class="brand">
-        <PageHeader title="Recursos" subtitle="Vista nueva · beta" tight />
+        <PageHeader title="Recursos" tight />
       </div>
 
       <div class="roster-h">
@@ -53,11 +53,7 @@
     <!-- ============ MAIN ============ -->
     <main class="main">
       <div class="topbar">
-        <button class="rail-toggle" @click="railOpen = !railOpen" :title="railOpen ? 'Ocultar colecciones' : 'Mostrar colecciones'">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
         <div class="crumb">
-          <div class="big">{{ tituloColeccion }}</div>
           <div class="meta">{{ metaColeccion }}</div>
         </div>
         <div class="spacer"></div>
@@ -74,7 +70,7 @@
         </div>
         <div class="chip pub-chip">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.nombre || p.acronimo }}</option></select>
+          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.acronimo || p.nombre }}</option></select>
         </div>
         <div class="chip">
           <span class="sd-mini"></span>
@@ -138,6 +134,7 @@
               </div>
               <div class="col-acts racts">
                 <button v-if="puede('ejecuciones.lanzar')" title="Ejecutar" @click="ejecutar(r)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+                <button v-if="puede('ejecuciones.lanzar')" title="Test — extrae unos pocos registros" @click="router.push(`/resources/${r.id}/test`)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6M10 3v6l-5.2 8.6A2 2 0 006.5 21h11a2 2 0 001.7-3.4L14 9V3"/></svg></button>
                 <button v-if="puede('recursos.editar')" title="Editar" @click="abrirDrawer(r)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2v-5M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
               </div>
             </div>
@@ -271,6 +268,7 @@
 import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination'
+import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
 import ResourceParamsEditor from '../components/ResourceParamsEditor.vue'
 import ScheduleEditor from '../components/ScheduleEditor.vue'
@@ -294,6 +292,7 @@ const resources = ref([])
 const groups = ref([])
 const fetchers = ref([])
 const publishers = ref([])
+const router = useRouter()
 
 const selected = ref('__all__')   // colección abierta: '__all__' | id | '__none__'
 const q = ref(''); const fType = ref(''); const fStatus = ref(''); const fPublisher = ref('')
