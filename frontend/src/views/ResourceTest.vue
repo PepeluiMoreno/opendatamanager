@@ -17,8 +17,8 @@
       <div class="card mb-6">
         <div class="flex items-start justify-between mb-4">
           <div>
-            <h1 class="text-3xl font-bold">{{ resource,name }}</h1>
-            <p class="text-gray-400 text-sm mt-1">{{ resource,id }}</p>
+            <h1 class="text-3xl font-bold">{{ source.name }}</h1>
+            <p class="text-gray-400 text-sm mt-1">{{ source.id }}</p>
           </div>
           <router-link :to="`/resources`" class="btn btn-secondary text-sm">
             Edit Resource
@@ -28,12 +28,12 @@
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <span class="text-gray-400 block mb-1">Publisher:</span>
-            <span class="font-medium">{{ resource,publisher }}</span>
+            <span class="font-medium">{{ source.publisher }}</span>
           </div>
           <div>
             <span class="text-gray-400 block mb-1">Type:</span>
             <code class="bg-gray-900 px-2 py-1 rounded text-blue-400 text-xs">
-              {{ resource,fetcher.code }}
+              {{ source.fetcher.code }}
             </code>
           </div>
           <div>
@@ -42,12 +42,12 @@
               :class="source.active ? 'text-green-400' : 'text-red-400'"
               class="font-medium"
             >
-              {{ resource,active ? 'Active' : 'Inactive' }}
+              {{ source.active ? 'Active' : 'Inactive' }}
             </span>
           </div>
           <div>
             <span class="text-gray-400 block mb-1">Parameters:</span>
-            <span class="font-medium">{{ resource,params.length }}</span>
+            <span class="font-medium">{{ source.params.length }}</span>
           </div>
         </div>
 
@@ -55,7 +55,7 @@
         <div class="mt-4">
           <span class="text-gray-400 text-sm block mb-1">Class Path:</span>
           <code class="block bg-gray-900 p-2 rounded text-green-400 text-xs">
-            {{ resource,fetcher.classPath }}
+            {{ source.fetcher.classPath }}
           </code>
         </div>
 
@@ -63,7 +63,7 @@
         <div class="mt-4">
           <h3 class="font-bold mb-2 text-sm">Configuration Parameters:</h3>
           <div class="bg-gray-900 p-4 rounded space-y-2">
-            <div v-for="param in resource,params" :key="param.id" class="flex items-start">
+            <div v-for="param in source.params" :key="param.id" class="flex items-start">
               <span class="text-blue-400 font-mono text-sm min-w-[150px]">{{ param.key }}:</span>
               <span class="text-gray-300 text-sm break-all">{{ param.value }}</span>
             </div>
@@ -303,7 +303,7 @@ async function loadSource() {
     loading.value = true
     error.value = null
     const data = await fetchResource(route.params.id)
-    resource,value = data.resource
+    source.value = data.resource
   } catch (e) {
     error.value = 'Failed to load resource: ' + e.message
   } finally {
