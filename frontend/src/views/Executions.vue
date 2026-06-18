@@ -380,12 +380,12 @@ let timer = null
 const now = ref(Date.now())
 
 const statusTabs = [
-  { value: 'all',       label: 'All' },
-  { value: 'running',   label: 'Running' },
-  { value: 'paused',    label: 'Paused' },
-  { value: 'completed', label: 'Done' },
-  { value: 'failed',    label: 'Failed' },
-  { value: 'aborted',   label: 'Aborted' },
+  { value: 'all',       label: 'Todos' },
+  { value: 'running',   label: 'En curso' },
+  { value: 'paused',    label: 'En pausa' },
+  { value: 'completed', label: 'Completado' },
+  { value: 'failed',    label: 'Fallido' },
+  { value: 'aborted',   label: 'Abortado' },
 ]
 
 const filteredExecutions = computed(() => {
@@ -480,7 +480,7 @@ function execLabel(ex) {
   }).join(' · ') : null
 }
 function statusLabel(s) {
-  return { running: 'RUNNING', completed: 'DONE', failed: 'FAILED', pending: 'PENDING', aborted: 'ABORTED', paused: 'PAUSED' }[s] ?? s.toUpperCase()
+  return { running: 'EN CURSO', completed: 'COMPLETADO', failed: 'FALLIDO', pending: 'PENDIENTE', aborted: 'ABORTADO', paused: 'EN PAUSA' }[s] ?? s.toUpperCase()
 }
 function statusClass(s) {
   return {
