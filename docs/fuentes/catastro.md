@@ -1,10 +1,21 @@
 # Catastro (Sede Electrónica / INSPIRE Download Services) — ficha de fuente
 
-> **Estado**: la estructura ATOM de 2 niveles, el cupo por IP y los temas CP/BU/AD
-> proceden de la documentación oficial INSPIRE de la DGC. **Las URLs exactas de los
-> sub-feeds y la forma precisa de cada `<entry>` están PENDIENTES de verificación en
-> vivo** antes de sembrar manifests (no se ha golpeado el servicio real en esta sesión).
-> Lo verificado a fecha de hoy se marca como tal; el resto es "a confirmar".
+> **Estado**: estructura **verificada en vivo el 2026-06-18** contra el servicio real
+> (ver "Verificado en vivo" abajo). El `child_fetcher`/`entry` y el feed CP están
+> confirmados; BU/AD por confirmar en detalle.
+
+## ⚠️ Códigos DGC ≠ códigos INE (clave para el filtro)
+
+El feed usa la **numeración municipal del DGC**, que NO siempre coincide con el INE.
+Verificado: la capital **Cádiz sale como `11900`** (INE 11012). Por tanto `filtro_incluir`
+debe llevar **códigos DGC**, y **SIPI** (que maneja INE) necesitará un **mapeo INE↔DGC**
+para filtrar por municipio.
+
+Además, **algunos municipios no se publican** en el feed: p. ej. **Jerez de la Frontera
+(INE 11020) NO aparece** en `ES.SDGC.CP.atom_11.xml` (37 de ~45 municipios de Cádiz) ni
+existe por descarga directa (URL 11020 → soft-404 HTML de 15257 bytes). El descubridor,
+que se basa en el feed, **no cogerá esos municipios**; si alguno hace falta, necesita una
+fuente/recurso aparte. (Nota: 11400 es el *código postal* de Jerez, no un código catastral.)
 
 ## Qué es
 
@@ -112,9 +123,9 @@ Un recurso **Descubridor ATOM** por tema, p. ej. (forma orientativa):
   "active": true,
   "params": [
     { "key": "url", "value": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/ES.SDGC.CP.atom.xml" },
-    { "key": "filtro_incluir", "value": "[\"11020\"]", "is_external": true },
+    { "key": "filtro_incluir", "value": "", "is_external": true },
     { "key": "child_fetcher", "value": "Compressed File" },
-    { "key": "child_params", "value": "{\"inner_format\": \"gml\", \"entry\": \"*.gml\"}" },
+    { "key": "child_params", "value": "{\"inner_format\": \"gml\", \"entry\": \"*.cadastralparcel.gml\"}" },
     { "key": "max_per_hour", "value": "3500" },
     { "key": "rate_limit_per_second", "value": "1" }
   ]
@@ -126,12 +137,23 @@ municipal nace como un recurso **Compressed File** que ya sabe extraer y parsear
 
 BU y AD: idéntico cambiando `url`. **El manifest no lleva ni un campo de SIPI.**
 
-## Lo que falta por verificar (antes de sembrar)
+## Verificado en vivo (2026-06-18)
 
-1. URLs reales de los feeds de servicio y de los sub-feeds de gerencia.
-2. Forma de cada `<entry>` (¿un ZIP = una entrada, o varios `<link>` por entrada?)
-   y si los `<link>` traen `type` (zip/atom) — el descubridor clasifica por eso.
-3. Si el servicio exige `User-Agent` u otras cabeceras (como PLACSP).
-4. ~~La decisión de payload GML~~ → **RESUELTO**: GML→JSONL vía `Compressed File` +
-   `inner_format=gml` (parser propio, sin GDAL). Falta confirmar contra un GML real
-   el orden de ejes por CRS y el reparto de GML en los ZIP de BU.
+- **Feed de servicio CP**: 200 OK, 56 `<entry>` = 56 gerencias provinciales, cada una
+  con `<link rel="enclosure" type="application/atom+xml" href=".../NN/ES.SDGC.CP.atom_NN.xml"/>`
+  → sub-feed provincial. El descubridor lo trata como feed (desciende). ✔
+- **Sub-feed provincial** (Cádiz, `11`): 37 `<entry>`, una por municipio, con
+  `<link rel="enclosure" href=".../A.ES.SDGC.CP.<DGC>.zip" type="application/atom+xml"/>`.
+  Ojo: el `type` viene mal puesto (`atom+xml`) pero la **extensión `.zip`** hace que el
+  descubridor lo clasifique como hoja. ✔
+- **ZIP municipal** (`11001`): contiene **`*.cadastralparcel.gml`** (las parcelas) +
+  `*.cadastralzoning.gml` (zonificación) + `*.MD..xml` (metadatos). Por eso
+  `entry=*.cadastralparcel.gml`. ✔
+- **Soft-404**: las URLs inexistentes devuelven `200` + HTML de 15257 bytes (no 404);
+  las reales dan `206`/`PK`. Útil para validar.
+
+## Lo que falta por verificar
+
+1. **BU/AD** en detalle (BU trae 3 GML por ZIP → un recurso por GML).
+2. **Orden de ejes** del GML por CRS contra un fichero real (UTM ETRS89 vs geográfico).
+3. **Mapeo INE↔DGC** (lado SIPI) para poder filtrar por municipio.
