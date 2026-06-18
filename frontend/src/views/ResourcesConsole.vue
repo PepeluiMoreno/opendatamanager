@@ -591,11 +591,11 @@ async function ejecutar(r){
 .roster-h span{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
 .roster-h button{width:22px;height:22px;border-radius:6px;color:var(--muted);font-size:16px;display:grid;place-items:center;border:1px solid var(--line);background:none;cursor:pointer}
 .roster-h button:hover{color:var(--signal);border-color:var(--signal-dim);background:#0f2420}
-.roster{overflow-y:auto;padding:4px 10px 10px;flex:1;min-height:0}
+.roster{overflow-y:auto;padding:4px 14px 12px;flex:1;min-height:0}
 .col{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;position:relative;margin-bottom:2px}
 .col:hover{background:#161e29}
 .col.active{background:linear-gradient(90deg,#15302c,#13202a);box-shadow:inset 0 0 0 1px #2b6a61}
-.col.active::before{content:"";position:absolute;left:-10px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--signal);box-shadow:0 0 10px var(--signal)}
+.col.active::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--signal);box-shadow:0 0 10px var(--signal)}
 .col .gi{width:18px;text-align:center;font-size:15px}
 .col .nm{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .col .ct{font-family:var(--mono);font-size:11px;color:var(--faint);background:#0e151d;padding:1px 7px;border-radius:20px;border:1px solid var(--line-soft)}

@@ -13,7 +13,7 @@
       </button>
     </div>
 
-    <nav class="flex-1 px-4 py-3 space-y-0.5 overflow-y-auto relative transition-opacity duration-300" :class="status !== 'online' ? 'opacity-40 pointer-events-none select-none' : ''">
+    <nav class="flex-1 p-3 space-y-0.5 overflow-y-auto relative transition-opacity duration-300" :class="status !== 'online' ? 'opacity-40 pointer-events-none select-none' : ''">
       <NavItem v-if="usuario" to="/mis-datos" :active="$route.path === '/mis-datos'">👤 My data</NavItem>
       <NavItem to="/" :active="$route.path === '/'">📊 Dashboard</NavItem>
       <NavItem to="/publishers" :active="$route.path === '/publishers'">🏛️ Publishers</NavItem>
