@@ -1,6 +1,6 @@
 from uuid import uuid4
 from datetime import datetime
-from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, Float, DateTime, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, ForeignKey, Text, Integer, Float, DateTime, UniqueConstraint, Table
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship, declared_attr
 from app.database import Base
@@ -144,6 +144,23 @@ class ResourceCollection(AuditMixin, Base):
     # Para las de origen 'matriz': el recurso que la preside. Si se borra la
     # matriz, su collection se va con ella (y sus miembros quedan sin agrupar).
     root_resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), nullable=True)
+    # Anidamiento (N:M + árbol): una colección puede colgar de otra. Regla validada
+    # en backend: el padre solo puede ser una colección 'organizativa' (nada cuelga
+    # de una 'matriz'). Profundidad libre, con anti-ciclos.
+    parent_collection_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_collection.id", ondelete="SET NULL"), nullable=True)
+
+
+# N:M: un recurso puede pertenecer a VARIAS colecciones (y una colección agrupa
+# varios). "Sin agrupar" = recurso sin ninguna fila aquí. Convive transitoriamente
+# con Resource.resource_collection_id (1:1 legado), que se retirará en la fase final.
+resource_collection_member = Table(
+    "resource_collection_member",
+    Base.metadata,
+    Column("resource_id", UUID(as_uuid=True), ForeignKey("opendata.resource.id", ondelete="CASCADE"), primary_key=True),
+    Column("collection_id", UUID(as_uuid=True), ForeignKey("opendata.resource_collection.id", ondelete="CASCADE"), primary_key=True),
+    Column("created_at", DateTime, default=datetime.utcnow),
+    schema="opendata",
+)
 
 
 class Resource(AuditMixin, Base):
