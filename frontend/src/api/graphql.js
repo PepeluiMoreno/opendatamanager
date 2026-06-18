@@ -1,4 +1,5 @@
 import { GraphQLClient } from 'graphql-request'
+import { notifyBackendDown, notifyBackendUp } from '../composables/useBackendStatus'
 
 const endpoint = '/graphql'
 
@@ -26,6 +27,14 @@ export const client = new GraphQLClient(endpoint, {
     const status = res?.response?.status
     if ((status === 401 || status === 403) && typeof authErrorHandler === 'function') {
       authErrorHandler()
+    }
+    // Disponibilidad del backend, propagada al instante a toda la app:
+    //  · error sin respuesta (red caída) o 5xx → backend caído.
+    //  · cualquier respuesta válida (2xx–4xx) → backend vivo.
+    if (res instanceof Error && (!res.response || (status || 0) >= 500)) {
+      notifyBackendDown()
+    } else if (status >= 200 && status < 500) {
+      notifyBackendUp()
     }
   },
 })

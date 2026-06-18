@@ -32,6 +32,17 @@ function stopPolling() {
   }
 }
 
+// Propagación inmediata del estado, llamada por la capa de API: un fallo de red /
+// 5xx marca el backend caído sin esperar al poll de 15s; una respuesta válida lo
+// confirma vivo. Al ser `isConnected` un singleton reactivo, todos los componentes
+// que lo consumen reaccionan a la vez (no hay que avisar a cada uno).
+export function notifyBackendDown() {
+  if (isConnected.value !== false) isConnected.value = false
+}
+export function notifyBackendUp() {
+  if (isConnected.value !== true) isConnected.value = true
+}
+
 export function useBackendStatus() {
   return {
     isConnected: computed(() => isConnected.value),

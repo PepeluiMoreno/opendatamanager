@@ -36,8 +36,22 @@
         <span class="text-sm font-semibold text-blue-400">OpenDataManager</span>
       </header>
 
-      <div class="flex-1 overflow-auto">
+      <div class="flex-1 overflow-auto relative">
         <router-view />
+        <!-- Backend caído: overlay global. Evita que las vistas muestren "no hay
+             datos" o errores por una indisponibilidad transitoria del backend. -->
+        <transition name="fade">
+          <div v-if="backendCaido" class="absolute inset-0 z-40 flex items-center justify-center bg-gray-900/85 backdrop-blur-sm">
+            <div class="text-center px-6">
+              <svg class="w-8 h-8 mx-auto mb-3 animate-spin text-red-400" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              <p class="text-gray-200 font-medium">Backend no disponible</p>
+              <p class="text-gray-500 text-sm mt-1">Reconectando…</p>
+            </div>
+          </div>
+        </transition>
       </div>
     </div>
   </div>
@@ -51,16 +65,20 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import BackendStatus from './components/BackendStatus.vue'
 import Login from './components/Login.vue'
 import ConfirmHost from './components/ConfirmHost.vue'
 import ToastHost from './components/ToastHost.vue'
 import { useAuth } from './composables/useAuth'
+import { useBackendStatus } from './composables/useBackendStatus'
 
 const { mostrarLogin } = useAuth()
 const sidebarOpen = ref(false)
+const { isConnected } = useBackendStatus()
+// false = caído (no null/checking, para no tapar en el arranque inicial).
+const backendCaido = computed(() => isConnected.value === false)
 </script>
 
 <style>
