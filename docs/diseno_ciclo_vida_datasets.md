@@ -150,3 +150,27 @@ libre(t) = libre_ahora
 - Un plazo concedido es un **contrato**: si el pronóstico empeora, ODM **no recorta
   lo ya concedido**; reacciona desalojando primero lo re-derivable/barato y
   endureciendo o denegando las **nuevas** peticiones. Nunca incumple hacia atrás.
+
+## Archivado por niveles: caliente local + frío en MinIO (PENDIENTE, 2026-06-18)
+
+Almacenamiento en dos niveles para los datasets (los JSONL):
+
+- **Caliente (reciente) → volumen local de ficheros**, el mismo que usa **SIPI**.
+  Se quedan las versiones de los **últimos `X` años** (`X` = parámetro de la
+  aplicación). Conviene tenerlas *cerca de SIPI* (mejor rendimiento de lectura que
+  ir a object storage).
+- **Frío (versiones antiguas) → MinIO (S3)**, mediante un **proceso automático de
+  archivado** que sube a MinIO las versiones más viejas que `X` años y las retira
+  del volumen local. Object storage = barato y elástico para lo que casi no se lee.
+
+Parámetros nuevos de la aplicación:
+- **`X`** = ventana de retención local (en años) de versiones de dataset antes de
+  archivarlas a MinIO.
+- **`Q`** = cuota de disco del **volumen de ficheros S3** que usa el contenedor de
+  MinIO (techo del nivel frío).
+
+Notas: hoy **no hay object storage** (ni MinIO ni S3); todo vive en el volumen
+nombrado `appdata` (`/app/data`) sobre el disco del host, sin cuota de contenedor.
+Esto es el plan para cuando el volumen crezca. Encaja con la política de caché de
+arriba: el archivado a MinIO es otra forma de "desalojo" del nivel caliente, pero
+**sin perder el dato** (se conserva en frío, recuperable).
