@@ -79,6 +79,18 @@
 
             <!-- Métricas + acciones (una línea) -->
             <div class="flex items-center gap-3 flex-shrink-0 text-xs">
+              <!-- Barra de progreso con % (inline) -->
+              <div v-if="['running','completed','failed'].includes(ex.status)"
+                   class="relative h-4 w-24 bg-gray-700 rounded overflow-hidden shrink-0">
+                <div :class="ex.status === 'failed' ? 'bg-red-600' : ex.status === 'running' ? 'bg-blue-600' : 'bg-green-600'"
+                     class="h-full transition-all duration-700"
+                     :style="{ width: (progressPct(ex) ?? (ex.status === 'completed' ? 100 : ex.status === 'running' ? 8 : 0)) + '%' }"></div>
+                <span class="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white mix-blend-plus-lighter select-none">
+                  <template v-if="progressPct(ex) != null">{{ progressPct(ex) }}%</template>
+                  <template v-else-if="ex.status === 'completed'">100%</template>
+                  <template v-else-if="ex.status === 'running'">…</template>
+                </span>
+              </div>
               <span v-if="ex.totalRecords" class="w-24 text-right whitespace-nowrap"><span class="text-blue-400 font-medium">{{ ex.recordsLoaded?.toLocaleString() ?? 0 }}</span><span class="text-gray-600">/{{ ex.totalRecords?.toLocaleString() }}</span></span>
               <span v-if="ex.completedAt || ex.status === 'paused'" class="w-16 text-right text-gray-300">{{ activeDuration(ex) }}</span>
               <span v-else-if="ex.status === 'running'" class="w-16 text-right text-yellow-400">{{ elapsed(ex.startedAt) }}</span>
