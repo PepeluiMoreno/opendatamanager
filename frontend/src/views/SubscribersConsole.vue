@@ -52,79 +52,15 @@
           <div class="meta">{{ metaSub }}</div>
         </div>
         <div class="spacer"></div>
-        <button v-if="subActual && puede('subscribers.editar')" class="btn primary" @click="abrirNuevaSusc">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
-          Nueva suscripción
-        </button>
-      </div>
-
-      <div class="filters" v-if="subActual">
-        <div class="search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
-          <input v-model="q" placeholder="Buscar recurso…" />
-        </div>
-        <div class="chip pub-chip">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
-          <select v-model="fPublisher"><option value="">Publisher: todos</option><option v-for="p in publishersUsados" :key="p.id" :value="p.id">{{ p.nombre || p.acronimo }}</option></select>
-        </div>
-        <div class="chip">
-          <select v-model="fUpgrade"><option value="">Auto-upgrade: todos</option><option v-for="u in upgradeOpts" :key="u" :value="u">{{ u }}</option></select>
-        </div>
       </div>
 
       <div class="listwrap">
         <div v-if="!subActual" class="empty">Elige un suscriptor a la izquierda para ver sus suscripciones.</div>
-        <template v-else>
-          <div v-if="sel.size > 0" class="bulkbar">
-            <span class="bn"><b>{{ sel.size }}</b> seleccionadas</span>
-            <button class="bapply danger-btn" :disabled="bulkBusy" @click="bajaLote">{{ bulkBusy?'Cancelando…':'Cancelar suscripción' }}</button>
-            <button class="bclear" @click="limpiarSel">Limpiar</button>
-          </div>
-          <div v-if="loading" class="empty">Cargando…</div>
-          <template v-else>
-            <div class="lhead">
-              <div><input type="checkbox" class="cbx" :checked="todasSel" @change="toggleTodas" /></div>
-              <div>Recurso</div>
-              <div class="col-pub">Publisher</div>
-              <div>Auto-upgrade</div>
-              <div class="col-sched">Versión</div>
-              <div class="col-acts" style="text-align:right">Acciones</div>
-            </div>
-            <div v-if="subsDelActual.length === 0" class="empty">
-              Este suscriptor no tiene suscripciones.
-              <button class="link" @click="abrirNuevaSusc">Añadir la primera</button>
-            </div>
-            <div v-for="su in subsPaginadas" :key="su.id" :class="['row', { sel: sel.has(su.id) }]">
-              <div><input type="checkbox" class="cbx" :checked="sel.has(su.id)" @change="toggleUno(su.id)" /></div>
-              <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ recDe(su.resourceId)?.name || su.resourceId }}</span></div>
-              <div class="col-pub pub" :title="recDe(su.resourceId)?.publisherObj?.nombre || ''">{{ recDe(su.resourceId)?.publisherObj?.acronimo || recDe(su.resourceId)?.publisherObj?.nombre || '—' }}</div>
-              <div><span class="status on" v-if="su.autoUpgrade && su.autoUpgrade!=='none'"><span class="sd"></span>{{ su.autoUpgrade }}</span><span class="status off" v-else><span class="sd"></span>fijada</span></div>
-              <div class="col-sched sched"><span class="nx ok">{{ su.currentVersion || '—' }}</span><small v-if="su.pinnedVersion">pin {{ su.pinnedVersion }}</small></div>
-              <div class="col-acts racts">
-                <button class="danger" title="Cancelar suscripción" @click="pedirBaja(su)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"/></svg></button>
-              </div>
-            </div>
-
-            <div v-if="total > 0" class="pager">
-              <div class="pl">
-                <span>Por página</span>
-                <select v-model.number="perPage" @change="page=1">
-                  <option :value="10">10</option><option :value="25">25</option><option :value="50">50</option><option :value="100">100</option>
-                </select>
-              </div>
-              <div class="pr">
-                <span class="rng">{{ desde }}–{{ hasta }} de {{ total }}</span>
-                <div class="pbtns">
-                  <button :disabled="page<=1" @click="page=1">«</button>
-                  <button :disabled="page<=1" @click="page--">‹</button>
-                  <span class="cur">{{ page }} / {{ totalPaginas }}</span>
-                  <button :disabled="page>=totalPaginas" @click="page++">›</button>
-                  <button :disabled="page>=totalPaginas" @click="page=totalPaginas">»</button>
-                </div>
-              </div>
-            </div>
-          </template>
-        </template>
+        <div v-else-if="loading" class="empty">Cargando…</div>
+        <SubscriptionEditor v-else class="se-host"
+          :subscriber-id="selected" :subscriber-name="subActual.name"
+          :resources="resources" :collections="collections" :subscriptions="subsDelActual"
+          @changed="load" />
       </div>
     </main>
 
@@ -182,24 +118,6 @@
       </div>
     </aside>
 
-    <!-- ===== nueva suscripción ===== -->
-    <div v-if="nuevaSusc.show" class="scrim show" @click.self="nuevaSusc.show=false">
-      <div class="confirm">
-        <h2>Nueva suscripción</h2>
-        <div class="field"><label>Recurso</label>
-          <select class="inp" v-model="nuevaSusc.resourceId">
-            <option value="">Elige recurso…</option>
-            <option v-for="r in recursosSuscribibles" :key="r.id" :value="r.id">{{ r.name }}{{ r.publisherObj?.acronimo ? ' — '+r.publisherObj.acronimo : '' }}</option>
-          </select></div>
-        <div class="field"><label>Auto-upgrade</label>
-          <select class="inp" v-model="nuevaSusc.autoUpgrade"><option v-for="u in upgradeOpts" :key="u" :value="u">{{ u }}</option></select></div>
-        <div class="cf">
-          <button class="ghost" @click="nuevaSusc.show=false">Cancelar</button>
-          <button class="save" :disabled="!nuevaSusc.resourceId || nuevaSusc.busy" @click="crearSuscripcion">{{ nuevaSusc.busy?'Suscribiendo…':'Suscribir' }}</button>
-        </div>
-      </div>
-    </div>
-
     </div><!-- /console activos -->
 
     <div v-if="tab==='pendientes'" class="pend-wrap"><Aprobaciones /></div>
@@ -215,9 +133,10 @@ import { usePagination } from '../composables/usePagination'
 import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
 import DrawerResizeHandle from '../components/DrawerResizeHandle.vue'
+import SubscriptionEditor from '../components/SubscriptionEditor.vue'
 import {
   fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber,
-  fetchSubscriptions, subscribeResource, unsubscribeResource, fetchResources,
+  fetchSubscriptions, unsubscribeResource, fetchResources, fetchResourceCollections,
 } from '../api/graphql'
 
 const { puede } = useAuth()
@@ -226,7 +145,7 @@ const { toast } = useToast()
 const tab = ref('activos')
 const canApprove = computed(() => puede('aplicaciones.aprobar') || puede('recursos.aprobar'))
 const loading = ref(true)
-const subscribers = ref([]); const subscriptions = ref([]); const resources = ref([])
+const subscribers = ref([]); const subscriptions = ref([]); const resources = ref([]); const collections = ref([])
 const selected = ref(null)
 const q = ref(''); const fPublisher = ref(''); const fUpgrade = ref('')
 const sel = ref(new Set())
@@ -243,10 +162,11 @@ function modoLabel(m){ return m==='both'?'webhook+graphql':m||'—' }
 async function load(){
   loading.value=true
   try{
-    const [sd,td,rd]=await Promise.all([fetchSubscribers(),fetchSubscriptions(),fetchResources(false)])
+    const [sd,td,rd,cd]=await Promise.all([fetchSubscribers(),fetchSubscriptions(),fetchResources(false),fetchResourceCollections()])
     subscribers.value=(sd?.subscribers||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,'es'))
     subscriptions.value=td?.resourceSubscriptions||[]
     resources.value=rd?.resources||[]
+    collections.value=cd?.resourceCollections||[]
     if(!subscribers.value.find(s=>s.id===selected.value)) selected.value=subscribers.value[0]?.id||null
   } finally{ loading.value=false }
 }
@@ -259,13 +179,8 @@ const nActivos = computed(()=> subscribers.value.filter(s=>s.active).length)
 function recDe(id){ return resources.value.find(r=>r.id===id) }
 const metaSub = computed(()=>{ const s=subActual.value; if(!s) return ''; return `${nSubs(s.id)} suscripciones · ${modoLabel(s.consumptionMode)} · ${s.active?'activo':'inactivo'}` })
 
-const subsDelActual = computed(()=> subscriptions.value.filter(x=>x.applicationId===selected.value).filter(su=>{
-  const r=recDe(su.resourceId)
-  if(q.value && !(r?.name||'').toLowerCase().includes(q.value.toLowerCase())) return false
-  if(fPublisher.value && r?.publisherObj?.id!==fPublisher.value) return false
-  if(fUpgrade.value && (su.autoUpgrade||'none')!==fUpgrade.value) return false
-  return true
-}))
+// Suscripciones crudas del suscriptor activo (el editor de dos paneles filtra solo).
+const subsDelActual = computed(()=> subscriptions.value.filter(x=>x.applicationId===selected.value))
 const publishersUsados = computed(()=>{ const m=new Map(); for(const su of subscriptions.value.filter(x=>x.applicationId===selected.value)){ const r=recDe(su.resourceId); if(r?.publisherObj?.id&&!m.has(r.publisherObj.id)) m.set(r.publisherObj.id,r.publisherObj) } return Array.from(m.values()).sort((a,b)=>(a.acronimo||a.nombre).localeCompare(b.acronimo||b.nombre,'es')) })
 
 // paginación de suscripciones (misma lógica que el resto de la app)
@@ -302,14 +217,6 @@ async function guardar(){ saving.value=true
 
 async function pedirBorrarSub(s){ const { ok } = await confirm({ title:'Eliminar suscriptor', message:`¿Eliminar "${s.name}"? Se eliminará el suscriptor y sus suscripciones.`, confirmText:'Eliminar', danger:true }); if(!ok) return; try{ await deleteSubscriber(s.id,false); if(selected.value===s.id) selected.value=null; await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
 function pedirBorrarSubDrawer(){ const s=editing.value; drawer.value=false; pedirBorrarSub(s) }
-async function pedirBaja(su){ const r=recDe(su.resourceId); const { ok } = await confirm({ title:'Cancelar suscripción', message:`¿Cancelar la suscripción a "${r?.name||su.resourceId}"?`, confirmText:'Cancelar suscripción', danger:true }); if(!ok) return; try{ await unsubscribeResource(su.id); await load() }catch(e){ toast.error('Error: '+(e?.message||e)) } }
-
-// nueva suscripción
-const nuevaSusc=ref({show:false,resourceId:'',autoUpgrade:'patch',busy:false})
-function abrirNuevaSusc(){ nuevaSusc.value={show:true,resourceId:'',autoUpgrade:'patch',busy:false} }
-async function crearSuscripcion(){ nuevaSusc.value.busy=true
-  try{ await subscribeResource(selected.value, nuevaSusc.value.resourceId, null, nuevaSusc.value.autoUpgrade, null); nuevaSusc.value.show=false; await load() }
-  catch(e){ toast.error('Error: '+(e?.message||e)) } finally{ nuevaSusc.value.busy=false } }
 </script>
 
 <style scoped>

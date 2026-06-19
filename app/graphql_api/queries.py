@@ -326,7 +326,8 @@ def map_resource_subscription(sub: ResourceSubscription) -> ResourceSubscription
     return ResourceSubscriptionType(
         id=str(sub.id),
         application_id=str(sub.application_id),
-        resource_id=str(sub.resource_id),
+        resource_id=str(sub.resource_id) if sub.resource_id else None,
+        collection_id=str(sub.collection_id) if getattr(sub, 'collection_id', None) else None,
         pinned_version=sub.pinned_version,
         auto_upgrade=sub.auto_upgrade,
         current_version=sub.current_version,

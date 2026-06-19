@@ -26,14 +26,35 @@ class NotificationService:
         """
         print(f"  [5/5] NOTIFY - Sending notifications for dataset {dataset.version_string}...")
 
-        # Get matching subscriptions for this resource
-        subscriptions = (
+        # Suscripciones que casan este recurso: directas (resource_id) o por
+        # colección (collection_id) de cualquier colección a la que el recurso
+        # pertenezca —incluida su matriz (familia de la nodriza)—, resuelto AQUÍ
+        # para que la suscripción a colección cubra también los miembros futuros.
+        from sqlalchemy import select, or_
+        from app.models import resource_collection_member as RCM
+        member_col_ids = [
+            row[0] for row in session.execute(
+                select(RCM.c.collection_id).where(RCM.c.resource_id == dataset.resource_id)
+            ).all()
+        ]
+        cond = ResourceSubscription.resource_id == dataset.resource_id
+        if member_col_ids:
+            cond = or_(cond, ResourceSubscription.collection_id.in_(member_col_ids))
+        matching = (
             session.query(ResourceSubscription)
             .join(Subscriber)
-            .filter(ResourceSubscription.resource_id == dataset.resource_id)
+            .filter(cond)
             .filter(Subscriber.active == True)
             .all()
         )
+        # Dedup por aplicación: si un suscriptor casa por recurso Y por colección,
+        # se notifica una sola vez (preferimos la suscripción directa al recurso).
+        _vistos, subscriptions = set(), []
+        for s in sorted(matching, key=lambda x: 0 if x.resource_id else 1):
+            if s.application_id in _vistos:
+                continue
+            _vistos.add(s.application_id)
+            subscriptions.append(s)
 
         if not subscriptions:
             print(f"    No active subscriptions")

@@ -1585,6 +1585,50 @@ class Mutation:
             db.close()
 
     @strawberry.mutation
+    def subscribe_collection(
+        self,
+        application_id: str,
+        collection_id: str,
+        info: strawberry.types.Info,
+        auto_upgrade: str = "patch",
+    ) -> ResourceSubscriptionType:
+        """Suscribe una Subscriber a una colección: cubre sus recursos miembros,
+        resueltos en cada entrega (incluye los que se añadan después). Para la
+        familia de una nodriza se suscribe a su colección matriz."""
+        from app.models import ResourceCollection
+        db = get_db()
+        try:
+            if not _autorizado_sub(info, db, application_id):
+                raise PermissionError("No autorizado para suscribir esta aplicación")
+            app_obj = db.query(Subscriber).filter(Subscriber.id == application_id).first()
+            if not app_obj:
+                raise ValueError(f"Subscriber '{application_id}' no encontrada")
+            col = db.query(ResourceCollection).filter(ResourceCollection.id == collection_id).first()
+            if not col:
+                raise ValueError(f"Colección '{collection_id}' no encontrada")
+            existing = db.query(ResourceSubscription).filter(
+                ResourceSubscription.application_id == application_id,
+                ResourceSubscription.collection_id == collection_id,
+            ).first()
+            if existing:
+                raise ValueError("Ya existe una suscripción a esta colección para esta aplicación")
+            sub = ResourceSubscription(
+                id=uuid4(),
+                application_id=application_id,
+                collection_id=collection_id,
+                auto_upgrade=auto_upgrade,
+            )
+            db.add(sub)
+            db.commit()
+            db.refresh(sub)
+            return map_resource_subscription(sub)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
     def unsubscribe_resource(self, id: str, info: strawberry.types.Info) -> bool:
         """Elimina una suscripción. Permitido al admin (aplicaciones.gestionar)
         o al propio principal dueño de la Subscriber de la suscripción."""

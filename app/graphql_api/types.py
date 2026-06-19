@@ -274,7 +274,8 @@ class ResourceSubscriptionType:
     """Suscripción pasiva de Subscriber a Resource"""
     id: str
     application_id: str = strawberry.field(name="applicationId")
-    resource_id: str = strawberry.field(name="resourceId")
+    resource_id: Optional[str] = strawberry.field(default=None, name="resourceId")
+    collection_id: Optional[str] = strawberry.field(default=None, name="collectionId")
     pinned_version: Optional[str] = strawberry.field(default=None, name="pinnedVersion")
     auto_upgrade: str = strawberry.field(name="autoUpgrade")
     current_version: Optional[str] = strawberry.field(default=None, name="currentVersion")

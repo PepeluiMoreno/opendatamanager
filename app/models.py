@@ -501,7 +501,12 @@ class ResourceSubscription(AuditMixin, Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     application_id = Column(UUID(as_uuid=True), ForeignKey("opendata.application.id"), nullable=False)
-    resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id"), nullable=False)
+    # Una suscripción apunta a UN recurso O a UNA colección (exactamente uno). La
+    # suscripción a colección cubre sus miembros (resueltos en cada entrega, así que
+    # incluye los que se añadan después). Para una nodriza se suscribe a su colección
+    # matriz (familia: la nodriza y sus hijos).
+    resource_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource.id"), nullable=True)
+    collection_id = Column(UUID(as_uuid=True), ForeignKey("opendata.resource_collection.id"), nullable=True)
 
     # Version pinning
     pinned_version = Column(String(20))  # "1.2.*" or "1.*" or "1.2.3"
@@ -514,6 +519,7 @@ class ResourceSubscription(AuditMixin, Base):
 
     application = relationship("Subscriber", back_populates="subscriptions")
     resource = relationship("Resource")
+    collection = relationship("ResourceCollection")
 
 
 class ResourceDependency(AuditMixin, Base):
