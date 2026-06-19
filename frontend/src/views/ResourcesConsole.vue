@@ -131,7 +131,7 @@
             <div :class="['row', { sel: sel.has(r.id) }]">
               <div><input type="checkbox" class="cbx" :checked="sel.has(r.id)" @change="toggleRama(r)" /></div>
               <div class="rname">
-                <span v-if="hijosDe(r.id).length" :class="['twist',{open:abiertas.has(r.id)}]" @click="toggleRamaOpen(r.id)">▸</span>
+                <span v-if="esNodriza(r) || hijosDe(r.id).length" :class="['twist',{open:abiertas.has(r.id)}]" @click="toggleRamaOpen(r.id)">▸</span>
                 <span v-else class="twist" style="visibility:hidden">▸</span>
                 <span class="ttl">
                   <span v-if="esNodriza(r)">🛰️ </span>{{ r.name }}
@@ -151,6 +151,14 @@
               </div>
             </div>
             <template v-if="abiertas.has(r.id)">
+              <div v-if="!hijosDe(r.id).length" class="row child empty-child">
+                <div></div>
+                <div class="rname"><span class="twist" style="visibility:hidden">▸</span>
+                  <span class="ttl muted">Sin recursos hijos todavía —
+                    <router-link :to="`/resources/${r.id}/candidates`" class="link">ver candidatos</router-link> para promover.</span>
+                </div>
+                <div></div><div></div><div></div><div></div>
+              </div>
               <div v-for="ch in hijosDe(r.id)" :key="ch.id" :class="['row','child',{ sel: sel.has(ch.id) }]">
                 <div><input type="checkbox" class="cbx" :checked="sel.has(ch.id)" @change="toggleUno(ch.id)" /></div>
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
@@ -725,6 +733,8 @@ async function ejecutar(r){
 .row:hover{border-color:#2c3a48;background:var(--panel-2)}
 .row.sel{border-color:var(--signal-dim);background:#10211e}
 .row.child{background:#0f141bcc;margin-left:30px;border-style:dashed;border-color:#1c2733}
+.row.empty-child{opacity:.85}
+.ttl.muted{color:var(--faint);font-style:italic;font-weight:400}
 @media(max-width:1100px){.lhead,.row{grid-template-columns:30px 1fr 110px 78px}.col-sched,.col-pub{display:none!important}}
 .cbx{appearance:none;width:17px;height:17px;border-radius:5px;border:1.5px solid #36434f;background:#0d1219;cursor:pointer;position:relative}
 .cbx:checked{background:var(--signal);border-color:var(--signal)}
