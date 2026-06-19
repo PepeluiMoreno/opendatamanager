@@ -1,0 +1,57 @@
+{
+  "odm_manifest_version": 1,
+  "publisher": {
+    "acronimo": "DGC",
+    "nombre": "Dirección General del Catastro",
+    "nivel": "ESTATAL",
+    "pais": "España",
+    "portal_url": "https://www.catastro.hacienda.gob.es"
+  },
+  "resources": [
+    {
+      "name": "Catastro INSPIRE - Edificios (BU) · building",
+      "fetcher": "Crawler ATOM",
+      "genera_colecciones": true,
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "params": [
+        { "key": "url", "value": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/ES.SDGC.BU.atom.xml" },
+        { "key": "filtro_incluir", "value": "", "is_external": true },
+        { "key": "inner_format", "value": "gml" },
+        { "key": "entry", "value": "*.building.gml" },
+        { "key": "rate_limit_per_second", "value": "1" },
+        { "key": "max_per_hour", "value": "3500" }
+      ]
+    },
+    {
+      "name": "Catastro INSPIRE - Edificios (BU) · buildingpart",
+      "fetcher": "Crawler ATOM",
+      "genera_colecciones": true,
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "params": [
+        { "key": "url", "value": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/ES.SDGC.BU.atom.xml" },
+        { "key": "filtro_incluir", "value": "", "is_external": true },
+        { "key": "inner_format", "value": "gml" },
+        { "key": "entry", "value": "*.buildingpart.gml" },
+        { "key": "rate_limit_per_second", "value": "1" },
+        { "key": "max_per_hour", "value": "3500" }
+      ]
+    },
+    {
+      "name": "Catastro INSPIRE - Edificios (BU) · otherconstruction",
+      "fetcher": "Crawler ATOM",
+      "genera_colecciones": true,
+      "active": true,
+      "clase_fuente": "api_abierta",
+      "params": [
+        { "key": "url", "value": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/ES.SDGC.BU.atom.xml" },
+        { "key": "filtro_incluir", "value": "", "is_external": true },
+        { "key": "inner_format", "value": "gml" },
+        { "key": "entry", "value": "*.otherconstruction.gml" },
+        { "key": "rate_limit_per_second", "value": "1" },
+        { "key": "max_per_hour", "value": "3500" }
+      ]
+    }
+  ]
+}

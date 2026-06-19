@@ -33,10 +33,12 @@ from __future__ import annotations
 
 import json
 import logging
+import io
 import re
 import time
 import xml.etree.ElementTree as ET
-from collections import deque
+import zipfile
+from collections import deque, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 from urllib.parse import urlparse
@@ -51,6 +53,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_LEAF_EXTS = ("zip", "gz", "gml", "tar", "7z", "rar", "tgz")
 _PLACEHOLDER_RE = re.compile(r"\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_SEP_SPLIT = re.compile(r"([-_.])")
 
 
 def _localname(tag: str) -> str:
@@ -183,6 +186,162 @@ class AtomCrawlerFetcher(BaseFetcher):
         logger.info(f"[atom-crawler] {feeds} feed(s), {len(hojas)} hoja(s); filtro fuera: {fuera}.")
         return hojas
 
+    # ── PROPOSE (recurso-madre): un candidato YA FORMADO por PRODUCTOR ───────────
+    #
+    # discover()+infer() falla en feeds federados como el del Catastro: las URLs
+    # hoja varían el código de municipio en DOS átomos correlacionados (la carpeta
+    # `02001-ABENGIBRE` Y el código del filename `...CP.02001.zip`), y el infer
+    # genérico —que colapsa de a un átomo— deja ~1 propuesta por municipio. Además
+    # el feed nacional FEDERA varios productores (DGC peninsular + diputaciones
+    # forales) con rutas y GML internos distintos.
+    #
+    # propose() resuelve ambas cosas sin tocar el infer global: agrupa las hojas
+    # por PRODUCTOR (netloc + nº de segmentos), y por grupo construye él mismo el
+    # path_template (constante donde no varía, {placeholder} donde sí) y las
+    # dimensiones. Devuelve UN candidato autosuficiente por productor, con su
+    # `target_fetcher_code`=Crawler ATOM y `target_params` (entry/inner_format/
+    # cortesía) heredados —el `entry` del padre solo para el productor primario;
+    # los federados, con GML único, usan `*.gml`.
+    def propose(self) -> List[Dict[str, Any]]:
+        hojas = self.discover()
+        grupos: Dict[tuple, List[str]] = defaultdict(list)
+        for h in hojas:
+            p = urlparse(h["url"])
+            nseg = len([s for s in p.path.split("/") if s])
+            grupos[(p.netloc, nseg)].append(h["url"])
+
+        proposals: List[Dict[str, Any]] = []
+        for (netloc, _n), urls in grupos.items():
+            path_template, dims = self._build_template(urls)
+            ft: Dict[str, int] = defaultdict(int)
+            for u in urls:
+                ft[_ext(u) or "zip"] += 1
+            proposals.append({
+                "suggested_name": self._nombre(netloc, path_template, self.params.get("entry"))[:200],
+                "path_template": path_template,
+                "dimensions": dims,
+                "matched_urls": sorted(urls),
+                "file_types": dict(ft),
+                "confidence": 0.9,
+                "target_fetcher_code": "Crawler ATOM",
+                "target_params": self._child_params(),
+            })
+        proposals.sort(key=lambda p: -len(p["matched_urls"]))
+        self.profile_stats = {
+            "total_files": len(hojas),
+            "productores": len(proposals),
+            "file_extensions": {ext: sum(1 for h in hojas if h["file_type"] == ext)
+                                for ext in {h["file_type"] for h in hojas}},
+        }
+        logger.info(f"[atom-crawler] propose: {len(hojas)} hoja(s) → {len(proposals)} productor(es).")
+        return proposals
+
+    # — helpers de propose ————————————————————————————————————————————————————
+    @staticmethod
+    def _dim_name(values: List[str], usados: set) -> str:
+        """Nombre semántico para un átomo variable (heurística INSPIRE-ES).
+        Garantiza unicidad sufijando _2, _3… si el nombre ya está en uso."""
+        vs = [str(v) for v in values]
+        if all(re.fullmatch(r"\d{2}", v) for v in vs):
+            base = "provincia"
+        elif all(re.fullmatch(r"\d{5}-.+", v) for v in vs):
+            base = "municipio_nombre"
+        elif all(re.fullmatch(r"\d{3,5}", v) for v in vs):
+            base = "municipio"
+        else:
+            base = "codigo"
+        name, k = base, 2
+        while name in usados:
+            name = f"{base}_{k}"
+            k += 1
+        usados.add(name)
+        return name
+
+    def _build_template(self, urls: List[str]) -> tuple:
+        """Plantilla + dimensiones de un grupo de URLs hermanas (mismo netloc y
+        nº de segmentos). Constante donde no varía; {dim} donde sí (en segmentos
+        de path y, troceando por separadores, dentro del filename)."""
+        parsed = [urlparse(u) for u in urls]
+        scheme, netloc = parsed[0].scheme, parsed[0].netloc
+        seg_lists = [[s for s in p.path.split("/") if s] for p in parsed]
+        n = len(seg_lists[0])
+        usados: set = set()
+        template_segs: List[str] = []
+        dims: List[Dict[str, Any]] = []
+        for i in range(n):
+            col = [segs[i] for segs in seg_lists]
+            distintos = sorted(set(col))
+            is_last = i == n - 1
+            if not is_last:
+                if len(distintos) == 1:
+                    template_segs.append(col[0])
+                else:
+                    name = self._dim_name(col, usados)
+                    template_segs.append("{" + name + "}")
+                    dims.append({"name": name, "kind": "code", "segment_index": i,
+                                 "in_filename": False, "sample_values": distintos[:20]})
+                continue
+            # último segmento = filename: trocear por separadores y alinear átomos
+            atomized = [[a for a in _SEP_SPLIT.split(f) if a != ""] for f in col]
+            L = len(atomized[0])
+            if any(len(a) != L for a in atomized):
+                # estructura irregular: un único placeholder por todo el filename
+                name = self._dim_name(col, usados)
+                template_segs.append("{" + name + "}")
+                dims.append({"name": name, "kind": "code", "segment_index": i,
+                             "in_filename": True, "sample_values": distintos[:20]})
+                continue
+            out: List[str] = []
+            for j in range(L):
+                acol = [a[j] for a in atomized]
+                if len(set(acol)) == 1:
+                    out.append(acol[0])
+                else:
+                    name = self._dim_name(acol, usados)
+                    out.append("{" + name + "}")
+                    dims.append({"name": name, "kind": "code", "segment_index": i,
+                                 "in_filename": True, "sample_values": sorted(set(acol))[:20]})
+            template_segs.append("".join(out))
+        return f"{scheme}://{netloc}/" + "/".join(template_segs), dims
+
+    @staticmethod
+    def _entry_tag(entry: Optional[str]) -> str:
+        """Distintivo del tipo de feature a partir del `entry` (`*.building.gml`
+        → `building`). Vacío para globs genéricos (`*.gml`), que no aportan."""
+        e = (entry or "").strip().lstrip("*").lstrip(".")
+        if "." in e:
+            e = e.rsplit(".", 1)[0]      # quita la extensión final
+        e = e.rsplit(".", 1)[-1]          # último átomo
+        return "" if (not e or e.lower() in ("gml", "*")) else e
+
+    @staticmethod
+    def _nombre(netloc: str, path_template: str, entry: Optional[str] = None) -> str:
+        """Nombre legible y único por productor: último segmento constante + host.
+        Incluye el tipo de feature cuando el `entry` lo distingue (caso BU, que
+        publica building/buildingpart/otherconstruction sobre el mismo feed)."""
+        segs = urlparse(path_template).path.split("/")
+        consts = [s for s in segs[:-1] if s and not s.startswith("{")]
+        base = consts[-1] if consts else netloc
+        tag = AtomCrawlerFetcher._entry_tag(entry)
+        if tag:
+            base = f"{base} · {tag}"
+        return f"{base} ({netloc})"
+
+    def _child_params(self) -> Dict[str, str]:
+        """Params del hijo extractor: hereda `entry`/`inner_format`/cortesía del
+        padre, idénticos para TODOS los productores. El `entry` específico
+        (p. ej. `*.building.gml`) casa en el primario y, en los forales con GML
+        único de otro nombre, lo resuelve el fallback de `_extraer`. Sin `entry`
+        padre se usa `*.gml`."""
+        base: Dict[str, str] = {}
+        for k in ("inner_format", "timeout", "batch_size", "rate_limit_per_second",
+                  "request_delay_ms", "max_per_hour", "file_delay", "headers", "format"):
+            v = self.params.get(k)
+            if v not in (None, ""):
+                base[k] = str(v)
+        base["entry"] = (self.params.get("entry") or "").strip() or "*.gml"
+        return base
+
     # ── STREAM (recurso hijo promovido): extrae+parsea cada fichero ──────────────
     def _template_regex(self, template: str) -> re.Pattern:
         rx, last = "", 0
@@ -216,9 +375,28 @@ class AtomCrawlerFetcher(BaseFetcher):
         return _ext(url)
 
     def _extraer(self, content: bytes, fmt: str, entry: str):
-        """Reusa la extracción de Compressed File (sin duplicar lógica)."""
+        """Reusa la extracción de Compressed File (sin duplicar lógica).
+
+        Fallback de federación INSPIRE: el `entry` del productor primario es un
+        glob específico (p. ej. `*.cadastralparcel.gml`), pero un productor foral
+        suele empaquetar un ÚNICO GML con otro nombre (`ES.BFA.CP.gml`) que no
+        casa ese glob. Si el glob no encuentra nada pero hay UN SOLO fichero con
+        la misma extensión, se usa. Localizado aquí (no en el `_extract_zip`
+        global) para no relajar el comportamiento estricto de Compressed File."""
         if fmt == "zip":
-            return _extract_zip(content, entry)
+            try:
+                return _extract_zip(content, entry)
+            except ValueError:
+                if entry and "." in entry:
+                    ext = "." + entry.rsplit(".", 1)[-1].lower()
+                    zf = zipfile.ZipFile(io.BytesIO(content))
+                    nombres = [n for n in zf.namelist()
+                               if not n.endswith("/") and n.lower().endswith(ext)]
+                    if len(nombres) == 1:
+                        logger.info("[atom-crawler] '%s' no casó; uso el único %s del ZIP",
+                                    entry, ext)
+                        return zf.read(nombres[0]), nombres[0]
+                raise
         if fmt == "gz":
             return _extract_gz(content)
         if fmt == "7z":

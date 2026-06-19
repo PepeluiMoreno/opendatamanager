@@ -9,11 +9,26 @@ from .classifier import classify_segment, _CURRENT_YEAR
 
 
 def template_path_segments(segments: List[str]) -> Tuple[List[str], List[Dict[str, Any]]]:
-    """Templatea cada segmento; devuelve (template_segs, dimensiones detectadas con su valor)."""
+    """Templatea cada segmento; devuelve (template_segs, dimensiones detectadas con su valor).
+
+    Guard del mes numérico: un segmento de 1-2 dígitos (p. ej. ``02``) es
+    intrínsecamente ambiguo —puede ser un mes, pero también un código de
+    provincia, gerencia, capítulo…—. Solo se acepta como ``{month}`` si **ya
+    apareció un ``{year}`` en un segmento más superficial** del mismo path (el
+    anidamiento real de las series mensuales es ``/2024/03/``). Sin año previo se
+    deja literal. Los meses por NOMBRE (``enero``) siguen siendo inequívocos.
+    Evita el falso positivo que hacía que el feed del Catastro saliera con
+    ``/{month}/`` en lugar de la provincia.
+    """
     template: List[str] = []
     dims: List[Dict[str, Any]] = []
+    seen_year = False
     for i, seg in enumerate(segments):
         kind, value = classify_segment(seg)
+        if kind == "year":
+            seen_year = True
+        elif kind == "month" and seg.strip().isdigit() and not seen_year:
+            kind = None  # mes numérico sin año-contexto → ambiguo, se deja literal
         if kind:
             template.append("{" + kind + "}")
             dims.append({

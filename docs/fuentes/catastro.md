@@ -58,6 +58,46 @@ feed de SERVICIO (ES.SDGC.CP.atom.xml)
 - `AtomFetcher` ("Feeds ATOM/RSS") **no** sirve aquí: su `rel_next` es paginación
   *horizontal* de un mismo feed, no desciende por enlaces *por-entrada* a sub-feeds.
 
+## ⚠️ El feed nacional FEDERA varios productores (verificado 2026-06-19)
+
+El feed de servicio CP **no es solo DGC**: sus `<entry>` enlazan a sub-feeds de
+**productores distintos** (las diputaciones forales publican su propio INSPIRE).
+Las 8.069 hojas se reparten así:
+
+| Productor (host) | Hojas | Estructura de la hoja | GML interno |
+|---|---|---|---|
+| **DGC peninsular** (`www.catastro.hacienda.gob.es`) | 7.611 | `/CP/{prov}/{NNNNN-NOMBRE}/A.ES.SDGC.CP.{NNNNN}.zip` | `*.cadastralparcel.gml` (+ zoning) |
+| **Navarra** (`filescartografia.navarra.es`) | 342 | `.../files/CP_Navarra_{n}.gml.zip` (por **tesela**) | `CP_Navarra_{n}.gml` |
+| **Bizkaia** (`apli.bizkaia.eus`) | 112 | `/apps/Danok/INSPIRE/ES.BFA.CP.{NNN}.zip` (por municipio) | `ES.BFA.CP.gml` |
+| **Araba** (`geo.araba.eus`) | 3 | `/deskargak/INSPIRE/CP/GML/{crs}/CP_{crs}_GML.zip` (por **CRS**) | único |
+| **Gipuzkoa** (`b5m.gipuzkoa.eus`) | 1 | `/inspire/download/GML/ES.GFA.CP.zip` (provincia entera) | único |
+
+Implicaciones: (a) el GML interno **no** se llama igual en todos → el `entry`
+es **por productor** (`*.cadastralparcel.gml` solo en DGC; `*.gml` en los
+forales, que traen un único GML); (b) Navarra agrupa por tesela y Araba por CRS,
+no por municipio → su dimensión no es "municipio" aunque el descubridor la
+nombre así por heurística (renómbrese al promover si importa).
+
+## Descubrimiento: `propose()` (no `discover()`+`infer()`)
+
+El `infer()` genérico **no sirve** para este feed: el código de municipio varía
+en DOS átomos correlacionados (carpeta `02001-ABENGIBRE` **y** filename
+`...CP.02001.zip`), y el infer —que colapsa de a un átomo— deja ~1 candidato por
+municipio (se midió: **7.617 propuestas** de 8.069 hojas). Además mezclaba los
+cinco productores.
+
+Por eso el **Crawler ATOM implementa `propose()`**: agrupa las hojas por
+**productor** (netloc) y construye él mismo el `path_template` y las dimensiones
+→ **un candidato autosuficiente por productor** (5 en total), con
+`target_fetcher_code=Crawler ATOM` y `target_params` (entry/inner_format/
+cortesía). El productor primario (mismo host que el feed) hereda el `entry` del
+padre; los federados usan `*.gml`. El `FetcherManager` llama a `propose()` antes
+que a `discover()+infer()` cuando la especie lo expone.
+
+> Bug colateral corregido: el clasificador tomaba la **provincia `02`–`12` como
+> `{month}`**. Ahora un mes numérico solo se acepta si hay un `{year}` más
+> superficial en el path (`template_path_segments`).
+
 ## Fetchers que usa
 
 | Pieza | Especie ODM | Rol |
@@ -152,8 +192,31 @@ BU y AD: idéntico cambiando `url`. **El manifest no lleva ni un campo de SIPI.*
 - **Soft-404**: las URLs inexistentes devuelven `200` + HTML de 15257 bytes (no 404);
   las reales dan `206`/`PK`. Útil para validar.
 
+## BU (Edificios) y AD (Direcciones) — verificado 2026-06-19
+
+Confirmado el contenido del ZIP municipal de cada tema (host DGC, municipio 02001):
+
+- **AD** (`.../INSPIRE/Addresses/ES.SDGC.AD.atom.xml`): **1 GML**
+  (`A.ES.SDGC.AD.NNNNN.gml`) + `*.MD.*.xml`. Idéntico a CP → un solo recurso,
+  `entry=*.gml` (el MD es `.xml`, no colisiona). Manifiesto:
+  `manifests/catastro_ad_direcciones.json`.
+- **BU** (`.../INSPIRE/Buildings/ES.SDGC.BU.atom.xml`): **3 GML de feature types
+  distintos** —`*.building.gml`, `*.buildingpart.gml`, `*.otherconstruction.gml`—
+  + `*.MD.*.xml`. Como tienen esquemas distintos, se modela **un recurso por
+  tipo** (3 crawlers sobre el mismo feed, distinguidos por `entry`). El stream
+  extrae UN fichero interno por ZIP, así que separar por `entry` es la vía sin
+  tocar código. Manifiesto: `manifests/catastro_bu_edificios.json`.
+
+> Fallback de federación en `_extraer`: el `entry` específico del primario (p. ej.
+> `*.cadastralparcel.gml`) no casa en los forales, que empaquetan un GML único con
+> otro nombre (`ES.BFA.CP.gml`). Si el glob no encuentra nada **pero hay un solo
+> fichero con esa extensión**, se usa. Con varios `.gml` (caso BU) NO adivina:
+> error → el municipio se omite. Por eso `propose()` hereda el MISMO `entry` a
+> todos los productores (ya no hay rama `*.gml` por netloc).
+
 ## Lo que falta por verificar
 
-1. **BU/AD** en detalle (BU trae 3 GML por ZIP → un recurso por GML).
-2. **Orden de ejes** del GML por CRS contra un fichero real (UTM ETRS89 vs geográfico).
-3. **Mapeo INE↔DGC** (lado SIPI) para poder filtrar por municipio.
+1. **Orden de ejes** del GML por CRS contra un fichero real (UTM ETRS89 vs geográfico).
+2. **Mapeo INE↔DGC** (lado SIPI) para poder filtrar por municipio.
+3. **Forales en BU/AD**: confirmar si las diputaciones publican estos temas y con
+   qué estructura interna (el fallback cubre GML único; 3 GML typed casan directo).
