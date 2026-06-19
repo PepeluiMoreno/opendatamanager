@@ -10,15 +10,15 @@
   "resources": [
     {
       "name": "Catastro INSPIRE - Parcelas (CP)",
-      "fetcher": "Descubridor ATOM",
+      "fetcher": "Crawler ATOM",
       "genera_colecciones": true,
       "active": true,
       "clase_fuente": "api_abierta",
       "params": [
         { "key": "url", "value": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/ES.SDGC.CP.atom.xml" },
         { "key": "filtro_incluir", "value": "", "is_external": true },
-        { "key": "child_fetcher", "value": "Compressed File" },
-        { "key": "child_params", "value": "{\"inner_format\": \"gml\", \"entry\": \"*.cadastralparcel.gml\"}" },
+        { "key": "inner_format", "value": "gml" },
+        { "key": "entry", "value": "*.cadastralparcel.gml" },
         { "key": "rate_limit_per_second", "value": "1" },
         { "key": "max_per_hour", "value": "3500" }
       ]

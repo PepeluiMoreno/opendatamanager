@@ -198,22 +198,24 @@ FETCHERS: List[Dict[str, Any]] = [
         ],
     },
     {
-        "name": "Descubridor ATOM",
-        "class_path": "app.fetchers.atom_download_discoverer.AtomDownloadDiscoverer",
-        "description": "Descubridor de servicios ATOM de descarga (INSPIRE/OpenSearch). Nave nodriza que recorre una jerarquía de feeds (servicio -> territorio/gerencia -> ficheros) y emite un recurso-hijo por cada fichero hoja descargable (GML/GZ/ZIP), normalmente uno por municipio. Agnóstico: distingue sub-feed de fichero por el type/extensión del <link>; el parseo del payload es del consumidor o de la especie-hoja. Las claves de cortesía (rate_limit_per_second/request_delay_ms/max_per_hour) se propagan a los hijos. Sexta estrategia de descubrimiento. Solo modo descubrir.",
+        "name": "Crawler ATOM",
+        "class_path": "app.fetchers.atom_crawler_fetcher.AtomCrawlerFetcher",
+        "description": "Crawler de servicios ATOM de descarga (INSPIRE/OpenSearch), espejo de Web Tree pero sobre una jerarquía de feeds (servicio -> territorio/gerencia -> ficheros). Dual-modo: descubrir (recorre los feeds y devuelve las URLs hoja; infer() las agrupa por path_template y detecta el código de municipio como dimensión -> UN candidato dimensionado, no miles) y extraer (recurso hijo: por cada fichero descarga el ZIP, extrae el .gml y lo parsea a registros reusando la maquinaria de Compressed File/file_parsers/gml_parser, etiquetando con municipio -> salida homogénea JSONL). Agnóstico de dominio. Cortesía vía rate_limit_per_second/request_delay_ms/max_per_hour.",
         "params": [
             {"param_name": "url", "data_type": "string", "required": True, "group": "descubrimiento", "hint": "Feed ATOM de servicio (nivel superior). Ej. Catastro CP: https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/ES.SDGC.CP.atom.xml"},
-            {"param_name": "child_fetcher", "data_type": "string", "required": False, "default_value": "Compressed File", "group": "descubrimiento", "hint": "Especie-destino de los hijos hoja. Por defecto 'Compressed File' (el fichero suele venir en ZIP/GZ)."},
             {"param_name": "filtro_incluir", "data_type": "json", "required": False, "group": "descubrimiento", "hint": "Lista de subcadenas; una hoja pasa solo si su título/id/href contiene alguna. Para Catastro, códigos de municipio. Ej.: [\"11020\"] (Jerez). Vacío = todas."},
             {"param_name": "leaf_exts", "data_type": "string", "required": False, "group": "descubrimiento", "hint": "Extensiones que cuentan como fichero hoja (coma-separadas). Por defecto: zip,gz,gml,tar,7z,rar,tgz."},
-            {"param_name": "max_depth", "data_type": "integer", "required": False, "default_value": 0, "group": "descubrimiento", "hint": "Niveles de feed a descender antes de tratar todo enlace como hoja. 0 = auto (decide por type/extensión). INSPIRE Catastro: 0 o 2."},
-            {"param_name": "max_entries", "data_type": "integer", "required": False, "default_value": 0, "group": "descubrimiento", "hint": "Tope de hijos a proponer (0 = sin tope). Útil para pruebas."},
+            {"param_name": "max_depth", "data_type": "integer", "required": False, "default_value": 0, "group": "descubrimiento", "hint": "Niveles de feed a descender antes de tratar todo enlace como hoja. 0 = auto (por type/extensión). INSPIRE Catastro: 0 o 2."},
             {"param_name": "max_feeds", "data_type": "integer", "required": False, "default_value": 500, "group": "descubrimiento", "hint": "Cota dura de feeds a recorrer (anti-bucle). Sube si una IDE tiene muchos territorios."},
-            {"param_name": "child_params", "data_type": "json", "required": False, "group": "descubrimiento", "hint": "Dict JSON que se fusiona en target_params de cada hijo (p. ej. {\"inner_format\": \"gml\", \"entry\": \"*.gml\"})."},
-            {"param_name": "rate_limit_per_second", "data_type": "string", "required": False, "group": "cortesia", "hint": "Cortesía: máx. peticiones/seg por host. Se aplica al descubridor y se propaga a los hijos."},
+            {"param_name": "entry", "data_type": "string", "required": False, "group": "extraccion", "hint": "Fichero a extraer de cada contenedor (modo extraer). Patrón glob admitido. Ej.: *.cadastralparcel.gml. Vacío = el único disponible."},
+            {"param_name": "inner_format", "data_type": "string", "required": False, "group": "extraccion", "hint": "Formato del fichero interior (modo extraer): gml, csv, xlsx, json... Vacío = se infiere de la extensión."},
+            {"param_name": "format", "data_type": "string", "required": False, "group": "extraccion", "hint": "Formato del contenedor (modo extraer): zip, gz, 7z, tar, tar.gz, tar.bz2. Vacío = se infiere de la URL."},
+            {"param_name": "batch_size", "data_type": "integer", "required": False, "default_value": 1000, "group": "behavior", "hint": "Registros por lote al ceder en el stream (modo extraer)."},
+            {"param_name": "file_delay", "data_type": "number", "required": False, "default_value": 0, "group": "behavior", "hint": "Pausa entre ficheros en el stream (modo extraer)."},
+            {"param_name": "rate_limit_per_second", "data_type": "string", "required": False, "group": "cortesia", "hint": "Cortesía: máx. peticiones/seg por host. Se aplica en discover y en extract."},
             {"param_name": "request_delay_ms", "data_type": "string", "required": False, "group": "cortesia", "hint": "Cortesía: ms mínimos entre peticiones por host. Alternativa a rate_limit_per_second."},
             {"param_name": "max_per_hour", "data_type": "string", "required": False, "group": "cortesia", "hint": "Cortesía: tope de peticiones/hora por host (ventana deslizante). Evita baneos en fuentes con cupo duro."},
-            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 60, "group": "http", "hint": "Segundos máximos por lectura de feed."},
+            {"param_name": "timeout", "data_type": "integer", "required": False, "default_value": 120, "group": "http", "hint": "Segundos máximos por petición (lectura de feed en discover; descarga de fichero en extract)."},
         ],
     },
     {
@@ -1157,7 +1159,7 @@ def seed() -> None:
     try:
         retirados = []
         # Capacidad de modos por especie (keystone Collections): Web Tree descubre.
-        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"], "Descubridor REST": ["descubrir"], "Descubridor ATOM": ["descubrir"]}
+        _MODOS = {"Web Tree": ["extraer", "descubrir"], "Catálogo DCAT": ["extraer", "descubrir"], "Pivote": ["descubrir"], "Compressed File": ["extraer", "descubrir"], "Descubridor REST": ["descubrir"], "Crawler ATOM": ["extraer", "descubrir"]}
         for _f in db.query(Fetcher).filter(Fetcher.deleted_at.is_(None)).all():
             _f.modos = _MODOS.get(_f.code, ["extraer"])
         db.commit()
