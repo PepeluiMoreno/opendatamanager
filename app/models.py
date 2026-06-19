@@ -626,6 +626,10 @@ class Usuario(AuditMixin, Base):
     notificar_email = Column(Boolean, default=False, nullable=False)  # avisos de novedades
     last_login_at = Column(DateTime, nullable=True)
     cuota_refrescos_diaria = Column(Integer, default=50, nullable=False)  # refrescos a demanda/día (executeResource); 0 = sin refrescos extemporáneos
+    # Parámetros de UI por usuario (preferencias de la interfaz: p. ej. "no volver
+    # a pedir confirmación al arrastrar y soltar"). JSON libre key→valor; lo lee
+    # /api/auth/me y lo escribe POST /api/auth/ui-prefs (merge). No es config global.
+    ui_prefs = Column(JSONB, nullable=False, default=dict, server_default='{}')
 
     roles = relationship("Rol", secondary=usuario_rol, back_populates="usuarios")
 

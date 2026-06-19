@@ -312,7 +312,7 @@ import {
   fetchAppConfig,
 } from '../api/graphql'
 
-const { puede } = useAuth()
+const { puede, uiPrefs, setUiPref } = useAuth()
 const { confirm } = useConfirm()
 const { toast } = useToast()
 
@@ -597,10 +597,33 @@ function onRailOver(node, ev) {
 }
 function onRailLeave(node) { if (dropOver.value === node.group) dropOver.value = null }
 function onDragEnd() { dnd.value = { kind: null, ids: [], colId: null }; dropOver.value = null }
+// Confirmación del movimiento, salvo que el usuario haya pedido no volver a verla
+// (preferencia de UI persistida por usuario: uiPrefs.dndSkipConfirm).
+async function confirmarDnd(message) {
+  if (uiPrefs.value?.dndSkipConfirm) return true
+  const { ok, checked } = await confirm({
+    title: 'Confirmar movimiento',
+    message,
+    confirmText: 'Aplicar',
+    checkbox: { label: 'No volver a preguntar para arrastrar y soltar' },
+  })
+  if (ok && checked) await setUiPref('dndSkipConfirm', true)
+  return ok
+}
 async function onRailDrop(node) {
-  const d = dnd.value
+  const d = dnd.value           // capturado: 'dragend' resetea dnd.value mientras el modal está abierto
   dropOver.value = null
   if (!dropValido(node)) { onDragEnd(); return }
+  const n = d.ids.length
+  const nombreCol = () => groups.value.find(g => g.id === d.colId)?.name || 'la colección'
+  const descripcion = d.kind === 'resource'
+    ? (node.kind === 'none'
+        ? `Quitar ${n} recurso(s) de sus colecciones organizativas. Se mantienen en su colección matriz.`
+        : `Añadir ${n} recurso(s) a «${node.label}».`)
+    : (node.kind === 'none'
+        ? `Mover «${nombreCol()}» a la raíz (desanidar).`
+        : `Anidar «${nombreCol()}» bajo «${node.label}».`)
+  if (!(await confirmarDnd(descripcion))) { onDragEnd(); return }
   try {
     if (d.kind === 'resource') {
       if (node.kind === 'none') { for (const id of d.ids) await quitarDeOrganizativas(id) }
