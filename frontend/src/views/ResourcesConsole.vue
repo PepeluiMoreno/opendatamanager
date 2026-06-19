@@ -19,14 +19,8 @@
         <div v-if="!loaded" class="rail-load">Cargando…</div>
         <template v-else>
         <div v-for="c in railNodes" :key="c.key"
-             :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz',
-                               nested: c.depth>0, 'drop-over': dropOver===c.group,
-                               'drop-ok': arrastrando && dropOver!==c.group && dropValido(c) }]"
+             :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz', nested: c.depth>0 }]"
              :style="{ paddingLeft: (10 + (c.depth || 0) * 16) + 'px' }"
-             :draggable="(c.kind==='col' || c.kind==='matriz') && puede('recursos.editar')"
-             :title="(c.kind==='col'||c.kind==='matriz') ? 'Arrastra para anidar bajo otra colección, o suelta recursos aquí' : ''"
-             @dragstart="onDragCollection(c, $event)" @dragend="onDragEnd"
-             @dragover="onRailOver(c, $event)" @dragleave="onRailLeave(c)" @drop.prevent="onRailDrop(c)"
              @click="selected = c.group; limpiarSel()">
           <span v-if="c.hasChildren" class="tw" :class="{ open: expandedCols.has(c.group) }" @click.stop="toggleColExpand(c.group)">▸</span>
           <span v-else-if="c.depth" class="tw" style="visibility:hidden">▸</span>
@@ -78,6 +72,13 @@
         </button>
       </div>
 
+      <!-- Editor de membresía (dos paneles) cuando hay una colección organizativa
+           seleccionada: la colección es un CONJUNTO del pool (N:M). Para 'Todos',
+           'Sin agrupar' y las matriz (nodriza) se mantiene la lista clásica. -->
+      <CollectionMembership v-if="esOrganizativaSel" class="cm-host"
+        :collection-id="selected" :collection-name="colSel?.name || ''"
+        :resources="resources" @changed="load" />
+      <template v-else>
       <div class="filters">
         <div class="search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
@@ -134,8 +135,7 @@
 
           <div class="rows">
           <template v-for="r in topLevelPaged" :key="r.id">
-            <div :class="['row', { sel: sel.has(r.id), dragging: arrastrando && dnd.ids.includes(r.id) }]"
-                 :draggable="puede('recursos.editar')" @dragstart="onDragResource(r, $event)" @dragend="onDragEnd">
+            <div :class="['row', { sel: sel.has(r.id) }]">
               <div><input type="checkbox" class="cbx" :checked="sel.has(r.id)" @change="toggleRama(r)" /></div>
               <div class="rname">
                 <span v-if="esNodriza(r) || hijosDe(r.id).length" :class="['twist',{open:abiertas.has(r.id)}]" @click="toggleRamaOpen(r.id)">▸</span>
@@ -166,8 +166,7 @@
                 </div>
                 <div></div><div></div><div></div><div></div>
               </div>
-              <div v-for="ch in hijosDe(r.id)" :key="ch.id" :class="['row','child',{ sel: sel.has(ch.id), dragging: arrastrando && dnd.ids.includes(ch.id) }]"
-                   :draggable="puede('recursos.editar')" @dragstart="onDragResource(ch, $event)" @dragend="onDragEnd">
+              <div v-for="ch in hijosDe(r.id)" :key="ch.id" :class="['row','child',{ sel: sel.has(ch.id) }]">
                 <div><input type="checkbox" class="cbx" :checked="sel.has(ch.id)" @change="toggleUno(ch.id)" /></div>
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
                 <div class="col-pub pub" :title="ch.publisherObj?.nombre || ''">{{ ch.publisherObj?.acronimo || ch.publisherObj?.nombre || '—' }}</div>
@@ -201,6 +200,7 @@
           </div>
         </template>
       </div>
+      </template>
     </main>
 
     <!-- ============ DRAWER (resource editor) ============ -->
@@ -302,6 +302,7 @@ import { useAuth } from '../composables/useAuth'
 import ResourceParamsEditor from '../components/ResourceParamsEditor.vue'
 import ScheduleEditor from '../components/ScheduleEditor.vue'
 import DrawerResizeHandle from '../components/DrawerResizeHandle.vue'
+import CollectionMembership from '../components/CollectionMembership.vue'
 import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
 import {
@@ -424,7 +425,14 @@ onMounted(async () => {
 function esNodriza(r) { return r?.generaColecciones === true }
 // N:M: un recurso pertenece a varias colecciones (collectionIds).
 function memberCount(id) { return resources.value.filter(r => (r.collectionIds || []).includes(id)).length }
-const countSinAgrupar = computed(() => resources.value.filter(r => !(r.collectionIds || []).length).length)
+// «Sin agrupar» se mide por ausencia de colección ORGANIZATIVA: la pertenencia
+// a la propia colección matriz (que toda nodriza preside) NO cuenta como agrupar.
+// Así una nodriza no archivada en ninguna carpeta organizativa cae en «Sin agrupar».
+const organizativaIds = computed(() => new Set(
+  groups.value.filter(g => (g.origin || 'organizativa') === 'organizativa').map(g => g.id)))
+function sinOrganizativa(r) { return !(r.collectionIds || []).some(id => organizativaIds.value.has(id)) }
+const countSinAgrupar = computed(() =>
+  resources.value.filter(r => !r.parentResourceId && sinOrganizativa(r)).length)
 const panels = computed(() => [
   { key:'all', group:'__all__', label:'Todos los recursos', icon:'📚', kind:'all', count: resources.value.length },
   ...groups.value.map(g => ({
@@ -448,7 +456,7 @@ const nPend = computed(() => resources.value.filter(r => r.estadoAprobacion === 
 // ---- lista de la colección abierta ----
 const enColeccion = computed(() => resources.value.filter(r =>
   selected.value === '__all__' ? true
-    : selected.value === '__none__' ? !(r.collectionIds || []).length
+    : selected.value === '__none__' ? sinOrganizativa(r)
     : (r.collectionIds || []).includes(selected.value)))
 const topLevel = computed(() => enColeccion.value.filter(r => !r.parentResourceId).filter(r => {
   if (q.value && !r.name.toLowerCase().includes(q.value.toLowerCase())) return false
@@ -545,6 +553,10 @@ const railNodes = computed(() => {
   }
   return out
 })
+// ---- Colección seleccionada (para el editor de miembros de dos paneles) ----
+const colSel = computed(() => groups.value.find(g => g.id === selected.value) || null)
+const esOrganizativaSel = computed(() => !!colSel.value && (colSel.value.origin || 'organizativa') === 'organizativa')
+
 // ---- Anidar la colección seleccionada bajo otra organizativa ----
 const esColeccionSeleccionada = computed(() => groups.value.some(g => g.id === selected.value))
 const parentDeSeleccionada = computed(() => groups.value.find(g => g.id === selected.value)?.parentCollectionId || '')
@@ -556,58 +568,20 @@ async function anidarSeleccionada(parentId) {
   catch (e) { toast.error('Error al anidar: ' + (e?.message || e)) }
 }
 
-// ---- Arrastrar y soltar ----
-// Recurso → colección: añade (N:M, sin sacar de otras); sobre «Sin agrupar» quita de todas.
-// Colección → organizativa: la anida; sobre «Sin agrupar» la desanida a la raíz.
-const dnd = ref({ kind: null, ids: [], colId: null })   // kind: 'resource' | 'collection'
-const dropOver = ref(null)
-const arrastrando = computed(() => dnd.value.kind !== null)
+// ---- (Retirado) Arrastrar recursos al rail ----
+// Con pertenencia N:M, soltar recursos sobre un árbol de colecciones es ambiguo
+// (un recurso está en varias colecciones a la vez). La gestión de membresía vive
+// ahora en el editor de dos paneles (CollectionMembership), que representa cada
+// colección como un conjunto del pool. El rail queda como selector/árbol y el
+// anidamiento se hace con el selector «Anidar bajo…».
 
-function onDragResource(r, ev) {
-  if (!puede('recursos.editar')) { ev.preventDefault(); return }
-  const ids = sel.value.has(r.id) ? [...sel.value] : [r.id]   // arrastra la selección si el ítem está en ella
-  dnd.value = { kind: 'resource', ids, colId: null }
-  try { ev.dataTransfer.effectAllowed = 'copyMove'; ev.dataTransfer.setData('text/plain', ids.join(',')) } catch {}
-}
-function onDragCollection(c, ev) {
-  if (!puede('recursos.editar') || (c.kind !== 'col' && c.kind !== 'matriz')) { ev.preventDefault(); return }
-  dnd.value = { kind: 'collection', ids: [], colId: c.group }
-  try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', c.group) } catch {}
-}
-function dropValido(node) {
-  const d = dnd.value
-  if (!d.kind) return false
-  if (d.kind === 'resource') return ['col', 'matriz', 'none'].includes(node.kind)
-  // colección: solo puede anidarse bajo una organizativa (o desanidar en «Sin agrupar»)
-  if (node.group === d.colId) return false
-  return node.kind === 'col' || node.kind === 'none'
-}
-function onRailOver(node, ev) {
-  if (!dropValido(node)) return
-  ev.preventDefault()
-  try { ev.dataTransfer.dropEffect = dnd.value.kind === 'collection' ? 'move' : 'copy' } catch {}
-  dropOver.value = node.group
-}
-function onRailLeave(node) { if (dropOver.value === node.group) dropOver.value = null }
-function onDragEnd() { dnd.value = { kind: null, ids: [], colId: null }; dropOver.value = null }
-async function onRailDrop(node) {
-  const d = dnd.value
-  dropOver.value = null
-  if (!dropValido(node)) { onDragEnd(); return }
-  try {
-    if (d.kind === 'resource') {
-      if (node.kind === 'none') { for (const id of d.ids) await updateResource(id, { collectionId: '' }) }
-      else { await addResourcesToCollection(node.group, d.ids) }
-      toast.success(node.kind === 'none'
-        ? `${d.ids.length} recurso(s) sin agrupar`
-        : `${d.ids.length} recurso(s) → «${node.label}»`)
-    } else if (d.kind === 'collection') {
-      await setCollectionParent(d.colId, node.kind === 'none' ? null : node.group)
-      toast.success(node.kind === 'none' ? 'Colección movida a la raíz' : `Anidada bajo «${node.label}»`)
-    }
-    limpiarSel(); await load()
-  } catch (e) { toast.error('Error: ' + (e?.message || e)) }
-  finally { onDragEnd() }
+// Quita un recurso de TODAS sus colecciones organizativas, preservando la matriz
+// (gestionada por el sistema). Es el «sin agrupar» correcto bajo la nueva regla.
+async function quitarDeOrganizativas(rid) {
+  const r = resources.value.find(x => x.id === rid)
+  for (const cid of (r?.collectionIds || []).filter(c => organizativaIds.value.has(c))) {
+    await removeResourceFromCollection(cid, rid)
+  }
 }
 
 async function aplicarLote(){
@@ -628,11 +602,11 @@ async function aplicarLote(){
       catch(e){ toast.error('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false }
       return
     }
-    else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value) await updateResource(r.id,{collectionId:bulkMoveTarget.value}) }
-    else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); for(const r of seleccionados.value) await updateResource(r.id,{collectionId:g.id}) }
+    else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value){ await quitarDeOrganizativas(r.id); await addResourcesToCollection(bulkMoveTarget.value,[r.id]) } }
+    else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); await addResourcesToCollection(g.id, seleccionados.value.map(r=>r.id)) }
     else if (bulkAction.value === 'add') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} await addResourcesToCollection(bulkMoveTarget.value, seleccionados.value.map(r=>r.id)) }
     else if (bulkAction.value === 'remove_current') { if(selected.value==='__all__'||selected.value==='__none__'){bulkBusy.value=false;return} for(const r of seleccionados.value) await removeResourceFromCollection(selected.value, r.id) }
-    else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }
+    else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await quitarDeOrganizativas(r.id) }
     bulkAction.value=''; bulkMoveTarget.value=''; bulkGroupName.value=''
     limpiarSel(); await load()
   } catch(e){ toast.error('Error: '+(e?.message||e)) }
@@ -742,16 +716,8 @@ async function ejecutar(r){
 .roster{overflow-y:auto;padding:4px 14px 12px;flex:1;min-height:0}
 .col{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;position:relative;margin-bottom:2px}
 .col:hover{background:#161e29}
-.col[draggable=true]{cursor:grab}
-.col[draggable=true]:active{cursor:grabbing}
 /* guía visual de jerarquía: borde izquierdo en colecciones anidadas */
 .col.nested{box-shadow:inset 2px 0 0 var(--line-soft,#243140)}
-/* arrastrar y soltar: destino activo (sobre el que se suelta) y destinos válidos */
-.col.drop-ok{outline:1px dashed var(--signal-dim);outline-offset:-2px}
-.col.drop-over{outline:2px solid var(--signal);outline-offset:-2px;background:#15302c}
-.row.dragging{opacity:.45}
-.row[draggable=true]{cursor:grab}
-.row[draggable=true]:active{cursor:grabbing}
 .col.active{background:linear-gradient(90deg,#15302c,#13202a);box-shadow:inset 0 0 0 1px #2b6a61}
 .col.active::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--signal);box-shadow:0 0 10px var(--signal)}
 .col .gi{width:18px;text-align:center;font-size:15px}
@@ -774,6 +740,7 @@ async function ejecutar(r){
 .col-add button{padding:0 12px;border-radius:8px;background:var(--signal);color:#04201c;font-weight:600;font-size:12px;border:none;cursor:pointer}
 
 .main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.cm-host{flex:1;min-height:0;padding:8px 16px 16px}
 .topbar{display:flex;align-items:center;gap:14px;padding:16px 22px 12px}
 .crumb{min-width:0}
 .crumb .big{font-family:var(--disp);font-size:21px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

@@ -7,6 +7,7 @@ import { onAuthError } from '../api/graphql'
 const usuario = ref(null)          // username, o null si invitado
 const roles = ref([])
 const permisos = ref(new Set())
+const uiPrefs = ref({})            // parámetros de UI por usuario (persistidos en servidor)
 const inicializado = ref(false)
 const mostrarLogin = ref(false)
 
@@ -17,13 +18,30 @@ async function cargarSesion() {
     usuario.value = d.invitado ? null : d.username
     roles.value = d.roles || []
     permisos.value = new Set(d.permisos || [])
+    uiPrefs.value = d.uiPrefs || {}
   } catch {
     usuario.value = null
     roles.value = []
     permisos.value = new Set()
+    uiPrefs.value = {}
   } finally {
     inicializado.value = true
   }
+}
+
+// Persiste una preferencia de UI del usuario (merge key→valor). Optimista:
+// actualiza el estado local y lo envía al servidor. Para invitados (sin sesión)
+// se queda solo en memoria de la pestaña.
+async function setUiPref(key, value) {
+  uiPrefs.value = { ...uiPrefs.value, [key]: value }
+  try {
+    await fetch('/api/auth/ui-prefs', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, value }),
+    })
+  } catch { /* sin red: el cambio queda local en la sesión actual */ }
 }
 
 // Sesión caducada o permiso denegado en alguna llamada → re-sincronizar perfil.
@@ -70,5 +88,5 @@ export function useAuth() {
 
   const esInvitado = computed(() => !usuario.value)
 
-  return { usuario, roles, permisos, esInvitado, inicializado, mostrarLogin, login, logout, puede, cargarSesion }
+  return { usuario, roles, permisos, uiPrefs, setUiPref, esInvitado, inicializado, mostrarLogin, login, logout, puede, cargarSesion }
 }

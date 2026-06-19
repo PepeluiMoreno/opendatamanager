@@ -19,7 +19,13 @@ def _me_payload(db, user) -> dict:
         "username": user.username,
         "roles": [r.code for r in user.roles],
         "permisos": sorted(auth_svc.effective_permissions(db, user)),
+        "uiPrefs": user.ui_prefs or {},
     }
+
+
+class UiPrefInput(BaseModel):
+    key: str
+    value: object = None
 
 
 @router.post("/login")
@@ -47,6 +53,24 @@ def logout(request: Request, response: Response, db=Depends(get_db)):
     return {"ok": True}
 
 
+@router.post("/ui-prefs")
+def set_ui_pref(data: UiPrefInput, request: Request, db=Depends(get_db)):
+    """Fija una preferencia de UI del usuario actual (merge key→valor). Solo
+    usuarios humanos autenticados (el invitado no persiste prefs)."""
+    user = auth_svc.current_user_from_request(db, request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Inicia sesión para guardar preferencias.")
+    if not data.key:
+        raise HTTPException(status_code=400, detail="Falta 'key'.")
+    # JSONB sin MutableDict: hay que REASIGNAR un dict nuevo para que SQLAlchemy
+    # detecte el cambio.
+    prefs = dict(user.ui_prefs or {})
+    prefs[data.key] = data.value
+    user.ui_prefs = prefs
+    db.commit()
+    return {"uiPrefs": prefs}
+
+
 @router.get("/me")
 def me(request: Request, db=Depends(get_db)):
     user = auth_svc.current_user_from_request(db, request)
@@ -57,4 +81,5 @@ def me(request: Request, db=Depends(get_db)):
         "username": None,
         "roles": [],
         "permisos": sorted(auth_svc.guest_permissions(db)),
+        "uiPrefs": {},
     }
