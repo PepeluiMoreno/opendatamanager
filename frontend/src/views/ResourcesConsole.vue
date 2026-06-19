@@ -19,7 +19,7 @@
         <div v-if="!loaded" class="rail-load">Cargando…</div>
         <template v-else>
         <div v-for="c in railNodes" :key="c.key"
-             :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz', nested: c.depth>0 }]"
+             :class="['col', { active: selected === c.group, nested: c.depth>0 }]"
              :style="{ paddingLeft: (10 + (c.depth || 0) * 16) + 'px' }"
              @click="selected = c.group; limpiarSel()">
           <span v-if="c.hasChildren" class="tw" :class="{ open: expandedCols.has(c.group) }" @click.stop="toggleColExpand(c.group)">▸</span>
@@ -28,8 +28,7 @@
           <div class="cmeta">
             <span class="nm">{{ c.label }}</span>
             <span class="attrs">
-              <span class="at">{{ c.kind==='matriz' ? 'nodriza' : c.kind==='none' ? 'sin agrupar' : 'organizativa' }}</span>
-              <span class="at">· {{ c.count }} rec.</span>
+              <span class="at">{{ c.count }} rec.</span>
             </span>
           </div>
           <span v-if="c.kind==='col'" class="edit" @click.stop>
@@ -110,7 +109,7 @@
           </select>
           <select v-if="bulkAction==='move' || bulkAction==='add'" v-model="bulkMoveTarget" class="bsel">
             <option value="">Elige colección…</option>
-            <option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option>
+            <option v-for="g in organizativas" :key="g.id" :value="g.id">{{ g.name }}</option>
           </select>
           <input v-if="bulkAction==='group'" v-model="bulkGroupName" class="bsel" placeholder="Nombre de la colección…" @keyup.enter="aplicarLote" />
           <button class="bapply" :disabled="bulkBusy || !bulkAction || ((bulkAction==='move'||bulkAction==='add')&&!bulkMoveTarget) || (bulkAction==='group'&&!bulkGroupName.trim())" @click="aplicarLote">{{ bulkBusy?'Aplicando…':'Aplicar' }}</button>
@@ -228,7 +227,7 @@
               <div class="field"><label>Publisher</label>
                 <select class="inp" v-model="form.publisherId"><option value="">—</option><option v-for="p in publishers" :key="p.id" :value="p.id">{{ p.nombre || p.acronimo }}</option></select></div>
               <div class="field"><label>Colección</label>
-                <select class="inp" v-model="form.collectionId"><option value="">Sin agrupar</option><option v-for="g in groups" :key="g.id" :value="g.id">{{ g.name }}</option></select></div>
+                <select class="inp" v-model="form.collectionId"><option value="">Sin agrupar</option><option v-for="g in organizativas" :key="g.id" :value="g.id">{{ g.name }}</option></select></div>
             </div>
           </div>
         </div>
@@ -435,19 +434,16 @@ const countSinAgrupar = computed(() =>
   resources.value.filter(r => !r.parentResourceId && sinOrganizativa(r)).length)
 const panels = computed(() => [
   { key:'all', group:'__all__', label:'Todos los recursos', icon:'📚', kind:'all', count: resources.value.length },
-  ...groups.value.map(g => ({
-    key:g.id, group:g.id, label:g.name, g,
-    icon: g.origin === 'matriz' ? '🛰️' : '🗂️',
-    kind: g.origin === 'matriz' ? 'matriz' : 'col',
-    count: memberCount(g.id),
-  })),
+  ...groups.value
+    .filter(g => (g.origin || 'organizativa') === 'organizativa')
+    .map(g => ({ key:g.id, group:g.id, label:g.name, g, icon:'🗂️', kind:'col', count: memberCount(g.id) })),
   { key:'none', group:'__none__', label:'Sin agrupar', icon:'🗃️', kind:'none', count: countSinAgrupar.value },
 ])
 const tituloColeccion = computed(() => panels.value.find(p => p.group === selected.value)?.label || 'Recursos')
 const metaColeccion = computed(() => {
   const p = panels.value.find(x => x.group === selected.value)
   if (!p) return ''
-  const k = p.kind === 'all' ? 'todas las colecciones' : p.kind === 'matriz' ? 'nodriza' : p.kind === 'none' ? 'sin colección' : 'organizativa'
+  const k = p.kind === 'all' ? 'todas las colecciones' : p.kind === 'none' ? 'sin colección' : 'colección'
   return `${p.count} recursos · ${k}`
 })
 const nActivos = computed(() => resources.value.filter(r => r.active).length)
@@ -517,7 +513,9 @@ function toggleColExpand(id) {
   expandedCols.value = s
 }
 const railNodes = computed(() => {
-  const cols = groups.value || []
+  // El rail solo muestra colecciones ORGANIZATIVAS. Las nodriza ya no son una
+  // colección en la UI: son recursos con hijos y se ven donde se ven los recursos.
+  const cols = (groups.value || []).filter(c => (c.origin || 'organizativa') === 'organizativa')
   const ids = new Set(cols.map(c => c.id))
   const childrenOf = new Map()
   for (const c of cols) {
@@ -530,8 +528,8 @@ const railNodes = computed(() => {
   const out = []
   const mkNode = (c, depth) => ({
     key: c.id, group: c.id, label: c.name, g: c, depth,
-    icon: c.origin === 'matriz' ? '🛰️' : '🗂️',
-    kind: c.origin === 'matriz' ? 'matriz' : 'col',
+    icon: '🗂️',
+    kind: 'col',
     count: memberCount(c.id),
     hasChildren: (childrenOf.get(c.id) || []).length > 0,
   })
@@ -556,6 +554,9 @@ const railNodes = computed(() => {
 // ---- Colección seleccionada (para el editor de miembros de dos paneles) ----
 const colSel = computed(() => groups.value.find(g => g.id === selected.value) || null)
 const esOrganizativaSel = computed(() => !!colSel.value && (colSel.value.origin || 'organizativa') === 'organizativa')
+// Las únicas colecciones de la UI son las organizativas (las matriz de las nodriza
+// ya no se tratan como colección: la nodriza es un recurso con hijos).
+const organizativas = computed(() => groups.value.filter(g => (g.origin || 'organizativa') === 'organizativa'))
 
 // ---- Anidar la colección seleccionada bajo otra organizativa ----
 const esColeccionSeleccionada = computed(() => groups.value.some(g => g.id === selected.value))
@@ -696,7 +697,7 @@ async function ejecutar(r){
     radial-gradient(1200px 600px at 80% -10%, #16313044, transparent 60%),
     radial-gradient(900px 500px at -10% 110%, #1d243a55, transparent 55%),
     var(--ink);
-  color:var(--txt);font-size:14px;margin:-1rem;border-radius:0;overflow:hidden;
+  color:var(--txt);font-size:14px;margin:-1rem -1rem -1rem 12px;border-radius:12px 0 0 12px;overflow:hidden;
 }
 .console *{box-sizing:border-box}
 .console.collapsed .rail, .console.collapsed .divider{display:none}
@@ -731,7 +732,6 @@ async function ejecutar(r){
 .col .edit button{width:22px;height:22px;border-radius:6px;color:var(--faint);display:grid;place-items:center;background:none;border:none;cursor:pointer}
 .col .edit button:hover{color:var(--signal);background:#10211d}
 .col .edit button.del:hover{color:var(--alert)}
-.col.tag-matriz .gi{color:var(--violet)}
 .rail-foot{padding:12px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--faint);display:flex;align-items:center;gap:8px;font-family:var(--mono)}
 .pulse{width:7px;height:7px;border-radius:50%;background:var(--signal);box-shadow:0 0 8px var(--signal);animation:pp 2s infinite}
 @keyframes pp{0%,100%{opacity:1}50%{opacity:.35}}
@@ -884,7 +884,6 @@ textarea.inp{resize:vertical;min-height:60px;line-height:1.5}
 .col .cmeta .nm{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .col .attrs{display:flex;gap:5px;font-family:var(--mono);font-size:10px;color:var(--faint)}
 .col.active .attrs{color:#6fb9af}
-.col.tag-matriz .attrs .at:first-child{color:var(--violet)}
 
 /* --- filtro de colecciones --- */
 .col-filter{display:flex;align-items:center;gap:8px;margin:6px 12px 4px;padding:7px 10px;background:#0e151d;border:1px solid var(--line);border-radius:9px}

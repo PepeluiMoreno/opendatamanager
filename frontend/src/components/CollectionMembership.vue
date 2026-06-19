@@ -1,5 +1,7 @@
 <template>
-  <div class="cm">
+  <div class="cm-wrap">
+    <h3 class="cm-h3">Recursos de la colección «{{ collectionName }}»</h3>
+    <div class="cm">
     <!-- ── DISPONIBLES (no incluidos) ── -->
     <section class="cm-col">
       <header class="cm-head">
@@ -43,7 +45,7 @@
     <!-- ── EN LA COLECCIÓN (incluidos) ── -->
     <section class="cm-col">
       <header class="cm-head">
-        <div class="cm-title">En «{{ collectionName }}» <span class="cm-badge on">{{ miembros.length }}</span></div>
+        <div class="cm-title">Incluidos <span class="cm-badge on">{{ miembros.length }}</span></div>
         <div class="cm-search">
           <input v-model="qR" placeholder="Buscar incluidos…" />
         </div>
@@ -68,6 +70,7 @@
         <div v-if="!miembrosView.length" class="cm-empty">La colección está vacía. Incluye recursos del panel izquierdo.</div>
       </div>
     </section>
+    </div>
   </div>
 </template>
 
@@ -204,7 +207,9 @@ const excluir = () => aplicar('excluir', [...selR.value])
 </script>
 
 <style scoped>
-.cm{display:grid;grid-template-columns:1fr 200px 1fr;gap:14px;align-items:stretch;height:100%;min-height:0}
+.cm-wrap{display:flex;flex-direction:column;gap:12px;height:100%;min-height:0}
+.cm-h3{margin:0;font-size:15px;font-weight:600;color:#E7EEF6}
+.cm{display:grid;grid-template-columns:1fr 200px 1fr;gap:14px;align-items:stretch;flex:1;min-height:0}
 .cm-col{display:flex;flex-direction:column;min-height:0;background:#0e151d;border:1px solid #1c2733;border-radius:12px;overflow:hidden}
 .cm-head{padding:12px 14px;border-bottom:1px solid #1c2733;display:flex;flex-direction:column;gap:8px}
 .cm-title{font-weight:600;color:#E7EEF6;display:flex;align-items:center;gap:8px}
