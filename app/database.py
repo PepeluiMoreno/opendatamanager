@@ -12,7 +12,22 @@ engine = None
 SessionLocal = None
 
 if DATABASE_URL:
-    engine = create_engine(DATABASE_URL, echo=False)
+    # Pool dimensionado para la concurrencia real: cada run retiene UNA conexión
+    # durante todo el crawl (~minutos) y el SSE de logs abre sesiones cortas cada
+    # segundo por panel abierto. Con el pool por defecto (5+10) varios discovery a
+    # la vez + paneles abiertos lo agotaban y, al ser 1 worker uvicorn, una espera
+    # de conexión bloqueaba el event loop → el frontend daba el backend por caído.
+    # pool_pre_ping descarta conexiones muertas tras un redeploy/idle; pool_recycle
+    # las renueva antes del corte de inactividad de Postgres.
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_size=20,
+        max_overflow=40,
+        pool_timeout=30,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+    )
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

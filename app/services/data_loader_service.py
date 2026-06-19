@@ -16,7 +16,7 @@ class DataLoaderService:
     """Service for loading normalized data into the PostgreSQL database."""
 
     def __init__(self):
-        self.engine = create_engine(DATABASE_URL)
+        self.engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=1800)
         self.metadata = MetaData()
         self.metadata.reflect(bind=self.engine)
 

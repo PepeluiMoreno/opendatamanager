@@ -842,31 +842,44 @@ async def get_execution_logs(
         return all_lines[-lines:]
 
     if follow:
+        # La lectura de fichero y la consulta de estado se hacen en un hilo
+        # (asyncio.to_thread): con 1 worker uvicorn, hacerlas síncronas sobre el
+        # event loop —por cada panel de logs abierto, cada segundo— lo bloqueaba y
+        # tumbaba el resto de peticiones (incluido /health). Sondeo cada 1 s.
+        def _read_chunk(pos: int):
+            if not os.path.exists(log_path):
+                return "", pos
+            with open(log_path, "r", encoding="utf-8") as f:
+                f.seek(pos)
+                chunk = f.read()
+                return chunk, f.tell()
+
+        def _execution_status():
+            db = SessionLocal()
+            try:
+                ex = db.query(ResourceExecution).filter(
+                    ResourceExecution.id == execution_id
+                ).first()
+                return ex.status if ex else None
+            finally:
+                db.close()
+
         async def event_stream():
-            last_pos = os.path.getsize(log_path) if os.path.exists(log_path) else 0
+            last_pos = await asyncio.to_thread(
+                lambda: os.path.getsize(log_path) if os.path.exists(log_path) else 0)
             max_seconds = 600
             waited = 0
             while waited < max_seconds:
-                if os.path.exists(log_path):
-                    with open(log_path, "r", encoding="utf-8") as f:
-                        f.seek(last_pos)
-                        chunk = f.read()
-                        last_pos = f.tell()
-                    for line in chunk.splitlines():
-                        if line and (not filter or filter.lower() in line.lower()):
-                            yield f"data: {line}\n\n"
-                db = SessionLocal()
-                try:
-                    ex = db.query(ResourceExecution).filter(
-                        ResourceExecution.id == execution_id
-                    ).first()
-                    if ex and ex.status != "running":
-                        yield "event: done\ndata: \n\n"
-                        return
-                finally:
-                    db.close()
-                await asyncio.sleep(0.5)
-                waited += 0.5
+                chunk, last_pos = await asyncio.to_thread(_read_chunk, last_pos)
+                for line in chunk.splitlines():
+                    if line and (not filter or filter.lower() in line.lower()):
+                        yield f"data: {line}\n\n"
+                status = await asyncio.to_thread(_execution_status)
+                if status is not None and status != "running":
+                    yield "event: done\ndata: \n\n"
+                    return
+                await asyncio.sleep(1.0)
+                waited += 1.0
             yield "event: done\ndata: timeout\n\n"
 
         return StreamingResponse(
