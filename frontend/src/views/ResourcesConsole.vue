@@ -424,7 +424,14 @@ onMounted(async () => {
 function esNodriza(r) { return r?.generaColecciones === true }
 // N:M: un recurso pertenece a varias colecciones (collectionIds).
 function memberCount(id) { return resources.value.filter(r => (r.collectionIds || []).includes(id)).length }
-const countSinAgrupar = computed(() => resources.value.filter(r => !(r.collectionIds || []).length).length)
+// «Sin agrupar» se mide por ausencia de colección ORGANIZATIVA: la pertenencia
+// a la propia colección matriz (que toda nodriza preside) NO cuenta como agrupar.
+// Así una nodriza no archivada en ninguna carpeta organizativa cae en «Sin agrupar».
+const organizativaIds = computed(() => new Set(
+  groups.value.filter(g => (g.origin || 'organizativa') === 'organizativa').map(g => g.id)))
+function sinOrganizativa(r) { return !(r.collectionIds || []).some(id => organizativaIds.value.has(id)) }
+const countSinAgrupar = computed(() =>
+  resources.value.filter(r => !r.parentResourceId && sinOrganizativa(r)).length)
 const panels = computed(() => [
   { key:'all', group:'__all__', label:'Todos los recursos', icon:'📚', kind:'all', count: resources.value.length },
   ...groups.value.map(g => ({
@@ -448,7 +455,7 @@ const nPend = computed(() => resources.value.filter(r => r.estadoAprobacion === 
 // ---- lista de la colección abierta ----
 const enColeccion = computed(() => resources.value.filter(r =>
   selected.value === '__all__' ? true
-    : selected.value === '__none__' ? !(r.collectionIds || []).length
+    : selected.value === '__none__' ? sinOrganizativa(r)
     : (r.collectionIds || []).includes(selected.value)))
 const topLevel = computed(() => enColeccion.value.filter(r => !r.parentResourceId).filter(r => {
   if (q.value && !r.name.toLowerCase().includes(q.value.toLowerCase())) return false
@@ -596,7 +603,7 @@ async function onRailDrop(node) {
   if (!dropValido(node)) { onDragEnd(); return }
   try {
     if (d.kind === 'resource') {
-      if (node.kind === 'none') { for (const id of d.ids) await updateResource(id, { collectionId: '' }) }
+      if (node.kind === 'none') { for (const id of d.ids) await quitarDeOrganizativas(id) }
       else { await addResourcesToCollection(node.group, d.ids) }
       toast.success(node.kind === 'none'
         ? `${d.ids.length} recurso(s) sin agrupar`
@@ -608,6 +615,15 @@ async function onRailDrop(node) {
     limpiarSel(); await load()
   } catch (e) { toast.error('Error: ' + (e?.message || e)) }
   finally { onDragEnd() }
+}
+
+// Quita un recurso de TODAS sus colecciones organizativas, preservando la matriz
+// (gestionada por el sistema). Es el «sin agrupar» correcto bajo la nueva regla.
+async function quitarDeOrganizativas(rid) {
+  const r = resources.value.find(x => x.id === rid)
+  for (const cid of (r?.collectionIds || []).filter(c => organizativaIds.value.has(c))) {
+    await removeResourceFromCollection(cid, rid)
+  }
 }
 
 async function aplicarLote(){
@@ -628,11 +644,11 @@ async function aplicarLote(){
       catch(e){ toast.error('Error: '+(e?.message||e)) } finally{ bulkBusy.value=false }
       return
     }
-    else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value) await updateResource(r.id,{collectionId:bulkMoveTarget.value}) }
-    else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); for(const r of seleccionados.value) await updateResource(r.id,{collectionId:g.id}) }
+    else if (bulkAction.value === 'move') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} for(const r of seleccionados.value){ await quitarDeOrganizativas(r.id); await addResourcesToCollection(bulkMoveTarget.value,[r.id]) } }
+    else if (bulkAction.value === 'group') { const n=bulkGroupName.value.trim(); if(!n){bulkBusy.value=false;return} const rr=await createResourceCollection(n); const g=rr?.createResourceCollection; if(!g)throw new Error('no creada'); await addResourcesToCollection(g.id, seleccionados.value.map(r=>r.id)) }
     else if (bulkAction.value === 'add') { if(!bulkMoveTarget.value){bulkBusy.value=false;return} await addResourcesToCollection(bulkMoveTarget.value, seleccionados.value.map(r=>r.id)) }
     else if (bulkAction.value === 'remove_current') { if(selected.value==='__all__'||selected.value==='__none__'){bulkBusy.value=false;return} for(const r of seleccionados.value) await removeResourceFromCollection(selected.value, r.id) }
-    else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await updateResource(r.id,{collectionId:''}) }
+    else if (bulkAction.value === 'ungroup') { for(const r of seleccionados.value) await quitarDeOrganizativas(r.id) }
     bulkAction.value=''; bulkMoveTarget.value=''; bulkGroupName.value=''
     limpiarSel(); await load()
   } catch(e){ toast.error('Error: '+(e?.message||e)) }
