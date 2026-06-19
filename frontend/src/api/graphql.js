@@ -395,6 +395,11 @@ export const MUTATIONS = {
       deleteSubscriber(id: $id, hardDelete: $hardDelete)
     }
   `,
+  SET_SUBSCRIBER_WEBHOOK: `
+    mutation SetSubscriberWebhook($id: String!, $webhookUrl: String!, $webhookSecret: String!) {
+      setSubscriberWebhook(id: $id, webhookUrl: $webhookUrl, webhookSecret: $webhookSecret) { id webhookUrl }
+    }
+  `,
   ACTIVATE_APPLICATION: `
     mutation ActivateApplication($id: String!, $active: Boolean!) {
       activateSubscriber(id: $id, active: $active) { id active }
@@ -797,6 +802,14 @@ export async function createSubscriber(input) {
 export async function updateSubscriber(id, input) {
   try {
     return await client.request(MUTATIONS.UPDATE_APPLICATION, { id, input })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function setSubscriberWebhook(id, webhookUrl, webhookSecret) {
+  try {
+    return await client.request(MUTATIONS.SET_SUBSCRIBER_WEBHOOK, { id, webhookUrl, webhookSecret })
   } catch (error) {
     handleGraphQLError(error)
   }
