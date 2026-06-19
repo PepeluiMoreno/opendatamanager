@@ -287,6 +287,7 @@ export const QUERIES = {
         id
         applicationId
         resourceId
+        collectionId
         pinnedVersion
         autoUpgrade
         currentVersion
@@ -584,6 +585,14 @@ export const MUTATIONS = {
         autoUpgrade
         currentVersion
         notifiedAt
+      }
+    }
+  `,
+
+  SUBSCRIBE_COLLECTION: `
+    mutation SubscribeCollection($applicationId: String!, $collectionId: String!, $autoUpgrade: String) {
+      subscribeCollection(applicationId: $applicationId, collectionId: $collectionId, autoUpgrade: $autoUpgrade) {
+        id applicationId collectionId autoUpgrade
       }
     }
   `,
@@ -960,6 +969,14 @@ export async function fetchSubscriptions() {
 export async function subscribeResource(applicationId, resourceId, pinnedVersion = null, autoUpgrade = 'patch', retencionSolicitadaDias = null) {
   try {
     return await client.request(MUTATIONS.SUBSCRIBE_RESOURCE, { applicationId, resourceId, pinnedVersion, autoUpgrade, retencionSolicitadaDias })
+  } catch (error) {
+    handleGraphQLError(error)
+  }
+}
+
+export async function subscribeCollection(applicationId, collectionId, autoUpgrade = 'patch') {
+  try {
+    return await client.request(MUTATIONS.SUBSCRIBE_COLLECTION, { applicationId, collectionId, autoUpgrade })
   } catch (error) {
     handleGraphQLError(error)
   }
