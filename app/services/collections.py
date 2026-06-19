@@ -37,8 +37,18 @@ def _sync_primary(session, resource_id) -> None:
 
 
 def add_members(session, collection_id, resource_ids) -> None:
-    """Añade recursos a una colección (idempotente). Sincroniza el espejo."""
-    for rid in resource_ids:
+    """Añade recursos a una colección (idempotente). Sincroniza el espejo.
+
+    Invariante de familia: si se añade un recurso HIJO, su recurso nodriza entra
+    también en la colección. Así un hijo nunca queda «huérfano» (sin su nodriza)
+    en la colección; en la UI la familia se ve siempre bajo su nodriza."""
+    ids = list(dict.fromkeys(str(r) for r in resource_ids))  # dedup, orden estable
+    padres = []
+    for rid in ids:
+        r = session.query(Resource).filter(Resource.id == rid).first()
+        if r is not None and r.parent_resource_id and str(r.parent_resource_id) not in ids:
+            padres.append(str(r.parent_resource_id))
+    for rid in [*ids, *dict.fromkeys(padres)]:
         existe = session.execute(
             select(RCM.c.resource_id).where(RCM.c.resource_id == rid, RCM.c.collection_id == collection_id)
         ).first()
