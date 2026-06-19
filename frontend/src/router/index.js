@@ -14,7 +14,6 @@ import Publishers from '../views/Publishers.vue'
 import Trash from '../views/Trash.vue'
 import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
-import Collections from '../views/Collections.vue'
 
 const routes = [
   { path: '/mis-datos',      name: 'MisDatos',      component: MisDatos },
@@ -22,7 +21,7 @@ const routes = [
   { path: '/resources',      name: 'Resources',     component: ResourcesConsole },
   { path: '/console',        redirect: '/resources' },
   { path: '/subscribers-console', redirect: '/subscribers' },
-  { path: '/collections',    name: 'Collections',   component: Collections },
+  { path: '/collections',    redirect: '/resources' },
   { path: '/fetchers',       name: 'Fetchers',      component: Fetchers },
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
   { path: '/subscribers',    name: 'Subscribers',   component: SubscribersConsole },
