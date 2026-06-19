@@ -94,6 +94,13 @@
               </div>
             </div>
             <div class="field" v-if="form.consumptionMode!=='graphql'"><label>URL de webhook</label><input class="inp mono" v-model="form.webhookUrl" placeholder="https://tu-app/webhooks/odmgr"></div>
+            <div class="field" v-if="form.consumptionMode!=='graphql'"><label>Secreto de webhook (HMAC)</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="inp mono" v-model="form.webhookSecret" :placeholder="editing ? 'déjalo vacío para no cambiarlo' : 'genera o pega un secreto'">
+                <button type="button" class="ghost" @click="generarSecreto">Generar</button>
+              </div>
+              <small style="color:#5A6878;font-size:11px;display:block;margin-top:4px">Con él se firma cada webhook (HMAC-SHA256). El consumidor debe usar el mismo valor (en SIPI: <code>ODM_WEBHOOK_SECRET</code>). No se vuelve a mostrar tras guardar.</small>
+            </div>
           </div>
         </div>
         <div class="sect">
@@ -135,7 +142,7 @@ import { useToast } from '../composables/useToast'
 import DrawerResizeHandle from '../components/DrawerResizeHandle.vue'
 import SubscriptionEditor from '../components/SubscriptionEditor.vue'
 import {
-  fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber,
+  fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber, setSubscriberWebhook,
   fetchSubscriptions, unsubscribeResource, fetchResources, fetchResourceCollections,
 } from '../api/graphql'
 
@@ -201,17 +208,28 @@ async function bajaLote(){ bulkBusy.value=true; try{ for(const id of sel.value) 
 // drawer suscriptor
 const drawer=ref(false); const editing=ref(null); const saving=ref(false)
 const drawerW = ref(760)
-const form=ref({ name:'',description:'',proposito:'',active:true,consumptionMode:'webhook',webhookUrl:'',personaContacto:'',email:'',telefono:'',githubUrl:'' })
+const form=ref({ name:'',description:'',proposito:'',active:true,consumptionMode:'webhook',webhookUrl:'',webhookSecret:'',personaContacto:'',email:'',telefono:'',githubUrl:'' })
 function abrirDrawer(s){ editing.value=s
-  form.value = s ? { name:s.name,description:s.description||'',proposito:s.proposito||'',active:s.active!==false,consumptionMode:s.consumptionMode||'webhook',webhookUrl:s.webhookUrl||'',personaContacto:s.personaContacto||'',email:s.email||'',telefono:s.telefono||'',githubUrl:s.githubUrl||'' }
-            : { name:'',description:'',proposito:'',active:true,consumptionMode:'webhook',webhookUrl:'',personaContacto:'',email:'',telefono:'',githubUrl:'' }
+  // webhookSecret nunca se precarga (es write-only en la API); vacío = no cambiar.
+  form.value = s ? { name:s.name,description:s.description||'',proposito:s.proposito||'',active:s.active!==false,consumptionMode:s.consumptionMode||'webhook',webhookUrl:s.webhookUrl||'',webhookSecret:'',personaContacto:s.personaContacto||'',email:s.email||'',telefono:s.telefono||'',githubUrl:s.githubUrl||'' }
+            : { name:'',description:'',proposito:'',active:true,consumptionMode:'webhook',webhookUrl:'',webhookSecret:'',personaContacto:'',email:'',telefono:'',githubUrl:'' }
   drawer.value=true }
 function cerrarDrawer(){ drawer.value=false }
+function generarSecreto(){
+  const a=new Uint8Array(24); (window.crypto||window.msCrypto).getRandomValues(a)
+  form.value.webhookSecret=Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')
+}
 async function guardar(){ saving.value=true
   try{
     const f=form.value
     const input={ name:f.name, description:f.description||null, webhookUrl: f.consumptionMode==='graphql'?null:(f.webhookUrl||null), consumptionMode:f.consumptionMode, active:f.active, personaContacto:f.personaContacto||null, email:f.email||null, telefono:f.telefono||null, githubUrl:f.githubUrl||null, proposito:f.proposito||null }
-    if(editing.value) await updateSubscriber(editing.value.id,input); else await createSubscriber(input)
+    let id
+    if(editing.value){ await updateSubscriber(editing.value.id,input); id=editing.value.id }
+    else { const r=await createSubscriber(input); id=r?.createSubscriber?.id }
+    // El secreto se fija aparte (mutation dedicada). Solo si se indicó uno nuevo.
+    if(id && f.consumptionMode!=='graphql' && (f.webhookSecret||'').trim()){
+      await setSubscriberWebhook(id, f.webhookUrl||'', f.webhookSecret.trim())
+    }
     drawer.value=false; await load()
   }catch(e){ toast.error('Error guardando: '+(e?.message||e)) } finally{ saving.value=false } }
 
