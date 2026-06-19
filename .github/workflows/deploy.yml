@@ -7,6 +7,14 @@ on:
       - master
   workflow_dispatch:
 
+# Serializa los deploys: si se mergean varios PRs seguidos, los runs se ENCOLAN y
+# corren uno tras otro (cada uno completo), en vez de pisarse en el servidor
+# (git pull + docker compose up + alembic a la vez). cancel-in-progress=false a
+# propósito: cancelar un deploy a mitad de una migración sería peor que esperar.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
 env:
   REGISTRY: ghcr.io
 
