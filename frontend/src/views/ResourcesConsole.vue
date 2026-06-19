@@ -19,8 +19,14 @@
         <div v-if="!loaded" class="rail-load">Cargando…</div>
         <template v-else>
         <div v-for="c in railNodes" :key="c.key"
-             :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz' }]"
+             :class="['col', { active: selected === c.group, 'tag-matriz': c.kind==='matriz',
+                               nested: c.depth>0, 'drop-over': dropOver===c.group,
+                               'drop-ok': arrastrando && dropOver!==c.group && dropValido(c) }]"
              :style="{ paddingLeft: (10 + (c.depth || 0) * 16) + 'px' }"
+             :draggable="(c.kind==='col' || c.kind==='matriz') && puede('recursos.editar')"
+             :title="(c.kind==='col'||c.kind==='matriz') ? 'Arrastra para anidar bajo otra colección, o suelta recursos aquí' : ''"
+             @dragstart="onDragCollection(c, $event)" @dragend="onDragEnd"
+             @dragover="onRailOver(c, $event)" @dragleave="onRailLeave(c)" @drop.prevent="onRailDrop(c)"
              @click="selected = c.group; limpiarSel()">
           <span v-if="c.hasChildren" class="tw" :class="{ open: expandedCols.has(c.group) }" @click.stop="toggleColExpand(c.group)">▸</span>
           <span v-else-if="c.depth" class="tw" style="visibility:hidden">▸</span>
@@ -128,7 +134,8 @@
 
           <div class="rows">
           <template v-for="r in topLevelPaged" :key="r.id">
-            <div :class="['row', { sel: sel.has(r.id) }]">
+            <div :class="['row', { sel: sel.has(r.id), dragging: arrastrando && dnd.ids.includes(r.id) }]"
+                 :draggable="puede('recursos.editar')" @dragstart="onDragResource(r, $event)" @dragend="onDragEnd">
               <div><input type="checkbox" class="cbx" :checked="sel.has(r.id)" @change="toggleRama(r)" /></div>
               <div class="rname">
                 <span v-if="esNodriza(r) || hijosDe(r.id).length" :class="['twist',{open:abiertas.has(r.id)}]" @click="toggleRamaOpen(r.id)">▸</span>
@@ -159,7 +166,8 @@
                 </div>
                 <div></div><div></div><div></div><div></div>
               </div>
-              <div v-for="ch in hijosDe(r.id)" :key="ch.id" :class="['row','child',{ sel: sel.has(ch.id) }]">
+              <div v-for="ch in hijosDe(r.id)" :key="ch.id" :class="['row','child',{ sel: sel.has(ch.id), dragging: arrastrando && dnd.ids.includes(ch.id) }]"
+                   :draggable="puede('recursos.editar')" @dragstart="onDragResource(ch, $event)" @dragend="onDragEnd">
                 <div><input type="checkbox" class="cbx" :checked="sel.has(ch.id)" @change="toggleUno(ch.id)" /></div>
                 <div class="rname"><span class="twist" style="visibility:hidden">▸</span><span class="ttl">{{ ch.name }}</span></div>
                 <div class="col-pub pub" :title="ch.publisherObj?.nombre || ''">{{ ch.publisherObj?.acronimo || ch.publisherObj?.nombre || '—' }}</div>
@@ -548,6 +556,60 @@ async function anidarSeleccionada(parentId) {
   catch (e) { toast.error('Error al anidar: ' + (e?.message || e)) }
 }
 
+// ---- Arrastrar y soltar ----
+// Recurso → colección: añade (N:M, sin sacar de otras); sobre «Sin agrupar» quita de todas.
+// Colección → organizativa: la anida; sobre «Sin agrupar» la desanida a la raíz.
+const dnd = ref({ kind: null, ids: [], colId: null })   // kind: 'resource' | 'collection'
+const dropOver = ref(null)
+const arrastrando = computed(() => dnd.value.kind !== null)
+
+function onDragResource(r, ev) {
+  if (!puede('recursos.editar')) { ev.preventDefault(); return }
+  const ids = sel.value.has(r.id) ? [...sel.value] : [r.id]   // arrastra la selección si el ítem está en ella
+  dnd.value = { kind: 'resource', ids, colId: null }
+  try { ev.dataTransfer.effectAllowed = 'copyMove'; ev.dataTransfer.setData('text/plain', ids.join(',')) } catch {}
+}
+function onDragCollection(c, ev) {
+  if (!puede('recursos.editar') || (c.kind !== 'col' && c.kind !== 'matriz')) { ev.preventDefault(); return }
+  dnd.value = { kind: 'collection', ids: [], colId: c.group }
+  try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', c.group) } catch {}
+}
+function dropValido(node) {
+  const d = dnd.value
+  if (!d.kind) return false
+  if (d.kind === 'resource') return ['col', 'matriz', 'none'].includes(node.kind)
+  // colección: solo puede anidarse bajo una organizativa (o desanidar en «Sin agrupar»)
+  if (node.group === d.colId) return false
+  return node.kind === 'col' || node.kind === 'none'
+}
+function onRailOver(node, ev) {
+  if (!dropValido(node)) return
+  ev.preventDefault()
+  try { ev.dataTransfer.dropEffect = dnd.value.kind === 'collection' ? 'move' : 'copy' } catch {}
+  dropOver.value = node.group
+}
+function onRailLeave(node) { if (dropOver.value === node.group) dropOver.value = null }
+function onDragEnd() { dnd.value = { kind: null, ids: [], colId: null }; dropOver.value = null }
+async function onRailDrop(node) {
+  const d = dnd.value
+  dropOver.value = null
+  if (!dropValido(node)) { onDragEnd(); return }
+  try {
+    if (d.kind === 'resource') {
+      if (node.kind === 'none') { for (const id of d.ids) await updateResource(id, { collectionId: '' }) }
+      else { await addResourcesToCollection(node.group, d.ids) }
+      toast.success(node.kind === 'none'
+        ? `${d.ids.length} recurso(s) sin agrupar`
+        : `${d.ids.length} recurso(s) → «${node.label}»`)
+    } else if (d.kind === 'collection') {
+      await setCollectionParent(d.colId, node.kind === 'none' ? null : node.group)
+      toast.success(node.kind === 'none' ? 'Colección movida a la raíz' : `Anidada bajo «${node.label}»`)
+    }
+    limpiarSel(); await load()
+  } catch (e) { toast.error('Error: ' + (e?.message || e)) }
+  finally { onDragEnd() }
+}
+
 async function aplicarLote(){
   if (!bulkAction.value || sel.value.size===0) return
   bulkBusy.value = true
@@ -680,6 +742,16 @@ async function ejecutar(r){
 .roster{overflow-y:auto;padding:4px 14px 12px;flex:1;min-height:0}
 .col{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;position:relative;margin-bottom:2px}
 .col:hover{background:#161e29}
+.col[draggable=true]{cursor:grab}
+.col[draggable=true]:active{cursor:grabbing}
+/* guía visual de jerarquía: borde izquierdo en colecciones anidadas */
+.col.nested{box-shadow:inset 2px 0 0 var(--line-soft,#243140)}
+/* arrastrar y soltar: destino activo (sobre el que se suelta) y destinos válidos */
+.col.drop-ok{outline:1px dashed var(--signal-dim);outline-offset:-2px}
+.col.drop-over{outline:2px solid var(--signal);outline-offset:-2px;background:#15302c}
+.row.dragging{opacity:.45}
+.row[draggable=true]{cursor:grab}
+.row[draggable=true]:active{cursor:grabbing}
 .col.active{background:linear-gradient(90deg,#15302c,#13202a);box-shadow:inset 0 0 0 1px #2b6a61}
 .col.active::before{content:"";position:absolute;left:-14px;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--signal);box-shadow:0 0 10px var(--signal)}
 .col .gi{width:18px;text-align:center;font-size:15px}
