@@ -130,21 +130,34 @@ semántica de SIPI (eso lo hace SIPI).
   procede). Mucho más ligero que un ETL con `ogr2ogr`.
 
 **Avisos**:
-- *Orden de ejes*: se respeta el del GML (no se intercambia). Para UTM ETRS89
-  (EPSG:258xx, eje E,N) coincide con GeoJSON; para CRS geográficos (lat,lon) el
-  consumidor lo corrige con `srsName`.
+- *Orden de ejes* (**verificado 2026-06-19**): los GML de CP/BU/AD vienen en
+  `srsName=urn:ogc:def:crs:EPSG::258xx` (UTM ETRS89: 25829/30/31 según huso),
+  **CRS proyectado, eje E,N → coincide con GeoJSON x,y, sin swap**. ODM respeta el
+  orden del GML (no intercambia). Solo si apareciera un CRS *geográfico* (lat,lon) el
+  consumidor lo corregiría con `srsName`; en Catastro no se ha visto.
+- *Espacios en la URL hoja* (**verificado 2026-06-19**): las hojas cuelgan de una
+  subcarpeta con el nombre del municipio y **espacios** (p. ej.
+  `.../11/11001-ALCALA DE LOS GAZULES/A.ES.SDGC.CP.11001.zip`), en CP, BU y AD. No es
+  un problema: `requests` (vía `base._request`) **requotea a `%20`** automáticamente.
+  Cuidado al verificar a mano con `urllib` crudo, que **sí** rompe con espacios.
 - *ZIP con varios GML* (caso **BU**: building / buildingpart / otherconstruction):
   `entry` debe apuntar a uno concreto (un recurso por GML), porque `*.gml` casaría
-  varios y daría error de ambigüedad.
+  varios y daría error de ambigüedad. **AD** trae un único `.gml` (con varios tipos
+  dentro), así que `*.gml` basta.
 - Si SIPI necesitara el **GML oficial íntegro** (motivo legal), úsese passthrough.
 
 ## Recursos obtenibles
 
-| Tema | Feed de servicio (a confirmar) | Contenido | Prioridad |
-|---|---|---|---|
-| **CP** — Parcelas catastrales | `.../INSPIRE/CadastralParcels/ES.SDGC.CP.atom.xml` | Referencia catastral (RC) + geometría de parcela; urbana/rústica | **Imprescindible** (es la RC) |
-| **BU** — Edificios | `.../INSPIRE/Buildings/ES.SDGC.BU.atom.xml` | Estado constructivo / año / uso (3 GML) | Recomendable |
-| **AD** — Direcciones | `.../INSPIRE/Addresses/ES.SDGC.AD.atom.xml` | Direcciones postales geolocalizadas | Opcional |
+Feeds de servicio **verificados en vivo (2026-06-19)**, 56 gerencias provinciales cada uno:
+
+| Tema | Feed de servicio | `entry` (GML dentro del ZIP) | Contenido | Prioridad |
+|---|---|---|---|---|
+| **CP** — Parcelas catastrales | `.../INSPIRE/CadastralParcels/ES.SDGC.CP.atom.xml` | `*.cadastralparcel.gml` | Referencia catastral (RC) + geometría de parcela; urbana/rústica | **Imprescindible** (es la RC) |
+| **BU** — Edificios | `.../INSPIRE/Buildings/ES.SDGC.BU.atom.xml` | `*.building.gml` / `*.buildingpart.gml` / `*.otherconstruction.gml` | Estado constructivo / año / uso. **3 GML → 3 recursos** | Recomendable |
+| **AD** — Direcciones | `.../INSPIRE/Addresses/ES.SDGC.AD.atom.xml` | `*.gml` (1 solo) | Direcciones postales geolocalizadas (`address`/`thoroughfarename`/`postaldescriptor`/`adminunitname`) | Opcional |
+
+> El ZIP de CP trae además `*.cadastralzoning.gml` (zonificación) — por eso el `entry`
+> de CP apunta explícitamente a `*.cadastralparcel.gml`.
 
 ## Cómo se configura (manifests)
 
@@ -174,27 +187,52 @@ ejecutarla, el manager infiere los datasets dimensionados y promueve los hijos, 
 heredan `entry`/`inner_format` y el throttle y corren en modo `stream`. **El manifest
 no lleva ni un campo de SIPI** (productor neutro).
 
-BU y AD: idéntico cambiando `url` (y el `entry`, ver tabla de recursos). **BU trae 3
-GML por ZIP**, así que necesita **un recurso por GML** (un `entry` distinto cada uno),
-porque un glob `*.gml` casaría varios y daría ambigüedad.
+Manifests disponibles:
+- `manifests/catastro_cp_parcelas.json` — CP (1 recurso).
+- `manifests/catastro_bu_edificios.json` — BU (**3 recursos**, uno por GML:
+  `building` / `buildingpart` / `otherconstruction`).
+- `manifests/catastro_ad_direcciones.json` — AD (1 recurso, `entry=*.gml`).
 
-## Verificado en vivo (2026-06-18)
+**BU trae 3 GML por ZIP**, así que necesita **un recurso por GML** (un `entry` distinto
+cada uno), porque un glob `*.gml` casaría varios y daría ambigüedad. AD trae un único
+`.gml` (el `.MD..xml` es metadatos, no casa con `*.gml`).
+
+## Verificado en vivo
+
+### CP — Parcelas (2026-06-18)
 
 - **Feed de servicio CP**: 200 OK, 56 `<entry>` = 56 gerencias provinciales, cada una
   con `<link rel="enclosure" type="application/atom+xml" href=".../NN/ES.SDGC.CP.atom_NN.xml"/>`
-  → sub-feed provincial. El descubridor lo trata como feed (desciende). ✔
+  → sub-feed provincial. El crawler lo trata como feed (desciende). ✔
 - **Sub-feed provincial** (Cádiz, `11`): 37 `<entry>`, una por municipio, con
-  `<link rel="enclosure" href=".../A.ES.SDGC.CP.<DGC>.zip" type="application/atom+xml"/>`.
-  Ojo: el `type` viene mal puesto (`atom+xml`) pero la **extensión `.zip`** hace que el
-  descubridor lo clasifique como hoja. ✔
+  `<link rel="enclosure" href=".../11/<DGC>-<NOMBRE>/A.ES.SDGC.CP.<DGC>.zip"/>`. La hoja
+  cuelga de una **subcarpeta con el nombre del municipio y espacios** (corregido respecto
+  a la nota original, que omitía esa subcarpeta). El `type` viene mal puesto (`atom+xml`)
+  pero la **extensión `.zip`** hace que el crawler lo clasifique como hoja. ✔
 - **ZIP municipal** (`11001`): contiene **`*.cadastralparcel.gml`** (las parcelas) +
   `*.cadastralzoning.gml` (zonificación) + `*.MD..xml` (metadatos). Por eso
   `entry=*.cadastralparcel.gml`. ✔
 - **Soft-404**: las URLs inexistentes devuelven `200` + HTML de 15257 bytes (no 404);
   las reales dan `206`/`PK`. Útil para validar.
 
+### BU — Edificios y AD — Direcciones (2026-06-19)
+
+- **Feeds de servicio BU y AD**: 200 OK, 56 `<entry>` (gerencias) cada uno; misma
+  jerarquía servicio→provincia→ZIP municipal que CP. ✔
+- **Provincial Cádiz** (`11`): 37 municipios en ambos; hojas
+  `.../Buildings/11/<DGC>-<NOMBRE>/A.ES.SDGC.BU.<DGC>.zip` y
+  `.../Addresses/11/<DGC>-<NOMBRE>/A.ES.SDGC.AD.<DGC>.zip` (con espacios). ✔
+- **ZIP BU** (`11001`, 784 KB): **3 GML** + metadatos →
+  `A.ES.SDGC.BU.11001.building.gml`, `.buildingpart.gml`, `.otherconstruction.gml`,
+  `A.ES.SDGC.BU.MD.11001.xml`. `srsName=EPSG::25830` en los tres. → **3 recursos**. ✔
+- **ZIP AD** (`11001`, 100 KB): **1 GML** + metadatos → `A.ES.SDGC.AD.11001.gml`
+  (tipos `address`/`adminunitname`/`postaldescriptor`/`thoroughfarename` mezclados) +
+  `A.ES.SDGC.AD.MD.11001.xml`. `srsName=EPSG::25830`. → **1 recurso**, `entry=*.gml`. ✔
+- **Espacios en la URL** y **requote de `requests`**: confirmado (ver Avisos). ✔
+
 ## Lo que falta por verificar
 
-1. **BU/AD** en detalle (BU trae 3 GML por ZIP → un recurso por GML).
-2. **Orden de ejes** del GML por CRS contra un fichero real (UTM ETRS89 vs geográfico).
-3. **Mapeo INE↔DGC** (lado SIPI) para poder filtrar por municipio.
+1. **Mapeo INE↔DGC** (lado SIPI) para poder filtrar por municipio — único pendiente real.
+2. *(Opcional)* Contraste de huso UTM en provincias de borde (25829 Galicia/oeste,
+   25831 Baleares/este) — el patrón EPSG::258xx eje E,N está confirmado, pero no se ha
+   bajado un fichero de cada huso.
