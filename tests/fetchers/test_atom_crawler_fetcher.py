@@ -181,9 +181,36 @@ class TestPropose:
         dv = child._dim_values(DGC_LEAVES[0], dgc["dimensions"])
         assert dv["provincia"] == "02" and dv["municipio"] == "02001"
 
-    def test_federado_usa_gml_generico(self):
+    def test_federado_hereda_mismo_entry(self):
         props = self._madre().propose()
         nav = next(p for p in props if "nav.test" in p["path_template"])
-        # host distinto al feed de servicio → entry genérico (GML único, otro nombre)
-        assert nav["target_params"]["entry"] == "*.gml"
+        # TODOS los productores heredan el mismo entry específico; el GML foral con
+        # otro nombre lo resuelve el fallback de _extraer (test aparte).
+        assert nav["target_params"]["entry"] == "*.cadastralparcel.gml"
         assert "{codigo}" in nav["path_template"]  # CP_Navarra_{codigo}.gml.zip
+
+    def test_extraer_cae_al_gml_unico_de_un_foral(self):
+        # ZIP foral: un único GML con nombre que NO casa el glob específico del
+        # primario → el fallback usa el único .gml disponible.
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("ES.BFA.CP.gml", GML)
+        raw, used = AtomCrawlerFetcher({})._extraer(buf.getvalue(), "zip", "*.cadastralparcel.gml")
+        assert used == "ES.BFA.CP.gml" and b"CadastralParcel" in raw
+
+    def test_nombre_incluye_tipo_de_feature_bu(self):
+        # mismo feed, distinto entry (caso BU) → nombres distintos por tipo
+        f = AtomCrawlerFetcher({"url": SF, "entry": "*.buildingpart.gml"})
+        f._request = lambda *a, **k: _FakeResp(text=_FEEDS[a[2]])
+        nombres = {p["suggested_name"] for p in f.propose()}
+        assert all("buildingpart" in n for n in nombres)
+
+    def test_extraer_no_adivina_si_hay_varios_gml(self):
+        # Con varios .gml (caso BU: building/buildingpart/otherconstruction) el
+        # glob que no casa NO debe adivinar: error → el municipio se omite.
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("A.ES.SDGC.BU.1.building.gml", GML)
+            zf.writestr("A.ES.SDGC.BU.1.buildingpart.gml", GML)
+        with pytest.raises(ValueError):
+            AtomCrawlerFetcher({})._extraer(buf.getvalue(), "zip", "*.otherconstruction.gml")
