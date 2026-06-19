@@ -1,8 +1,14 @@
 # Catastro (Sede Electrónica / INSPIRE Download Services) — ficha de fuente
 
 > **Estado**: estructura **verificada en vivo el 2026-06-18** contra el servicio real
-> (ver "Verificado en vivo" abajo). El `child_fetcher`/`entry` y el feed CP están
-> confirmados; BU/AD por confirmar en detalle.
+> (ver "Verificado en vivo" abajo). El feed CP y la hoja ZIP→`.cadastralparcel.gml`
+> están confirmados; BU/AD por confirmar en detalle.
+>
+> **Fetcher real**: **"Crawler ATOM"** (`app/fetchers/atom_crawler_fetcher.py`,
+> `AtomCrawlerFetcher`). Doc revisado el 2026-06-19 para alinearlo con el código:
+> versiones anteriores hablaban de un "Descubridor ATOM"/`AtomDownloadDiscoverer`
+> con `child_fetcher`/`child_params` que **nunca existió**. El modelo real es
+> **dual-modo, espejo de Web Tree** (ver abajo).
 
 ## ⚠️ Códigos DGC ≠ códigos INE (clave para el filtro)
 
@@ -58,24 +64,52 @@ feed de SERVICIO (ES.SDGC.CP.atom.xml)
 - `AtomFetcher` ("Feeds ATOM/RSS") **no** sirve aquí: su `rel_next` es paginación
   *horizontal* de un mismo feed, no desciende por enlaces *por-entrada* a sub-feeds.
 
-## Fetchers que usa
+## Fetcher que usa: "Crawler ATOM" (un solo fetcher, dos modos)
 
-| Pieza | Especie ODM | Rol |
+Lo sirve una **única especie**, **"Crawler ATOM"** (`AtomCrawlerFetcher`), que es el
+**espejo de Web Tree** pero sobre una jerarquía de *feeds* en vez de HTML. **No hay
+recursos hijos "Compressed File" ni `child_fetcher`/`child_params`**: el mismo fetcher
+hace descubrimiento y extracción, reutilizando *internamente* la maquinaria de
+Compressed File (`_extract_zip/_extract_gz/...` + `parse_structured_file` +
+`gml_parser.parse_gml`), sin duplicar lógica.
+
+| Modo | Cuándo | Qué hace |
 |---|---|---|
-| Descubrimiento | **Descubridor ATOM** (`AtomDownloadDiscoverer`) | Recorre la jerarquía servicio→gerencia→ficheros y **propone un recurso-hijo por fichero hoja** (ZIP), con la URL ya resuelta. Filtra por municipio. Agnóstico de dominio. |
-| Cortesía | **Throttle por host** (opt-in, en `base._request`) | Evita el veto. Se fija en el descubridor y **se propaga a los hijos**. |
-| Descarga + parseo (hoja) | **Compressed File** con `inner_format=gml` | Baja el ZIP, extrae el `.gml` y lo **parsea a registros con geometría GeoJSON** (ver abajo). |
+| **discover()** | recurso-madre (`genera_colecciones: true`), con **Run** | Recorre los feeds (servicio→gerencia→ficheros) en anchura y devuelve las **URLs hoja** `[{"url","file_type",...}]`. El `FetcherManager` las pasa a `infer()`, que **agrupa por `path_template`** y detecta el código de municipio como **dimensión** → **UN candidato dimensionado** por dataset. **8.000 ficheros NO son 8.000 recursos.** |
+| **stream()** | recurso hijo promovido | Recibe `_matched_urls`/`_dimensions`/`_path_template` (inyectados por el manager) y, por cada URL, **baja el ZIP, extrae el `.gml` y lo parsea a registros con geometría GeoJSON**. Cada registro se etiqueta con la dimensión (municipio, re-extraída del `path_template`) y con `_source_file_url`. Salida JSONL homogénea, idéntica a cualquier otro recurso. |
 
-### Descubridor ATOM — parámetros clave
+- **Cortesía (throttle por host)**: opt-in, vive en `base._request` (`throttle.py`).
+  Se aplica en **ambos** modos porque ambos usan `self._request`. Es **por host
+  (netloc)**, no por instancia: varios workers y varios recursos contra el mismo host
+  comparten el mismo presupuesto, igual que cuenta el límite por IP del servidor.
+- **Tolerancia a fallos**: un municipio caído/corrupto en `stream()` se **omite con
+  warning**; no tumba la serie.
+- **El botón Test** sobre la madre usa `_preview_limit`: descubre y extrae unas pocas
+  hojas para una cata.
 
-- `url`: feed de servicio (nivel superior).
-- `filtro_incluir`: subcadenas que debe contener el título/id/href de la hoja para
-  proponerse. Para Catastro = **códigos de municipio** (p. ej. `["11020"]`). Vacío = todos.
-- `leaf_exts`: extensiones que cuentan como fichero (def. `zip,gz,gml,tar,7z,rar,tgz`).
-- `max_depth`: niveles a descender (0 = auto por type/extensión del `<link>`).
-- `child_fetcher` / `child_params`: especie y params de los hijos (p. ej.
-  `{"inner_format": "gml", "entry": "*.gml"}`).
-- `rate_limit_per_second` / `request_delay_ms` / `max_per_hour`: cortesía (se propaga).
+### Parámetros clave
+
+**Descubrimiento (`discover`)**:
+- `url`: feed de servicio (nivel superior). **Obligatorio.**
+- `filtro_incluir`: subcadenas que debe contener título/id/href de la hoja para
+  proponerse. Para Catastro = **códigos de municipio DGC** (p. ej. `["11020"]`).
+  Vacío = todos. Suele marcarse `is_external: true` (lo fija el consumidor, SIPI).
+- `leaf_exts`: extensiones que cuentan como fichero hoja (def.
+  `zip,gz,gml,tar,7z,rar,tgz`).
+- `max_depth`: niveles a descender (`0` = auto por type/extensión del `<link>`).
+- `max_feeds`: tope de feeds a leer en el descenso (def. `500`).
+
+**Extracción (`stream`)** — se propagan al hijo promovido:
+- `entry`: glob del fichero a extraer dentro del contenedor (p. ej.
+  `*.cadastralparcel.gml`). Imprescindible cuando el ZIP trae varios GML.
+- `inner_format`: formato del fichero interno (`gml`). Si se omite, se infiere de la
+  extensión de `entry`.
+- `format`: formato del contenedor (`zip`/`gz`/`tar`/...); si se omite se infiere de la URL.
+- `batch_size` (def. `1000`), `file_delay`, `headers`, `timeout`.
+
+**Cortesía (throttle, ambos modos)**:
+- `rate_limit_per_second` y/o `request_delay_ms`: intervalo mínimo entre peticiones.
+- `max_per_hour`: ventana horaria deslizante (la reja que evita el veto).
 
 **Throttle recomendado para Catastro**: `max_per_hour=3500`, `rate_limit_per_second=1`.
 
@@ -87,9 +121,10 @@ reproyectar), más `srsName`. Sigue siendo **productor-neutro**: conserva los
 nombres originales (`nationalCadastralReference`, `areaValue`, …) y NO aplica la
 semántica de SIPI (eso lo hace SIPI).
 
-- **Especie-hoja**: `Compressed File` con `inner_format=gml` (+ `entry=*.gml`).
-  Baja el ZIP, extrae el `.gml` y lo parsea con el nuevo `app/fetchers/gml_parser.py`
-  (stdlib, **sin GDAL**): Point / LineString / Polygon / MultiSurface→MultiPolygon, etc.
+- **Lo hace el propio "Crawler ATOM"** en `stream()`: con `inner_format=gml` (+
+  `entry=*.cadastralparcel.gml`) baja el ZIP, extrae el `.gml` y lo parsea con
+  `app/fetchers/gml_parser.py` (stdlib, **sin GDAL**): Point / LineString / Polygon /
+  MultiSurface→MultiPolygon, etc. Reutiliza la extracción de Compressed File, no la duplica.
 - **SIPI** consume los registros por la API y hace
   `ST_SetSRID(ST_GeomFromGeoJSON(geometry), <srid de srsName>)` (+ reproyección si
   procede). Mucho más ligero que un ETL con `ogr2ogr`.
@@ -111,31 +146,37 @@ semántica de SIPI (eso lo hace SIPI).
 | **BU** — Edificios | `.../INSPIRE/Buildings/ES.SDGC.BU.atom.xml` | Estado constructivo / año / uso (3 GML) | Recomendable |
 | **AD** — Direcciones | `.../INSPIRE/Addresses/ES.SDGC.AD.atom.xml` | Direcciones postales geolocalizadas | Opcional |
 
-## Cómo se configurará (manifests — PENDIENTE de luz verde)
+## Cómo se configura (manifests)
 
-Un recurso **Descubridor ATOM** por tema, p. ej. (forma orientativa):
+Un recurso **Crawler ATOM** por tema. Forma real, alineada con
+`manifests/catastro_cp_parcelas.json`:
 
 ```json
 {
   "name": "Catastro INSPIRE - Parcelas (CP)",
-  "fetcher": "Descubridor ATOM",
-  "collection": "Inmuebles religiosos en España",
+  "fetcher": "Crawler ATOM",
+  "genera_colecciones": true,
   "active": true,
+  "clase_fuente": "api_abierta",
   "params": [
     { "key": "url", "value": "https://www.catastro.hacienda.gob.es/INSPIRE/CadastralParcels/ES.SDGC.CP.atom.xml" },
     { "key": "filtro_incluir", "value": "", "is_external": true },
-    { "key": "child_fetcher", "value": "Compressed File" },
-    { "key": "child_params", "value": "{\"inner_format\": \"gml\", \"entry\": \"*.cadastralparcel.gml\"}" },
-    { "key": "max_per_hour", "value": "3500" },
-    { "key": "rate_limit_per_second", "value": "1" }
+    { "key": "inner_format", "value": "gml" },
+    { "key": "entry", "value": "*.cadastralparcel.gml" },
+    { "key": "rate_limit_per_second", "value": "1" },
+    { "key": "max_per_hour", "value": "3500" }
   ]
 }
 ```
 
-El descubridor propaga `child_fetcher`/`child_params` a cada hijo, así que cada ZIP
-municipal nace como un recurso **Compressed File** que ya sabe extraer y parsear el GML.
+`genera_colecciones: true` marca la madre como **Colección** (modo `discover`). Al
+ejecutarla, el manager infiere los datasets dimensionados y promueve los hijos, que
+heredan `entry`/`inner_format` y el throttle y corren en modo `stream`. **El manifest
+no lleva ni un campo de SIPI** (productor neutro).
 
-BU y AD: idéntico cambiando `url`. **El manifest no lleva ni un campo de SIPI.**
+BU y AD: idéntico cambiando `url` (y el `entry`, ver tabla de recursos). **BU trae 3
+GML por ZIP**, así que necesita **un recurso por GML** (un `entry` distinto cada uno),
+porque un glob `*.gml` casaría varios y daría ambigüedad.
 
 ## Verificado en vivo (2026-06-18)
 
