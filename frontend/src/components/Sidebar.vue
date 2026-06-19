@@ -6,7 +6,7 @@
         <p class="text-xs text-gray-400 mt-0.5">Metadata-driven Backend</p>
         <p v-if="appVersion" class="text-xs text-gray-600 mt-0.5 font-mono">build {{ appVersion }}</p>
       </div>
-      <button @click="$emit('close')" class="lg:hidden p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-700 transition-colors flex-shrink-0" aria-label="Cerrar menú">
+      <button @click="$emit('close')" class="lg:hidden p-1.5 rounded-lg text-gray-500 hover:text-gray-300 hover:bg-gray-700 transition-colors flex-shrink-0" aria-label="Close menu">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
@@ -26,7 +26,7 @@
       <NavItem v-if="puede('settings.gestionar')" to="/settings" :active="$route.path === '/settings'">⚙️ Settings</NavItem>
       <NavItem v-if="puede('recursos.borrar')" to="/trash" :active="$route.path === '/trash'">🗑️ Trash</NavItem>
       <NavItem v-if="puede('usuarios.gestionar')" to="/usuarios" :active="$route.path === '/usuarios'">👥 Users</NavItem>
-      <button type="button" @click="help = true" class="w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors">❓ Ayuda</button>
+      <NavItem to="/help" :active="$route.path === '/help'">❓ Help</NavItem>
 
       <div v-if="status !== 'online'" class="absolute inset-0 flex items-center justify-center">
         <p class="text-xs text-gray-500 text-center px-4">Navigation unavailable<br>while backend is {{ status }}</p>
@@ -39,7 +39,7 @@
         @click="mostrarLogin = true"
         class="w-full flex items-center justify-center gap-2 text-xs text-white bg-blue-600 hover:bg-blue-500 rounded-lg px-3 py-2 transition-colors"
       >
-        Iniciar sesión
+        Sign in
       </button>
       <div v-else class="space-y-2">
         <p class="text-xs text-gray-400 text-center truncate">👤 {{ usuario }}</p>
@@ -50,7 +50,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
           </svg>
-          Cerrar sesión
+          Sign out
         </button>
       </div>
       <div v-if="status === 'offline'" class="flex items-center gap-2 bg-red-900 border border-red-600 text-red-200 rounded-lg px-3 py-2 text-xs font-medium animate-pulse">
@@ -75,7 +75,7 @@
       </div>
       <div v-if="ramTotal > 0">
         <div class="flex items-center justify-between text-xs mb-1">
-          <span class="text-gray-500">RAM disponible</span>
+          <span class="text-gray-500">RAM available</span>
           <span :class="ramColor" class="font-mono tabular-nums">{{ ramAvailGb }} / {{ ramTotalGb }} GB</span>
         </div>
         <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
@@ -85,27 +85,6 @@
     </div>
   </div>
 
-  <!-- Ayuda: protocolo productor / consumidor -->
-  <div v-if="help" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" @click.self="help = false">
-    <div class="bg-gray-800 border border-gray-700 rounded-xl p-6 w-full max-w-2xl" style="max-height:85vh;overflow-y:auto">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-base font-semibold text-blue-300">❓ Ayuda · protocolo productor / consumidor</h3>
-        <button class="text-gray-400 hover:text-white" @click="help = false">✕</button>
-      </div>
-      <div class="text-sm text-gray-300 space-y-3 leading-relaxed">
-        <p><b>OpenDataManager</b> es el <b>productor</b>: cosecha y versiona datos y los expone por GraphQL y webhooks. Las aplicaciones <b>consumidoras</b> (p. ej. ckan-jerez) se dan de alta, se suscriben a recursos y pueden proponer nuevos.</p>
-        <p class="text-gray-200 font-medium">Gobernanza (Subscribers → Pendientes)</p>
-        <ol class="list-decimal ml-5 space-y-1">
-          <li><b>Solicitudes de alta</b>: una aplicación pide ingresar. Al <b>aprobarla</b> se materializa su principal y se emite un <b>token</b> (visible una sola vez).</li>
-          <li><b>Recursos propuestos</b>: lo creado por una aplicación nace <i>pendiente</i> y no se ejecuta hasta que un administrador lo <b>aprueba</b> (o lo rechaza con motivo).</li>
-          <li><b>Tokens</b>: por aplicación se pueden emitir, rotar o revocar.</li>
-        </ol>
-        <p class="text-gray-200 font-medium">Recursos «nodriza» (Web Tree)</p>
-        <p>Un crawler raíz afecta al sitio de origen, por eso <b>se proponen desde las aplicaciones pero se aprueban e instancian aquí</b>, en ODM. El productor gobierna coste e impacto externo; el consumidor propone y consume.</p>
-      </div>
-      <div class="mt-4 text-right"><button class="text-sm text-white bg-blue-600 hover:bg-blue-500 rounded-lg px-4 py-2 transition-colors" @click="help = false">Entendido</button></div>
-    </div>
-  </div>
 </template>
 
 <script setup>
@@ -118,7 +97,6 @@ defineEmits(['close'])
 const { logout, puede, esInvitado, usuario, mostrarLogin } = useAuth()
 
 const status = ref('checking')
-const help = ref(false)
 const ramTotal = ref(0)
 const ramAvail = ref(0)
 const appVersion = ref('')
