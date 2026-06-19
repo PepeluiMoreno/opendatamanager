@@ -166,6 +166,10 @@ class NotificationService:
         return {
             "event": "dataset.published",
             "consumption_mode": "graphql",
+            # Colecciones (nombres) a las que pertenece el recurso. Permite a los
+            # consumidores (p. ej. SIPI) enrutar por colección, no por nombre de
+            # recurso, y así cubrir recursos nuevos de una colección suscrita.
+            "collections": [c.name for c in (getattr(resource, "collections", None) or [])],
             "dataset": {
                 "id": str(dataset.id),
                 "resource_id": str(resource.id),
@@ -244,6 +248,9 @@ class NotificationService:
 
         return {
             "event": "dataset.published",
+            # Colecciones (nombres) del recurso → enrutado por colección en el
+            # consumidor (SIPI), cubriendo recursos nuevos de una colección suscrita.
+            "collections": [c.name for c in (getattr(resource, "collections", None) or [])],
             "dataset": {
                 "id": str(dataset.id),
                 "resource_id": str(resource.id),
