@@ -43,9 +43,12 @@ def ensure_matriz_collection(session, resource) -> ResourceCollection | None:
         return nombre if not choca else f"{nombre} ({str(resource.id)[:8]})"
 
     if col is None:
+        from app.services.collections import unique_collection_slug
+        nombre = _nombre_libre(resource.name)
         col = ResourceCollection(
             id=uuid4(),
-            name=_nombre_libre(resource.name),
+            name=nombre,
+            slug=unique_collection_slug(session, nombre),
             origin="matriz",
             root_resource_id=resource.id,
         )

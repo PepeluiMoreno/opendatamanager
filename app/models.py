@@ -135,11 +135,17 @@ class ResourceCollection(AuditMixin, Base):
     __tablename__ = "resource_collection"
     __table_args__ = (
         UniqueConstraint("name", name="uq_resource_collection_name"),
+        UniqueConstraint("slug", name="uq_resource_collection_slug"),
         {"schema": "opendata"},
     )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(String(100), nullable=False)
+    # Identificador estable y neutro (p. ej. "administraciones-dir3"). A diferencia
+    # de `name` (editable, de display), el slug NO cambia al renombrar: es la clave
+    # que los consumidores (SIPI) usan para suscribirse y para enrutar el webhook,
+    # portable entre entornos (dev/prod) y compartible por varias aplicaciones.
+    slug = Column(String(120), nullable=True)
     origin = Column(String(20), default="organizativa", server_default="organizativa", nullable=False)  # organizativa | matriz
     # Para las de origen 'matriz': el recurso que la preside. Si se borra la
     # matriz, su collection se va con ella (y sus miembros quedan sin agrupar).
