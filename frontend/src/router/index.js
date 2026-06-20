@@ -14,6 +14,7 @@ import Publishers from '../views/Publishers.vue'
 import Trash from '../views/Trash.vue'
 import Usuarios from '../views/Usuarios.vue'
 import Candidates from '../views/Discovering.vue'
+import Aprobaciones from '../views/Aprobaciones.vue'
 import Help from '../views/Help.vue'
 
 const routes = [
@@ -28,7 +29,7 @@ const routes = [
   { path: '/resources/:id/test', name: 'ResourceTest', component: ResourceTest },
   { path: '/subscribers',    name: 'Subscribers',   component: SubscribersConsole },
   { path: '/applications',   redirect: '/subscribers' },
-  { path: '/aprobaciones',   redirect: '/subscribers' },
+  { path: '/aprobaciones',   name: 'Aprobaciones',  component: Aprobaciones },
   { path: '/processes',      name: 'Processes',     component: Executions },
   { path: '/schedule',       name: 'Schedule',      component: Schedule, meta: { permiso: 'programacion.gestionar' } },
   { path: '/settings',       name: 'Settings',      component: Settings, meta: { permiso: 'settings.gestionar' } },

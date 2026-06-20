@@ -1,18 +1,9 @@
 <template>
-  <div class="subs-shell">
-    <div class="subs-tabs">
-      <button :class="['stab',{on:tab==='activos'}]" @click="tab='activos'">Activos</button>
-      <button v-if="canApprove" :class="['stab',{on:tab==='pendientes'}]" @click="tab='pendientes'">Pendientes</button>
-    </div>
-    <div v-show="tab==='activos'" :class="['console', { collapsed: !railOpen }]" :style="{ gridTemplateColumns: railOpen ? (railW + 'px 6px 1fr') : '0 0 1fr' }">
+  <div :class="['console', { collapsed: !railOpen }]" :style="{ gridTemplateColumns: railOpen ? (railW + 'px 6px 1fr') : '0 0 1fr' }">
     <!-- ===== SUBSCRIBERS RAIL ===== -->
     <aside class="rail">
       <div class="brand">
-        <PageHeader title="Suscriptores" subtitle="Vista nueva · beta" tight />
-      </div>
-      <div class="roster-h">
-        <span>Suscriptores</span>
-        <button v-if="puede('subscribers.crear')" @click="abrirDrawer(null)" title="Nuevo suscriptor">+</button>
+        <PageHeader title="Subscribers" tight />
       </div>
       <div class="roster">
         <div v-for="s in subsFiltrados" :key="s.id"
@@ -44,14 +35,15 @@
     <!-- ===== MAIN: SUBSCRIPTIONS ===== -->
     <main class="main">
       <div class="topbar">
-        <button class="rail-toggle" @click="railOpen = !railOpen" :title="railOpen ? 'Ocultar suscriptores' : 'Mostrar suscriptores'">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-        </button>
         <div class="crumb">
-          <div class="big">{{ subActual?.name || 'Suscriptores' }}</div>
+          <div class="big">{{ subActual?.name || 'Subscribers' }}</div>
           <div class="meta">{{ metaSub }}</div>
         </div>
         <div class="spacer"></div>
+        <button v-if="puede('aplicaciones.gestionar')" class="btn primary" @click="abrirDrawer(null)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+          New subscriber
+        </button>
       </div>
 
       <div class="listwrap">
@@ -116,18 +108,26 @@
             </div>
           </div>
         </div>
+        <div class="sect" v-if="editing && puede('aplicaciones.aprobar')">
+          <div class="sh"><span class="nidx">04</span><h3>Token de aplicación (M2M)</h3></div>
+          <div class="sbody">
+            <small style="color:#5A6878;font-size:11px;display:block;margin-bottom:8px">Token Bearer para autenticación máquina-a-máquina (en SIPI: <code>ODM_APP_TOKEN</code>). Se entrega <b>una sola vez</b>; emitir uno nuevo <b>invalida</b> el anterior.</small>
+            <div v-if="tokenEmitido" style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+              <code class="inp mono" style="flex:1;word-break:break-all">{{ tokenEmitido }}</code>
+              <button type="button" class="ghost" @click="copiarToken">Copiar</button>
+            </div>
+            <button type="button" class="ghost" :disabled="emitiendoToken" @click="emitirToken">{{ emitiendoToken ? 'Emitiendo…' : 'Emitir token' }}</button>
+          </div>
+        </div>
       </div>
       <div class="dfoot">
-        <button v-if="editing && puede('subscribers.borrar')" class="del" @click="pedirBorrarSubDrawer">Eliminar suscriptor</button>
+        <button v-if="editing && puede('aplicaciones.gestionar')" class="del" @click="pedirBorrarSubDrawer">Eliminar suscriptor</button>
         <div class="grow"></div>
         <button class="ghost" @click="cerrarDrawer">Cancelar</button>
         <button class="save" :disabled="!form.name || saving" @click="guardar">{{ saving ? 'Guardando…' : 'Guardar' }}</button>
       </div>
     </aside>
 
-    </div><!-- /console activos -->
-
-    <div v-if="tab==='pendientes'" class="pend-wrap"><Aprobaciones /></div>
   </div>
 </template>
 
@@ -135,7 +135,7 @@
 import PageHeader from '../components/PageHeader.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth'
-import Aprobaciones from './Aprobaciones.vue'
+import { useRailResize } from '../composables/useRailResize'
 import { usePagination } from '../composables/usePagination'
 import { useConfirm } from '../composables/useConfirm'
 import { useToast } from '../composables/useToast'
@@ -144,13 +144,12 @@ import SubscriptionEditor from '../components/SubscriptionEditor.vue'
 import {
   fetchSubscribers, createSubscriber, updateSubscriber, deleteSubscriber, setSubscriberWebhook,
   fetchSubscriptions, unsubscribeResource, fetchResources, fetchResourceCollections,
+  crearSubscriber,
 } from '../api/graphql'
 
 const { puede } = useAuth()
 const { confirm } = useConfirm()
 const { toast } = useToast()
-const tab = ref('activos')
-const canApprove = computed(() => puede('aplicaciones.aprobar') || puede('recursos.aprobar'))
 const loading = ref(true)
 const subscribers = ref([]); const subscriptions = ref([]); const resources = ref([]); const collections = ref([])
 const selected = ref(null)
@@ -158,11 +157,7 @@ const q = ref(''); const fPublisher = ref(''); const fUpgrade = ref('')
 const sel = ref(new Set())
 const upgradeOpts = ['none','patch','minor','major']
 
-const railW = ref(264); const railOpen = ref(typeof window === 'undefined' || window.innerWidth >= 880); let dragging=false
-function startDrag(e){ dragging=true; e.preventDefault()
-  const mv=ev=>{ if(dragging) railW.value=Math.min(440,Math.max(200,ev.clientX)) }
-  const up=()=>{ dragging=false; window.removeEventListener('mousemove',mv); window.removeEventListener('mouseup',up) }
-  window.addEventListener('mousemove',mv); window.addEventListener('mouseup',up) }
+const { railW, railOpen, startDrag } = useRailResize()
 const subFilter = ref('')
 
 function modoLabel(m){ return m==='both'?'webhook+graphql':m||'—' }
@@ -209,12 +204,27 @@ async function bajaLote(){ bulkBusy.value=true; try{ for(const id of sel.value) 
 const drawer=ref(false); const editing=ref(null); const saving=ref(false)
 const drawerW = ref(760)
 const form=ref({ name:'',description:'',proposito:'',active:true,consumptionMode:'webhook',webhookUrl:'',webhookSecret:'',personaContacto:'',email:'',telefono:'',githubUrl:'' })
-function abrirDrawer(s){ editing.value=s
+function abrirDrawer(s){ editing.value=s; tokenEmitido.value=''
   // webhookSecret nunca se precarga (es write-only en la API); vacío = no cambiar.
   form.value = s ? { name:s.name,description:s.description||'',proposito:s.proposito||'',active:s.active!==false,consumptionMode:s.consumptionMode||'webhook',webhookUrl:s.webhookUrl||'',webhookSecret:'',personaContacto:s.personaContacto||'',email:s.email||'',telefono:s.telefono||'',githubUrl:s.githubUrl||'' }
             : { name:'',description:'',proposito:'',active:true,consumptionMode:'webhook',webhookUrl:'',webhookSecret:'',personaContacto:'',email:'',telefono:'',githubUrl:'' }
   drawer.value=true }
-function cerrarDrawer(){ drawer.value=false }
+function cerrarDrawer(){ drawer.value=false; tokenEmitido.value='' }
+
+// Token Bearer M2M del suscriptor (en SIPI: ODM_APP_TOKEN). crearSubscriber es
+// idempotente: reusa el principal por nombre y emite un token nuevo (invalida el
+// anterior). Se muestra una sola vez.
+const tokenEmitido = ref(''); const emitiendoToken = ref(false)
+async function emitirToken(){
+  emitiendoToken.value=true; tokenEmitido.value=''
+  try{
+    const r = await crearSubscriber(form.value.name)
+    const t = r?.crearSubscriber?.token
+    if(t){ tokenEmitido.value = t } else { toast.error('No se pudo emitir el token') }
+  }catch(e){ toast.error('Error emitiendo token: '+(e?.message||e)) }
+  finally{ emitiendoToken.value=false }
+}
+async function copiarToken(){ try{ await navigator.clipboard.writeText(tokenEmitido.value); toast.success?.('Token copiado') }catch{ /* noop */ } }
 function generarSecreto(){
   const a=new Uint8Array(24); (window.crypto||window.msCrypto).getRandomValues(a)
   form.value.webhookSecret=Array.from(a,b=>b.toString(16).padStart(2,'0')).join('')
@@ -238,28 +248,19 @@ function pedirBorrarSubDrawer(){ const s=editing.value; drawer.value=false; pedi
 </script>
 
 <style scoped>
-.subs-shell{margin:-1rem;height:100vh;display:flex;flex-direction:column;overflow:hidden;background:#0C0F14}
-.subs-tabs{flex-shrink:0;display:flex;gap:6px;align-items:center;padding:10px 16px;border-bottom:1px solid #222C39;background:#0d1218}
-.subs-tabs .stab{padding:7px 16px;border-radius:9px;font-size:13px;font-weight:600;color:#8595A6;background:none;border:1px solid transparent;cursor:pointer}
-.subs-tabs .stab:hover{color:#E7EEF6}
-.subs-tabs .stab.on{color:#3FE0CB;background:#10211e;border-color:#1c5b54}
-.pend-wrap{flex:1;min-height:0;overflow:auto;padding:18px 22px;background:#0C0F14;color:#E7EEF6}
 .console{
   --ink:#0C0F14;--panel:#12171F;--panel-2:#161D27;--raised:#1B2430;--line:#222C39;--line-soft:#1A222E;
   --txt:#E7EEF6;--muted:#8595A6;--faint:#5A6878;--signal:#3FE0CB;--signal-dim:#1c5b54;--harvest:#F7B85C;--alert:#FF6B6B;--violet:#9C8CFF;
   --mono:'JetBrains Mono',ui-monospace,monospace;--disp:'Space Grotesk',Inter,sans-serif;
-  display:grid;grid-template-columns:264px 1fr;flex:1;min-height:0;
+  display:grid;grid-template-columns:264px 1fr;height:calc(100vh - 0px);
   background:
     radial-gradient(1200px 600px at 80% -10%, #16313044, transparent 60%),
     radial-gradient(900px 500px at -10% 110%, #1d243a55, transparent 55%),
     var(--ink);
-  color:var(--txt);font-size:14px;border-radius:0;overflow:hidden;
+  color:var(--txt);font-size:14px;margin:-1rem -1rem -1rem 12px;border-radius:12px 0 0 12px;overflow:hidden;
 }
 .console *{box-sizing:border-box}
 .console.collapsed .rail, .console.collapsed .divider{display:none}
-.rail-toggle{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;background:none;cursor:pointer;flex-shrink:0}
-.rail-toggle:hover{color:var(--signal);border-color:var(--signal-dim);background:#0f201d}
-.rail-toggle svg{width:17px;height:17px}
 @media(max-width:880px){.rail{position:relative}}
 
 .rail{background:linear-gradient(180deg,#10151d,#0d1218);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
@@ -298,7 +299,8 @@ function pedirBorrarSubDrawer(){ const s=editing.value; drawer.value=false; pedi
 .spacer{flex:1}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;font-weight:600;font-size:13px;border:1px solid var(--line);color:var(--muted);background:none;cursor:pointer}
 .btn:hover{border-color:#34424f;color:var(--txt)}
-.btn.primary{background:linear-gradient(180deg,var(--signal),#2bc3b0);color:#042521;border:none;box-shadow:0 6px 18px #1fd4be33}
+.btn.primary{background:#2563eb;color:#fff;border:none}
+.btn.primary:hover{background:#3b82f6;color:#fff}
 .btn svg{width:15px;height:15px}
 .filters{display:flex;align-items:center;gap:8px;padding:4px 22px 10px;flex-wrap:wrap}
 .search{flex:0 1 230px;min-width:140px;position:relative}

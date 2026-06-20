@@ -23,6 +23,7 @@
       <NavItem to="/processes" :active="$route.path === '/processes'">⚡ Processes</NavItem>
       <NavItem to="/explorer" :active="$route.path === '/explorer'">🔍 Data Explorer</NavItem>
       <NavItem v-if="puede('aplicaciones.gestionar') || puede('aplicaciones.aprobar') || puede('recursos.aprobar')" to="/subscribers" :active="$route.path === '/subscribers'">📦 Subscribers</NavItem>
+      <NavItem v-if="puede('aplicaciones.aprobar') || puede('recursos.aprobar')" to="/aprobaciones" :active="$route.path === '/aprobaciones'">✅ Approvals</NavItem>
       <NavItem v-if="puede('programacion.gestionar')" to="/schedule" :active="$route.path === '/schedule'">🕐 Schedule</NavItem>
       <NavItem v-if="puede('settings.gestionar')" to="/settings" :active="$route.path === '/settings'">⚙️ Settings</NavItem>
       <NavItem v-if="puede('recursos.borrar')" to="/trash" :active="$route.path === '/trash'">🗑️ Trash</NavItem>
