@@ -111,6 +111,7 @@ class ResourceCollectionType:
     id: str
     name: str
     origin: str
+    slug: Optional[str] = None
     root_resource_id: Optional[str] = strawberry.field(default=None, name="rootResourceId")
     parent_collection_id: Optional[str] = strawberry.field(default=None, name="parentCollectionId")
     miembros: int = 0
@@ -280,6 +281,28 @@ class ResourceSubscriptionType:
     auto_upgrade: str = strawberry.field(name="autoUpgrade")
     current_version: Optional[str] = strawberry.field(default=None, name="currentVersion")
     notified_at: Optional[datetime] = strawberry.field(default=None, name="notifiedAt")
+
+
+@strawberry.type
+class SubscriptionReadinessType:
+    """Estado de "satisfacción" de una suscripción de la aplicación autenticada.
+
+    Permite al consumidor (SIPI) verificar al preparar su ETL si los recursos que
+    necesita ya están disponibles (tienen dataset publicado), sin clicar en ODM.
+    """
+    subscription_id: str = strawberry.field(name="subscriptionId")
+    target_kind: str = strawberry.field(name="targetKind")  # resource | collection
+    target_id: str = strawberry.field(name="targetId")
+    target_name: Optional[str] = strawberry.field(default=None, name="targetName")
+    target_slug: Optional[str] = strawberry.field(default=None, name="targetSlug")
+    active: bool = True
+    # satisfied = hay al menos un dataset publicado (para colección, en ≥1 miembro)
+    satisfied: bool = False
+    current_version: Optional[str] = strawberry.field(default=None, name="currentVersion")
+    latest_dataset_id: Optional[str] = strawberry.field(default=None, name="latestDatasetId")
+    data_url: Optional[str] = strawberry.field(default=None, name="dataUrl")
+    member_count: int = strawberry.field(default=0, name="memberCount")
+    satisfied_member_count: int = strawberry.field(default=0, name="satisfiedMemberCount")
 
 
 @strawberry.type

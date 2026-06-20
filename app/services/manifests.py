@@ -306,7 +306,9 @@ def import_manifest(session, manifest: Dict[str, Any], *, source: str = "manifes
         col = (session.query(ResourceCollection)
                .filter(ResourceCollection.name == nombre).first())
         if col is None:
-            col = ResourceCollection(id=uuid4(), name=nombre, origin="organizativa")
+            from app.services.collections import unique_collection_slug
+            col = ResourceCollection(id=uuid4(), name=nombre, origin="organizativa",
+                                     slug=unique_collection_slug(session, nombre))
             session.add(col)
             session.flush()
         return col

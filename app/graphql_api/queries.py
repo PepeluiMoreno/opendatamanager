@@ -26,6 +26,7 @@ from app.graphql_api.types import (
     ResourceExecutionType,
     DatasetType,
     ResourceSubscriptionType,
+    SubscriptionReadinessType,
     SubscriberNotificationType,
     AppConfigType,
     DerivedDatasetConfigType,
@@ -213,6 +214,7 @@ def map_resource_collection(g: ResourceCollection, miembros: int = 0) -> Resourc
     return ResourceCollectionType(
         id=str(g.id),
         name=g.name,
+        slug=g.slug,
         origin=g.origin or "organizativa",
         root_resource_id=str(g.root_resource_id) if g.root_resource_id else None,
         parent_collection_id=str(g.parent_collection_id) if g.parent_collection_id else None,
@@ -806,6 +808,90 @@ class Query:
                 query = query.filter(ResourceSubscription.resource_id == resource_id)
             subscriptions = query.all()
             return [map_resource_subscription(sub) for sub in subscriptions]
+        finally:
+            db.close()
+
+    @strawberry.field
+    def my_subscriptions(self, info: Info) -> List[SubscriptionReadinessType]:
+        """Readiness de las suscripciones de la **aplicación autenticada** (Bearer).
+
+        Para cada suscripción dice si está *satisfecha* (tiene dataset publicado),
+        su versión actual y la URL de descarga del último dataset. Para suscripción
+        a colección, agrega sobre sus recursos miembros. El consumidor (SIPI) lo usa
+        al preparar su ETL para confirmar que tiene "sus recursos satisfechos"."""
+        from app.models import (Subscriber, ResourceSubscription as RS, Resource as ResM,
+                                 Dataset as DsM, ResourceCollection as RColM)
+        from app.service_auth import _slug, PRINCIPAL_APLICACION
+        db = get_db()
+        try:
+            usuario = info.context.get("usuario") if (info and info.context) else None
+            app_obj = None
+            if usuario is not None and getattr(usuario, "tipo", None) == PRINCIPAL_APLICACION:
+                app_obj = next(
+                    (a for a in db.query(Subscriber).filter(Subscriber.deleted_at.is_(None)).all()
+                     if _slug(a.name) == usuario.username),
+                    None,
+                )
+            if app_obj is None:
+                return []
+
+            def _latest_dataset(resource_id):
+                return (db.query(DsM)
+                        .filter(DsM.resource_id == resource_id, DsM.deleted_at.is_(None))
+                        .order_by(DsM.created_at.desc()).first())
+
+            subs = (db.query(RS)
+                    .filter(RS.application_id == app_obj.id, RS.deleted_at.is_(None)).all())
+            out = []
+            for sub in subs:
+                if sub.collection_id is not None:
+                    col = db.query(RColM).filter(RColM.id == sub.collection_id).first()
+                    if col is None:
+                        continue
+                    from app.services.collections import member_resource_ids
+                    miembros = member_resource_ids(db, col.id)
+                    satisfechos = 0
+                    latest = None
+                    for rid in miembros:
+                        ds = _latest_dataset(rid)
+                        if ds is not None:
+                            satisfechos += 1
+                            if latest is None or ds.created_at > latest.created_at:
+                                latest = ds
+                    out.append(SubscriptionReadinessType(
+                        subscription_id=str(sub.id),
+                        target_kind="collection",
+                        target_id=str(col.id),
+                        target_name=col.name,
+                        target_slug=col.slug,
+                        active=True,
+                        satisfied=satisfechos > 0,
+                        current_version=sub.current_version,
+                        latest_dataset_id=str(latest.id) if latest else None,
+                        data_url=(f"/api/datasets/{latest.id}/data.jsonl" if latest else None),
+                        member_count=len(miembros),
+                        satisfied_member_count=satisfechos,
+                    ))
+                elif sub.resource_id is not None:
+                    res = db.query(ResM).filter(ResM.id == sub.resource_id).first()
+                    if res is None:
+                        continue
+                    latest = _latest_dataset(res.id)
+                    out.append(SubscriptionReadinessType(
+                        subscription_id=str(sub.id),
+                        target_kind="resource",
+                        target_id=str(res.id),
+                        target_name=res.name,
+                        target_slug=None,
+                        active=bool(getattr(res, "active", True)),
+                        satisfied=latest is not None,
+                        current_version=sub.current_version,
+                        latest_dataset_id=str(latest.id) if latest else None,
+                        data_url=(f"/api/datasets/{latest.id}/data.jsonl" if latest else None),
+                        member_count=0,
+                        satisfied_member_count=0,
+                    ))
+            return out
         finally:
             db.close()
 

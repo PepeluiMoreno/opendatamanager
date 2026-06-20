@@ -9,9 +9,35 @@ Reglas de anidamiento (`parent_collection_id`): el padre solo puede ser una
 colección **organizativa** (nada cuelga de una 'matriz', ni una matriz de otra);
 sin ciclos; profundidad libre.
 """
+import re
+
 from sqlalchemy import insert, delete, select
 
 from app.models import Resource, ResourceCollection, resource_collection_member as RCM
+
+
+def slugify_collection(name: str) -> str:
+    """Slug neutro y estable a partir de un nombre de colección.
+
+    minúsculas, no-alfanuméricos → '-', sin guiones colgantes. Acota a 120.
+    """
+    base = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+    return (base or "coleccion")[:120]
+
+
+def unique_collection_slug(session, name: str, exclude_id=None) -> str:
+    """slugify_collection + desambiguación (-2, -3, …) garantizando unicidad."""
+    base = slugify_collection(name)
+    slug = base
+    n = 2
+    while True:
+        q = session.query(ResourceCollection).filter(ResourceCollection.slug == slug)
+        if exclude_id is not None:
+            q = q.filter(ResourceCollection.id != exclude_id)
+        if q.first() is None:
+            return slug
+        slug = f"{base[:115]}-{n}"
+        n += 1
 
 
 def collection_ids_of(session, resource_id) -> list[str]:

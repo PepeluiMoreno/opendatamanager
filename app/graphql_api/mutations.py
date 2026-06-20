@@ -443,7 +443,9 @@ class Mutation:
                 raise ValueError("La collection necesita un nombre")
             if db.query(ResourceCollection).filter(ResourceCollection.name == nombre).first():
                 raise ValueError(f"Ya existe una collection llamada '{nombre}'")
-            grupo = ResourceCollection(id=uuid4(), name=nombre, origin="organizativa")
+            from app.services.collections import unique_collection_slug
+            grupo = ResourceCollection(id=uuid4(), name=nombre, origin="organizativa",
+                                       slug=unique_collection_slug(db, nombre))
             db.add(grupo)
             db.commit()
             db.refresh(grupo)
@@ -1622,6 +1624,59 @@ class Mutation:
             db.commit()
             db.refresh(sub)
             return map_resource_subscription(sub)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation
+    def request_subscriptions(
+        self,
+        collection_slugs: List[str],
+        info: strawberry.types.Info,
+        auto_upgrade: str = "patch",
+    ) -> List[ResourceSubscriptionType]:
+        """Auto-servicio del consumidor (M2M): la **aplicación autenticada por
+        Bearer** declara las colecciones que necesita, por **slug** (clave estable),
+        y ODM asegura sus suscripciones de forma **idempotente**.
+
+        Es la "preparación del ETL" del consumidor: en vez de configurar a mano en
+        el UI de ODM, la app pide sus suscripciones al arrancar. Slugs desconocidos
+        se ignoran en silencio (la query `mySubscriptions` revela qué quedó sin
+        satisfacer). Devuelve las suscripciones resultantes (creadas o ya existentes).
+        """
+        from app.models import ResourceCollection
+        db = get_db()
+        try:
+            usuario = info.context.get("usuario") if (info and info.context) else None
+            app_obj = _aplicacion_de_principal(db, usuario) if usuario is not None else None
+            if app_obj is None:
+                raise PermissionError(
+                    "request_subscriptions es auto-servicio: requiere autenticación "
+                    "de aplicación (token Bearer) vinculada a una Subscriber.")
+            resultado = []
+            for slug in collection_slugs:
+                col = db.query(ResourceCollection).filter(ResourceCollection.slug == slug).first()
+                if col is None:
+                    continue
+                sub = db.query(ResourceSubscription).filter(
+                    ResourceSubscription.application_id == app_obj.id,
+                    ResourceSubscription.collection_id == col.id,
+                    ResourceSubscription.deleted_at.is_(None),
+                ).first()
+                if sub is None:
+                    sub = ResourceSubscription(
+                        id=uuid4(),
+                        application_id=app_obj.id,
+                        collection_id=col.id,
+                        auto_upgrade=auto_upgrade,
+                    )
+                    db.add(sub)
+                    db.flush()
+                resultado.append(sub)
+            db.commit()
+            return [map_resource_subscription(s) for s in resultado]
         except Exception as e:
             db.rollback()
             raise e
