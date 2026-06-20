@@ -1074,18 +1074,28 @@ class Query:
         crawler_resource_id: Optional[strawberry.ID] = None,
         execution_id: Optional[strawberry.ID] = None,
         status: Optional[str] = None,
+        kind: Optional[str] = None,
+        include_deleted: bool = False,
     ) -> List[ResourceCandidateType]:
-        """Lista candidatos generados por el GroupingInferer tras un discover.
-        Filtros opcionales: crawler, ejecución, estado. Soft-deleted excluidos."""
+        """Lista candidatos generados por el descubrimiento.
+        Filtros opcionales: crawler, ejecución, estado y `kind`
+        ('infer' = sin especie destino / 'propose' = con especie destino).
+        `include_deleted` incluye los soft-deleted (para purgar/restaurar en UI)."""
         db = get_db()
         try:
-            q = db.query(ResourceCandidate).filter(ResourceCandidate.deleted_at.is_(None))
+            q = db.query(ResourceCandidate)
+            if not include_deleted:
+                q = q.filter(ResourceCandidate.deleted_at.is_(None))
             if crawler_resource_id:
                 q = q.filter(ResourceCandidate.crawler_resource_id == crawler_resource_id)
             if execution_id:
                 q = q.filter(ResourceCandidate.execution_id == execution_id)
             if status:
                 q = q.filter(ResourceCandidate.status == status)
+            if kind == "infer":
+                q = q.filter(ResourceCandidate.target_fetcher_code.is_(None))
+            elif kind == "propose":
+                q = q.filter(ResourceCandidate.target_fetcher_code.isnot(None))
             rows = q.order_by(
                 ResourceCandidate.confidence.desc().nullslast(),
                 ResourceCandidate.detected_at.desc(),

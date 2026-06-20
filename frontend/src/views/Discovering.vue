@@ -76,17 +76,39 @@
             : 'border-gray-600 text-gray-500 hover:border-gray-400 hover:text-gray-300'"
         >{{ s }}</button>
       </div>
+      <!-- Filtro por especie: infer (sin especie destino) vs propose (con) -->
+      <div v-if="viewMode === 'list' && hasBothKinds" class="flex gap-1">
+        <button
+          v-for="k in [['all','Kind: all'],['infer','Infer'],['propose','Propose']]" :key="k[0]"
+          @click="kindFilter = k[0]"
+          class="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
+          :class="kindFilter === k[0] ? 'border-teal-400 text-teal-200 bg-teal-950/40' : 'border-gray-600 text-gray-500 hover:text-gray-300'"
+        >{{ k[1] }}</button>
+      </div>
+      <label v-if="viewMode === 'list'" class="text-xs text-gray-400 flex items-center gap-1.5 cursor-pointer select-none">
+        <input type="checkbox" v-model="showDeleted" class="accent-purple-500" />
+        Show deleted
+      </label>
       <label v-if="viewMode === 'tree'" class="text-xs text-gray-400 flex items-center gap-1">
         Mín. series
         <input type="number" min="1" v-model.number="taxUmbral" class="input w-16 text-xs py-0.5" />
       </label>
-      <!-- Acción sobre selección -->
-      <div v-if="viewMode === 'list' && selection.size >= 1" class="flex items-center gap-2 ml-auto">
-        <span class="text-xs text-gray-400">{{ selection.size }} sel.</span>
-        <button v-if="autodescriptivo" @click="askBulkPromote" :disabled="bulkPromoting"
-          class="btn btn-primary text-xs px-3 py-1">{{ bulkPromoting ? 'Promoviendo…' : `Promover ${selection.size}` }}</button>
-        <button v-if="!autodescriptivo && selection.size >= 2" @click="openMerge" class="btn btn-secondary text-xs px-3 py-1">Fundir</button>
-        <button @click="selection = new Set()" class="text-xs text-gray-500 hover:text-gray-300 underline">Deselect</button>
+      <!-- Acciones (purga por filtro + sobre selección) -->
+      <div v-if="viewMode === 'list'" class="flex items-center gap-2 ml-auto">
+        <template v-if="selection.size >= 1">
+          <span class="text-xs text-gray-400">{{ selection.size }} sel.</span>
+          <button v-if="autodescriptivo" @click="askBulkPromote" :disabled="bulkPromoting"
+            class="btn btn-primary text-xs px-3 py-1">{{ bulkPromoting ? 'Promoviendo…' : `Promover ${selection.size}` }}</button>
+          <button v-if="!autodescriptivo && selection.size >= 2" @click="openMerge" class="btn btn-secondary text-xs px-3 py-1">Fundir</button>
+          <button @click="askDeleteSelected" class="text-xs px-3 py-1 rounded border border-red-700 text-red-300 hover:bg-red-950/40">Delete {{ selection.size }}</button>
+          <button @click="selection = new Set()" class="text-xs text-gray-500 hover:text-gray-300 underline">Deselect</button>
+        </template>
+        <button
+          v-if="purgableCount > 0"
+          @click="askPurge" :disabled="purging"
+          class="text-xs px-3 py-1 rounded border border-red-700 text-red-300 hover:bg-red-950/40"
+          :title="'Purga (soft-delete) los candidatos del filtro actual, sin tocar promovidos'"
+        >{{ purging ? 'Purging…' : `Purge ${purgableCount}` }}</button>
       </div>
     </div>
 
@@ -137,7 +159,7 @@
         class="rounded-xl border transition-colors"
         :class="[
           selection.has(c.id) ? 'border-purple-500 bg-purple-950/30' : 'border-gray-700 bg-gray-800',
-          ['discovered','reviewed'].includes(c.status) ? 'cursor-pointer' : ''
+          c.deletedAt ? 'opacity-60' : (['discovered','reviewed'].includes(c.status) ? 'cursor-pointer' : '')
         ]"
         @click="toggleSelect(c)"
       >
@@ -145,7 +167,7 @@
         <div class="flex items-start gap-3 p-4">
           <!-- Checkbox hint -->
           <div
-            v-if="['discovered','reviewed'].includes(c.status)"
+            v-if="!c.deletedAt && ['discovered','reviewed'].includes(c.status)"
             class="mt-0.5 w-4 h-4 flex-shrink-0 rounded border flex items-center justify-center transition-colors"
             :class="selection.has(c.id) ? 'bg-purple-500 border-purple-500' : 'border-gray-600'"
           >
@@ -160,6 +182,8 @@
             <div class="flex flex-wrap items-center gap-2 mb-1.5">
               <span class="text-sm font-medium text-gray-100 truncate">{{ c.suggestedName || '—' }}</span>
               <span class="text-xs px-1.5 py-0.5 rounded font-medium" :class="statusBadge(c.status)">{{ c.status }}</span>
+              <span v-if="c.deletedAt" class="text-xs px-1.5 py-0.5 rounded font-medium bg-red-950 text-red-300 border border-red-800">deleted</span>
+              <span v-if="c.targetFetcherCode" class="text-[10px] px-1.5 py-0.5 rounded bg-teal-900/60 text-teal-300 font-mono" title="Candidato propuesto (con especie destino)">propose</span>
               <span v-if="c.confidence != null" class="text-xs px-1.5 py-0.5 rounded bg-gray-700 text-gray-400 font-mono">
                 {{ (c.confidence * 100).toFixed(0) }}%
               </span>
@@ -196,20 +220,24 @@
           <!-- Actions (stop click propagation so card click doesn't toggle select) -->
           <div class="flex flex-col gap-1.5 flex-shrink-0" @click.stop>
             <button
-              v-if="['discovered','reviewed'].includes(c.status)"
-              @click="openPromote(c)"
-              class="btn btn-primary text-xs px-3 py-1.5 whitespace-nowrap"
-            >Promover</button>
-            <button
-              v-if="['discovered','reviewed'].includes(c.status)"
-              @click="openSplit(c)"
+              v-if="c.deletedAt"
+              @click="restore(c)"
               class="btn btn-secondary text-xs px-3 py-1.5 whitespace-nowrap"
-            >Partir</button>
-            <button
-              v-if="['discovered','reviewed'].includes(c.status)"
-              @click="discard(c)"
-              class="text-xs text-red-400 hover:text-red-300 px-1 py-1 text-center"
-            >Descartar</button>
+            >Restore</button>
+            <template v-else-if="['discovered','reviewed'].includes(c.status)">
+              <button
+                @click="openPromote(c)"
+                class="btn btn-primary text-xs px-3 py-1.5 whitespace-nowrap"
+              >Promover</button>
+              <button
+                @click="openSplit(c)"
+                class="btn btn-secondary text-xs px-3 py-1.5 whitespace-nowrap"
+              >Partir</button>
+              <button
+                @click="discard(c)"
+                class="text-xs text-red-400 hover:text-red-300 px-1 py-1 text-center"
+              >Descartar</button>
+            </template>
           </div>
         </div>
       </div>
@@ -384,6 +412,9 @@ import {
   discardCandidate,
   mergeCandidates,
   splitCandidate as gqlSplitCandidate,
+  purgeCandidates,
+  deleteCandidates,
+  restoreCandidate,
 } from '../api/graphql'
 
 // ── State ──────────────────────────────────────────────────────────────────
@@ -397,6 +428,9 @@ const logText           = ref('')
 const errorMsg          = ref('')
 const candidates        = ref([])
 const filterStatus      = ref('all')
+const kindFilter        = ref('all')    // all | infer (sin especie) | propose (con especie)
+const showDeleted       = ref(false)    // incluye soft-deleted (para purgar/restaurar)
+const purging           = ref(false)
 
 // ── Vista de árbol de ramas (taxonomía) ──────────────────────────────────
 const viewMode   = ref('list')          // 'list' | 'tree'
@@ -444,10 +478,24 @@ const crawlerResources = computed(() =>
   allResources.value.filter(r => r.esColeccion)
 )
 
-const filteredCandidates = computed(() =>
-  filterStatus.value === 'all'
-    ? candidates.value
-    : candidates.value.filter(c => c.status === filterStatus.value)
+const filteredCandidates = computed(() => {
+  let list = candidates.value
+  if (filterStatus.value !== 'all') list = list.filter(c => c.status === filterStatus.value)
+  if (kindFilter.value === 'infer')   list = list.filter(c => !c.targetFetcherCode)
+  else if (kindFilter.value === 'propose') list = list.filter(c => !!c.targetFetcherCode)
+  return list
+})
+
+// Mostrar el filtro infer/propose solo cuando conviven ambas especies (p. ej. CP,
+// con candidatos viejos de inferencia y nuevos propuestos por el crawler ATOM).
+const hasBothKinds = computed(() =>
+  candidates.value.some(c => c.targetFetcherCode) && candidates.value.some(c => !c.targetFetcherCode)
+)
+
+// Cuántos purgaría la acción «Purge» con el filtro actual (no toca promovidos ni
+// los ya borrados). Sirve de previsualización en la confirmación.
+const purgableCount = computed(() =>
+  filteredCandidates.value.filter(c => c.status !== 'promoted' && !c.deletedAt).length
 )
 
 // Colección autodescriptiva (catálogo/archivo): cada candidato lleva su especie
@@ -492,15 +540,15 @@ function appendLog(line) {
 
 // ── Selection ──────────────────────────────────────────────────────────────
 function toggleSelect(c) {
-  if (!['discovered', 'reviewed'].includes(c.status)) return
+  if (c.deletedAt || !['discovered', 'reviewed'].includes(c.status)) return
   const s = new Set(selection.value)
   s.has(c.id) ? s.delete(c.id) : s.add(c.id)
   selection.value = s
 }
 
-// Selección masiva sobre los candidatos seleccionables (discovered/reviewed) ya filtrados.
+// Selección masiva sobre los candidatos seleccionables (discovered/reviewed, no borrados) ya filtrados.
 const selectableCandidates = computed(() =>
-  filteredCandidates.value.filter(c => ['discovered', 'reviewed'].includes(c.status))
+  filteredCandidates.value.filter(c => !c.deletedAt && ['discovered', 'reviewed'].includes(c.status))
 )
 const allSelected = computed(() =>
   selectableCandidates.value.length > 0 &&
@@ -567,18 +615,19 @@ watch(selectedResourceId, async (id) => {
   if (!id) { candidates.value = []; return }
   loadingCandidates.value = true
   try {
-    candidates.value = (await fetchResourceCandidates({ crawlerResourceId: id }))?.resourceCandidates || []
+    candidates.value = (await fetchResourceCandidates({ crawlerResourceId: id, includeDeleted: showDeleted.value }))?.resourceCandidates || []
   } finally { loadingCandidates.value = false }
   if (viewMode.value === 'tree') loadTaxonomia()
 })
 
 watch(viewMode, (m) => { if (m === 'tree') loadTaxonomia() })
+watch(showDeleted, () => loadCandidates())
 
 async function loadCandidates() {
   if (!selectedResourceId.value) return
   loadingCandidates.value = true
   try {
-    candidates.value = (await fetchResourceCandidates({ crawlerResourceId: selectedResourceId.value }))?.resourceCandidates || []
+    candidates.value = (await fetchResourceCandidates({ crawlerResourceId: selectedResourceId.value, includeDeleted: showDeleted.value }))?.resourceCandidates || []
   } finally { loadingCandidates.value = false }
 }
 
@@ -731,6 +780,51 @@ async function discard(c) {
     message: `¿Descartar «${c.suggestedName || c.pathTemplate}»? No se promoverá a recurso.`,
     onConfirm: async () => { await discardCandidate(c.id); await loadCandidates() },
   }
+}
+
+// ── Purge / Delete / Restore ────────────────────────────────────────────────
+// Purga en lote por el filtro actual (especie + estado). Pensado para limpiar
+// candidatos viejos (p. ej. los inferidos de CP) sin tocar los promovidos.
+function askPurge() {
+  const k  = kindFilter.value === 'all' ? null : kindFilter.value
+  const st = filterStatus.value === 'all' ? null : filterStatus.value
+  const especie = k === 'infer' ? 'inferidos' : k === 'propose' ? 'propuestos' : 'de cualquier especie'
+  const estado  = st ? ` en estado «${st}»` : ''
+  confirmar.value = {
+    title: 'Purge candidates',
+    message: `¿Purgar ${purgableCount.value} candidato(s) ${especie}${estado} de este crawler? `
+           + 'Se borran (soft-delete) y se pueden recuperar activando «Show deleted». '
+           + 'No afecta a los ya promovidos.',
+    confirmText: 'Purge',
+    onConfirm: async () => {
+      purging.value = true
+      try {
+        await purgeCandidates(selectedResourceId.value, { kind: k, status: st })
+        selection.value = new Set()
+        await loadCandidates()
+      } finally { purging.value = false }
+    },
+  }
+}
+
+function askDeleteSelected() {
+  const n = selection.value.size
+  confirmar.value = {
+    title: 'Delete candidates',
+    message: `¿Borrar (soft-delete) ${n} candidato(s) seleccionado(s)? `
+           + 'Se pueden recuperar activando «Show deleted».',
+    confirmText: 'Delete',
+    onConfirm: async () => {
+      await deleteCandidates([...selection.value])
+      selection.value = new Set()
+      await loadCandidates()
+    },
+  }
+}
+
+async function restore(c) {
+  await restoreCandidate(c.id)
+  await loadCandidates()
 }
 
 // ── Merge ──────────────────────────────────────────────────────────────────
