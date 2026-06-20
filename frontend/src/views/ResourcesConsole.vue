@@ -298,6 +298,7 @@ import { ref, computed, onMounted } from 'vue'
 import { usePagination } from '../composables/usePagination'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { useRailResize } from '../composables/useRailResize'
 import ResourceParamsEditor from '../components/ResourceParamsEditor.vue'
 import ScheduleEditor from '../components/ScheduleEditor.vue'
 import DrawerResizeHandle from '../components/DrawerResizeHandle.vue'
@@ -329,15 +330,8 @@ const q = ref(''); const fType = ref(''); const fStatus = ref(''); const fPublis
 const sel = ref(new Set())
 const abiertas = ref(new Set())
 
-// ---- rail redimensionable ----
-const railW = ref(264)
-const railOpen = ref(typeof window === 'undefined' || window.innerWidth >= 880)
-let dragging = false
-function startDrag(e){ dragging = true; e.preventDefault()
-  const move = ev => { if(!dragging) return; railW.value = Math.min(440, Math.max(200, ev.clientX)) }
-  const up = () => { dragging = false; window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up) }
-  window.addEventListener('mousemove',move); window.addEventListener('mouseup',up)
-}
+// ---- rail redimensionable (composable compartido) ----
+const { railW, railOpen, startDrag } = useRailResize()
 
 // ---- filtro de colecciones ----
 const colFilter = ref('')
