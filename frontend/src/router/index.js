@@ -35,6 +35,7 @@ const routes = [
   { path: '/explorer',       name: 'DataExplorer',  component: DataExplorer },
   { path: '/publishers',     name: 'Publishers',    component: Publishers },
   { path: '/trash',          name: 'Trash',         component: Trash, meta: { permiso: 'recursos.borrar' } },
+  { path: '/discovering',    name: 'Discovering',   component: Candidates, meta: { permiso: 'recursos.crear' } },
   { path: '/resources/:id/candidates', name: 'ResourceCandidates', component: Candidates, meta: { permiso: 'recursos.crear' } },
   { path: '/usuarios',       name: 'Usuarios',      component: Usuarios, meta: { permiso: 'usuarios.gestionar' } },
 ]

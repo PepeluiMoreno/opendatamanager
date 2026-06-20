@@ -1117,18 +1117,52 @@ const CANDIDATE_FIELDS = `
   dimensions matchedUrls fileTypes
   suggestedName confidence status targetFetcherCode
   promotedResourceId mergedIntoId splitFromId
-  detectedAt reviewedAt reviewedBy
+  detectedAt reviewedAt reviewedBy deletedAt
 `
 
-export async function fetchResourceCandidates({ crawlerResourceId, executionId, status } = {}) {
+export async function fetchResourceCandidates({ crawlerResourceId, executionId, status, kind, includeDeleted } = {}) {
   try {
     return await client.request(
-      `query ResourceCandidates($crawlerResourceId: ID, $executionId: ID, $status: String) {
-        resourceCandidates(crawlerResourceId: $crawlerResourceId, executionId: $executionId, status: $status) {
+      `query ResourceCandidates($crawlerResourceId: ID, $executionId: ID, $status: String, $kind: String, $includeDeleted: Boolean) {
+        resourceCandidates(crawlerResourceId: $crawlerResourceId, executionId: $executionId, status: $status, kind: $kind, includeDeleted: $includeDeleted) {
           ${CANDIDATE_FIELDS}
         }
       }`,
-      { crawlerResourceId: crawlerResourceId || null, executionId: executionId || null, status: status || null }
+      {
+        crawlerResourceId: crawlerResourceId || null, executionId: executionId || null,
+        status: status || null, kind: kind || null, includeDeleted: includeDeleted || false,
+      }
+    )
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function purgeCandidates(crawlerResourceId, { kind, status } = {}) {
+  try {
+    return await client.request(
+      `mutation PurgeCandidates($crawlerResourceId: ID!, $kind: String, $status: String) {
+        purgeCandidates(crawlerResourceId: $crawlerResourceId, kind: $kind, status: $status)
+      }`,
+      { crawlerResourceId, kind: kind || null, status: status || null }
+    )
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function deleteCandidates(ids) {
+  try {
+    return await client.request(
+      `mutation DeleteCandidates($ids: [ID!]!) { deleteCandidates(ids: $ids) }`,
+      { ids }
+    )
+  } catch (e) { handleGraphQLError(e) }
+}
+
+export async function restoreCandidate(id) {
+  try {
+    return await client.request(
+      `mutation RestoreCandidate($id: ID!) {
+        restoreCandidate(id: $id) { ${CANDIDATE_FIELDS} }
+      }`,
+      { id }
     )
   } catch (e) { handleGraphQLError(e) }
 }

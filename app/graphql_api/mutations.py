@@ -2133,6 +2133,84 @@ class Mutation:
             db.close()
 
     @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
+    def purge_candidates(
+        self,
+        crawler_resource_id: strawberry.ID,
+        kind: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> int:
+        """Purga (soft-delete) en lote los candidatos de un crawler que casen el
+        filtro. `kind`: 'infer' (sin especie destino) | 'propose' (con especie).
+        `status`: p. ej. 'discovered'. NUNCA toca candidatos ya 'promoted' (para no
+        romper recursos hijos) ni los ya borrados. Devuelve cuántos purgó."""
+        from datetime import datetime as _dt
+        db = get_db()
+        try:
+            q = db.query(ResourceCandidate).filter(
+                ResourceCandidate.crawler_resource_id == crawler_resource_id,
+                ResourceCandidate.deleted_at.is_(None),
+                ResourceCandidate.status != "promoted",
+            )
+            if kind == "infer":
+                q = q.filter(ResourceCandidate.target_fetcher_code.is_(None))
+            elif kind == "propose":
+                q = q.filter(ResourceCandidate.target_fetcher_code.isnot(None))
+            if status:
+                q = q.filter(ResourceCandidate.status == status)
+            ahora = _dt.utcnow()
+            n = 0
+            for c in q.all():
+                c.deleted_at = ahora
+                n += 1
+            db.commit()
+            return n
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
+    def delete_candidates(self, ids: List[strawberry.ID]) -> int:
+        """Soft-delete de los candidatos seleccionados (no toca 'promoted').
+        Devuelve cuántos borró."""
+        from datetime import datetime as _dt
+        db = get_db()
+        try:
+            ahora = _dt.utcnow()
+            n = 0
+            for c in (db.query(ResourceCandidate)
+                      .filter(ResourceCandidate.id.in_([str(i) for i in ids]),
+                              ResourceCandidate.deleted_at.is_(None),
+                              ResourceCandidate.status != "promoted").all()):
+                c.deleted_at = ahora
+                n += 1
+            db.commit()
+            return n
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
+    def restore_candidate(self, id: strawberry.ID) -> ResourceCandidateType:
+        """Restaura un candidato soft-deleted (deja deleted_at en NULL)."""
+        db = get_db()
+        try:
+            c = db.query(ResourceCandidate).filter(ResourceCandidate.id == id).first()
+            if not c:
+                raise ValueError(f"Candidato no encontrado: {id}")
+            c.deleted_at = None
+            db.commit()
+            return map_resource_candidate(c)
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
+
+    @strawberry.mutation(permission_classes=[requiere("recursos.crear")])
     def merge_candidates(
         self,
         source_ids: List[strawberry.ID],
