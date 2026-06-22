@@ -10,6 +10,7 @@ colección **organizativa** (nada cuelga de una 'matriz', ni una matriz de otra)
 sin ciclos; profundidad libre.
 """
 import re
+import unicodedata
 
 from sqlalchemy import insert, delete, select
 
@@ -19,9 +20,16 @@ from app.models import Resource, ResourceCollection, resource_collection_member 
 def slugify_collection(name: str) -> str:
     """Slug neutro y estable a partir de un nombre de colección.
 
+    Translitera acentos (á→a, ñ→n, ü→u, ç→c…) para no perderlos como '-';
     minúsculas, no-alfanuméricos → '-', sin guiones colgantes. Acota a 120.
+    Así "Iglesia católica (red nuclear)" → "iglesia-catolica-red-nuclear" y
+    "Inmuebles religiosos en España" → "inmuebles-religiosos-en-espana".
     """
-    base = re.sub(r"[^a-z0-9]+", "-", (name or "").lower()).strip("-")
+    # NFKD descompone los acentos en letra base + marca combinante; descartamos
+    # las marcas (categoría 'Mn') para conservar la letra ASCII subyacente.
+    decompuesto = unicodedata.normalize("NFKD", (name or "").lower())
+    sin_acentos = "".join(c for c in decompuesto if unicodedata.category(c) != "Mn")
+    base = re.sub(r"[^a-z0-9]+", "-", sin_acentos).strip("-")
     return (base or "coleccion")[:120]
 
 
