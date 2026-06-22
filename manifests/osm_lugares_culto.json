@@ -14,7 +14,7 @@
       "schedule": "0 5 1 * *",
       "active": true,
       "clase_fuente": "publicacion_abierta",
-      "collection": "Inmuebles religiosos en España",
+      "collection": "Inmuebles",
       "params": [
         {
           "key": "use_types",

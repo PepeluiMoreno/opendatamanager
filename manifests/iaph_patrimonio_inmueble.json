@@ -14,7 +14,7 @@
       "schedule": "0 5 2 * *",
       "active": true,
       "clase_fuente": "publicacion_abierta",
-      "collection": "Inmuebles religiosos en España",
+      "collection": "Inmuebles",
       "params": [
         { "key": "url", "value": "https://www.juntadeandalucia.es/datosabiertos/portal/iaph/dataset/bien/inmueble?page=0&rows=50000&format=csv", "is_external": false },
         { "key": "format", "value": "csv", "is_external": false },

@@ -61,7 +61,7 @@
           "is_external": false
         }
       ],
-      "collection": "Iglesia católica (red nuclear)"
+      "collection": "Entidades religiosas"
     },
     {
       "name": "Institutos religiosos (CONFER, directorio)",
@@ -116,7 +116,7 @@
           "is_external": false
         }
       ],
-      "collection": "Iglesia católica (red nuclear)"
+      "collection": "Entidades religiosas"
     },
     {
       "name": "Correos de institutos religiosos (headless, webs propias)",
