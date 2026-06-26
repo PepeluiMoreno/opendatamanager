@@ -133,38 +133,53 @@ def _load_custom_parser(parser_ref: str) -> Callable[..., List[Dict[str, Any]]]:
 
 
 def _parse_excel(content: bytes, params: Dict[str, Any], fmt: str) -> List[Dict[str, str]]:
+    # `sheet`: índice/nombre de hoja (default 0), o "all"/"*"/"todas" para leer y
+    # concatenar TODAS las hojas (p. ej. el codmun.xlsx del INE trae una hoja por
+    # provincia; sin esto solo se leía la primera).
     sheet = params.get("sheet", 0)
-    try:
-        sheet = int(sheet)
-    except (ValueError, TypeError):
-        pass
+    all_sheets = isinstance(sheet, str) and sheet.strip().lower() in ("all", "*", "todas", "none")
+    if not all_sheets:
+        try:
+            sheet = int(sheet)
+        except (ValueError, TypeError):
+            pass
 
     skip_rows = int(params.get("skip_rows", 0))
     engine = "xlrd" if fmt == "xls" else "openpyxl"
     fallback = "xlrd" if engine == "openpyxl" else "openpyxl"
 
+    def _df_a_registros(raw) -> List[Dict[str, str]]:
+        raw = raw.fillna("")
+        rows = [[str(c).strip() for c in fila] for fila in raw.values.tolist()]
+        hdr = _sniff_header_row(rows, params)
+        cabecera = rows[hdr] if hdr < len(rows) else []
+        columns = [_normalize_col(c) if c else f"col_{i}" for i, c in enumerate(cabecera)]
+        out = []
+        for fila in rows[hdr + 1:]:
+            if not any(c for c in fila):
+                continue
+            if _es_fila_leyenda(fila):
+                continue
+            out.append({columns[i] if i < len(columns) else f"col_{i}": v
+                        for i, v in enumerate(fila)})
+        return out
+
     for eng in (engine, fallback):
         try:
-            raw = pd.read_excel(
+            data = pd.read_excel(
                 io.BytesIO(content),
-                sheet_name=sheet,
+                sheet_name=(None if all_sheets else sheet),
                 skiprows=skip_rows,
                 header=None,
                 dtype=str,
                 engine=eng,
-            ).fillna("")
-            rows = [[str(c).strip() for c in fila] for fila in raw.values.tolist()]
-            hdr = _sniff_header_row(rows, params)
-            cabecera = rows[hdr] if hdr < len(rows) else []
-            columns = [_normalize_col(c) if c else f"col_{i}" for i, c in enumerate(cabecera)]
-            registros = []
-            for fila in rows[hdr + 1:]:
-                if not any(c for c in fila):
-                    continue
-                if _es_fila_leyenda(fila):
-                    continue
-                registros.append({columns[i] if i < len(columns) else f"col_{i}": v
-                                  for i, v in enumerate(fila)})
+            )
+            if all_sheets:  # dict {nombre_hoja: DataFrame}
+                registros = []
+                for _nombre, df in data.items():
+                    registros.extend(_df_a_registros(df))
+            else:
+                registros = _df_a_registros(data)
             return _drop_empty_columns(registros)
         except Exception:
             if eng == fallback:
