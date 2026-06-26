@@ -123,9 +123,12 @@ def geo_ine_jerarquia(payload: Any, params: Dict[str, Any]) -> List[Dict[str, An
 
     out: List[Dict[str, Any]] = []
 
-    # Raíz: País
+    # Raíz: País. `codigo` es la CLAVE ÚNICA de enlace (los códigos INE de CCAA y
+    # provincia son ambos de 2 dígitos y colisionan: CCAA 01=Andalucía vs provincia
+    # 01=Álava), por eso se prefija por tipo (ES / CA## / PR## / MU#####).
+    # `codigo_ine` conserva el código natural del INE para mostrar/almacenar.
     out.append({
-        "codigo_ine": pais_codigo, "nombre": pais_nombre, "tipo": "pais",
+        "codigo": pais_codigo, "codigo_ine": pais_codigo, "nombre": pais_nombre, "tipo": "pais",
         "nivel": 0, "padre_id": None, "padre_descripcion": None, "ruta": pais_nombre,
     })
 
@@ -155,7 +158,7 @@ def geo_ine_jerarquia(payload: Any, params: Dict[str, Any]) -> List[Dict[str, An
     for ca in sorted(ccaa_vistas):
         nombre_ca = ccaa_vistas[ca]
         out.append({
-            "codigo_ine": ca, "nombre": nombre_ca, "tipo": "comunidad",
+            "codigo": "CA" + ca, "codigo_ine": ca, "nombre": nombre_ca, "tipo": "comunidad",
             "nivel": 1, "padre_id": pais_codigo, "padre_descripcion": pais_nombre,
             "ruta": sep.join([pais_nombre, nombre_ca]),
         })
@@ -167,8 +170,8 @@ def geo_ine_jerarquia(payload: Any, params: Dict[str, Any]) -> List[Dict[str, An
         nombre_prov = PROV_NOMBRES.get(cp, cp)
         prov_vistas[cp] = nombre_prov
         out.append({
-            "codigo_ine": cp, "nombre": nombre_prov, "tipo": "provincia",
-            "nivel": 2, "padre_id": ca, "padre_descripcion": nombre_ca,
+            "codigo": "PR" + cp, "codigo_ine": cp, "nombre": nombre_prov, "tipo": "provincia",
+            "nivel": 2, "padre_id": "CA" + ca, "padre_descripcion": nombre_ca,
             "ruta": sep.join([pais_nombre, nombre_ca, nombre_prov]),
         })
 
@@ -177,8 +180,9 @@ def geo_ine_jerarquia(payload: Any, params: Dict[str, Any]) -> List[Dict[str, An
         nombre_ca = ccaa_vistas.get(m["ca"], m["ca"])
         nombre_prov = prov_vistas.get(m["cp"], m["cp"])
         out.append({
-            "codigo_ine": m["codigo"], "nombre": m["nombre"], "tipo": "municipio",
-            "nivel": 3, "padre_id": m["cp"], "padre_descripcion": nombre_prov,
+            "codigo": "MU" + m["codigo"], "codigo_ine": m["codigo"], "nombre": m["nombre"],
+            "tipo": "municipio", "nivel": 3, "padre_id": "PR" + m["cp"],
+            "padre_descripcion": nombre_prov,
             "ruta": sep.join([pais_nombre, nombre_ca, nombre_prov, m["nombre"]]),
         })
 
