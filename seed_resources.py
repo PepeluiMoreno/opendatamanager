@@ -77,6 +77,26 @@ RESOURCES: List[Dict[str, Any]] = [
 
     # ── Geografía ─────────────────────────────────────────────────────────────
     {
+        # Jerarquía territorial COMPLETA en un único dataset recursivo (País →
+        # CCAA → Provincia → Municipio), construida desde la relación de municipios
+        # del INE con la estrategia `geo_ine_jerarquia`. Salida con contrato de árbol
+        # (codigo_ine, nombre, tipo, nivel, padre_id, padre_descripcion, ruta), lista
+        # para que un consumidor (p. ej. SIGA) la vuelque 1:1 a una tabla recursiva.
+        "name": "España - Geografía jerárquica (INE)",
+        "fetcher_name": "File Download",
+        "publisher_acronimo": "INE",
+        "target_table": "geo_jerarquia",
+        "schedule": "0 4 1 1 *",
+        "params": {
+            "url":        "https://www.ine.es/daco/daco42/codmun/26codmun.xlsx",
+            "format":     "xlsx",
+            "skip_rows":  "2",
+            "timeout":    "60",
+            "headers":    '{"User-Agent": "Mozilla/5.0", "Referer": "https://www.ine.es/"}',
+            "extraction": "geo_ine_jerarquia",
+        },
+    },
+    {
         "name": "España - Municipios (INE)",
         "fetcher_name": "File Download",
         "publisher_acronimo": "INE",

@@ -38,8 +38,18 @@ class FileDownloadFetcher(BaseFetcher):
         logger.info(f"[FileDownloadFetcher] Descargado — {len(response.content):,} bytes")
 
         records = parse_structured_file(response.content, fmt, self.params, source_name=url)
-        total = len(records)
 
+        # Estrategia de extracción opcional (igual que REST). Se aplica sobre el
+        # dataset COMPLETO antes de trocear, porque estrategias como
+        # `geo_ine_jerarquia` necesitan ver todas las filas (agregan niveles
+        # superiores sobre el conjunto). El troceado posterior es solo para el
+        # volcado; el árbol se reconstruye por `padre_id`/`codigo_ine`.
+        extraction = self.params.get("extraction")
+        if extraction:
+            from app.fetchers.extraction import extract
+            records = extract(extraction, records, self.params)
+
+        total = len(records)
         for start in range(0, total, batch_size):
             yield records[start:start + batch_size]
 
