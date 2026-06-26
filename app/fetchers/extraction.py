@@ -140,6 +140,12 @@ def _tree_flatten(payload, params):
     return out
 
 
+def _geo_ine_jerarquia(payload, params):
+    """Jerarquía territorial de España desde la relación de municipios del INE."""
+    from app.fetchers.geo_ine import geo_ine_jerarquia
+    return geo_ine_jerarquia(payload, params)
+
+
 REGISTRO = {
     "passthrough": _passthrough,
     "none": _passthrough,
@@ -147,6 +153,7 @@ REGISTRO = {
     "timeseries_long": _timeseries_long,
     "bindings": _bindings,
     "tree_flatten": _tree_flatten,
+    "geo_ine_jerarquia": _geo_ine_jerarquia,
 }
 
 
