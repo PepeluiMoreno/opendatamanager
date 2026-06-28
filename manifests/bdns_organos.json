@@ -49,7 +49,8 @@
           "value": "{\"tipo_admon\": \"C\"}",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Administraciones DIR3"
     },
     {
       "name": "BDNS - Órganos Convocantes (Autonómica)",
@@ -92,7 +93,8 @@
           "value": "{\"tipo_admon\": \"A\"}",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Administraciones DIR3"
     },
     {
       "name": "BDNS - Órganos Convocantes (Local)",
@@ -135,7 +137,8 @@
           "value": "{\"tipo_admon\": \"L\"}",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Administraciones DIR3"
     },
     {
       "name": "BDNS - Órganos Convocantes (Otros)",
@@ -178,7 +181,8 @@
           "value": "{\"tipo_admon\": \"O\"}",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Administraciones DIR3"
     }
   ]
 }

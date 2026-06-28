@@ -75,7 +75,8 @@
           "value": "30",
           "is_external": false
         }
-      ]
+      ],
+      "collection": "Administraciones DIR3"
     }
   ]
 }
