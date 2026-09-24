@@ -114,4 +114,4 @@ networks:
   internal:
   traefik_public:
     external: true
-    name: traefik
+    name: traefik_public
