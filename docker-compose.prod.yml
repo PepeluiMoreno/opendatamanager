@@ -27,14 +27,20 @@ services:
       - no-new-privileges:true
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
+      - "traefik.docker.network=traefik_public"
       - "traefik.http.routers.${APP_PREFIX}.rule=Host(`${APP_DOMAIN}`)"
       - "traefik.http.routers.${APP_PREFIX}.entrypoints=websecure"
       - "traefik.http.routers.${APP_PREFIX}.tls=true"
       - "traefik.http.routers.${APP_PREFIX}.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
       - "traefik.http.services.${APP_PREFIX}.loadbalancer.server.port=8080"
+      # Redirección HTTP -> HTTPS
+      - "traefik.http.routers.${APP_PREFIX}-http.rule=Host(`${APP_DOMAIN}`)"
+      - "traefik.http.routers.${APP_PREFIX}-http.entrypoints=web"
+      - "traefik.http.routers.${APP_PREFIX}-http.middlewares=${APP_PREFIX}-redirect-https"
+      - "traefik.http.middlewares.${APP_PREFIX}-redirect-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.${APP_PREFIX}-redirect-https.redirectscheme.permanent=true"
 
 networks:
   traefik_public:
     external: true
-    name: traefik
+    name: traefik_public
